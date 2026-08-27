@@ -93,6 +93,13 @@ export default async function AppHome() {
           Work
         </h2>
         <Link
+          href="/app/dashboard"
+          className="block rounded border border-line bg-surface px-4 py-3 text-sm hover:border-brand focus-visible:outline-2 focus-visible:outline-brand"
+        >
+          Governance overview
+          <span className="ml-2 text-ink-soft">posture, pipeline and service levels</span>
+        </Link>
+        <Link
           href="/app/tasks"
           className="block rounded border border-line bg-surface px-4 py-3 text-sm hover:border-brand focus-visible:outline-2 focus-visible:outline-brand"
         >

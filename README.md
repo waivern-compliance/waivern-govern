@@ -123,6 +123,20 @@ notifications carry keys — so running it twice, or re-running after a partial
 failure, converges on the same state. Nothing in the sweep changes a governance
 decision; it raises tasks and a human decides.
 
+**The dashboard counts honestly.** Numbers are derived from the records rather
+than kept in a summary table, because a governance dashboard that can disagree
+with the register it summarises is worse than none. A risk nobody has rated for
+residual counts as *not within appetite* — an unmeasured risk is not a tolerable
+one, and reporting it as fine is how a dashboard reassures an executive about
+exposure nobody has looked at.
+
+Chart colours are validated, not chosen by eye: the inherent/residual pair is
+one hue in two steps (an ordinal ramp, all checks pass) and the service-level
+trio uses the fixed status palette without "serious", because amber and orange
+measure only 13.6 apart in normal vision and would be hard to separate side by
+side. Risk tier is carried by the row label rather than by hue, and every status
+mark ships a visible label and a count.
+
 ## Status
 
 The five-phase spine is complete: tenancy and entity scoping, role-based
@@ -132,6 +146,14 @@ contributor links, the risk register with mitigations and attested acceptance,
 and the workflow layer — threshold-routed approvals, tasks, SLA breach recording
 and recurring governance.
 
-Still to come: reporting and dashboards, the RoPA editing surface, third-party
-risk, the AI workflow graph, the maintained country risk library, and the
-Waivern Compliance Portal integration endpoints.
+A first governance dashboard is in — attention tiles, risk posture before and
+after treatment, the assessment pipeline, service levels and a per-entity table.
+
+Still to come: the RoPA editing surface, third-party risk, the AI workflow
+graph, the maintained country risk library, exports, trend reporting over
+accumulated history, and the Waivern Compliance Portal integration endpoints.
+
+`pnpm seed:demo` loads a plausible portfolio — fourteen assessments at every
+stage, nine risks treated to varying degrees, some work already late — because a
+dashboard reviewed against a single record tells you nothing about whether it
+works.

@@ -13,3 +13,25 @@
 
 html { color-scheme: light; }
 body { background: var(--color-ground); color: var(--color-ink); }
+
+/* ---- Chart roles ----------------------------------------------------------
+   Two palettes, each run through the data-viz validator against the chart
+   surface (#ffffff):
+
+   Ordinal pair (inherent -> residual): one hue, two steps, monotone lightness,
+   light end at 2.11:1 against the surface. All checks pass.
+
+   Status trio (on time / due soon / overdue): the fixed status palette without
+   "serious" — amber and orange measure only 13.6 apart in normal vision, too
+   close to sit side by side, and dropping to three clears both separation
+   floors (normal-vision 27.6, worst CVD 11.3). Amber is under 3:1 on a light
+   surface by design; every status mark therefore ships a visible label and a
+   count, so colour never carries the meaning alone.
+   -------------------------------------------------------------------------- */
+.viz {
+  --viz-before: #86b6ef;
+  --viz-after: #2a78d6;
+  --viz-good: #0ca30c;
+  --viz-warning: #fab219;
+  --viz-critical: #d03b3b;
+}
