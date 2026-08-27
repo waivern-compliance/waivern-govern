@@ -12,6 +12,7 @@ import {
 } from "@/db/schema";
 import { appendAuditEvent } from "@/lib/audit";
 import { queueNotification, raiseTask } from "./workflow";
+import { deliverPending } from "./webhooks";
 
 /**
  * Everything that happens because time passed.
@@ -40,6 +41,8 @@ export type SweepResult = {
   acceptanceReviewsRaised: number;
   mitigationRemindersRaised: number;
   breachesRecorded: number;
+  webhooksDelivered: number;
+  webhooksFailed: number;
 };
 
 function addMonths(from: Date, months: number): Date {
@@ -235,13 +238,22 @@ async function recordBreaches(organisationId: string): Promise<number> {
 
 export async function sweepOrganisation(organisationId: string): Promise<SweepResult> {
   const [org] = await db.select().from(organisations).where(eq(organisations.id, organisationId));
-  return {
+  const result: SweepResult = {
     organisation: org?.name ?? organisationId,
     schedulesMaterialised: await materialiseSchedules(organisationId),
     acceptanceReviewsRaised: await reviewLapsedAcceptances(organisationId),
     mitigationRemindersRaised: await remindOverdueMitigations(organisationId),
     breachesRecorded: await recordBreaches(organisationId),
+    webhooksDelivered: 0,
+    webhooksFailed: 0,
   };
+
+  // Delivery is attempted last: a subscriber that is slow or down must not
+  // delay the governance work the sweep exists to do.
+  const delivery = await deliverPending(organisationId);
+  result.webhooksDelivered = delivery.delivered;
+  result.webhooksFailed = delivery.failed;
+  return result;
 }
 
 export async function sweepAll(): Promise<SweepResult[]> {

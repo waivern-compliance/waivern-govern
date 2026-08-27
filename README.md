@@ -137,6 +137,21 @@ measure only 13.6 apart in normal vision and would be hard to separate side by
 side. Risk tier is carried by the row label rather than by hue, and every status
 mark ships a visible label and a count.
 
+**Two systems push records in.** The Waivern Compliance Portal sends Article 30
+records, suppliers, DPAs and evidence; the HAR Analyser sends scan runs. Both
+authenticate with an HMAC signature over the raw body with the timestamp inside
+the signed material, so a captured request cannot be replayed. Secrets are
+encrypted at rest with a key held outside the database. Every record carries the
+producing system's own identifier, so a nightly scan updates rather than piles
+up. See [docs/integration-api.md](docs/integration-api.md).
+
+**A scan finding never becomes a risk on its own.** The scanner's severity and
+its suggestion are shown to a person and recorded for provenance; a named human
+decides whether the finding belongs on the register and rates it themselves. The
+audit trail keeps both, side by side, as separate facts. A scanner deciding what
+constitutes a governance risk would be automation making the classification,
+which is the one thing this platform must not do.
+
 ## Status
 
 The five-phase spine is complete: tenancy and entity scoping, role-based
@@ -149,9 +164,14 @@ and recurring governance.
 A first governance dashboard is in — attention tiles, risk posture before and
 after treatment, the assessment pipeline, service levels and a per-entity table.
 
-Still to come: the RoPA editing surface, third-party risk, the AI workflow
-graph, the maintained country risk library, exports, trend reporting over
-accumulated history, and the Waivern Compliance Portal integration endpoints.
+The integration surface is in: signed ingest for processing activities,
+vendors, DPAs, evidence and scan runs, a findings queue where a person converts
+an observation into a risk, and outbound webhooks carrying approvals and risk
+acceptances back to subscribers.
+
+Still to come: the RoPA and third-party risk editing surfaces, the AI workflow
+graph over the link table, the maintained country risk library, exports, and
+trend reporting over accumulated history.
 
 `pnpm seed:demo` loads a plausible portfolio — fourteen assessments at every
 stage, nine risks treated to varying degrees, some work already late — because a

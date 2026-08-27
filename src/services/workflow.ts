@@ -16,6 +16,7 @@ import { appendAuditEvent } from "@/lib/audit";
 import type { RiskTier } from "@/lib/risk/scale";
 import { describe, matches, type RoutingContext } from "@/lib/workflow/routing";
 import { loadAssessment, submitAssessment } from "./assessments";
+import { queueEvent } from "./webhooks";
 import type { Actor } from "./templates";
 
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
@@ -375,6 +376,26 @@ export async function decideApproval(input: {
         assigneeRole: nextPending.requiredRole,
         idempotencyKey: `approve:${nextPending.id}`,
         actor: input.actor,
+      });
+    }
+
+    // Queued inside the same transaction as the decision, so an approval never
+    // lands without its notification and a rolled-back decision never announces
+    // itself. Delivery happens later, on the sweep.
+    if (assessmentStatus === "approved" || assessmentStatus === "rejected") {
+      await queueEvent(tx, {
+        organisationId: input.organisationId,
+        event: assessmentStatus === "approved" ? "assessment.approved" : "assessment.rejected",
+        payload: {
+          reference: row.assessment.reference,
+          title: row.assessment.title,
+          entityId: row.assessment.entityId,
+          score: row.assessment.scoreValue,
+          tier: row.assessment.scoreTier,
+          decidedBy: input.actor.actorLabel,
+          rationale,
+        },
+        idempotencyKey: `assessment:${row.approval.assessmentId}:${assessmentStatus}`,
       });
     }
 

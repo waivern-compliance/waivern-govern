@@ -39,6 +39,13 @@ export const recordType = pgEnum("record_type", [
   // Audit records carry their own retention period, distinct from and usually
   // longer than the records they describe.
   "audit_event",
+  // Added with the integration surface.
+  "scan_finding",
+  "record_link",
+  "notification",
+  "sla_policy",
+  "workflow_stage",
+  "webhook_delivery",
 ]);
 
 /**
@@ -201,4 +208,35 @@ export const scheduleAction = pgEnum("schedule_action", [
   "review",
   "attest",
   "verify",
+]);
+
+/** Systems that push records into the platform. */
+export const integrationKind = pgEnum("integration_kind", [
+  /** The Waivern Compliance Portal: discovery, DPA extraction, generated documents. */
+  "waivern_portal",
+  /** The HAR Analyser: cookie, tracker and consent-behaviour scanning. */
+  "har_analyser",
+  "other",
+]);
+
+export const evidenceKind = pgEnum("evidence_kind", [
+  "document",
+  "scan",
+  "attestation",
+  "link",
+]);
+
+/** Severity as the producing system rated it. Never a governance decision. */
+export const findingSeverity = pgEnum("finding_severity", [
+  "info",
+  "low",
+  "medium",
+  "high",
+]);
+
+export const deliveryStatus = pgEnum("delivery_status", [
+  "pending",
+  "delivered",
+  "failed",
+  "abandoned",
 ]);

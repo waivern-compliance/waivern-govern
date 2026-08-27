@@ -10,6 +10,7 @@ import {
 import { appendAuditEvent } from "@/lib/audit";
 import { rate } from "@/lib/risk/scale";
 import type { Actor } from "./templates";
+import { queueEvent } from "./webhooks";
 
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
@@ -343,6 +344,22 @@ export async function acceptRisk(input: {
       .update(risks)
       .set({ status: "accepted", nextReviewAt: input.expiresAt, updatedAt: now })
       .where(eq(risks.id, input.riskId));
+
+    await queueEvent(tx, {
+      organisationId: input.organisationId,
+      event: "risk.accepted",
+      payload: {
+        reference: risk.reference,
+        title: risk.title,
+        entityId: risk.entityId,
+        residualScore: risk.residualScore,
+        residualTier: risk.residualTier,
+        acceptedBy: input.actor.actorLabel,
+        rationale,
+        expiresAt: input.expiresAt.toISOString(),
+      },
+      idempotencyKey: `risk-accepted:${acceptance.id}`,
+    });
 
     await appendAuditEvent(tx, {
       ...input.actor,
