@@ -90,8 +90,15 @@ export default async function AppHome() {
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-soft">
-          Templates
+          Work
         </h2>
+        <Link
+          href="/app/assessments"
+          className="block rounded border border-line bg-surface px-4 py-3 text-sm hover:border-brand focus-visible:outline-2 focus-visible:outline-brand"
+        >
+          Assessments
+          <span className="ml-2 text-ink-soft">start, answer and submit</span>
+        </Link>
         <Link
           href="/app/templates"
           className="block rounded border border-line bg-surface px-4 py-3 text-sm hover:border-brand focus-visible:outline-2 focus-visible:outline-brand"

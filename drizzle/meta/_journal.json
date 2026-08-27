@@ -36,6 +36,20 @@
       "when": 1787848207898,
       "tag": "0004_freeze_published_versions",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1787862420788,
+      "tag": "0005_light_war_machine",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787862423039,
+      "tag": "0006_assessment_guards",
+      "breakpoints": true
     }
   ]
 }

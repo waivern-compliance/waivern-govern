@@ -104,3 +104,35 @@ export const templateStatus = pgEnum("template_status", [
   "published",
   "retired",
 ]);
+
+/**
+ * Where an assessment has got to.
+ *
+ * `returned` is separate from `draft` deliberately: an assessment sent back by a
+ * reviewer is not the same thing as one nobody has looked at, and conflating
+ * them loses the reviewer's request in the noise of everyone's unfinished work.
+ */
+export const assessmentStatus = pgEnum("assessment_status", [
+  "draft",
+  "in_progress",
+  "in_review",
+  "returned",
+  "approved",
+  "rejected",
+  /** Replaced by a later reassessment. Kept readable, never edited again. */
+  "superseded",
+  "withdrawn",
+]);
+
+/** Why a snapshot was taken. */
+export const revisionReason = pgEnum("revision_reason", [
+  "submitted",
+  "returned",
+  "reopened",
+  "approved",
+  "rejected",
+  "superseded",
+]);
+
+/** Risk banding, shared by assessments and the risk register. */
+export const riskTier = pgEnum("risk_tier", ["low", "medium", "high", "critical"]);

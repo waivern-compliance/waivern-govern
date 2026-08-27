@@ -87,8 +87,17 @@ Article 35 the controller carries the assessment; a platform that lets a model
 quietly set a residual risk score has moved accountability somewhere it cannot
 legally sit.
 
+**Contributors do not need accounts.** A contributor link grants access to one
+assessment, optionally one section of it, and the scope is enforced at the write
+rather than only reflected in what the page renders. The token is stored as a
+SHA-256 hash and never in plain text. It is single-*purpose*, not
+single-request: loading the page, saving and submitting are separate requests
+and people come back to finish, so the link lives until it expires, is
+completed, or is revoked — with every use counted and audited.
+
 ## Status
 
-Phase 1 of 5 complete: tenancy, entity scoping, role-based capabilities, OIDC
-sign-in and the audit chain. Phases 2–5 add the template engine, the assessment
-runtime, the risk register and the workflow layer.
+Phases 1–3 of 5 complete: tenancy and entity scoping, role-based capabilities,
+OIDC sign-in, the tamper-evident audit chain, the template engine with its
+shipped assessment library, and the assessment runtime including no-account
+contributor links. Phases 4–5 add the risk register and the workflow layer.
