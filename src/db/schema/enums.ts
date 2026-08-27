@@ -1,0 +1,80 @@
+import { pgEnum } from "drizzle-orm/pg-core";
+
+/**
+ * Every record type the platform can reference polymorphically — from audit
+ * events, typed links, evidence attachments and retention profiles. Declared
+ * once, up front, including types whose tables land in later phases: adding a
+ * value to a Postgres enum is cheap, but discovering mid-build that the audit
+ * table cannot describe a new record is not.
+ */
+export const recordType = pgEnum("record_type", [
+  "organisation",
+  "entity",
+  "user",
+  "membership",
+  "role_assignment",
+  "retention_profile",
+  "template",
+  "template_version",
+  "assessment",
+  "assessment_answer",
+  "assessment_revision",
+  "processing_activity",
+  "ai_use_case",
+  "supplier",
+  "dpa",
+  "supplier_assessment_record",
+  "country_risk",
+  "risk",
+  "mitigation",
+  "risk_acceptance",
+  "task",
+  "approval",
+  "workflow_definition",
+  "schedule",
+  "evidence",
+  "consent_record",
+  "integration_connection",
+  "ai_suggestion",
+  // Audit records carry their own retention period, distinct from and usually
+  // longer than the records they describe.
+  "audit_event",
+]);
+
+/**
+ * Roles are deliberately few. Each one answers "what may this person decide?"
+ * rather than "which screens may they open" — screen access follows from the
+ * decision rights, not the other way round.
+ */
+export const appRole = pgEnum("app_role", [
+  // Manages the organisation itself: entities, members, retention profiles.
+  "owner",
+  // Configures templates and workflow, and administers governance records.
+  "privacy_admin",
+  // Runs assessments day to day.
+  "privacy_analyst",
+  // Specialist reviewer for AI use cases and AI risk assessments.
+  "ai_governance",
+  // May take an approval decision or accept a risk, within scope.
+  "approver",
+  // Answers assigned questions only. The account-holding equivalent of a
+  // single-use task link.
+  "contributor",
+  // Read-only across scope, including the audit chain. Never writes.
+  "auditor",
+]);
+
+/** A role grant applies either to a whole organisation or to one legal entity. */
+export const roleScope = pgEnum("role_scope", ["organisation", "entity"]);
+
+/**
+ * Who caused an audited change. `contributor_link` is a person who completed
+ * work through a single-use link and holds no account — they are identified by
+ * the email the task was sent to, which is recorded in `actorLabel`.
+ */
+export const actorKind = pgEnum("actor_kind", [
+  "user",
+  "contributor_link",
+  "system",
+  "integration",
+]);

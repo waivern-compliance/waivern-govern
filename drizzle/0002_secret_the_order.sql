@@ -1,0 +1,1 @@
+ALTER TYPE "public"."record_type" ADD VALUE 'audit_event';

@@ -6,21 +6,40 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio",
+    "seed": "tsx --env-file=.env.local scripts/seed.ts",
+    "audit:verify": "tsx --env-file=.env.local scripts/verify-audit.ts",
+    "typecheck": "tsc --noEmit",
+    "db:reset": "docker exec govern-db psql -U govern -d govern -q -c 'drop schema if exists public cascade; drop schema if exists drizzle cascade; create schema public;' && pnpm db:migrate",
+    "test": "tsx --env-file=.env.local --test tests/**/*.test.ts"
   },
   "dependencies": {
+    "drizzle-orm": "^0.45.2",
     "next": "16.3.3",
+    "next-auth": "5.0.0-beta.32",
+    "postgres": "^3.4.9",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "dotenv": "^17.4.2",
+    "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.3.3",
     "tailwindcss": "^4",
+    "tsconfig-paths": "^4.2.0",
+    "tsx": "^4.23.12",
     "typescript": "^5"
   },
   "packageManager": "pnpm@10.17.1"

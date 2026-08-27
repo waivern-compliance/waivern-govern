@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1787845599557,
+      "tag": "0000_fixed_mantis",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1787845619863,
+      "tag": "0001_integrity_guards",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787845711243,
+      "tag": "0002_secret_the_order",
+      "breakpoints": true
+    }
+  ]
+}
