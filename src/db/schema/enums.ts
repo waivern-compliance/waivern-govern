@@ -78,3 +78,29 @@ export const actorKind = pgEnum("actor_kind", [
   "system",
   "integration",
 ]);
+
+/**
+ * What an assessment is for. Every kind runs through the same engine and
+ * produces the same downstream records — which is what makes consolidated
+ * reporting a query rather than an integration.
+ */
+export const templateKind = pgEnum("template_kind", [
+  "dpia",
+  /** UK transfer risk assessment, including IDTA and Addendum routes. */
+  "tra",
+  /** EU transfer impact assessment. */
+  "tia",
+  "ai_risk",
+  /** Short triage that decides whether a full assessment is needed. */
+  "screening",
+  /** A completed third-party assessment recorded with its evidence. */
+  "supplier_record",
+  "breach",
+  "custom",
+]);
+
+export const templateStatus = pgEnum("template_status", [
+  "draft",
+  "published",
+  "retired",
+]);

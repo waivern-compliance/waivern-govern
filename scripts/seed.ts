@@ -9,7 +9,10 @@ import {
   users,
 } from "@/db/schema";
 import { appendAuditEvent } from "@/lib/audit";
+import { LEGAL_REFERENCES, SYSTEM_TEMPLATES } from "@/lib/templates/library";
 import type { AppRole } from "@/lib/rbac";
+import { legalReferences } from "@/db/schema";
+import { createTemplate, publishVersion } from "@/services/templates";
 
 /**
  * A demonstration tenant shaped like the buyer described in the RFI: a single
@@ -52,6 +55,7 @@ const RETENTION: Array<{ subjectType: "assessment" | "audit_event" | "processing
 ];
 
 async function main() {
+  let organisationId: string | undefined;
   const existing = await db.query.organisations.findFirst({
     where: eq(organisations.slug, ORG.slug),
   });
@@ -152,7 +156,50 @@ async function main() {
     }
 
     console.log(`Seeded "${org.name}" — ${ENTITIES.length} entities, ${PEOPLE.length} people.`);
+    organisationId = org.id;
   });
+
+  // Legal references are shared across organisations: an article number is the
+  // same fact for every client, and a correction should reach all of them at
+  // once rather than one tenant at a time.
+  const now = new Date();
+  for (const ref of LEGAL_REFERENCES) {
+    await db
+      .insert(legalReferences)
+      .values({ ...ref, reviewedAt: now })
+      .onConflictDoUpdate({
+        target: legalReferences.code,
+        set: { citation: ref.citation, title: ref.title, reviewedAt: now },
+      });
+  }
+  console.log(`Seeded ${LEGAL_REFERENCES.length} legal references.`);
+
+  // Templates are created and published through the same service the UI uses,
+  // so the seed exercises publish-time validation rather than writing rows that
+  // the application would have rejected.
+  const actor = {
+    actorKind: "system" as const,
+    actorUserId: null,
+    actorLabel: "seed",
+  };
+  for (const t of SYSTEM_TEMPLATES) {
+    const { version } = await createTemplate({
+      organisationId: organisationId!,
+      kind: t.kind,
+      name: t.name,
+      description: t.description,
+      jurisdiction: t.jurisdiction,
+      isSystem: true,
+      definition: t.definition,
+      actor,
+    });
+    await publishVersion({
+      organisationId: organisationId!,
+      versionId: version.id,
+      actor,
+    });
+    console.log(`  published ${t.name}`);
+  }
 
   await pg.end();
 }

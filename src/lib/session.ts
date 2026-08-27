@@ -1,4 +1,4 @@
-import { auth, type SessionMembership } from "@/auth";
+import { auth, loadMemberships, type SessionMembership } from "@/auth";
 import { can, scopedEntityIds, type Capability } from "./rbac";
 
 export class NotAuthenticated extends Error {
@@ -37,7 +37,11 @@ export async function getActiveSession(
   const session = await auth();
   if (!session?.user?.id) return null;
 
-  const memberships = session.organisations ?? [];
+  // Grants come from the database, not the token — see `loadMemberships`. This
+  // also means a session that outlives its organisation or membership resolves
+  // to null and lands back at sign-in, rather than rendering a half-broken page
+  // against records it can no longer reach.
+  const memberships = await loadMemberships(session.user.id);
   const membership = organisationId
     ? memberships.find((m) => m.organisationId === organisationId)
     : memberships[0];

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { signOut } from "@/auth";
@@ -85,6 +86,21 @@ export default async function AppHome() {
             </li>
           ))}
         </ul>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-soft">
+          Templates
+        </h2>
+        <Link
+          href="/app/templates"
+          className="block rounded border border-line bg-surface px-4 py-3 text-sm hover:border-brand focus-visible:outline-2 focus-visible:outline-brand"
+        >
+          Assessment templates
+          <span className="ml-2 text-ink-soft">
+            DPIA, transfer risk and impact, AI risk, screening
+          </span>
+        </Link>
       </section>
 
       <section className="space-y-3">

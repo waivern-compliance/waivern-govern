@@ -73,6 +73,9 @@ export type SessionMembership = {
  * Sign-in is not membership: a valid Entra ID token proves who someone is, not
  * that they belong to a client organisation. Someone with no active membership
  * is refused rather than admitted to an empty account.
+ *
+ * The result is used to decide whether sign-in may proceed. It is deliberately
+ * NOT cached into the session token — see `loadMemberships`.
  */
 async function loadIdentity(email: string, ssoSubject: string, name?: string | null) {
   const existing = await db.query.users.findFirst({
@@ -103,6 +106,33 @@ async function loadIdentity(email: string, ssoSubject: string, name?: string | n
   return orgs.length > 0 ? { userId: existing.id, organisations: orgs } : null;
 }
 
+/**
+ * Load an identity's current memberships and role grants.
+ *
+ * Called on every authenticated request rather than cached into the session
+ * token. A JWT is valid until it expires and cannot be withdrawn, so grants
+ * carried inside one stay live after they are revoked — on a twelve-hour token,
+ * someone stripped of `risk.accept` would keep it for the rest of the day. One
+ * indexed query per request is a cheap price for revocation taking effect when
+ * it is made.
+ */
+export async function loadMemberships(userId: string): Promise<SessionMembership[]> {
+  const rows = await db.query.memberships.findMany({
+    where: and(eq(memberships.userId, userId), eq(memberships.isActive, true)),
+    with: { organisation: true, roles: true },
+  });
+
+  return rows.map((m) => ({
+    organisationId: m.organisationId,
+    organisationName: m.organisation.name,
+    grants: m.roles.map((r) =>
+      r.scope === "entity" && r.entityId
+        ? { role: r.role, scope: "entity" as const, entityId: r.entityId }
+        : { role: r.role, scope: "organisation" as const },
+    ),
+  }));
+}
+
 export const authConfig: NextAuthConfig = {
   providers: providers(),
   session: { strategy: "jwt", maxAge: 12 * 60 * 60 },
@@ -118,22 +148,21 @@ export const authConfig: NextAuthConfig = {
       return identity !== null;
     },
     async jwt({ token, user, account }) {
+      // The token carries identity only. Authorisation is resolved per request
+      // so that revoking a role takes effect immediately rather than whenever
+      // the token happens to expire.
       if (user?.email && account) {
         const identity = await loadIdentity(
           user.email,
           `${account.provider}:${account.providerAccountId}`,
           user.name,
         );
-        if (identity) {
-          token.userId = identity.userId;
-          token.organisations = identity.organisations;
-        }
+        if (identity) token.userId = identity.userId;
       }
       return token;
     },
     async session({ session, token }) {
       session.user.id = token.userId as string;
-      session.organisations = (token.organisations ?? []) as SessionMembership[];
       return session;
     },
   },
@@ -143,7 +172,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth(authConfig);
 
 declare module "next-auth" {
   interface Session {
-    organisations: SessionMembership[];
     user: { id: string } & import("next-auth").DefaultSession["user"];
   }
 }
