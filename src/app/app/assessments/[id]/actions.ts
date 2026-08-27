@@ -3,12 +3,8 @@
 import { revalidatePath } from "next/cache";
 import type { AnswerValue } from "@/lib/templates/logic";
 import { requireCapability } from "@/lib/session";
-import {
-  loadAssessment,
-  returnAssessment,
-  saveAnswers,
-  submitAssessment,
-} from "@/services/assessments";
+import { loadAssessment, returnAssessment, saveAnswers } from "@/services/assessments";
+import { decideApproval, submitForApproval } from "@/services/workflow";
 import { issueContributorLink } from "@/services/contributor-links";
 
 export type ActionResult = { ok: true } | { ok: false; message: string };
@@ -44,7 +40,7 @@ export async function saveAction(
 export async function submitAction(assessmentId: string): Promise<ActionResult> {
   try {
     const { active } = await authorise(assessmentId, "assessment.submit");
-    await submitAssessment({
+    await submitForApproval({
       assessmentId,
       organisationId: active.membership.organisationId,
       actor: { actorKind: "user", actorUserId: active.userId, actorLabel: active.email },
@@ -97,5 +93,40 @@ export async function inviteAction(
     return { url: `${base}/contribute/${issued.token}` };
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Could not create the link" };
+  }
+}
+
+/**
+ * Decide an approval gate.
+ *
+ * The roles the caller holds *in this assessment's entity* are what the service
+ * checks against — an approver on one legal entity has no standing on another.
+ */
+export async function decideAction(
+  approvalId: string,
+  assessmentId: string,
+  formData: FormData,
+): Promise<ActionResult> {
+  try {
+    const session = await requireCapability("record.read");
+    const loaded = await loadAssessment(assessmentId, session.membership.organisationId);
+    if (!loaded) throw new Error("No such assessment");
+
+    const rolesHere = session.membership.grants
+      .filter((g) => g.scope === "organisation" || g.entityId === loaded.assessment.entityId)
+      .map((g) => g.role);
+
+    await decideApproval({
+      approvalId,
+      organisationId: session.membership.organisationId,
+      decision: formData.get("decision") as "approved" | "rejected" | "returned",
+      rationale: String(formData.get("rationale") ?? ""),
+      callerRoles: rolesHere,
+      actor: { actorKind: "user", actorUserId: session.userId, actorLabel: session.email },
+    });
+    revalidatePath(`/app/assessments/${assessmentId}`);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : "Could not record the decision" };
   }
 }

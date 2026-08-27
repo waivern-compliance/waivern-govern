@@ -108,11 +108,30 @@ the register shows the succession of decisions. When one expires the risk stays
 recorded as accepted and a prompt is raised — nothing overturns a person's
 decision behind their back.
 
+**Approvals are routed by what was answered, not by who started the work.** A
+DPIA that scores low goes to one reviewer; the same DPIA touching special
+category data, or sending data somewhere without adequacy, picks up the DPO.
+Every stage of the workflow is recorded against the assessment — including the
+ones whose condition did not hold, marked skipped with the reason, because a
+gate that silently never appeared cannot be told apart from one somebody
+removed.
+
+**Time-based work runs on an hourly sweep.** `/api/cron/sweep` materialises
+recurring schedules, raises reviews for lapsed risk acceptances, chases overdue
+mitigations and records SLA breaches. Every step is idempotent — tasks and
+notifications carry keys — so running it twice, or re-running after a partial
+failure, converges on the same state. Nothing in the sweep changes a governance
+decision; it raises tasks and a human decides.
+
 ## Status
 
-Phases 1–4 of 5 complete: tenancy and entity scoping, role-based capabilities,
-OIDC sign-in, the tamper-evident audit chain, the template engine with its
-shipped assessment library, the assessment runtime including no-account
-contributor links, and the risk register with mitigations and attested
-acceptance. Phase 5 adds the workflow layer — tasks, threshold-routed approvals,
-SLA policies and recurring governance.
+The five-phase spine is complete: tenancy and entity scoping, role-based
+capabilities, OIDC sign-in, the tamper-evident audit chain, the template engine
+with its shipped assessment library, the assessment runtime including no-account
+contributor links, the risk register with mitigations and attested acceptance,
+and the workflow layer — threshold-routed approvals, tasks, SLA breach recording
+and recurring governance.
+
+Still to come: reporting and dashboards, the RoPA editing surface, third-party
+risk, the AI workflow graph, the maintained country risk library, and the
+Waivern Compliance Portal integration endpoints.

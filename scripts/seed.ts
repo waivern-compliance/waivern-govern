@@ -13,6 +13,8 @@ import { LEGAL_REFERENCES, SYSTEM_TEMPLATES } from "@/lib/templates/library";
 import type { AppRole } from "@/lib/rbac";
 import { legalReferences } from "@/db/schema";
 import { createTemplate, publishVersion } from "@/services/templates";
+import { DEFAULT_SLA, DEFAULT_WORKFLOWS } from "@/lib/workflow/defaults";
+import { slaPolicies, workflowDefinitions, workflowStages } from "@/db/schema";
 
 /**
  * A demonstration tenant shaped like the buyer described in the RFI: a single
@@ -207,6 +209,39 @@ async function main() {
     });
     console.log(`  published ${t.name}`);
   }
+
+  // Approval workflows and service levels. Seeded per organisation because a
+  // client configures these; the defaults are a sensible starting point, not a
+  // constant.
+  for (const spec of DEFAULT_WORKFLOWS) {
+    const [def] = await db
+      .insert(workflowDefinitions)
+      .values({
+        organisationId: organisationId!,
+        templateKind: spec.templateKind,
+        name: spec.name,
+      })
+      .returning();
+    for (const s of spec.stages) {
+      await db.insert(workflowStages).values({
+        workflowDefinitionId: def.id,
+        position: s.position,
+        name: s.name,
+        requiredRole: s.requiredRole,
+        condition: s.condition,
+        slaHours: s.slaHours,
+      });
+    }
+  }
+  for (const s of DEFAULT_SLA) {
+    await db.insert(slaPolicies).values({
+      organisationId: organisationId!,
+      taskType: s.taskType as "approve_stage",
+      targetHours: s.targetHours,
+      escalateToRole: s.escalateToRole,
+    });
+  }
+  console.log(`Seeded ${DEFAULT_WORKFLOWS.length} workflows and ${DEFAULT_SLA.length} service levels.`);
 
   await pg.end();
 }

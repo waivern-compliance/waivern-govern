@@ -4,3 +4,4 @@ export * from "./audit";
 export * from "./templates";
 export * from "./assessments";
 export * from "./risks";
+export * from "./workflow";

@@ -161,3 +161,44 @@ export const mitigationStatus = pgEnum("mitigation_status", [
   "verified",
   "abandoned",
 ]);
+
+/**
+ * What a task is asking someone to do.
+ *
+ * Typed rather than free text, because the service level, the reminder wording
+ * and the escalation route all differ by kind, and a string would make each of
+ * those a lookup nobody maintains.
+ */
+export const taskType = pgEnum("task_type", [
+  "answer_section",
+  "review_assessment",
+  "approve_stage",
+  "mitigation_due",
+  "verify_mitigation",
+  "reassess",
+  "review_acceptance",
+]);
+
+export const taskStatus = pgEnum("task_status", [
+  "open",
+  "in_progress",
+  "done",
+  "cancelled",
+]);
+
+export const approvalStatus = pgEnum("approval_status", [
+  "pending",
+  "approved",
+  "rejected",
+  "returned",
+  /** Its condition did not hold for this assessment. */
+  "skipped",
+]);
+
+/** What a recurring schedule produces when it comes round. */
+export const scheduleAction = pgEnum("schedule_action", [
+  "reassess",
+  "review",
+  "attest",
+  "verify",
+]);

@@ -6,6 +6,8 @@ import { can } from "@/lib/rbac";
 import { getActiveSession } from "@/lib/session";
 import { assessmentHistory, loadAssessment } from "@/services/assessments";
 import { linksForAssessment } from "@/services/contributor-links";
+import { approvalsFor } from "@/services/workflow";
+import { Approvals } from "./approvals";
 import { InviteContributor } from "./invite";
 import { saveAction, submitAction } from "./actions";
 
@@ -24,10 +26,11 @@ export default async function AssessmentPage({
   if (!loaded) notFound();
 
   const { assessment, definition, templateName, answers, answerMeta } = loaded;
-  const [refs, history, links] = await Promise.all([
+  const [refs, history, links, gates] = await Promise.all([
     legalRefMap(),
     assessmentHistory(id),
     linksForAssessment(id),
+    approvalsFor(id),
   ]);
 
   const editable =
@@ -83,6 +86,34 @@ export default async function AssessmentPage({
           }))}
         />
       ) : null}
+
+      <Approvals
+        assessmentId={id}
+        gates={gates.map((g) => ({
+          id: g.id,
+          position: g.position,
+          name: g.name,
+          requiredRole: g.requiredRole,
+          status: g.status,
+          reason: g.reason,
+          decidedBy: g.decidedByLabel,
+          decidedAt: g.decidedAt?.toISOString().slice(0, 10) ?? null,
+          rationale: g.rationale,
+        }))}
+        decidableId={
+          // The first pending gate, and only if this viewer holds its role in
+          // this assessment's entity. Anything else is a button that exists to
+          // be refused.
+          (() => {
+            const next = gates.find((g) => g.status === "pending");
+            if (!next) return null;
+            const rolesHere = active.membership.grants
+              .filter((g) => g.scope === "organisation" || g.entityId === assessment.entityId)
+              .map((g) => g.role);
+            return rolesHere.includes(next.requiredRole) ? next.id : null;
+          })()
+        }
+      />
 
       {history.length > 0 ? (
         <section className="space-y-3">
