@@ -19,7 +19,8 @@
     "test": "DATABASE_URL=postgresql://govern:govern@localhost:55432/govern_test tsx --env-file=.env.local --test tests/**/*.test.ts",
     "test:db": "docker exec govern-db psql -U govern -d postgres -tc \"select 1 from pg_database where datname='govern_test'\" | grep -q 1 || docker exec govern-db createdb -U govern govern_test",
     "pretest": "pnpm test:db && DATABASE_URL=postgresql://govern:govern@localhost:55432/govern_test pnpm db:migrate",
-    "test:reset": "docker exec govern-db dropdb -U govern --if-exists govern_test && pnpm test:db"
+    "test:reset": "docker exec govern-db dropdb -U govern --if-exists govern_test && pnpm test:db",
+    "dev:webpack": "next dev --webpack"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.2",

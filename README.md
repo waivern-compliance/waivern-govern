@@ -46,6 +46,15 @@ set alongside `NODE_ENV=production`.
 | `pnpm db:generate` | Generates a migration from schema changes. |
 | `pnpm db:reset` | Drops and rebuilds the schema. Destroys all data, audit chain included. |
 
+## A note on local performance
+
+`node_modules` and `.next` each carry a `.metadata_never_index` marker so
+Spotlight skips them. Without it, a rebuild generates enough file events to peg
+`mds_stores` and starve the machine — which looks exactly like Next.js hanging,
+because every build and dev server then sits at near-zero CPU waiting for I/O.
+If you clone fresh and the toolchain feels wedged, check `uptime` before you
+debug the app.
+
 ## Architecture notes
 
 **Everything time-based runs off the request path.** Vercel has no long-running
