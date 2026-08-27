@@ -37,6 +37,13 @@ const PEOPLE: Array<{
   { email: "privacy.analyst@example.bbc.co.uk", name: "Privacy Analyst", roles: [{ role: "privacy_analyst" }] },
   { email: "ai.governance@example.bbc.co.uk", name: "Responsible AI Lead", roles: [{ role: "ai_governance" }] },
   {
+    email: "ps.approver@example.bbc.co.uk",
+    name: "Public Service Approver",
+    // Deliberately not the same person as any risk owner: accepting a risk you
+    // own is refused, so a demo tenant needs a separate approver to be usable.
+    roles: [{ role: "approver", entity: "BBC Public Service" }],
+  },
+  {
     email: "studios.approver@example.bbc.co.uk",
     name: "Studios Approver",
     // Scoped to one entity: this person may decide approvals for BBC Studios

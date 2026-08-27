@@ -95,9 +95,24 @@ single-request: loading the page, saving and submitting are separate requests
 and people come back to finish, so the link lives until it expires, is
 completed, or is revoked — with every use counted and audited.
 
+**Risk ratings are derived, never asserted.** Score is likelihood times impact
+and tier is derived from score, enforced by database check constraints as well
+as in code — a register where the rating and its inputs tell different stories
+is worse than one with no rating at all.
+
+**Accepting a risk is an act, not a status change.** It requires a residual
+rating, a written rationale and an expiry date, it is refused to the person who
+owns the risk, and it needs the approver role rather than an administrative one.
+Acceptances are append-only: accepting again supersedes rather than edits, so
+the register shows the succession of decisions. When one expires the risk stays
+recorded as accepted and a prompt is raised — nothing overturns a person's
+decision behind their back.
+
 ## Status
 
-Phases 1–3 of 5 complete: tenancy and entity scoping, role-based capabilities,
+Phases 1–4 of 5 complete: tenancy and entity scoping, role-based capabilities,
 OIDC sign-in, the tamper-evident audit chain, the template engine with its
-shipped assessment library, and the assessment runtime including no-account
-contributor links. Phases 4–5 add the risk register and the workflow layer.
+shipped assessment library, the assessment runtime including no-account
+contributor links, and the risk register with mitigations and attested
+acceptance. Phase 5 adds the workflow layer — tasks, threshold-routed approvals,
+SLA policies and recurring governance.

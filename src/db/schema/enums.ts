@@ -136,3 +136,28 @@ export const revisionReason = pgEnum("revision_reason", [
 
 /** Risk banding, shared by assessments and the risk register. */
 export const riskTier = pgEnum("risk_tier", ["low", "medium", "high", "critical"]);
+
+/**
+ * Where a risk is in its life.
+ *
+ * `accepted` is a status a human puts it in and that expires; it is never
+ * reached by the system deciding a risk is tolerable.
+ */
+export const riskStatus = pgEnum("risk_status", [
+  "identified",
+  "treating",
+  "mitigated",
+  "accepted",
+  "closed",
+]);
+
+export const riskSource = pgEnum("risk_source", ["assessment", "manual", "integration"]);
+
+export const mitigationStatus = pgEnum("mitigation_status", [
+  "planned",
+  "in_progress",
+  "implemented",
+  /** Someone other than the owner has confirmed it is actually in place. */
+  "verified",
+  "abandoned",
+]);

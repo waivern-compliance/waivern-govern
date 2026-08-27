@@ -100,6 +100,13 @@ export default async function AppHome() {
           <span className="ml-2 text-ink-soft">start, answer and submit</span>
         </Link>
         <Link
+          href="/app/risks"
+          className="block rounded border border-line bg-surface px-4 py-3 text-sm hover:border-brand focus-visible:outline-2 focus-visible:outline-brand"
+        >
+          Risk register
+          <span className="ml-2 text-ink-soft">mitigations, residual rating, acceptance</span>
+        </Link>
+        <Link
           href="/app/templates"
           className="block rounded border border-line bg-surface px-4 py-3 text-sm hover:border-brand focus-visible:outline-2 focus-visible:outline-brand"
         >
