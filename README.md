@@ -55,6 +55,14 @@ because every build and dev server then sits at near-zero CPU waiting for I/O.
 If you clone fresh and the toolchain feels wedged, check `uptime` before you
 debug the app.
 
+## Deploying
+
+See [docs/deploying.md](docs/deploying.md). Two things catch people out:
+`DATABASE_URL` is read at build time as well as runtime, so the environment has
+to be set before the first deploy; and there is no password login, so an OIDC
+provider must be configured or nobody can sign in — the no-password local bypass
+refuses to build in production on purpose.
+
 ## Architecture notes
 
 **Everything time-based runs off the request path.** Vercel has no long-running
