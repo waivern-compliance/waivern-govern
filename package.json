@@ -22,7 +22,8 @@
     "test:reset": "docker exec govern-db dropdb -U govern --if-exists govern_test && pnpm test:db",
     "dev:webpack": "next dev --webpack",
     "seed:demo": "tsx --env-file=.env.local scripts/seed-demo.ts",
-    "provision": "tsx --env-file=.env.local scripts/provision-connections.ts"
+    "provision": "tsx --env-file=.env.local scripts/provision-connections.ts",
+    "grant": "tsx --env-file=.env.local scripts/grant-access.ts"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.2",

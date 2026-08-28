@@ -1,4 +1,4 @@
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
   boolean,
   index,
@@ -129,7 +129,16 @@ export const roleAssignments = pgTable(
     grantedAt: timestamp("granted_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    uniqueIndex("role_assignment_key").on(t.membershipId, t.role, t.scope, t.entityId),
+    // Two partial indexes rather than one over all four columns. Postgres
+    // treats NULLs as distinct in a unique index, so an index including the
+    // nullable entity_id never fires for organisation-scoped grants and the
+    // same role could be granted to one person repeatedly.
+    uniqueIndex("role_assignment_org_key")
+      .on(t.membershipId, t.role)
+      .where(sql`${t.entityId} is null`),
+    uniqueIndex("role_assignment_entity_key")
+      .on(t.membershipId, t.role, t.entityId)
+      .where(sql`${t.entityId} is not null`),
     index("role_assignment_membership_idx").on(t.membershipId),
   ],
 );

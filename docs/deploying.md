@@ -165,11 +165,40 @@ Two things could not be set before you knew the domain:
 Sign-in fails until both are right, usually with a redirect-mismatch error from
 the provider.
 
-## 9. Check it came up correctly
+## 9. Give yourself access
+
+Sign-in is invite-only. A valid Google or Entra ID token proves who you are, not
+that you belong here — an account with no membership is refused. The seed only
+creates fictional `@example.bbc.co.uk` people, so **until you do this, signing in
+with your real account is rejected.**
+
+```bash
+DATABASE_URL='<DATABASE_PUBLIC_URL>' pnpm grant you@waivern.com --name "Your Name"
+```
+
+That grants `owner` across the organisation, which is everything. Narrower
+grants take a role and, optionally, an entity:
+
+```bash
+DATABASE_URL='<DATABASE_PUBLIC_URL>' pnpm grant analyst@example.com privacy_analyst
+DATABASE_URL='<DATABASE_PUBLIC_URL>' pnpm grant approver@example.com approver --entity "BBC Studios"
+```
+
+The email must match the one on the identity-provider account exactly — that is
+what the platform matches on. Re-running changes nothing, so it is safe to use
+to check.
+
+One thing to know about granting yourself `owner`: it includes `risk.accept`,
+but a risk cannot be accepted by the person who owns it. On a demonstration
+tenant where you own everything, use one of the seeded approvers to show
+acceptance working.
+
+## 10. Check it came up correctly
 
 - `https://<domain>/sign-in` shows your provider and **no** development sign-in
   box. If the box is there, `ALLOW_DEV_SIGN_IN` leaked into production.
-- Sign in, then `/app/dashboard` shows the seeded portfolio.
+- Sign in with the account you granted in step 9, then `/app/dashboard` shows
+  the seeded portfolio.
 - The cron endpoint refuses an unauthenticated call:
 
   ```bash
