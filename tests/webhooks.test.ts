@@ -4,7 +4,7 @@ import { after, describe, it } from "node:test";
 import { eq } from "drizzle-orm";
 import { db, sql as pg } from "@/db/client";
 import { entities, organisations, webhookDeliveries } from "@/db/schema";
-import { signPayload } from "@/lib/integration/crypto";
+import { signRequest } from "@/lib/integration/crypto";
 import { createConnection } from "@/services/connections";
 import { deliverPending, queueEvent } from "@/services/webhooks";
 
@@ -131,8 +131,15 @@ describe("delivery", () => {
       assert.match(got.body, /DPIA-2026-0001/);
 
       // The subscriber holds the same secret, so it can check the event came
-      // from us — signed exactly the way inbound requests are.
-      const expected = signPayload(w.conn.secret, got.timestamp!, got.body);
+      // from us — signed exactly the way inbound requests are, over its own
+      // path as well as the body.
+      const expected = signRequest({
+        secret: w.conn.secret,
+        timestamp: got.timestamp!,
+        method: "POST",
+        pathWithQuery: "/hook",
+        body: got.body,
+      });
       assert.equal(got.signature, expected);
       assert.ok(got.delivery, "a delivery id is present for the subscriber's own idempotency");
     } finally {

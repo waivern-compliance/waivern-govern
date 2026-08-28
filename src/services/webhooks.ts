@@ -1,7 +1,7 @@
 import { and, eq, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { db, type Db } from "@/db/client";
 import { integrationConnections, webhookDeliveries } from "@/db/schema";
-import { openSecret, signPayload } from "@/lib/integration/crypto";
+import { openSecret, signRequest } from "@/lib/integration/crypto";
 
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
@@ -133,7 +133,16 @@ export async function deliverPending(organisationId?: string): Promise<DeliveryR
           "content-type": "application/json",
           "x-waivern-event": delivery.event,
           "x-waivern-timestamp": timestamp,
-          "x-waivern-signature": signPayload(secret, timestamp, body),
+          "x-waivern-signature": signRequest({
+            secret,
+            timestamp,
+            method: "POST",
+            // The subscriber knows its own path, and binding it means a
+            // captured event cannot be aimed at another of their endpoints.
+            pathWithQuery: new URL(delivery.targetUrl).pathname +
+              new URL(delivery.targetUrl).search,
+            body,
+          }),
           // The subscriber can use this to make its own handling idempotent.
           "x-waivern-delivery": delivery.id,
         },

@@ -137,6 +137,15 @@ measure only 13.6 apart in normal vision and would be hard to separate side by
 side. Risk tier is carried by the row label rather than by hue, and every status
 mark ships a visible label and a count.
 
+**Data goes both ways.** `GET /api/v1/export/context` returns the whole
+governance picture as one versioned document — approved assessments with who
+signed and why, the risk register with its acceptances, Article 30 records,
+suppliers and DPAs, and an evidence index whose links resolve to references
+rather than internal ids. `since` gives an incremental pull, `entity` narrows to
+one legal entity. Only settled facts are exported: an assessment appears once it
+is approved, because generating a compliance document from unfinished work would
+put an unreviewed claim into something that reads as settled.
+
 **Two systems push records in.** The Waivern Compliance Portal sends Article 30
 records, suppliers, DPAs and evidence; the HAR Analyser sends scan runs. Both
 authenticate with an HMAC signature over the raw body with the timestamp inside
@@ -164,9 +173,10 @@ and recurring governance.
 A first governance dashboard is in — attention tiles, risk posture before and
 after treatment, the assessment pipeline, service levels and a per-entity table.
 
-The integration surface is in: signed ingest for processing activities,
-vendors, DPAs, evidence and scan runs, a findings queue where a person converts
-an observation into a risk, and outbound webhooks carrying approvals and risk
+The integration surface is in, both directions: signed ingest for processing
+activities, vendors, DPAs, evidence and scan runs; a findings queue where a
+person converts an observation into a risk; signed export endpoints the Portal
+can pull from incrementally; and outbound webhooks carrying approvals and risk
 acceptances back to subscribers.
 
 Still to come: the RoPA and third-party risk editing surfaces, the AI workflow

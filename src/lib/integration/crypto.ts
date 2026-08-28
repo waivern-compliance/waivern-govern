@@ -58,14 +58,46 @@ export function newSecret(): string {
 }
 
 /**
- * The signature a caller must present.
+ * The exact string a signature covers.
  *
- * The timestamp is inside the signed material, not merely alongside it —
- * otherwise an attacker could replay a captured body under a fresh timestamp
- * and the signature would still verify.
+ * Four parts, newline separated: timestamp, method, path with query, body.
+ *
+ * The timestamp is inside the signed material rather than merely alongside it,
+ * so a captured body cannot be replayed under a fresh one. The method and path
+ * are in there too, so a signature is bound to the endpoint it was made for — a
+ * captured request cannot be redirected at a different endpoint whose schema
+ * the same body happens to satisfy. And it gives a GET, which has no body,
+ * something specific to sign.
  */
-export function signPayload(secret: string, timestamp: string, body: string): string {
-  return createHmac("sha256", secret).update(`${timestamp}.${body}`).digest("hex");
+export function canonicalRequest(
+  method: string,
+  pathWithQuery: string,
+  body: string,
+): string {
+  return [method.toUpperCase(), pathWithQuery, body].join("\n");
+}
+
+export function signPayload(
+  secret: string,
+  timestamp: string,
+  canonical: string,
+): string {
+  return createHmac("sha256", secret).update(`${timestamp}.${canonical}`).digest("hex");
+}
+
+/** Convenience for callers: sign a whole request in one step. */
+export function signRequest(input: {
+  secret: string;
+  timestamp: string;
+  method: string;
+  pathWithQuery: string;
+  body?: string;
+}): string {
+  return signPayload(
+    input.secret,
+    input.timestamp,
+    canonicalRequest(input.method, input.pathWithQuery, input.body ?? ""),
+  );
 }
 
 /** Constant-time comparison, so a wrong signature leaks nothing through timing. */
@@ -87,6 +119,8 @@ export function verifyRequest(input: {
   secret: string;
   timestamp: string | null;
   signature: string | null;
+  method: string;
+  pathWithQuery: string;
   body: string;
   now?: number;
 }): SignatureCheck {
@@ -102,7 +136,11 @@ export function verifyRequest(input: {
     return { ok: false, reason: "stale_timestamp" };
   }
 
-  const expected = signPayload(input.secret, input.timestamp, input.body);
+  const expected = signPayload(
+    input.secret,
+    input.timestamp,
+    canonicalRequest(input.method, input.pathWithQuery, input.body),
+  );
   if (!signatureMatches(expected, input.signature)) {
     return { ok: false, reason: "bad_signature" };
   }

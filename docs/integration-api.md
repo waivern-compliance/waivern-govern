@@ -15,28 +15,56 @@ Every request carries three headers:
 | --- | --- |
 | `x-waivern-connection` | The connection id issued when the integration was set up |
 | `x-waivern-timestamp` | Unix seconds |
-| `x-waivern-signature` | `HMAC-SHA256(secret, "<timestamp>.<raw body>")`, hex |
+| `x-waivern-signature` | `HMAC-SHA256(secret, "<timestamp>.<canonical request>")`, hex |
 
-The timestamp is **inside** the signed material. If it were only alongside it, a
-captured body could be replayed under a fresh timestamp and still verify.
-Requests more than five minutes out — in either direction — are refused.
+The canonical request is four parts, newline separated:
 
-The signature covers the **raw bytes** of the body, and the server verifies
-before parsing. Two different byte strings can parse to the same object; only
-one of them was signed.
+```
+<METHOD>
+<path including query string>
+<raw body, empty for GET>
+```
+
+so the full signed string is `<timestamp>.<METHOD>\n<path>\n<body>`.
+
+Three things are deliberate here:
+
+- **The timestamp is inside the signed material.** If it were only a header, a
+  captured body could be replayed under a fresh timestamp and still verify.
+  Requests more than five minutes out — in either direction — are refused.
+- **The method and path are inside it too.** A signature is bound to the
+  endpoint it was made for, so a captured request cannot be redirected at a
+  different endpoint whose schema the same body happens to satisfy, and an
+  export signed for one entity cannot be replayed for another. It also gives a
+  GET, which has no body, something specific to sign.
+- **The signature covers the raw bytes**, verified before parsing. Two different
+  byte strings can parse to the same object; only one of them was signed.
 
 ```bash
+# POST
 BODY='{"records":[...]}'
+PATH_Q='/api/v1/ingest/processing-activities'
 TS=$(date +%s)
-SIG=$(printf '%s.%s' "$TS" "$BODY" \
+SIG=$(printf '%s.POST\n%s\n%s' "$TS" "$PATH_Q" "$BODY" \
   | openssl dgst -sha256 -hmac "$SECRET" -hex | sed 's/.* //')
 
-curl -X POST https://govern.example/api/v1/ingest/processing-activities \
+curl -X POST "https://govern.example$PATH_Q" \
   -H 'content-type: application/json' \
   -H "x-waivern-connection: $CONNECTION_ID" \
   -H "x-waivern-timestamp: $TS" \
   -H "x-waivern-signature: $SIG" \
   -d "$BODY"
+
+# GET — the body part is empty, so the string ends with a newline
+PATH_Q='/api/v1/export/context?since=2026-08-01T00:00:00Z'
+TS=$(date +%s)
+SIG=$(printf '%s.GET\n%s\n' "$TS" "$PATH_Q" \
+  | openssl dgst -sha256 -hmac "$SECRET" -hex | sed 's/.* //')
+
+curl "https://govern.example$PATH_Q" \
+  -H "x-waivern-connection: $CONNECTION_ID" \
+  -H "x-waivern-timestamp: $TS" \
+  -H "x-waivern-signature: $SIG"
 ```
 
 Secrets are encrypted at rest with a key held outside the database, and shown
@@ -59,6 +87,95 @@ or which part of the signature was wrong. Each of those is a probe.
 A connection may only use the endpoints for its kind; anything else is `403`.
 The scanner may push vendors because a tracker seen on a page is a third party
 processing personal data, whether or not procurement knew about it.
+
+## Reading data back out
+
+Ingest is only half the contract. The Portal also needs to pull current state —
+to backfill after downtime, to sync on a schedule, and to generate documents
+from facts rather than from events it may have missed.
+
+| Endpoint | Returns |
+| --- | --- |
+| `GET /api/v1/export/context` | The whole governance picture in one document |
+| `GET /api/v1/export/ropa` | Article 30 records plus the assessments covering them |
+
+Both accept `entity` (repeatable), `since` (ISO-8601, for incremental sync) and
+`limit` (1–1000). A malformed query returns `400` with the reason rather than
+being silently ignored — dropping an unparseable `since` would hand back a full
+export when a delta was asked for, and the caller would have no way to tell.
+
+The context document is versioned (`contextVersion`), so the Portal can tell
+what shape it received:
+
+```json
+{
+  "contextVersion": "1.0",
+  "generatedAt": "2026-08-28T09:14:02.881Z",
+  "organisation": { "name": "BBC Group", "slug": "bbc-group" },
+  "scope": { "entities": null, "since": null },
+  "processingActivities": [ ... ],
+  "assessments": [ ... ],
+  "risks": [ ... ],
+  "suppliers": [ ... ],
+  "evidence": [ ... ],
+  "counts": { "assessments": 4, "risks": 10, "evidence": 1 }
+}
+```
+
+**Only settled facts are exported.** An assessment appears once it is approved,
+never while it is in draft or in review — generating a compliance document from
+somebody's unfinished work would put an unreviewed claim into a document that
+reads as settled. Each one carries who signed, when, and on what reasoning,
+including the stages that were skipped and why:
+
+```json
+{
+  "reference": "TIA-2026-0001", "kind": "tia", "entity": "BBC Studios",
+  "score": { "value": 4, "band": "Medium", "tier": "medium" },
+  "approvals": [
+    { "stage": "Privacy review", "decision": "approved",
+      "by": "privacy.analyst@example.bbc.co.uk",
+      "rationale": "Reviewed against the template and the supporting evidence.",
+      "reason": "Applies: always required" },
+    { "stage": "Data protection officer", "decision": "skipped",
+      "reason": "Not required: risk is high or above did not hold" }
+  ]
+}
+```
+
+Answers come from the frozen revision taken at approval, not from the live
+record, and `notApplicable` names the questions the logic was not asking — so a
+reader can tell an absent answer from a question that never applied.
+
+Risks carry their inherent and residual ratings, their mitigations, and the
+acceptance in force. `expired` is stated rather than left to be worked out,
+because a generated document must not present a lapsed acceptance as current:
+
+```json
+{
+  "reference": "RISK-2026-0001",
+  "inherent": { "likelihood": 3, "impact": 3, "score": 9, "tier": "high" },
+  "residual": { "likelihood": 2, "impact": 2, "score": 4, "tier": "medium" },
+  "acceptance": {
+    "acceptedBy": "ps.approver@example.bbc.co.uk",
+    "rationale": "Within appetite once the taxonomy exclusion is live.",
+    "expiresAt": "2027-02-23T21:59:10.041Z",
+    "expired": false
+  }
+}
+```
+
+Evidence resolves its links to references the Portal can recognise, rather than
+internal ids that mean nothing over there:
+
+```json
+{ "title": "Scan bbc-homepage-2026-08-28", "kind": "scan",
+  "supports": ["ROPA-2026-0001", "RISK-2026-0010"] }
+```
+
+Exports are `cache-control: no-store`. Governance state changes when people
+decide things, and a cached export could hand back a decision that has since
+been withdrawn.
 
 ## Idempotency
 

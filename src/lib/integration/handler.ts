@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { ZodType } from "zod";
 import { authenticate, requireKind, type AuthedConnection } from "./auth";
+import { BadQuery } from "./query";
 
 /**
  * The shape every ingest endpoint shares.
@@ -58,6 +59,53 @@ export function ingestRoute<T>(config: {
     } catch (e) {
       console.error("ingest failed", e);
       return NextResponse.json({ error: "Could not process the batch" }, { status: 500 });
+    }
+  };
+}
+
+
+/**
+ * A read endpoint.
+ *
+ * Same authentication as ingest — the signature covers the method and the full
+ * path including the query string, so an export signed for one entity cannot be
+ * replayed for another.
+ */
+export function exportRoute(config: {
+  kinds: AuthedConnection["kind"][];
+  handle: (connection: AuthedConnection, url: URL) => Promise<unknown>;
+}) {
+  return async function GET(request: Request) {
+    const auth = await authenticate(request);
+    if (!auth.ok) {
+      return NextResponse.json(
+        { error: auth.failure.message },
+        { status: auth.failure.status },
+      );
+    }
+
+    const wrongKind = requireKind(auth.connection, config.kinds);
+    if (wrongKind) {
+      return NextResponse.json({ error: wrongKind.message }, { status: wrongKind.status });
+    }
+
+    try {
+      const result = await config.handle(auth.connection, new URL(request.url));
+      return NextResponse.json(result, {
+        status: 200,
+        // Governance state changes when people decide things, not on a timer.
+        // A cached export could hand the Portal a decision that has since been
+        // withdrawn.
+        headers: { "cache-control": "no-store" },
+      });
+    } catch (e) {
+      // A malformed query is the caller's fault and they can fix it; anything
+      // else is ours and they should not be told the internals.
+      if (e instanceof BadQuery) {
+        return NextResponse.json({ error: e.message }, { status: 400 });
+      }
+      console.error("export failed", e);
+      return NextResponse.json({ error: "Could not build the export" }, { status: 500 });
     }
   };
 }

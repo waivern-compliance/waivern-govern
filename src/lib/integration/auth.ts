@@ -80,7 +80,15 @@ export async function authenticate(
     return { ok: false, failure: REFUSED };
   }
 
-  const check = verifyRequest({ secret, timestamp, signature, body });
+  const url = new URL(request.url);
+  const check = verifyRequest({
+    secret,
+    timestamp,
+    signature,
+    method: request.method,
+    pathWithQuery: url.pathname + url.search,
+    body,
+  });
   if (!check.ok) return { ok: false, failure: REFUSED };
 
   await db
