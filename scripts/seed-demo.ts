@@ -1,6 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 import { db, sql as pg } from "@/db/client";
 import {
+  assessments,
   entities,
   organisations,
   templateVersions,
@@ -252,6 +253,25 @@ const RISKS: Array<{
 async function main() {
   const [org] = await db.select().from(organisations).where(eq(organisations.slug, "bbc-group"));
   if (!org) throw new Error("Run `pnpm seed` first.");
+
+  // Unlike `seed`, this creates records with no natural key, so running it
+  // twice silently doubles the portfolio — every assessment duplicated, every
+  // dashboard number wrong. Refuse rather than add to it.
+  const [{ count: existing }] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(assessments)
+    .where(eq(assessments.organisationId, org.id));
+  if (existing > 0) {
+    console.log(
+      `"${org.name}" already has ${existing} assessments, so the demonstration ` +
+        `portfolio has been loaded before.\n` +
+        `Running again would duplicate all of it. To start clean:\n\n` +
+        `  pnpm db:reset && pnpm seed && pnpm seed:demo\n\n` +
+        `against a local database, or drop and recreate the schema on a hosted one.`,
+    );
+    await pg.end();
+    return;
+  }
 
   const ents = await db.select().from(entities).where(eq(entities.organisationId, org.id));
   const entityByName = new Map(ents.map((e) => [e.name, e.id]));
