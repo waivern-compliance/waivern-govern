@@ -70,9 +70,12 @@ worker, so reassessment cycles, reminders, SLA breach detection and outbound
 sync run as durable step functions triggered by cron and by events. A route
 handler writes state and emits an event; it never does work it cannot finish.
 
-**Region pinning is deliberate.** Functions run in `lhr1` and the database in
-`eu-west-2`. UK data residency is a hard expectation for the buyers this is
-aimed at, and a default US region would be a straightforward disqualification.
+**Where things run is deliberate.** Functions are pinned to `lhr1` (London) in
+`vercel.json`. The database sits in the EU rather than the UK, because Railway
+has no UK region — lawful, since the EU holds UK adequacy, but a weaker claim
+than UK residency and stated as such rather than glossed. A buyer who requires
+the data to stay in the UK needs a London-region provider instead. Either way, a
+default US region would be a straightforward disqualification.
 
 **One assessment engine, many types.** DPIA, UK TRA, EU TIA, AI risk assessment
 and screening questionnaires are all published versions of a single template

@@ -10,13 +10,17 @@ if (!connectionString) {
 }
 
 /**
- * One driver for both local Postgres and Neon's pooled endpoint, rather than
- * swapping drivers per environment — the cost is a TCP connection instead of
- * HTTP, the saving is that local development exercises the same code path as
- * production.
+ * One driver everywhere — local Docker Postgres and the hosted database alike —
+ * rather than swapping per environment, so local development exercises the same
+ * code path as production.
  *
- * `prepare: false` is required against a transaction-pooled connection, which is
- * what Neon hands out to serverless functions.
+ * `prepare: false` because a transaction-pooled connection cannot carry prepared
+ * statements between them. Harmless on a direct connection, and required the
+ * moment anything pooled sits in front.
+ *
+ * `max: 1` in production because each warm serverless instance holds its own
+ * connection, and an unpooled Postgres will run out of them long before the
+ * platform runs out of instances.
  */
 const client = postgres(connectionString, {
   prepare: false,
