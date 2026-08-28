@@ -150,15 +150,22 @@ it and every connection has to be reprovisioned.
 
 Press Deploy. The first build takes a couple of minutes.
 
-When it finishes you have a URL like `waivern-govern-xyz.vercel.app`. Now fix
-the two things that depended on knowing it:
+When it finishes you have a URL like `waivern-govern-xyz.vercel.app`.
 
-1. `AUTH_URL` in Vercel → the real URL → redeploy.
-2. The OAuth redirect URI in Google or Entra ID → the real URL.
+## 8. Point the URL-dependent settings at the real domain
 
-Then sign in.
+Two things could not be set before you knew the domain:
 
-## 8. Check it came up correctly
+1. **`AUTH_URL`** in Vercel → set to the real URL → redeploy for it to take
+   effect.
+2. **The OAuth redirect URI** in Google or Entra ID → set to
+   `https://<domain>/api/auth/callback/google` (or
+   `.../callback/microsoft-entra-id`).
+
+Sign-in fails until both are right, usually with a redirect-mismatch error from
+the provider.
+
+## 9. Check it came up correctly
 
 - `https://<domain>/sign-in` shows your provider and **no** development sign-in
   box. If the box is there, `ALLOW_DEV_SIGN_IN` leaked into production.
