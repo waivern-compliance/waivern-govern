@@ -9,6 +9,10 @@ export default async function SignIn({
 }) {
   if (await getActiveSession()) redirect("/app");
   const { error } = await searchParams;
+  // Auth.js reports a thrown callback as "Configuration". Here that means the
+  // membership lookup failed rather than refused — usually the database being
+  // unreachable — and saying "your account lacks access" would be wrong.
+  const isFault = error === "Configuration";
 
   const providers = authConfig.providers.map((p) => {
     const cfg = typeof p === "function" ? p() : p;
@@ -29,12 +33,23 @@ export default async function SignIn({
           role="alert"
           className="space-y-1 rounded border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900"
         >
-          <strong className="block">That account cannot sign in.</strong>
-          Access is granted per email address, and the one your identity provider
-          just presented is not registered here. The usual cause is signing in
-          with a different account from the one that was granted — check which
-          account you used. If it is the right one, ask an administrator to add
-          it.
+          {isFault ? (
+            <>
+              <strong className="block">Sign-in is not working right now.</strong>
+              This is a fault on our side, not a problem with your account —
+              whether you have access was never established. An administrator
+              should check the server log; the cause is recorded there.
+            </>
+          ) : (
+            <>
+              <strong className="block">That account cannot sign in.</strong>
+              Access is granted per email address, and the one your identity
+              provider just presented is not registered here. The usual cause is
+              signing in with a different account from the one that was granted
+              — check which account you used. If it is the right one, ask an
+              administrator to add it.
+            </>
+          )}
         </p>
       ) : null}
 

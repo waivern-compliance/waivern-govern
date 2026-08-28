@@ -77,6 +77,12 @@ export type SessionMembership = {
  * The result is used to decide whether sign-in may proceed. It is deliberately
  * NOT cached into the session token — see `loadMemberships`.
  */
+export class IdentityLookupFailed extends Error {
+  constructor(cause: unknown) {
+    super("Could not check membership", { cause });
+  }
+}
+
 async function loadIdentity(email: string, ssoSubject: string, name?: string | null) {
   const existing = await db.query.users.findFirst({
     where: eq(users.email, email.toLowerCase()),
@@ -140,16 +146,37 @@ export const authConfig: NextAuthConfig = {
   callbacks: {
     async signIn({ user, account }) {
       if (!user.email || !account) return false;
-      const identity = await loadIdentity(
-        user.email,
-        `${account.provider}:${account.providerAccountId}`,
-        user.name,
-      );
+
+      /**
+       * A failed lookup is not a refusal.
+       *
+       * Returning false here would tell the person their account lacks a
+       * membership, when in fact nothing was ever checked — the database was
+       * unreachable, or the query failed. That message sends an administrator
+       * hunting through user records while the real fault is infrastructure.
+       * Let it throw instead, so it surfaces as a configuration error and the
+       * cause is in the log.
+       */
+      let identity: Awaited<ReturnType<typeof loadIdentity>>;
+      try {
+        identity = await loadIdentity(
+          user.email,
+          `${account.provider}:${account.providerAccountId}`,
+          user.name,
+        );
+      } catch (cause) {
+        console.error(
+          `[auth] could not check membership for ${user.email} — this is not an ` +
+            `authorisation decision, the lookup itself failed:`,
+          cause,
+        );
+        throw new IdentityLookupFailed(cause);
+      }
       if (!identity) {
         // Logged, not shown and not put in the URL. An administrator needs to
-        // know which address was refused — it is almost always a different
-        // account from the one they granted — but an email in a query string
-        // ends up in browser history, referrers and access logs.
+        // know which address was refused — it is often a different account from
+        // the one they granted — but an email in a query string ends up in
+        // browser history, referrers and access logs.
         console.warn(
           `[auth] refused sign-in: no active membership for ${user.email} (via ${account.provider})`,
         );
