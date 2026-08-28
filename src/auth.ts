@@ -145,7 +145,17 @@ export const authConfig: NextAuthConfig = {
         `${account.provider}:${account.providerAccountId}`,
         user.name,
       );
-      return identity !== null;
+      if (!identity) {
+        // Logged, not shown and not put in the URL. An administrator needs to
+        // know which address was refused — it is almost always a different
+        // account from the one they granted — but an email in a query string
+        // ends up in browser history, referrers and access logs.
+        console.warn(
+          `[auth] refused sign-in: no active membership for ${user.email} (via ${account.provider})`,
+        );
+        return false;
+      }
+      return true;
     },
     async jwt({ token, user, account }) {
       // The token carries identity only. Authorisation is resolved per request

@@ -188,6 +188,19 @@ The email must match the one on the identity-provider account exactly — that i
 what the platform matches on. Re-running changes nothing, so it is safe to use
 to check.
 
+If sign-in is refused after granting, the address Google or Entra presented is
+not the one you granted. The refusal is logged in Vercel's runtime logs as
+`[auth] refused sign-in: no active membership for <address>` — grant that
+address instead. Two useful checks in the database:
+
+```sql
+-- who is registered
+select email from app_user;
+-- sso_subject stays null until a matching sign-in succeeds, so a null here
+-- means nobody has ever signed in as that address
+select email, sso_subject, last_seen_at from app_user where email = 'you@waivern.com';
+```
+
 One thing to know about granting yourself `owner`: it includes `risk.accept`,
 but a risk cannot be accepted by the person who owns it. On a demonstration
 tenant where you own everything, use one of the seeded approvers to show

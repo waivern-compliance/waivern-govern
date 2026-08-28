@@ -27,10 +27,14 @@ export default async function SignIn({
       {error ? (
         <p
           role="alert"
-          className="rounded border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900"
+          className="space-y-1 rounded border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900"
         >
-          That account cannot sign in. It needs an active membership of an
-          organisation on this platform — ask an administrator to add you.
+          <strong className="block">That account cannot sign in.</strong>
+          Access is granted per email address, and the one your identity provider
+          just presented is not registered here. The usual cause is signing in
+          with a different account from the one that was granted — check which
+          account you used. If it is the right one, ask an administrator to add
+          it.
         </p>
       ) : null}
 
