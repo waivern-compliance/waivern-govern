@@ -1,44 +1,34 @@
-# Deploying
+# Deploying to Railway
 
-Vercel runs the application; Railway runs the database. Written for a first
-Vercel deployment. Order matters in two places, both called out below.
+Two services in one Railway project — the application and its Postgres — plus a
+third that runs the scheduled sweep. Order matters in two places, both called
+out below.
+
+There is a `vercel.json` in the repository. It is correct for Vercel and
+**completely inert on Railway**: the region pinning and the cron schedule in it
+do nothing here. The cron is set up separately in step 10.
 
 ## Before you start
 
-Two things to settle first.
-
 **How people sign in.** There is no password login. The app uses OIDC (Entra ID
 or Google), and the local no-password bypass *refuses to build* in production on
-purpose. **Configure a provider before you deploy, or nobody — including you —
-can get in.** See step 3.
+purpose. Configure a provider, and grant yourself access in step 9, or nobody
+can get in.
 
-**Vercel plan.** The Hobby tier is free but is for non-commercial use, and its
-cron jobs run once a day rather than hourly. Anything client-facing wants Pro.
-Check the current terms; Vercel changes them.
-
-## Where the data sits
-
-Railway's regions are US East, US West, EU West (Amsterdam) and Singapore. There
-is no UK region, so the database sits in the EU rather than the UK.
-
-That is lawful — the EU holds UK adequacy, so the transfer needs no separate
-safeguard — but it is a weaker claim than UK residency, and worth stating
-plainly rather than glossing. If a buyer requires the data to stay in the UK,
-Railway cannot do it and a London-region provider (Neon on AWS `eu-west-2`, for
-instance) is the answer, at the cost of one more sub-processor.
-
-Vercel functions are pinned to `lhr1` in `vercel.json`, which keeps request
-handling in London and the round trip to Amsterdam short.
+**Where the data sits.** Railway's regions are US East, US West, EU West
+(Amsterdam) and Singapore. There is no UK region, so the database sits in the EU
+rather than the UK. That is lawful — the EU holds UK adequacy, so the transfer
+needs no separate safeguard — but it is a weaker claim than UK residency and
+worth stating plainly rather than glossing. A buyer who requires the data to
+stay in the UK needs a London-region provider instead.
 
 ## 1. Push to GitHub
-
-Already done:
 
 ```bash
 gh repo create waivern-govern --private --source=. --remote=origin --push
 ```
 
-Confirm nothing local is outstanding — empty output means everything is pushed:
+Confirm nothing is outstanding — empty output means everything is pushed:
 
 ```bash
 git log origin/main..main --oneline
@@ -51,196 +41,226 @@ else:
 git ls-files | grep '^\.env'
 ```
 
-## 2. Create the database on Railway
+## 2. Create the project and the database
 
-In the Railway dashboard: **New Project → Provision PostgreSQL**. Set the region
-to **EU West** — see the note above about what that does and does not buy you.
+In Railway: **New Project → Deploy PostgreSQL**. Set the region to **EU West**.
 
-Then the part that catches people out. Open the Postgres service, go to
-**Variables**, and you will see two connection strings:
+Railway gives the Postgres service two connection strings:
 
-| Variable | Host looks like | Use it for |
+| Variable | Host looks like | Reachable from |
 | --- | --- | --- |
-| `DATABASE_URL` | `postgres.railway.internal` | Nothing here |
-| `DATABASE_PUBLIC_URL` | `<something>.proxy.rlwy.net:<port>` | Everything here |
+| `DATABASE_URL` | `postgres.railway.internal` | Inside this Railway project only |
+| `DATABASE_PUBLIC_URL` | `<name>.proxy.rlwy.net:<port>` | Anywhere |
 
-`DATABASE_URL` is Railway's *private* network address. It only resolves from
-inside the same Railway project. Vercel is not inside it, and neither is your
-laptop, so **both the migrations and the deployed app need
-`DATABASE_PUBLIC_URL`**. Using the internal one produces a DNS failure that
-looks like the database is down.
+Both are useful, for different things. The app uses the internal one; your
+laptop has to use the public one.
 
-You may need to enable public networking on the Postgres service before that
-variable appears.
+## 3. Deploy the application
 
-## 3. Set up sign-in
+In the same project: **New → GitHub Repo → `waivern-govern`**.
 
-Google is quicker to get working; Entra ID is what a broadcaster would actually
-use.
+Railway detects Next.js and builds it with Nixpacks. No `railway.json` is
+needed; the default build and `pnpm start` are correct.
 
-**Google:** in Google Cloud Console, create an OAuth 2.0 Client ID of type Web
-application, with an authorised redirect URI of
-`https://<your-domain>/api/auth/callback/google`. You will not know the domain
-until step 6 — come back and set it.
+Under the service's **Settings → Networking**, generate a public domain. You get
+something like `waivern-govern-production.up.railway.app`. You need it for the
+next two steps.
 
-**Entra ID:** register an application, add a Web redirect URI of
+## 4. Set up sign-in
+
+Google is quicker; Entra ID is what a broadcaster would actually use.
+
+**Google:** Google Cloud Console → **Create OAuth client ID** → *Web
+application*. Add an **Authorised redirect URI** of exactly:
+
+```
+https://<your-domain>/api/auth/callback/google
+```
+
+The path matters — `/api/auth/callback/google`, not `/callback` or
+`/api/auth/google`. Authorised JavaScript origins are not needed for this flow;
+adding the domain there is harmless.
+
+**Entra ID:** register an application, Web redirect URI
 `https://<your-domain>/api/auth/callback/microsoft-entra-id`, create a client
-secret, and note the tenant issuer URL.
+secret, note the tenant issuer URL.
 
-Only the provider you configure appears on the sign-in page. Both may be set.
+Only the provider you configure appears on the sign-in page.
 
-## 4. Run the migrations
+## 5. Set the application's variables
 
-From your machine, against the **public** connection string:
+On the application service → **Variables**.
 
-```bash
-DATABASE_URL='<DATABASE_PUBLIC_URL from Railway>' pnpm db:migrate
+**Set `DATABASE_URL` as a reference, not a pasted string:**
+
+```
+DATABASE_URL=${{Postgres.DATABASE_URL}}
 ```
 
-Then, for the demonstration tenant:
+Substituting whatever your Postgres service is called. That resolves to the
+internal address, so traffic never leaves Railway's network. Pasting the local
+development string here is the most common way to break this, and it fails as
+`ECONNREFUSED` at the first sign-in rather than at deploy — see
+*Troubleshooting*.
 
-```bash
-DATABASE_URL='<DATABASE_PUBLIC_URL>' pnpm seed
-DATABASE_URL='<DATABASE_PUBLIC_URL>' pnpm seed:demo
-```
-
-`pnpm seed` creates the organisation, its two legal entities, the people, the
-template library and the approval workflows. `pnpm seed:demo` adds a plausible
-portfolio so the dashboard has something to show.
-
-Quote the string. Railway passwords contain characters your shell will
-otherwise interpret.
-
-## 5. Import the project into Vercel
-
-In Vercel: **Add New → Project**, then import `waivern-govern` from GitHub. It
-detects Next.js on its own. **Do not deploy yet.**
-
-## 6. Set the environment variables — before the first build
-
-This is the step-ordering that matters. `DATABASE_URL` is read while the project
-is being built, not only when it runs, so a deploy with the variables missing
-fails at build rather than later at runtime.
-
-On the import screen, expand **Environment Variables** and add:
+Then:
 
 | Name | Value |
 | --- | --- |
-| `DATABASE_URL` | Railway's **`DATABASE_PUBLIC_URL`** |
 | `AUTH_SECRET` | `openssl rand -base64 32` |
-| `AUTH_URL` | `https://<your-domain>` |
+| `AUTH_URL` | `https://<your-domain>` — no trailing slash |
 | `INTEGRATION_KEY` | `openssl rand -base64 32` |
 | `CRON_SECRET` | `openssl rand -base64 32` |
-| `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | from step 3 |
-
-Or, for Entra ID, `AUTH_MICROSOFT_ENTRA_ID_ID`, `_SECRET` and `_ISSUER`.
+| `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | from step 4 |
 
 **Do not set `ALLOW_DEV_SIGN_IN`.** The build fails if it is present in
-production, which is deliberate: a no-password bypass that can reach production
-is worse than no bypass at all.
+production, deliberately: a no-password bypass that can reach production is
+worse than no bypass at all.
 
-`AUTH_URL` is a chicken-and-egg — you do not know the domain until the first
-deploy. Put anything in, deploy, then correct it and redeploy. Sign-in will not
-work until it is right.
+Keep `INTEGRATION_KEY` safe. It decrypts the integration secrets; lose it and
+every connection has to be reprovisioned.
 
-Keep `INTEGRATION_KEY` somewhere safe. It decrypts the integration secrets; lose
-it and every connection has to be reprovisioned.
+`CRON_SECRET` is only needed if you intend to trigger the sweep over HTTP. The
+scheduled job in step 10 does not use it.
 
-## 7. Deploy
+## 6. Run the migrations
 
-Press Deploy. The first build takes a couple of minutes.
+From your machine, against the **public** string — your laptop is outside
+Railway's private network. Quote it; Railway passwords contain characters your
+shell will otherwise interpret.
 
-When it finishes you have a URL like `waivern-govern-xyz.vercel.app`.
+```bash
+DATABASE_URL='<DATABASE_PUBLIC_URL>' pnpm db:migrate
+```
 
-## 8. Point the URL-dependent settings at the real domain
+Migrations are deliberately not part of the build. One that runs automatically
+on every deploy is one that can take the API down at three in the morning.
 
-Two things could not be set before you knew the domain:
+## 7. Seed
 
-1. **`AUTH_URL`** in Vercel → set to the real URL → redeploy for it to take
-   effect.
-2. **The OAuth redirect URI** in Google or Entra ID → set to
-   `https://<domain>/api/auth/callback/google` (or
-   `.../callback/microsoft-entra-id`).
+```bash
+DATABASE_URL='<DATABASE_PUBLIC_URL>' pnpm seed
+```
 
-Sign-in fails until both are right, usually with a redirect-mismatch error from
-the provider.
+That creates the organisation, its legal entities, the people, the template
+library and the approval workflows. Then, for a demonstration portfolio:
+
+```bash
+DATABASE_URL='<DATABASE_PUBLIC_URL>' pnpm seed:demo
+```
+
+`seed:demo` refuses to run twice — a second run would double every assessment
+and quietly wrong every number on the dashboard.
+
+## 8. Redeploy and check it comes up
+
+Redeploy the application service so it picks up the variables. Then:
+
+- `https://<your-domain>/sign-in` shows your provider and **no** development
+  sign-in box. If the box is there, `ALLOW_DEV_SIGN_IN` leaked into production.
 
 ## 9. Give yourself access
 
 Sign-in is invite-only. A valid Google or Entra ID token proves who you are, not
-that you belong here — an account with no membership is refused. The seed only
-creates fictional `@example.bbc.co.uk` people, so **until you do this, signing in
-with your real account is rejected.**
+that you belong here. The seed only creates fictional `@example.bbc.co.uk`
+people, so **until you do this, signing in with your real account is refused.**
 
 ```bash
 DATABASE_URL='<DATABASE_PUBLIC_URL>' pnpm grant you@waivern.com --name "Your Name"
 ```
 
-That grants `owner` across the organisation, which is everything. Narrower
-grants take a role and, optionally, an entity:
+That grants `owner` across the organisation. Narrower grants take a role and,
+optionally, an entity:
 
 ```bash
 DATABASE_URL='<DATABASE_PUBLIC_URL>' pnpm grant analyst@example.com privacy_analyst
 DATABASE_URL='<DATABASE_PUBLIC_URL>' pnpm grant approver@example.com approver --entity "BBC Studios"
 ```
 
-The email must match the one on the identity-provider account exactly — that is
-what the platform matches on. Re-running changes nothing, so it is safe to use
-to check.
+The email must match the identity-provider account exactly. Re-running changes
+nothing, so it is safe to use as a check.
 
-If sign-in is refused after granting, the address Google or Entra presented is
-not the one you granted. The refusal is logged in Vercel's runtime logs as
-`[auth] refused sign-in: no active membership for <address>` — grant that
-address instead. Two useful checks in the database:
+Granting yourself `owner` includes `risk.accept`, but a risk cannot be accepted
+by the person who owns it. On a demonstration tenant where you own everything,
+use one of the seeded approvers to show acceptance working.
+
+Now sign in.
+
+## 10. Schedule the sweep
+
+Nothing time-based happens without this: no service-level breaches recorded, no
+lapsed risk acceptances flagged, no recurring reviews raised, no outbound
+webhooks delivered. Everything else works; the half that depends on time does
+not.
+
+In the same Railway project: **New → GitHub Repo → `waivern-govern`** again — a
+second service from the same repository.
+
+On that service:
+
+1. **Settings → Deploy → Custom Start Command:** `pnpm sweep:prod`
+2. **Settings → Deploy → Cron Schedule:** `0 * * * *` (hourly)
+3. **Settings → Deploy → Restart Policy:** *Never* — it is a job, not a server,
+   and it is meant to exit
+4. **Settings → Networking:** no public domain. It serves nothing.
+5. **Variables:** `DATABASE_URL=${{Postgres.DATABASE_URL}}`. That is all it
+   needs — it talks to the database directly rather than calling the web app, so
+   it needs no secret and does not depend on the web tier being healthy.
+
+The job is idempotent: running it twice, or retrying after a partial failure,
+converges on the same state. A quiet run logs `nothing due`, which is the normal
+case.
+
+To check it, trigger the service manually and read the log. You should see
+something like:
+
+```
+BBC Group: 1 lapsed acceptance(s) flagged, 3 service-level breach(es) recorded
+Swept 1 organisation(s) in 186ms.
+```
+
+`/api/cron/sweep` still exists and does the same work, for a scheduler that can
+only make an HTTP request. It needs `CRON_SECRET` as a bearer token and refuses
+everything when that variable is unset.
+
+## Troubleshooting
+
+**"That account cannot sign in" — or "Sign-in is not working right now."**
+
+Two different faults, and the page distinguishes them. The second means the
+membership lookup failed rather than refused; the cause is in the application
+log. The most common is `ECONNREFUSED`, which means `DATABASE_URL` on the
+application service is wrong — usually the local development string pasted in by
+mistake. Use `${{Postgres.DATABASE_URL}}`.
+
+The first means the address your identity provider presented is not registered.
+The log records which one:
+
+```
+[auth] refused sign-in: no active membership for <address> (via google)
+```
+
+Grant that address. Two useful queries:
 
 ```sql
 -- who is registered
 select email from app_user;
--- sso_subject stays null until a matching sign-in succeeds, so a null here
--- means nobody has ever signed in as that address
-select email, sso_subject, last_seen_at from app_user where email = 'you@waivern.com';
+-- sso_subject stays null until a matching sign-in succeeds, so null here means
+-- nobody has ever signed in as that address
+select email, sso_subject, last_seen_at from app_user;
 ```
 
-One thing to know about granting yourself `owner`: it includes `risk.accept`,
-but a risk cannot be accepted by the person who owns it. On a demonstration
-tenant where you own everything, use one of the seeded approvers to show
-acceptance working.
+**Google returns `redirect_uri_mismatch`.** The authorised redirect URI does not
+exactly match `https://<domain>/api/auth/callback/google`, or `AUTH_URL` points
+somewhere other than the domain being used.
 
-## 10. Check it came up correctly
-
-- `https://<domain>/sign-in` shows your provider and **no** development sign-in
-  box. If the box is there, `ALLOW_DEV_SIGN_IN` leaked into production.
-- Sign in with the account you granted in step 9, then `/app/dashboard` shows
-  the seeded portfolio.
-- The cron endpoint refuses an unauthenticated call:
-
-  ```bash
-  curl -s -o /dev/null -w '%{http_code}\n' https://<domain>/api/cron/sweep
-  ```
-
-  `401` is right. `503` means `CRON_SECRET` is not set.
-
-## Notes for afterwards
+## Afterwards
 
 **Connections.** Railway's Postgres has no connection pooler in front of it, and
-every warm Vercel function holds its own connection. The app opens at most one
-per instance in production for exactly this reason, but the ceiling is Postgres's
-`max_connections` (100 by default). Fine for a demonstration and for a single
-client; if concurrency grows, put PgBouncer in front of it or move to a provider
-whose pooling is built in.
+each application instance holds its own connections. Fine for a demonstration
+and a single client; if concurrency grows, put PgBouncer in front of it.
 
-**Migrations on later deploys.** They are not part of the build. When the schema
-changes, run `pnpm db:migrate` against the public connection string before
-deploying the code that depends on it. Deliberately manual: a migration that
-runs automatically on every deploy is one that can take the API down at three in
-the morning.
-
-**Cron.** `vercel.json` schedules the sweep hourly. On the Hobby tier Vercel runs
-crons once a day instead. Everything the sweep does is idempotent, so a daily run
-is correct, just less timely.
-
-**Integration connections.** To issue credentials for the Portal or the HAR
-Analyser against the deployed database:
+**Integration credentials.** To issue them for the Portal or the HAR Analyser:
 
 ```bash
 DATABASE_URL='<DATABASE_PUBLIC_URL>' pnpm provision
@@ -248,7 +268,5 @@ DATABASE_URL='<DATABASE_PUBLIC_URL>' pnpm provision
 
 Secrets print once and cannot be read back.
 
-**Preview deployments.** Every branch gets its own URL, and it will share the
-production database unless you give the Preview environment its own
-`DATABASE_URL`. Point it at a second Railway database before anyone uses a
-preview for anything real.
+**Later schema changes.** Run `pnpm db:migrate` against the public string before
+deploying the code that depends on it.

@@ -23,7 +23,9 @@
     "dev:webpack": "next dev --webpack",
     "seed:demo": "tsx --env-file=.env.local scripts/seed-demo.ts",
     "provision": "tsx --env-file=.env.local scripts/provision-connections.ts",
-    "grant": "tsx --env-file=.env.local scripts/grant-access.ts"
+    "grant": "tsx --env-file=.env.local scripts/grant-access.ts",
+    "sweep": "tsx --env-file=.env.local scripts/sweep.ts",
+    "sweep:prod": "tsx scripts/sweep.ts"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.2",
@@ -32,6 +34,7 @@
     "postgres": "^3.4.9",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "tsx": "^4.23.12",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -46,7 +49,6 @@
     "eslint-config-next": "16.3.3",
     "tailwindcss": "^4",
     "tsconfig-paths": "^4.2.0",
-    "tsx": "^4.23.12",
     "typescript": "^5"
   },
   "packageManager": "pnpm@10.17.1"

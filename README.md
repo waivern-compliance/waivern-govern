@@ -57,22 +57,34 @@ debug the app.
 
 ## Deploying
 
-See [docs/deploying.md](docs/deploying.md). Two things catch people out:
-`DATABASE_URL` is read at build time as well as runtime, so the environment has
-to be set before the first deploy; and there is no password login, so an OIDC
-provider must be configured or nobody can sign in — the no-password local bypass
-refuses to build in production on purpose.
+See [docs/deploying.md](docs/deploying.md) — Railway, three services: the app,
+Postgres, and a scheduled job for the sweep. Three things catch people out.
+`DATABASE_URL` on the app must be a Railway service reference, not a pasted
+string, or the first sign-in fails as `ECONNREFUSED`. There is no password
+login, so an OIDC provider must be configured and you must grant yourself
+access, or nobody can get in. And nothing time-based happens until the scheduled
+job exists.
+
+The repository contains a `vercel.json`, correct for Vercel and inert on
+Railway — the region pinning and cron schedule in it do nothing there.
 
 ## Architecture notes
 
-**Everything time-based runs off the request path.** Vercel has no long-running
-worker, so reassessment cycles, reminders, SLA breach detection and outbound
-sync run as durable step functions triggered by cron and by events. A route
-handler writes state and emits an event; it never does work it cannot finish.
+**Everything time-based runs off the request path.** Reassessment cycles,
+reminders, service-level breach detection and outbound webhook delivery all
+outlive a request, so none of them happen inside one. A route handler writes
+state and stops; a scheduled job does the rest, on its own schedule, against the
+database directly. That job is idempotent — running it twice, or retrying after
+a partial failure, converges on the same state — which is most of what
+durability buys and needs no queue to achieve.
 
-**Where things run is deliberate.** Functions are pinned to `lhr1` (London) in
-`vercel.json`. The database sits in the EU rather than the UK, because Railway
-has no UK region — lawful, since the EU holds UK adequacy, but a weaker claim
+Two ways to run it: `pnpm sweep` as a job (what the deployment uses), or
+`/api/cron/sweep` behind a bearer token for a scheduler that can only make an
+HTTP request. Nothing in the sweep makes a governance decision; it raises tasks
+and a human decides.
+
+**Where things run is deliberate.** The database sits in the EU rather than the
+UK, because Railway has no UK region — lawful, since the EU holds UK adequacy, but a weaker claim
 than UK residency and stated as such rather than glossed. A buyer who requires
 the data to stay in the UK needs a London-region provider instead. Either way, a
 default US region would be a straightforward disqualification.
