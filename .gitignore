@@ -30,8 +30,10 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files — real ones never, the template always. Without .env.example in the
+# repo, nobody cloning it can tell what the deployment needs.
 .env*
+!.env.example
 
 # vercel
 .vercel
