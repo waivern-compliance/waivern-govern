@@ -221,7 +221,7 @@ describe("opening approvals", () => {
   it("raises a task for the first gate and nobody else", async () => {
     const w = await world("firsttask");
     const result = await submitted(w, { ...BASE_DPIA, likelihood: "likely", impact: "severe" });
-    const open = await openTasks(w.org.id, null);
+    const open = await openTasks(w.org.id, { entityIds: null });
     const approvalTasks = open.filter((t) => t.type === "approve_stage");
     assert.equal(approvalTasks.length, 1);
     assert.equal(approvalTasks[0].assigneeRole, "privacy_analyst");
@@ -326,7 +326,7 @@ describe("deciding", () => {
     const result = await submitted(w, { ...BASE_DPIA, likelihood: "remote", impact: "minimal" });
     const [gate] = await approvalsFor(result.assessment.id);
 
-    assert.equal((await openTasks(w.org.id, null)).length, 1);
+    assert.equal((await openTasks(w.org.id, { entityIds: null })).length, 1);
     await decideApproval({
       approvalId: gate.id,
       organisationId: w.org.id,
@@ -335,7 +335,7 @@ describe("deciding", () => {
       callerRoles: ["privacy_analyst"],
       actor: actor("analyst@example.com"),
     });
-    assert.equal((await openTasks(w.org.id, null)).length, 0);
+    assert.equal((await openTasks(w.org.id, { entityIds: null })).length, 0);
   });
 
   it("stands down the remaining gates when returned", async () => {
@@ -406,7 +406,7 @@ describe("the sweep", () => {
     const result = await sweepOrganisation(w.org.id);
     assert.equal(result.acceptanceReviewsRaised, 1);
 
-    const open = await openTasks(w.org.id, null);
+    const open = await openTasks(w.org.id, { entityIds: null });
     const review = open.find((t) => t.type === "review_acceptance");
     assert.ok(review, "a review task was raised");
     assert.match(review!.title, /Acceptance lapsed/);
@@ -452,7 +452,7 @@ describe("the sweep", () => {
     // leave a second copy for somebody to tidy up.
     assert.equal(second.acceptanceReviewsRaised, 0);
     assert.equal(
-      (await openTasks(w.org.id, null)).filter((t) => t.type === "review_acceptance").length,
+      (await openTasks(w.org.id, { entityIds: null })).filter((t) => t.type === "review_acceptance").length,
       1,
     );
   });

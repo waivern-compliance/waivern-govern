@@ -21,7 +21,11 @@ export default async function TasksPage() {
   const active = await getActiveSession();
   if (!active) redirect("/sign-in");
 
-  const all = await openTasks(active.membership.organisationId, visibleEntityIds(active));
+  const all = await openTasks(active.membership.organisationId, {
+    entityIds: visibleEntityIds(active),
+    userId: active.userId,
+    grants: active.membership.grants,
+  });
   const rolesHeld = new Set(active.membership.grants.map((g) => g.role));
 
   // Yours first: assigned to you by name, or waiting on a role you hold.

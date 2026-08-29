@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { RiskTierBadge } from "@/components/RiskTierBadge";
+import { NotPermitted } from "@/components/NotPermitted";
 import { can } from "@/lib/rbac";
 import { IMPACT, LIKELIHOOD, labelFor } from "@/lib/risk/scale";
 import { getActiveSession } from "@/lib/session";
@@ -19,6 +20,15 @@ export default async function RiskPage({ params }: { params: Promise<{ id: strin
 
   const { risk, mitigations, acceptances, assessment } = loaded;
   const grants = active.membership.grants;
+
+  if (!can(grants, "record.read", risk.entityId)) {
+    return (
+      <NotPermitted
+        what={`${risk.reference} belongs to another part of the organisation, and`}
+        organisationName={active.membership.organisationName}
+      />
+    );
+  }
   const mayManage = can(grants, "risk.manage", risk.entityId) && risk.status !== "closed";
   const mayAccept = can(grants, "risk.accept", risk.entityId);
   const live = acceptances.find((a) => !a.supersededAt && !a.revokedAt) ?? null;

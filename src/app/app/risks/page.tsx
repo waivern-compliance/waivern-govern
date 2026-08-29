@@ -6,6 +6,7 @@ import { entities } from "@/db/schema";
 import { RiskTierBadge } from "@/components/RiskTierBadge";
 import { can } from "@/lib/rbac";
 import { IMPACT, LIKELIHOOD } from "@/lib/risk/scale";
+import { NotPermitted } from "@/components/NotPermitted";
 import { getActiveSession, visibleEntityIds } from "@/lib/session";
 import { expiredAcceptances, listRisks } from "@/services/risks";
 import { raiseRisk } from "./actions";
@@ -14,7 +15,16 @@ export default async function RisksPage() {
   const active = await getActiveSession();
   if (!active) redirect("/sign-in");
 
-  const org = active.membership.organisationId;
+    if (!can(active.membership.grants, "record.read")) {
+    return (
+      <NotPermitted
+        what="The risk register"
+        organisationName={active.membership.organisationName}
+      />
+    );
+  }
+
+const org = active.membership.organisationId;
   const [rows, orgEntities, lapsed] = await Promise.all([
     listRisks(org, visibleEntityIds(active)),
     db.select().from(entities).where(eq(entities.organisationId, org)),

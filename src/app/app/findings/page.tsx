@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { can } from "@/lib/rbac";
+import { NotPermitted } from "@/components/NotPermitted";
 import { getActiveSession, visibleEntityIds } from "@/lib/session";
 import { openFindings } from "@/services/ingest";
 import { FindingCard } from "./finding-card";
@@ -9,7 +10,16 @@ export default async function FindingsPage() {
   const active = await getActiveSession();
   if (!active) redirect("/sign-in");
 
-  const rows = await openFindings(active.membership.organisationId, visibleEntityIds(active));
+    if (!can(active.membership.grants, "record.read")) {
+    return (
+      <NotPermitted
+        what="Scan findings"
+        organisationName={active.membership.organisationName}
+      />
+    );
+  }
+
+const rows = await openFindings(active.membership.organisationId, visibleEntityIds(active));
   const canAct = can(active.membership.grants, "risk.manage");
 
   return (

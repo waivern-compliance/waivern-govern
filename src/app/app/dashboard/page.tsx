@@ -2,6 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PairedBars } from "@/components/charts/PairedBars";
 import { StatusBars } from "@/components/charts/StatusBars";
+import { can } from "@/lib/rbac";
+import { NotPermitted } from "@/components/NotPermitted";
 import { getActiveSession, visibleEntityIds } from "@/lib/session";
 import { dashboardMetrics } from "@/services/metrics";
 
@@ -9,7 +11,16 @@ export default async function Dashboard() {
   const active = await getActiveSession();
   if (!active) redirect("/sign-in");
 
-  const m = await dashboardMetrics(
+    if (!can(active.membership.grants, "record.read")) {
+    return (
+      <NotPermitted
+        what="The governance overview"
+        organisationName={active.membership.organisationName}
+      />
+    );
+  }
+
+const m = await dashboardMetrics(
     active.membership.organisationId,
     visibleEntityIds(active),
   );

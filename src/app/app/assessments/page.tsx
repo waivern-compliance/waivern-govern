@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { entities } from "@/db/schema";
 import { can } from "@/lib/rbac";
+import { NotPermitted } from "@/components/NotPermitted";
 import { getActiveSession, visibleEntityIds } from "@/lib/session";
 import { listAssessments } from "@/services/assessments";
 import { availableTemplates } from "@/services/templates";
@@ -31,7 +32,16 @@ export default async function AssessmentsPage() {
   const active = await getActiveSession();
   if (!active) redirect("/sign-in");
 
-  const org = active.membership.organisationId;
+    if (!can(active.membership.grants, "record.read")) {
+    return (
+      <NotPermitted
+        what="The assessment register"
+        organisationName={active.membership.organisationName}
+      />
+    );
+  }
+
+const org = active.membership.organisationId;
   const rows = await listAssessments(org, visibleEntityIds(active));
   const orgEntities = await db.select().from(entities).where(eq(entities.organisationId, org));
   const templates = await availableTemplates(org);

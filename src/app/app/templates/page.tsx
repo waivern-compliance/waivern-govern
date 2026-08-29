@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { questionsOf } from "@/lib/templates/logic";
+import { can } from "@/lib/rbac";
+import { NotPermitted } from "@/components/NotPermitted";
 import { getActiveSession } from "@/lib/session";
 import { availableTemplates } from "@/services/templates";
 
@@ -19,7 +21,16 @@ export default async function Templates() {
   const active = await getActiveSession();
   if (!active) redirect("/sign-in");
 
-  const rows = await availableTemplates(active.membership.organisationId);
+    if (!can(active.membership.grants, "record.read")) {
+    return (
+      <NotPermitted
+        what="The template library"
+        organisationName={active.membership.organisationName}
+      />
+    );
+  }
+
+const rows = await availableTemplates(active.membership.organisationId);
 
   return (
     <main className="mx-auto max-w-3xl space-y-8 px-6 py-12">

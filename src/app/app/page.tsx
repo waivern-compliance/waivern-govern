@@ -5,7 +5,8 @@ import { signOut } from "@/auth";
 import { db } from "@/db/client";
 import { entities } from "@/db/schema";
 import { verifyAuditChain } from "@/lib/audit";
-import { capabilitiesFor } from "@/lib/rbac";
+import { navFor } from "@/lib/nav";
+import { can, capabilitiesFor } from "@/lib/rbac";
 import { getActiveSession } from "@/lib/session";
 
 export default async function AppHome() {
@@ -17,7 +18,11 @@ export default async function AppHome() {
     .select()
     .from(entities)
     .where(eq(entities.organisationId, membership.organisationId));
-  const chain = await verifyAuditChain(membership.organisationId);
+  // Only for someone who may see it — verifying a chain is not free, and the
+  // panel is hidden for everybody else anyway.
+  const chain = can(membership.grants, "audit.read")
+    ? await verifyAuditChain(membership.organisationId)
+    : null;
 
   const entityName = (id: string) =>
     orgEntities.find((e) => e.id === id)?.name ?? id;
@@ -92,75 +97,46 @@ export default async function AppHome() {
         <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-soft">
           Work
         </h2>
-        <Link
-          href="/app/dashboard"
-          className="block rounded border border-line bg-surface px-4 py-3 text-sm hover:border-brand focus-visible:outline-2 focus-visible:outline-brand"
-        >
-          Governance overview
-          <span className="ml-2 text-ink-soft">posture, pipeline and service levels</span>
-        </Link>
-        <Link
-          href="/app/tasks"
-          className="block rounded border border-line bg-surface px-4 py-3 text-sm hover:border-brand focus-visible:outline-2 focus-visible:outline-brand"
-        >
-          Tasks
-          <span className="ml-2 text-ink-soft">what is waiting on you</span>
-        </Link>
-        <Link
-          href="/app/assessments"
-          className="block rounded border border-line bg-surface px-4 py-3 text-sm hover:border-brand focus-visible:outline-2 focus-visible:outline-brand"
-        >
-          Assessments
-          <span className="ml-2 text-ink-soft">start, answer and submit</span>
-        </Link>
-        <Link
-          href="/app/risks"
-          className="block rounded border border-line bg-surface px-4 py-3 text-sm hover:border-brand focus-visible:outline-2 focus-visible:outline-brand"
-        >
-          Risk register
-          <span className="ml-2 text-ink-soft">mitigations, residual rating, acceptance</span>
-        </Link>
-        <Link
-          href="/app/findings"
-          className="block rounded border border-line bg-surface px-4 py-3 text-sm hover:border-brand focus-visible:outline-2 focus-visible:outline-brand"
-        >
-          Scan findings
-          <span className="ml-2 text-ink-soft">pushed in by scanning tools, awaiting a decision</span>
-        </Link>
-        <Link
-          href="/app/templates"
-          className="block rounded border border-line bg-surface px-4 py-3 text-sm hover:border-brand focus-visible:outline-2 focus-visible:outline-brand"
-        >
-          Assessment templates
-          <span className="ml-2 text-ink-soft">
-            DPIA, transfer risk and impact, AI risk, screening
-          </span>
-        </Link>
+        <ul className="space-y-2">
+          {navFor(membership.grants).map((item) => (
+            <li key={item.href}>
+              <Link
+                href={item.href}
+                className="block rounded border border-line bg-surface px-4 py-3 text-sm hover:border-brand focus-visible:outline-2 focus-visible:outline-brand"
+              >
+                {item.label}
+                <span className="ml-2 text-ink-soft">{item.hint}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
       </section>
 
+      {can(membership.grants, "audit.read") ? (
       <section className="space-y-3">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-soft">
           Audit chain
         </h2>
         <div className="rounded border border-line bg-surface px-4 py-3 text-sm">
-          {chain.ok ? (
+          {chain?.ok ? (
             <p>
               <span className="font-medium text-emerald-700">Intact</span>
               <span className="text-ink-soft">
                 {" "}
-                — {chain.events} events verified, head{" "}
-                <span className="font-mono text-xs">{chain.headHash.slice(0, 16)}…</span>
+                — {chain!.events} events verified, head{" "}
+                <span className="font-mono text-xs">{chain!.headHash.slice(0, 16)}…</span>
               </span>
             </p>
           ) : (
             <p className="text-red-800">
-              <span className="font-medium">Broken</span> — {chain.reason} at
-              sequence {chain.failedAtSeq}. Every event after this point is
+              <span className="font-medium">Broken</span> — {chain!.reason} at
+              sequence {chain!.failedAtSeq}. Every event after this point is
               unverifiable.
             </p>
           )}
         </div>
       </section>
+      ) : null}
     </main>
   );
 }

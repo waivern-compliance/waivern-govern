@@ -460,17 +460,65 @@ export async function completeTask(input: {
   });
 }
 
-export async function openTasks(organisationId: string, entityIds: string[] | null) {
-  const scope = entityIds === null
-    ? eq(tasks.organisationId, organisationId)
-    : and(
-        eq(tasks.organisationId, organisationId),
-        inArray(tasks.entityId, entityIds.length ? entityIds : [""]),
-      );
+export type TaskViewer = {
+  /** Entities they may read records in. `null` means every entity. */
+  entityIds: string[] | null;
+  userId?: string | null;
+  /** Roles held, and where. A role grant is what makes an unassigned task theirs. */
+  grants?: ReadonlyArray<{ role: string; scope: "organisation" | "entity"; entityId?: string }>;
+};
+
+/**
+ * Open tasks this person should see.
+ *
+ * Three ways a task reaches someone, and the first two do not depend on being
+ * able to read the register at all:
+ *
+ *  - it names them. Being asked to do something is its own authorisation, and
+ *    without this a contributor — whose entire job is answering assigned
+ *    questions — sees an empty page and concludes the platform is broken;
+ *  - it names a role they hold in that task's entity. An approver on one legal
+ *    entity has no standing over another's queue, so the role match is scoped
+ *    the same way the grant is;
+ *  - it sits in an entity whose records they may read.
+ */
+export async function openTasks(organisationId: string, viewer: TaskViewer) {
+  const reach = [];
+
+  if (viewer.entityIds === null) {
+    reach.push(sql`true`);
+  } else if (viewer.entityIds.length > 0) {
+    reach.push(inArray(tasks.entityId, viewer.entityIds));
+  }
+
+  if (viewer.userId) {
+    reach.push(eq(tasks.assigneeUserId, viewer.userId));
+  }
+
+  for (const g of viewer.grants ?? []) {
+    reach.push(
+      g.scope === "organisation"
+        ? eq(tasks.assigneeRole, g.role as never)
+        : and(
+            eq(tasks.assigneeRole, g.role as never),
+            eq(tasks.entityId, g.entityId!),
+          ),
+    );
+  }
+
+  // Nothing reaches them at all — return nothing rather than everything.
+  if (reach.length === 0) return [];
+
   return db
     .select()
     .from(tasks)
-    .where(and(scope, inArray(tasks.status, ["open", "in_progress"])))
+    .where(
+      and(
+        eq(tasks.organisationId, organisationId),
+        inArray(tasks.status, ["open", "in_progress"]),
+        or(...reach),
+      ),
+    )
     .orderBy(asc(tasks.dueAt));
 }
 

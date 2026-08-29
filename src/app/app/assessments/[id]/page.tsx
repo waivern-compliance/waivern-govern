@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AssessmentForm } from "@/components/AssessmentForm";
 import { legalRefMap } from "@/lib/legal-refs";
+import { NotPermitted } from "@/components/NotPermitted";
 import { can } from "@/lib/rbac";
 import { getActiveSession } from "@/lib/session";
 import { assessmentHistory, loadAssessment } from "@/services/assessments";
@@ -26,6 +27,22 @@ export default async function AssessmentPage({
   if (!loaded) notFound();
 
   const { assessment, definition, templateName, answers, answerMeta } = loaded;
+
+  // Entity scoping was being enforced on every list and ignored here, so an
+  // assessment could be read by anyone in the organisation who had its id.
+  // Reading it requires either the right to read records in its entity, or the
+  // right to answer in that entity — which is what an assigned contributor has.
+  const mayOpen =
+    can(active.membership.grants, "record.read", assessment.entityId) ||
+    can(active.membership.grants, "assessment.answer", assessment.entityId);
+  if (!mayOpen) {
+    return (
+      <NotPermitted
+        what={`${assessment.reference} belongs to another part of the organisation, and`}
+        organisationName={active.membership.organisationName}
+      />
+    );
+  }
   const [refs, history, links, gates] = await Promise.all([
     legalRefMap(),
     assessmentHistory(id),
