@@ -57,6 +57,25 @@ describe("connection strings that cannot work here", () => {
     assert.match(why, /:\*\*\*@/);
   });
 
+
+  it("catches a password that did not survive the copy", () => {
+    // Exactly what a masked dashboard field yields: the colon is there, the
+    // secret is not. The failure without this is "Failed query: CREATE SCHEMA",
+    // which points at the schema rather than at the credential.
+    const why = whyUnusable("postgresql://postgres:@kodama.proxy.rlwy.net:46227/railway", OUTSIDE);
+    assert.ok(why, "expected a refusal");
+    assert.match(why, /empty password/);
+  });
+
+  it("leaves a genuinely passwordless string alone", () => {
+    // No colon at all is legitimate — trust authentication, or a local socket.
+    assert.equal(whyUnusable("postgresql://govern@localhost:5432/govern", OUTSIDE), null);
+  });
+
+  it("does not mistake a colon in the password for an empty one", () => {
+    assert.equal(whyUnusable("postgresql://u:pa:ss@localhost:5432/db", OUTSIDE), null);
+  });
+
   it("is not fooled by railway.internal appearing in the database name", () => {
     const odd = "postgresql://u:p@localhost:5432/postgres.railway.internal";
     assert.equal(whyUnusable(odd, OUTSIDE), null);

@@ -45,9 +45,27 @@ async function main() {
   await client.end();
 }
 
+/**
+ * Drizzle wraps a driver error in one that says only which query failed, so
+ * "Failed query: CREATE SCHEMA" is what surfaces when the real answer is
+ * "password authentication failed". Walk the chain and report the cause.
+ */
+function explain(error: unknown): string {
+  const lines: string[] = [];
+  let current: unknown = error;
+  const seen = new Set<unknown>();
+  while (current instanceof Error && !seen.has(current)) {
+    seen.add(current);
+    const code = (current as { code?: string }).code;
+    lines.push(code ? `${current.message} (${code})` : current.message);
+    current = (current as { cause?: unknown }).cause;
+  }
+  return lines.join("\n  caused by: ") || String(error);
+}
+
 main().catch(async (error) => {
   console.error("Migration failed, so the deploy should not proceed.");
-  console.error(error instanceof Error ? error.message : error);
+  console.error(explain(error));
   await client.end().catch(() => {});
   process.exit(1);
 });

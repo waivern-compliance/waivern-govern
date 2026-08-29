@@ -18,6 +18,16 @@ type Env = Record<string, string | undefined>;
 
 const PLACEHOLDER = /[…]|<[^>]*>|xxx+|your[-_]?(password|db|database)/i;
 
+/**
+ * `user:@host` — a colon with nothing after it.
+ *
+ * Copying a connection string out of a dashboard that masks the password
+ * yields exactly this. It is not a missing password, which is legitimate for
+ * trust authentication; it is a password that was there and did not survive
+ * the copy. `user@host`, with no colon at all, is left alone.
+ */
+const EMPTY_PASSWORD = /:\/\/[^:/@]+:@/;
+
 /** `postgres.railway.internal` resolves only on Railway's private network. */
 const PRIVATE_HOST = /@[^@/]*\.railway\.internal[:/]/i;
 
@@ -39,6 +49,18 @@ export function whyUnusable(
       `documentation rather than from the database itself.\n\n  ${shown}\n\n` +
       `An ellipsis (…) usually means a password was abbreviated for display. ` +
       `Take the full string from your database provider.`
+    );
+  }
+
+  if (EMPTY_PASSWORD.test(connectionString)) {
+    return (
+      "DATABASE_URL has an empty password — there is nothing between the " +
+      "colon and the @.\n\n" +
+      "  postgresql://postgres:@host:5432/railway\n" +
+      "                       ^ the password belongs here\n\n" +
+      "A dashboard that masks the value copies the mask, not the secret. In " +
+      "Railway, open the Postgres service → Variables → DATABASE_PUBLIC_URL " +
+      "and use the copy button, which yields the whole string."
     );
   }
 
