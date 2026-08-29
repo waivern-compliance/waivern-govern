@@ -584,11 +584,56 @@ async function main() {
   }
   console.log(`Created ${chainCount} AI systems with their assurance chains.`);
 
+  /**
+   * Spread the portfolio across the last six months.
+   *
+   * Everything created in one run carries one timestamp, so the trend view
+   * would show a single bar and a cycle time of nought days — a process that
+   * looks instantaneous because nothing has happened yet. Backdating gives the
+   * charts a shape to be read, and gives "days to decide" a number that could
+   * be wrong, which is the point of measuring it.
+   *
+   * Demonstration data only. Nothing outside this script moves a timestamp.
+   */
+  await db.execute(sql`
+    with numbered as (
+      select id, row_number() over (order by created_at) as n
+      from assessment where organisation_id = ${org.id}
+    )
+    update assessment a set
+      created_at   = now() - make_interval(months => ((n % 6) + 1)::int, days => 20),
+      submitted_at = case when a.submitted_at is null then null
+                     else now() - make_interval(months => ((n % 6) + 1)::int, days => 12) end,
+      completed_at = case when a.completed_at is null then null
+                     else now() - make_interval(months => ((n % 6) + 1)::int, days => 12)
+                          + make_interval(days => (n % 10)::int) end
+    from numbered where numbered.id = a.id
+  `);
+
+  await db.execute(sql`
+    with numbered as (
+      select id, row_number() over (order by created_at) as n
+      from risk where organisation_id = ${org.id}
+    )
+    update risk r set
+      opened_at  = now() - make_interval(months => ((n % 6) + 1)::int, days => 10),
+      created_at = now() - make_interval(months => ((n % 6) + 1)::int, days => 10),
+      -- Close a third of them, so the register is seen to shrink as well as grow.
+      closed_at  = case when n % 3 = 0
+                   then now() - make_interval(months => ((n % 6) + 1)::int) + make_interval(days => 18)
+                   else r.closed_at end,
+      status     = case when n % 3 = 0 then 'closed'::risk_status else r.status end
+    from numbered where numbered.id = r.id
+  `);
+  console.log("Backdated the portfolio across six months so the trend view has a shape.");
+
   await pg.end();
 }
 
 main().catch(async (err) => {
   console.error(err);
+
+
 
 
   await pg.end();

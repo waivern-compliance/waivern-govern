@@ -18,6 +18,7 @@ import { toCsv } from "@/lib/csv";
 import { libraryFor } from "./countries";
 import { gapsFor } from "./ai-register";
 import { GAP_WORDS, listActivities } from "./ropa";
+import { trendFor } from "./trends";
 import {
   GAP_WORDS as SUPPLIER_GAP_WORDS,
   listSuppliers,
@@ -44,6 +45,7 @@ export type Dataset =
   | "ai-register"
   | "ropa"
   | "third-parties"
+  | "trends"
   | "countries"
   | "audit";
 
@@ -53,6 +55,7 @@ export const DATASET_LABEL: Record<Dataset, string> = {
   "ai-register": "AI register",
   ropa: "Processing register (Article 30)",
   "third-parties": "Third parties (Article 28)",
+  trends: "Trends by month",
   countries: "Country library",
   audit: "Audit log",
 };
@@ -407,6 +410,25 @@ export async function exportThirdParties(organisationId: string) {
       (current?.subProcessors ?? []).join("; "),
       gaps.map((g) => SUPPLIER_GAP_WORDS[g]).join("; ") || "nothing",
       hardGaps.length > 0 ? "yes" : "no",
+    ]),
+  };
+}
+
+/** The trend figures, for a board pack that needs numbers rather than a screenshot. */
+export async function exportTrends(organisationId: string, entityIds: string[] | null) {
+  const { points } = await trendFor(organisationId, entityIds, 12);
+  return {
+    columns: [
+      "Month", "Risks open at month end", "Risks raised", "Risks closed",
+      "Assessments started", "Assessments decided", "Median days to decide",
+      "Tasks completed", "Tasks breached", "Acceptances granted",
+      "Acceptances lapsed",
+    ],
+    rows: points.map((p) => [
+      p.period, p.risksOpen, p.risksOpened, p.risksClosed,
+      p.assessmentsStarted, p.assessmentsApproved, p.daysToDecide,
+      p.tasksCompleted, p.tasksBreached, p.acceptancesGranted,
+      p.acceptancesExpired,
     ]),
   };
 }

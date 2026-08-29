@@ -11,6 +11,7 @@ import {
   exportRisks,
   exportRopa,
   exportThirdParties,
+  exportTrends,
   recordExport,
   verificationManifest,
   type Dataset,
@@ -94,7 +95,9 @@ export async function GET(
               ? await exportRopa(org, entityIds)
               : key === "third-parties"
                 ? await exportThirdParties(org)
-                : await exportCountries(org);
+                : key === "trends"
+                  ? await exportTrends(org, entityIds)
+                  : await exportCountries(org);
     rows = result.rows.length;
     body = toCsv(result.columns, result.rows);
   }

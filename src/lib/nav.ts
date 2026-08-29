@@ -34,6 +34,12 @@ export const NAV: NavItem[] = [
     capability: "record.read",
   },
   {
+    href: "/app/trends",
+    label: "Trends",
+    hint: "posture month by month, and how long decisions take",
+    capability: "record.read",
+  },
+  {
     href: "/app/assessments",
     label: "Assessments",
     hint: "start, answer and submit",
