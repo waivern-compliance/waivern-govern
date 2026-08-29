@@ -144,6 +144,21 @@ export const suppliers = pgTable(
     canonicalKey: text("canonical_key").notNull(),
     description: text("description"),
     categories: jsonb("categories").$type<string[]>().notNull().default([]),
+    /**
+     * Who is accountable for this relationship. Nullable, because a supplier
+     * nobody owns is a real and reportable state.
+     */
+    ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
+    /**
+     * When a person last confirmed this is a real processor relationship.
+     *
+     * A scanner creates suppliers from trackers it sees on a page, so the
+     * register fills with names nobody has triaged. Without this, "a tool
+     * noticed a third party" and "we know this is our processor" are the same
+     * row, and the ones needing attention cannot be told apart.
+     */
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    reviewedBy: uuid("reviewed_by").references(() => users.id, { onDelete: "set null" }),
     sourceConnectionId: uuid("source_connection_id").references(
       () => integrationConnections.id,
       { onDelete: "set null" },

@@ -120,6 +120,13 @@
       "when": 1788015151768,
       "tag": "0016_dizzy_rawhide_kid",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1788038170486,
+      "tag": "0017_slow_christian_walker",
+      "breakpoints": true
     }
   ]
 }

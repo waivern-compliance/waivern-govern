@@ -46,6 +46,12 @@ export const NAV: NavItem[] = [
     capability: "record.read",
   },
   {
+    href: "/app/third-parties",
+    label: "Third parties",
+    hint: "processors, agreements, and which are not covered",
+    capability: "record.read",
+  },
+  {
     href: "/app/ai",
     label: "AI register",
     hint: "every AI system, and what nobody has assessed",

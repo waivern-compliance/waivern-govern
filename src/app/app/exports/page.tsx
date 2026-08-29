@@ -10,6 +10,7 @@ const BLURB: Record<Dataset, string> = {
   assessments: "Every assessment with its type, status, score and dates.",
   "ai-register": "Every AI system, its stage and owner, and what is outstanding against it.",
   ropa: "Every processing activity in Article 30 order, with the gaps in each record named so you can see what an inspection would find.",
+  "third-parties": "Every processor with the agreement in force, its expiry, and what is missing against Article 28.",
   countries: "Adequacy and transfer risk per destination, with when each was last checked.",
   audit: "The complete record of who did what, with the hash chain, so a recipient can verify it themselves.",
 };

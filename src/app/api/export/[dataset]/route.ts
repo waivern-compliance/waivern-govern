@@ -10,6 +10,7 @@ import {
   exportCountries,
   exportRisks,
   exportRopa,
+  exportThirdParties,
   recordExport,
   verificationManifest,
   type Dataset,
@@ -91,7 +92,9 @@ export async function GET(
             ? await exportAiRegister(org, entityIds)
             : key === "ropa"
               ? await exportRopa(org, entityIds)
-              : await exportCountries(org);
+              : key === "third-parties"
+                ? await exportThirdParties(org)
+                : await exportCountries(org);
     rows = result.rows.length;
     body = toCsv(result.columns, result.rows);
   }

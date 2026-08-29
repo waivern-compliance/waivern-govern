@@ -15,6 +15,7 @@ import { appendAuditEvent } from "@/lib/audit";
 import { queueNotification, raiseTask } from "./workflow";
 import { deliverPending } from "./webhooks";
 import { countriesDueForReview } from "./countries";
+import { EXPIRING_WITHIN_DAYS, dpasNeedingAttention } from "./third-party";
 
 /**
  * Everything that happens because time passed.
@@ -44,6 +45,7 @@ export type SweepResult = {
   mitigationRemindersRaised: number;
   breachesRecorded: number;
   countryReviewsRaised: number;
+  dpaReviewsRaised: number;
   webhooksDelivered: number;
   webhooksFailed: number;
 };
@@ -294,6 +296,67 @@ async function raiseCountryReviews(organisationId: string): Promise<number> {
   return raised;
 }
 
+/**
+ * Contracts that are lapsing, or were never signed.
+ *
+ * Article 28(3) requires processing to be governed by a contract. An expiry
+ * date is recorded on the agreement and then nothing watches it, so the
+ * failure mode is a processor still processing under an agreement that ended
+ * months ago and nobody noticing until somebody asks.
+ *
+ * One task naming the count rather than one per agreement: a supplier list
+ * that turns over produces dozens at once, and thirty near-identical tasks are
+ * ignored as a block.
+ */
+async function raiseDpaReviews(organisationId: string): Promise<number> {
+  const due = await dpasNeedingAttention(organisationId);
+  if (due.length === 0) return 0;
+
+  const [entity] = await db
+    .select()
+    .from(entities)
+    .where(and(eq(entities.organisationId, organisationId), eq(entities.isDefault, true)));
+  if (!entity) return 0;
+
+  const now = new Date();
+  const expired = due.filter((d) => d.dpa.expiresAt && d.dpa.expiresAt <= now);
+  const unsigned = due.filter((d) => !d.dpa.signedAt);
+  const first = expired[0] ?? due[0];
+
+  const parts: string[] = [];
+  if (expired.length > 0) parts.push(`${expired.length} already expired`);
+  if (unsigned.length > 0) parts.push(`${unsigned.length} never signed`);
+  const soon = due.length - expired.length - unsigned.length;
+  if (soon > 0) parts.push(`${soon} expiring within ${EXPIRING_WITHIN_DAYS} days`);
+
+  // Keyed on the month so a neglected contract file nags monthly rather than
+  // hourly, and a fresh lapse next month raises a fresh task.
+  const period = new Date().toISOString().slice(0, 7);
+
+  let raised = 0;
+  await db.transaction(async (tx) => {
+    const task = await raiseTask(tx, {
+      organisationId,
+      entityId: entity.id,
+      type: "review_assessment",
+      title: `${due.length} processor agreement(s) need attention`,
+      description:
+        `${parts.join(", ")}. Earliest is ${first.supplier}` +
+        (first.dpa.expiresAt
+          ? `, ending ${first.dpa.expiresAt.toISOString().slice(0, 10)}.`
+          : ", which has no signature recorded.") +
+        " Processing under a lapsed agreement is processing without a contract.",
+      subjectType: "dpa",
+      subjectId: first.dpa.id,
+      assigneeRole: "privacy_admin",
+      idempotencyKey: `dpa-review:${period}`,
+      actor: SYSTEM,
+    });
+    if (task) raised = due.length;
+  });
+  return raised;
+}
+
 export async function sweepOrganisation(organisationId: string): Promise<SweepResult> {
   const [org] = await db.select().from(organisations).where(eq(organisations.id, organisationId));
   const result: SweepResult = {
@@ -303,6 +366,7 @@ export async function sweepOrganisation(organisationId: string): Promise<SweepRe
     mitigationRemindersRaised: await remindOverdueMitigations(organisationId),
     breachesRecorded: await recordBreaches(organisationId),
     countryReviewsRaised: await raiseCountryReviews(organisationId),
+    dpaReviewsRaised: await raiseDpaReviews(organisationId),
     webhooksDelivered: 0,
     webhooksFailed: 0,
   };

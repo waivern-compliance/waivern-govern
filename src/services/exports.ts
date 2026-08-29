@@ -18,6 +18,10 @@ import { toCsv } from "@/lib/csv";
 import { libraryFor } from "./countries";
 import { gapsFor } from "./ai-register";
 import { GAP_WORDS, listActivities } from "./ropa";
+import {
+  GAP_WORDS as SUPPLIER_GAP_WORDS,
+  listSuppliers,
+} from "./third-party";
 import type { Actor } from "./templates";
 
 /**
@@ -39,6 +43,7 @@ export type Dataset =
   | "assessments"
   | "ai-register"
   | "ropa"
+  | "third-parties"
   | "countries"
   | "audit";
 
@@ -47,6 +52,7 @@ export const DATASET_LABEL: Record<Dataset, string> = {
   assessments: "Assessments",
   "ai-register": "AI register",
   ropa: "Processing register (Article 30)",
+  "third-parties": "Third parties (Article 28)",
   countries: "Country library",
   audit: "Audit log",
 };
@@ -365,6 +371,42 @@ export async function exportRopa(organisationId: string, entityIds: string[] | n
       gaps.map((g) => GAP_WORDS[g]).join("; ") || "nothing",
       hardGaps.length > 0 ? "yes" : "no",
       activity.updatedAt,
+    ]),
+  };
+}
+
+/**
+ * Third parties with the state of their Article 28 cover.
+ *
+ * The agreement columns describe the one in force, since that is what a
+ * question about cover is actually asking. Superseded agreements stay in the
+ * register and are reachable on the record.
+ */
+export async function exportThirdParties(organisationId: string) {
+  const rows = await listSuppliers(organisationId);
+
+  return {
+    columns: [
+      "Third party", "Categories", "Description", "Owner", "Source",
+      "Confirmed by a person", "Agreement", "Document reference",
+      "Signed", "Expires", "Transfer mechanism", "Sub-processors",
+      "Outstanding", "Not under contract",
+    ],
+    rows: rows.map(({ supplier, current, ownerEmail, gaps, hardGaps }) => [
+      supplier.name,
+      (supplier.categories ?? []).join("; "),
+      supplier.description,
+      ownerEmail,
+      supplier.sourceConnectionId ? "connected tool" : "person",
+      supplier.reviewedAt,
+      current?.title ?? null,
+      current?.documentRef ?? null,
+      current?.signedAt ?? null,
+      current?.expiresAt ?? null,
+      current?.transferMechanism ?? null,
+      (current?.subProcessors ?? []).join("; "),
+      gaps.map((g) => SUPPLIER_GAP_WORDS[g]).join("; ") || "nothing",
+      hardGaps.length > 0 ? "yes" : "no",
     ]),
   };
 }
