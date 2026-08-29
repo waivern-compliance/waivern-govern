@@ -64,6 +64,12 @@ export const NAV: NavItem[] = [
     capability: "record.read",
   },
   {
+    href: "/app/exports",
+    label: "Exports",
+    hint: "spreadsheets of anything you can see",
+    capability: "record.read",
+  },
+  {
     href: "/app/templates",
     label: "Assessment templates",
     hint: "DPIA, transfer risk and impact, AI risk, screening",
