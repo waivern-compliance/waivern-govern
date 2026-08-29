@@ -58,6 +58,12 @@ export const NAV: NavItem[] = [
     capability: "record.read",
   },
   {
+    href: "/app/countries",
+    label: "Country library",
+    hint: "adequacy, transfer risk, and when it was last checked",
+    capability: "record.read",
+  },
+  {
     href: "/app/templates",
     label: "Assessment templates",
     hint: "DPIA, transfer risk and impact, AI risk, screening",

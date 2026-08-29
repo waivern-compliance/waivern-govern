@@ -192,6 +192,25 @@ audit trail keeps both, side by side, as separate facts. A scanner deciding what
 constitutes a governance risk would be automation making the classification,
 which is the one thing this platform must not do.
 
+**The country library treats staleness as a fact, not a hope.** Transfer
+assessments read adequacy and transfer risk from it, so an entry nobody has
+checked weakens every assessment citing it — quietly, because the assessment
+still reads as evidenced. Every entry records who checked it and when, an
+unchecked one says so on its face, and the scheduler turns a library falling out
+of date into somebody's work.
+
+Adequacy is not a boolean. The United States is adequate only for recipients
+certified under the Data Privacy Framework or the UK Extension, and Canada only
+for PIPEDA-regulated commercial activity; a yes/no field records both as "yes"
+and excuses an assessment nobody did. Conditional adequacy therefore counts as
+needing an Article 46 route, because the condition is about the recipient and
+the platform cannot know it holds.
+
+The shipped library arrives **explicitly unverified and due for review**. It is
+a starting point for a privacy professional to confirm, not an authority, and
+the two risk judgements are left open rather than filled with ratings nobody can
+source.
+
 **The AI register records what exists, not only what was assessed.** A register
 that only holds assessed systems cannot answer the question an AI governance
 lead actually has, which is what is running that nobody has looked at. So a
@@ -233,9 +252,8 @@ can pull from incrementally; and outbound webhooks carrying approvals and risk
 acceptances back to subscribers.
 
 Still to come: the RoPA and third-party risk editing surfaces, the AI workflow
-graph over the link table, the maintained country risk library, exportable
-reports and audit logs, internal collaboration, and trend reporting over
-accumulated history.
+graph over the link table, exportable reports and audit logs, internal
+collaboration, and trend reporting over accumulated history.
 
 `pnpm seed:demo` loads a plausible portfolio — fourteen assessments at every
 stage, nine risks treated to varying degrees, some work already late — because a

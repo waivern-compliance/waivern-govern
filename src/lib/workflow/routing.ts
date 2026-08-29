@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { COUNTRIES, SPECIAL_CATEGORY_VALUES } from "@/lib/templates/catalogues";
+import { SPECIAL_CATEGORY_VALUES } from "@/lib/templates/catalogues";
 import type { Answers } from "@/lib/templates/logic";
 import type { RiskTier } from "@/lib/risk/scale";
 
@@ -48,12 +48,21 @@ export const routingCondition: z.ZodType<RoutingCondition> = z.lazy(() =>
 );
 
 const TIER_ORDER: Record<RiskTier, number> = { low: 0, medium: 1, high: 2, critical: 3 };
-const NON_ADEQUATE = new Set<string>(COUNTRIES.filter((c) => !c.adequate).map((c) => c.value));
 
 export type RoutingContext = {
   answers: Answers;
   score: number | null;
   tier: RiskTier | null;
+  /**
+   * Destination codes that need an Article 46 route, from the country library.
+   *
+   * Passed in rather than looked up, so this stays a pure function that can be
+   * reasoned about and tested without a database. It used to be a hard-coded
+   * set, which meant an adequacy decision changing had no effect on routing
+   * until somebody edited the source — precisely the staleness the country
+   * library exists to prevent.
+   */
+  needsSafeguards?: ReadonlySet<string>;
 };
 
 function valuesOf(answers: Answers): string[] {
@@ -89,8 +98,15 @@ export function matches(condition: RoutingCondition, ctx: RoutingContext): boole
     case "specialCategoryData":
       return valuesOf(ctx.answers).some((v) => SPECIAL_CATEGORY_VALUES.has(v));
 
-    case "transferToNonAdequate":
-      return valuesOf(ctx.answers).some((v) => NON_ADEQUATE.has(v));
+    case "transferToNonAdequate": {
+      // An absent or empty library means the question cannot be answered, and
+      // an empty set is the dangerous case: `has()` returns false for every
+      // country, so a transfer to anywhere would sail past the gate meant to
+      // catch it. Since no real library has zero countries needing safeguards,
+      // empty means "not loaded" — and an unanswerable check escalates.
+      if (!ctx.needsSafeguards || ctx.needsSafeguards.size === 0) return true;
+      return valuesOf(ctx.answers).some((v) => ctx.needsSafeguards!.has(v));
+    }
 
     case "and":
       return condition.all.every((c) => matches(c, ctx));

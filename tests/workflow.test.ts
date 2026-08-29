@@ -18,6 +18,7 @@ import { SYSTEM_TEMPLATES } from "@/lib/templates/library";
 import { DEFAULT_SLA, DEFAULT_WORKFLOWS } from "@/lib/workflow/defaults";
 import { matches, type RoutingContext } from "@/lib/workflow/routing";
 import { createAssessment, saveAnswers } from "@/services/assessments";
+import { seedSharedLibrary } from "@/services/countries";
 import { createRisk, setResidual } from "@/services/risks";
 import { sweepOrganisation } from "@/services/sweep";
 import { createTemplate, publishVersion } from "@/services/templates";
@@ -35,6 +36,10 @@ const SYSTEM = { actorKind: "system" as const, actorUserId: null, actorLabel: "t
 const DAY = 24 * 60 * 60 * 1000;
 
 async function world(label: string) {
+  // Shared across organisations, so seeding once is enough — but routing now
+  // depends on it, and an absent library escalates everything.
+  await seedSharedLibrary();
+
   const [org] = await db
     .insert(organisations)
     .values({ name: `W ${label}`, slug: `wf-${label}-${crypto.randomUUID().slice(0, 8)}` })
@@ -132,10 +137,15 @@ after(async () => {
 });
 
 describe("routing conditions", () => {
+  // A stand-in library. The real one is loaded per submission; these checks are
+  // about the predicate, not about where the set came from.
+  const NEEDS_SAFEGUARDS = new Set(["US", "IN", "SG", "AU", "BR", "CN"]);
+
   const ctx = (over: Partial<RoutingContext>): RoutingContext => ({
     answers: {},
     score: null,
     tier: null,
+    needsSafeguards: NEEDS_SAFEGUARDS,
     ...over,
   });
 
@@ -163,6 +173,18 @@ describe("routing conditions", () => {
     const c = { op: "transferToNonAdequate" as const };
     assert.equal(matches(c, ctx({ answers: { transfer_destinations: ["IE", "FR"] } })), false);
     assert.equal(matches(c, ctx({ answers: { transfer_destinations: ["IE", "US"] } })), true);
+  });
+
+  it("escalates rather than waving through when the library is missing", () => {
+    // The dangerous shape: an empty set answers "no" for every country, so a
+    // transfer anywhere would pass the gate meant to catch it.
+    const c = { op: "transferToNonAdequate" as const };
+    const destinations = { transfer_destinations: ["IE", "FR"] };
+    assert.equal(matches(c, { answers: destinations, score: null, tier: null }), true);
+    assert.equal(
+      matches(c, { answers: destinations, score: null, tier: null, needsSafeguards: new Set() }),
+      true,
+    );
   });
 });
 

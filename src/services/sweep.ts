@@ -1,6 +1,7 @@
 import { and, eq, inArray, isNull, lte, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
+  entities,
   mitigations,
   notifications,
   organisations,
@@ -13,6 +14,7 @@ import {
 import { appendAuditEvent } from "@/lib/audit";
 import { queueNotification, raiseTask } from "./workflow";
 import { deliverPending } from "./webhooks";
+import { countriesDueForReview } from "./countries";
 
 /**
  * Everything that happens because time passed.
@@ -41,6 +43,7 @@ export type SweepResult = {
   acceptanceReviewsRaised: number;
   mitigationRemindersRaised: number;
   breachesRecorded: number;
+  countryReviewsRaised: number;
   webhooksDelivered: number;
   webhooksFailed: number;
 };
@@ -236,6 +239,61 @@ async function recordBreaches(organisationId: string): Promise<number> {
   return count;
 }
 
+/**
+ * Turn a country library falling out of date into somebody's work.
+ *
+ * One task for the library, not one per country. Sixty-six identical reminders
+ * is not sixty-six times as useful as one — it buries every other task a person
+ * has, and the rational response is to stop reading the list. The task names
+ * the count and the worst of it; the library page is where the work happens.
+ *
+ * This is what "kept up to date" means in practice. Transfer assessments cite
+ * this library, so an entry nobody has checked weakens every assessment relying
+ * on it — quietly, because the assessment still reads as evidenced.
+ */
+async function raiseCountryReviews(organisationId: string): Promise<number> {
+  const due = (await countriesDueForReview()).filter(
+    // A shared row is due for everybody; an override is due only for its owner.
+    (c) => c.organisationId === null || c.organisationId === organisationId,
+  );
+  if (due.length === 0) return 0;
+
+  const [entity] = await db
+    .select()
+    .from(entities)
+    .where(and(eq(entities.organisationId, organisationId), eq(entities.isDefault, true)));
+  if (!entity) return 0;
+
+  const unverified = due.filter((c) => c.reviewedBy === "seed — not verified").length;
+  const oldest = due[0];
+
+  // Keyed on the month, so a neglected library nags once a month rather than
+  // once an hour, and a fresh lapse next month raises a fresh task.
+  const period = new Date().toISOString().slice(0, 7);
+
+  let raised = 0;
+  await db.transaction(async (tx) => {
+    const task = await raiseTask(tx, {
+      organisationId,
+      entityId: entity.id,
+      type: "review_assessment",
+      title: `${due.length} countries need their transfer information checked`,
+      description:
+        (unverified > 0
+          ? `${unverified} have never been checked by a person. `
+          : `Oldest is ${oldest.name}, last checked ${oldest.reviewedAt.toISOString().slice(0, 10)}. `) +
+        "Transfer assessments cite this library.",
+      subjectType: "country_risk",
+      subjectId: oldest.id,
+      assigneeRole: "privacy_admin",
+      idempotencyKey: `country-library-review:${period}`,
+      actor: SYSTEM,
+    });
+    if (task) raised = due.length;
+  });
+  return raised;
+}
+
 export async function sweepOrganisation(organisationId: string): Promise<SweepResult> {
   const [org] = await db.select().from(organisations).where(eq(organisations.id, organisationId));
   const result: SweepResult = {
@@ -244,6 +302,7 @@ export async function sweepOrganisation(organisationId: string): Promise<SweepRe
     acceptanceReviewsRaised: await reviewLapsedAcceptances(organisationId),
     mitigationRemindersRaised: await remindOverdueMitigations(organisationId),
     breachesRecorded: await recordBreaches(organisationId),
+    countryReviewsRaised: await raiseCountryReviews(organisationId),
     webhooksDelivered: 0,
     webhooksFailed: 0,
   };

@@ -291,3 +291,30 @@ export const aiLifecycleStage = pgEnum("ai_lifecycle_stage", [
   "retiring",
   "retired",
 ]);
+
+/**
+ * Whether a destination is covered by adequacy, and how completely.
+ *
+ * Not a boolean, because the most consequential cases are not. The United
+ * States is adequate only for organisations certified under the Data Privacy
+ * Framework or the UK Extension — a transfer to an uncertified recipient there
+ * needs a full Article 46 route. A yes/no field records that as "yes" and
+ * quietly excuses an assessment nobody did.
+ */
+export const adequacyStatus = pgEnum("adequacy_status", [
+  "adequate",
+  /** Covered only where a condition holds — certification, a sector, a scheme. */
+  "partial",
+  "not_adequate",
+  /** Adequacy exists but is under legal challenge or formal review. */
+  "under_review",
+]);
+
+/** How a destination scores on one dimension of transfer risk. */
+export const transferRiskLevel = pgEnum("transfer_risk_level", [
+  "low",
+  "moderate",
+  "high",
+  /** Nobody has established this. Distinct from low, and treated as worse. */
+  "unknown",
+]);

@@ -16,6 +16,7 @@ import { appendAuditEvent } from "@/lib/audit";
 import type { RiskTier } from "@/lib/risk/scale";
 import { describe, matches, type RoutingContext } from "@/lib/workflow/routing";
 import { loadAssessment, submitAssessment } from "./assessments";
+import { needingSafeguards } from "./countries";
 import { queueEvent } from "./webhooks";
 import type { Actor } from "./templates";
 
@@ -184,6 +185,9 @@ export async function openApprovals(input: {
     answers: loaded.answers,
     score: loaded.assessment.scoreValue,
     tier: loaded.assessment.scoreTier as RiskTier | null,
+    // Loaded per submission rather than baked in, so an adequacy decision
+    // changing takes effect on the next assessment rather than the next deploy.
+    needsSafeguards: await needingSafeguards(input.organisationId, "uk"),
   };
 
   return db.transaction(async (tx) => {

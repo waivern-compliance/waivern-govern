@@ -23,6 +23,7 @@ async function main() {
       r.acceptanceReviewsRaised +
       r.mitigationRemindersRaised +
       r.breachesRecorded +
+      r.countryReviewsRaised +
       r.webhooksDelivered +
       r.webhooksFailed;
 
@@ -39,6 +40,7 @@ async function main() {
           r.acceptanceReviewsRaised && `${r.acceptanceReviewsRaised} lapsed acceptance(s) flagged`,
           r.mitigationRemindersRaised && `${r.mitigationRemindersRaised} overdue mitigation(s) chased`,
           r.breachesRecorded && `${r.breachesRecorded} service-level breach(es) recorded`,
+          r.countryReviewsRaised && `${r.countryReviewsRaised} country review(s) raised`,
           r.webhooksDelivered && `${r.webhooksDelivered} webhook(s) delivered`,
           r.webhooksFailed && `${r.webhooksFailed} webhook(s) failed`,
         ]
