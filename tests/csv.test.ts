@@ -107,9 +107,12 @@ describe("a connection string that was never filled in", () => {
 
   it("leaves a real connection string alone", () => {
     assert.ok(!PLACEHOLDER.test("postgresql://govern:govern@localhost:55432/govern"));
+    // A fabricated credential shaped like a real one. Never a live password —
+    // a test fixture is committed, and a credential in git history can only be
+    // remedied by rotating it.
     assert.ok(
       !PLACEHOLDER.test(
-        "postgresql://postgres:AMdWYHKIXzRaNWSSgxySaeijheCXebRw@kodama.proxy.rlwy.net:46227/railway",
+        "postgresql://postgres:kP3vQ9rTnW2xLzB8mYcF4hJ6@example.proxy.rlwy.net:12345/railway",
       ),
     );
   });
