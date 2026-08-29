@@ -300,6 +300,18 @@ DATABASE_URL='<DATABASE_PUBLIC_URL>' pnpm provision
 
 Secrets print once and cannot be read back.
 
+**Reference data is not schema.** `pnpm db:migrate` creates tables; it does not
+fill them. The shared country library is the one that matters: until it is
+loaded, transfer routing has nothing to answer with and escalates every
+transfer — safe, but wrong.
+
+```bash
+DATABASE_URL='<DATABASE_PUBLIC_URL>' pnpm seed:countries
+```
+
+Idempotent, so it is safe to run whenever you are unsure. `pnpm seed` on a fresh
+deployment loads it too.
+
 **Later schema changes.** Run `pnpm db:migrate` against the public string before
 deploying the code that depends on it. Migrations are not part of the build, so
 nothing does this for you — and the failure, if you forget, is a deployment that

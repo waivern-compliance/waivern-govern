@@ -25,7 +25,8 @@
     "provision": "tsx --env-file=.env.local scripts/provision-connections.ts",
     "grant": "tsx --env-file=.env.local scripts/grant-access.ts",
     "sweep": "tsx --env-file=.env.local scripts/sweep.ts",
-    "sweep:prod": "tsx scripts/sweep.ts"
+    "sweep:prod": "tsx scripts/sweep.ts",
+    "seed:countries": "tsx --env-file=.env.local scripts/seed-countries.ts"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.2",

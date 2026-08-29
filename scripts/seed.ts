@@ -13,6 +13,7 @@ import { LEGAL_REFERENCES, SYSTEM_TEMPLATES } from "@/lib/templates/library";
 import type { AppRole } from "@/lib/rbac";
 import { legalReferences } from "@/db/schema";
 import { createTemplate, publishVersion } from "@/services/templates";
+import { seedSharedLibrary } from "@/services/countries";
 import { DEFAULT_SLA, DEFAULT_WORKFLOWS } from "@/lib/workflow/defaults";
 import { slaPolicies, workflowDefinitions, workflowStages } from "@/db/schema";
 
@@ -182,6 +183,14 @@ async function main() {
       });
   }
   console.log(`Seeded ${LEGAL_REFERENCES.length} legal references.`);
+
+  // Shared across every organisation, and needed before transfer routing can
+  // answer anything — an empty library escalates every transfer.
+  const countries = await seedSharedLibrary();
+  console.log(
+    `Country library: ${countries.created} of ${countries.total} entries added ` +
+      `(all unverified and due for review, deliberately).`,
+  );
 
   // Templates are created and published through the same service the UI uses,
   // so the seed exercises publish-time validation rather than writing rows that
