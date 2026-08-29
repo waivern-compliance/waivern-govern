@@ -1,42 +1,47 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
 import { signOut } from "@/auth";
-import { db } from "@/db/client";
-import { entities } from "@/db/schema";
-import { verifyAuditChain } from "@/lib/audit";
-import { navFor } from "@/lib/nav";
-import { can, capabilitiesFor } from "@/lib/rbac";
+import {
+  AiHome,
+  EngineeringHome,
+  PrivacyHome,
+  ProductHome,
+  QuickLinks,
+} from "@/components/home/homes";
+import { PersonaSwitcher } from "@/components/home/PersonaSwitcher";
+import { PERSONA_LABEL } from "@/lib/persona";
 import { getActiveSession } from "@/lib/session";
 
-export default async function AppHome() {
+/**
+ * One home, four arrangements.
+ *
+ * Which one somebody lands on is decided by their persona, which changes what
+ * is shown first and in whose words — never what they may reach. Every link
+ * here comes from a capability check, and every page behind one checks again.
+ */
+export default async function Home() {
   const active = await getActiveSession();
   if (!active) redirect("/sign-in");
 
-  const { membership } = active;
-  const orgEntities = await db
-    .select()
-    .from(entities)
-    .where(eq(entities.organisationId, membership.organisationId));
-  // Only for someone who may see it — verifying a chain is not free, and the
-  // panel is hidden for everybody else anyway.
-  const chain = can(membership.grants, "audit.read")
-    ? await verifyAuditChain(membership.organisationId)
-    : null;
-
-  const entityName = (id: string) =>
-    orgEntities.find((e) => e.id === id)?.name ?? id;
+  const { persona } = active;
+  // No first name here. The name field holds whatever an administrator typed —
+  // often a job title — and "Here is what needs you, Engineering" is worse than
+  // no greeting at all. Their name is already in the heading above.
+  const greeting =
+    persona === "product" || persona === "engineering"
+      ? "Here is what needs you."
+      : PERSONA_LABEL[persona];
 
   return (
-    <main className="mx-auto max-w-3xl space-y-10 px-6 py-12">
-      <header className="flex items-start justify-between gap-4 border-b border-line pb-6">
+    <main className="mx-auto max-w-4xl space-y-10 px-6 py-12">
+      <header className="flex flex-wrap items-start justify-between gap-4 border-b border-line pb-6">
         <div>
           <p className="text-xs font-medium uppercase tracking-wider text-ink-soft">
-            {membership.organisationName}
+            {active.membership.organisationName}
           </p>
           <h1 className="text-2xl font-semibold tracking-tight">
             {active.name ?? active.email}
           </h1>
+          <p className="mt-0.5 text-sm text-ink-soft">{greeting}</p>
         </div>
         <form
           action={async () => {
@@ -53,90 +58,16 @@ export default async function AppHome() {
         </form>
       </header>
 
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-soft">
-          Legal entities
-        </h2>
-        <ul className="divide-y divide-line rounded border border-line bg-surface">
-          {orgEntities.map((e) => (
-            <li key={e.id} className="flex items-baseline justify-between px-4 py-3">
-              <span className="font-medium">{e.name}</span>
-              <span className="font-mono text-xs text-ink-soft">
-                {e.legalEntityRef}
-                {e.isDefault ? " · default" : ""}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </section>
+      {persona === "privacy_governance" ? <PrivacyHome active={active} /> : null}
+      {persona === "ai_governance" ? <AiHome active={active} /> : null}
+      {persona === "engineering" ? <EngineeringHome active={active} /> : null}
+      {persona === "product" ? <ProductHome active={active} /> : null}
 
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-soft">
-          What you may do
-        </h2>
-        <ul className="space-y-3">
-          {membership.grants.map((g, i) => (
-            <li key={i} className="rounded border border-line bg-surface px-4 py-3">
-              <p className="text-sm font-medium">
-                {g.role.replace(/_/g, " ")}
-                <span className="ml-2 font-normal text-ink-soft">
-                  {g.scope === "entity"
-                    ? `on ${entityName(g.entityId)}`
-                    : "across the organisation"}
-                </span>
-              </p>
-              <p className="mt-1.5 font-mono text-xs leading-relaxed text-ink-soft">
-                {capabilitiesFor(g.role).join("  ")}
-              </p>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-soft">
-          Work
-        </h2>
-        <ul className="space-y-2">
-          {navFor(membership.grants).map((item) => (
-            <li key={item.href}>
-              <Link
-                href={item.href}
-                className="block rounded border border-line bg-surface px-4 py-3 text-sm hover:border-brand focus-visible:outline-2 focus-visible:outline-brand"
-              >
-                {item.label}
-                <span className="ml-2 text-ink-soft">{item.hint}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      {can(membership.grants, "audit.read") ? (
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-soft">
-          Audit chain
-        </h2>
-        <div className="rounded border border-line bg-surface px-4 py-3 text-sm">
-          {chain?.ok ? (
-            <p>
-              <span className="font-medium text-emerald-700">Intact</span>
-              <span className="text-ink-soft">
-                {" "}
-                — {chain!.events} events verified, head{" "}
-                <span className="font-mono text-xs">{chain!.headHash.slice(0, 16)}…</span>
-              </span>
-            </p>
-          ) : (
-            <p className="text-red-800">
-              <span className="font-medium">Broken</span> — {chain!.reason} at
-              sequence {chain!.failedAtSeq}. Every event after this point is
-              unverifiable.
-            </p>
-          )}
-        </div>
-      </section>
+      {persona === "engineering" || persona === "product" ? (
+        <QuickLinks active={active} />
       ) : null}
+
+      <PersonaSwitcher current={persona} />
     </main>
   );
 }

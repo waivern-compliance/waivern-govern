@@ -184,6 +184,15 @@ audit trail keeps both, side by side, as separate facts. A scanner deciding what
 constitutes a governance risk would be automation making the classification,
 which is the one thing this platform must not do.
 
+**Four ways in, one set of permissions.** A membership carries a persona
+alongside its roles: privacy governance, AI governance, engineering or product.
+It decides what the home screen leads with and in whose words — a product
+manager sees "With the privacy team" where a DPO sees "in review" — and it
+decides nothing else. Roles answer what somebody may decide; personas answer how
+they work, and the two are orthogonal: a privacy analyst and an AI lead hold
+identical capabilities yet need different homes. Tests assert that no
+authorisation path and no service ever reads a persona.
+
 ## Status
 
 The five-phase spine is complete: tenancy and entity scoping, role-based

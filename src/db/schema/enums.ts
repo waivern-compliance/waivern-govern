@@ -240,3 +240,22 @@ export const deliveryStatus = pgEnum("delivery_status", [
   "failed",
   "abandoned",
 ]);
+
+/**
+ * How somebody works, which is not the same question as what they may decide.
+ *
+ * Roles answer "what may this person decide?" and gate access. Personas answer
+ * "how does this person work?" and change nothing but presentation — what the
+ * home screen leads with, and in whose words. They are orthogonal: a privacy
+ * analyst and an AI governance lead hold identical capabilities yet need
+ * completely different homes, and an engineering lead and a product manager may
+ * both hold nothing but `contributor`.
+ *
+ * Nothing in an authorisation decision may ever read this.
+ */
+export const persona = pgEnum("persona", [
+  "privacy_governance",
+  "ai_governance",
+  "engineering",
+  "product",
+]);

@@ -1,5 +1,6 @@
 import { auth, loadMemberships, type SessionMembership } from "@/auth";
 import { can, scopedEntityIds, type Capability } from "./rbac";
+import { resolvePersona, type Persona } from "./persona";
 
 export class NotAuthenticated extends Error {
   constructor() {
@@ -22,6 +23,11 @@ export type ActiveSession = {
   email: string;
   name: string | null;
   membership: SessionMembership;
+  /**
+   * How to present the platform to this person. Presentation only — every
+   * authorisation decision goes through `can`, which never sees this.
+   */
+  persona: Persona;
 };
 
 /**
@@ -52,6 +58,7 @@ export async function getActiveSession(
     email: session.user.email ?? "",
     name: session.user.name ?? null,
     membership,
+    persona: resolvePersona(membership.persona, membership.grants),
   };
 }
 

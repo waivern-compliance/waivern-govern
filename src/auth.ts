@@ -6,6 +6,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { memberships, roleAssignments, users } from "@/db/schema";
 import type { Grant } from "@/lib/rbac";
+import type { Persona } from "@/lib/persona";
 
 /**
  * Only providers with credentials configured are offered, so a deployment can
@@ -65,6 +66,8 @@ export type SessionMembership = {
   organisationId: string;
   organisationName: string;
   grants: Grant[];
+  /** As stated on the membership. Null means nobody has chosen one yet. */
+  persona: Persona | null;
 };
 
 /**
@@ -94,22 +97,16 @@ async function loadIdentity(email: string, ssoSubject: string, name?: string | n
     .set({ ssoSubject, lastSeenAt: new Date(), name: existing.name ?? name ?? null })
     .where(eq(users.id, existing.id));
 
-  const rows = await db.query.memberships.findMany({
-    where: and(eq(memberships.userId, existing.id), eq(memberships.isActive, true)),
-    with: { organisation: true, roles: true },
-  });
+  // Only whether they belong anywhere. What they may do, and how the platform
+  // should present itself, is resolved per request by `loadMemberships` — this
+  // was duplicating that mapping to answer a yes-or-no question.
+  const [membership] = await db
+    .select({ id: memberships.id })
+    .from(memberships)
+    .where(and(eq(memberships.userId, existing.id), eq(memberships.isActive, true)))
+    .limit(1);
 
-  const orgs: SessionMembership[] = rows.map((m) => ({
-    organisationId: m.organisationId,
-    organisationName: m.organisation.name,
-    grants: m.roles.map((r) =>
-      r.scope === "entity" && r.entityId
-        ? { role: r.role, scope: "entity" as const, entityId: r.entityId }
-        : { role: r.role, scope: "organisation" as const },
-    ),
-  }));
-
-  return orgs.length > 0 ? { userId: existing.id, organisations: orgs } : null;
+  return membership ? { userId: existing.id } : null;
 }
 
 /**
@@ -131,6 +128,7 @@ export async function loadMemberships(userId: string): Promise<SessionMembership
   return rows.map((m) => ({
     organisationId: m.organisationId,
     organisationName: m.organisation.name,
+    persona: m.persona,
     grants: m.roles.map((r) =>
       r.scope === "entity" && r.entityId
         ? { role: r.role, scope: "entity" as const, entityId: r.entityId }

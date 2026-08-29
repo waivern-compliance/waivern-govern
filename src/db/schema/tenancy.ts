@@ -10,7 +10,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import { appRole, recordType, roleScope } from "./enums";
+import { appRole, persona, recordType, roleScope } from "./enums";
 
 /** A client of the platform. One organisation, one governance programme. */
 export const organisations = pgTable("organisation", {
@@ -100,6 +100,13 @@ export const memberships = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     isActive: boolean("is_active").notNull().default(true),
+    /**
+     * How the platform presents itself to this person. Nullable on purpose:
+     * an unset persona is derived from what they can do rather than guessed at
+     * during a migration, and a grant that does not state one should not invent
+     * an answer. Presentation only — never consulted by an access check.
+     */
+    persona: persona("persona"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

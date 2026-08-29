@@ -177,6 +177,15 @@ DATABASE_URL='<DATABASE_PUBLIC_URL>' pnpm grant analyst@example.com privacy_anal
 DATABASE_URL='<DATABASE_PUBLIC_URL>' pnpm grant approver@example.com approver --entity "BBC Studios"
 ```
 
+Add `--persona` to set what their home leads with — one of
+`privacy_governance`, `ai_governance`, `engineering`, `product`. It changes
+presentation only, never access, and they can switch it themselves afterwards.
+Left unset, it is derived from what they can do.
+
+```bash
+DATABASE_URL='<DATABASE_PUBLIC_URL>' pnpm grant lead@example.com contributor --persona engineering
+```
+
 The email must match the identity-provider account exactly. Re-running changes
 nothing, so it is safe to use as a check.
 

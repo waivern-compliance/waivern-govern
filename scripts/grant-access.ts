@@ -10,6 +10,7 @@ import {
 } from "@/db/schema";
 import { appendAuditEvent } from "@/lib/audit";
 import type { AppRole } from "@/lib/rbac";
+import { PERSONAS, type Persona } from "@/lib/persona";
 
 /**
  * Give a real person access.
@@ -39,6 +40,8 @@ function usage(message?: string): never {
   --org <slug>       which organisation, if there is more than one
   --entity "<name>"  confine the role to one legal entity
   --name "<name>"    the person's display name
+  --persona <p>      how the platform presents itself: ${PERSONAS.join(", ")}
+                     changes nothing about access; they can switch it later
 
 Examples:
   pnpm grant vincent.nunan@waivern.com
@@ -66,6 +69,11 @@ async function main() {
   const orgSlug = flag(argv, "org");
   const entityName = flag(argv, "entity");
   const displayName = flag(argv, "name");
+
+  const personaFlag = flag(argv, "persona") as Persona | undefined;
+  if (personaFlag && !PERSONAS.includes(personaFlag)) {
+    usage(`"${personaFlag}" is not a persona. Choose one of: ${PERSONAS.join(", ")}`);
+  }
 
   const allOrgs = await db.select().from(organisations);
   if (allOrgs.length === 0) usage("There are no organisations yet. Run `pnpm seed` first.");
@@ -138,10 +146,13 @@ async function main() {
 
     // Reactivate rather than refuse: revoking and restoring access is a normal
     // thing to do, and it should not need a database console.
-    if (!membership.isActive) {
+    if (!membership.isActive || (personaFlag && membership.persona !== personaFlag)) {
       await tx
         .update(memberships)
-        .set({ isActive: true })
+        .set({
+          isActive: true,
+          ...(personaFlag ? { persona: personaFlag } : {}),
+        })
         .where(eq(memberships.id, membership.id));
     }
 
@@ -169,6 +180,7 @@ async function main() {
     }
 
     const scope = entityName ? `on ${entityName}` : "across the organisation";
+    if (personaFlag) console.log(`Home view set to ${personaFlag}.`);
     console.log(
       granted
         ? `Granted ${role} ${scope} to ${email} in ${org.name}.`
