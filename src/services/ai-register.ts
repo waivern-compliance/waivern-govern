@@ -50,7 +50,7 @@ export const STAGE_LABEL: Record<LifecycleStage, string> = {
 };
 
 /** Stages where the system is actually touching people. */
-const LIVE_STAGES: LifecycleStage[] = ["pilot", "production"];
+export const LIVE_STAGES: LifecycleStage[] = ["pilot", "production"];
 
 /**
  * The question keys this reads out of an approved AI risk assessment.

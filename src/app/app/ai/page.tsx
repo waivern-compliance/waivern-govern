@@ -44,7 +44,12 @@ export default async function AiRegisterPage() {
         <Link href="/app" className="text-xs text-ink-soft hover:text-brand">
           ← {active.membership.organisationName}
         </Link>
-        <h1 className="text-2xl font-semibold tracking-tight">AI register</h1>
+        <div className="flex flex-wrap items-baseline justify-between gap-x-4">
+          <h1 className="text-2xl font-semibold tracking-tight">AI register</h1>
+          <Link href="/app/ai/graph" className="text-xs text-ink-soft hover:text-brand">
+            See the assurance chain →
+          </Link>
+        </div>
         <p className="max-w-prose text-sm text-ink-soft">
           Every AI system the organisation is accountable for — including the
           ones nobody has assessed yet. A register that only holds assessed

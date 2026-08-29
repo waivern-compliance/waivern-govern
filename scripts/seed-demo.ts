@@ -8,8 +8,15 @@ import {
   templates,
   users,
 } from "@/db/schema";
+import { createUseCase } from "@/services/ai-register";
 import { createAssessment, saveAnswers } from "@/services/assessments";
-import { acceptRisk, addMitigation, createRisk, setResidual } from "@/services/risks";
+import {
+  acceptRisk,
+  addMitigation,
+  createRisk,
+  setResidual,
+  updateMitigation,
+} from "@/services/risks";
 import { decideApproval, submitForApproval } from "@/services/workflow";
 
 /**
@@ -250,6 +257,52 @@ const RISKS: Array<{
   },
 ];
 
+
+/**
+ * AI systems with the chain behind them, in three states.
+ *
+ * The assurance chain view is about where a chain stops, so the demonstration
+ * portfolio has to contain a chain that does not — otherwise the screen only
+ * ever shows failure and nobody can tell a working system from a broken one.
+ */
+const AI_CHAINS = [
+  {
+    name: "Subtitle generation",
+    purpose: "Generates draft subtitles for archive programmes, reviewed before publication.",
+    systemType: "generative" as const,
+    provenance: "third_party_api" as const,
+    stage: "production" as const,
+    // Assessed, approved, risks raised and treated: the chain holds.
+    assess: true,
+    risks: [
+      { title: "Mis-transcription of names", l: 3, i: 2, residual: [2, 2], treat: "mitigate" as const },
+      { title: "Training data provenance unclear", l: 2, i: 3, residual: [2, 3], treat: "accept" as const },
+    ],
+  },
+  {
+    name: "Audience recommendation ranking",
+    purpose: "Orders programme suggestions on the homepage from viewing history.",
+    systemType: "predictive" as const,
+    provenance: "built_in_house" as const,
+    stage: "production" as const,
+    // Assessed and approved, but the severe risk was never treated.
+    assess: true,
+    risks: [
+      { title: "Reinforces narrow viewing", l: 4, i: 4, residual: [4, 4], treat: "none" as const },
+    ],
+  },
+  {
+    name: "Applicant CV screening",
+    purpose: "Ranks applications for shortlisting by recruiters.",
+    systemType: "predictive" as const,
+    provenance: "third_party_api" as const,
+    stage: "pilot" as const,
+    // Running in pilot with nothing assessing it at all.
+    assess: false,
+    risks: [],
+  },
+];
+
 async function main() {
   const [org] = await db.select().from(organisations).where(eq(organisations.slug, "bbc-group"));
   if (!org) throw new Error("Run `pnpm seed` first.");
@@ -438,11 +491,106 @@ async function main() {
   `);
   console.log("Backdated 3 open tasks so the service-level view is exercised.");
 
+  // AI systems, and the chain behind each.
+  const aiTemplateVersion =
+    versionByKind.get("ai_risk") ?? versionByKind.values().next().value;
+  const aiEntityId = entityByName.values().next().value as string;
+  let chainCount = 0;
+
+  for (const spec of AI_CHAINS) {
+    const useCase = await createUseCase({
+      organisationId: org.id,
+      entityId: aiEntityId,
+      name: spec.name,
+      purpose: spec.purpose,
+      systemType: spec.systemType,
+      provenance: spec.provenance,
+      lifecycleStage: spec.stage,
+      ownerId: aiLead.id,
+      processesPersonalData: true,
+      actor: actorOf(aiLead),
+    });
+    chainCount += 1;
+
+    if (!spec.assess || !aiTemplateVersion) continue;
+
+    const assessment = await createAssessment({
+      organisationId: org.id,
+      entityId: aiEntityId,
+      templateVersionId: aiTemplateVersion,
+      title: `AI risk assessment — ${spec.name}`,
+      subjectType: "ai_use_case",
+      subjectId: useCase.id,
+      ownerId: analyst.id,
+      actor: SYSTEM,
+    });
+
+    // Approve it outright: the point of these three is the shape of the chain,
+    // not another walk through the gates, which SPECS already demonstrates.
+    await db
+      .update(assessments)
+      .set({ status: "approved" })
+      .where(eq(assessments.id, assessment.id));
+
+    for (const r of spec.risks) {
+      const risk = await createRisk({
+        organisationId: org.id,
+        entityId: aiEntityId,
+        title: r.title,
+        description: `Raised by the AI risk assessment of ${spec.name}.`,
+        likelihood: r.l,
+        impact: r.i,
+        ownerId: aiLead.id,
+        assessmentId: assessment.id,
+        source: "assessment",
+        actor: actorOf(dpo),
+      });
+
+      await setResidual({
+        riskId: risk.id,
+        organisationId: org.id,
+        likelihood: r.residual[0],
+        impact: r.residual[1],
+        actor: actorOf(dpo),
+      });
+
+      if (r.treat === "mitigate") {
+        const mitigation = await addMitigation({
+          riskId: risk.id,
+          organisationId: org.id,
+          description: "Human review before publication, sampled weekly.",
+          ownerId: analyst.id,
+          dueAt: new Date(Date.now() + 30 * 24 * 3600 * 1000),
+          actor: actorOf(dpo),
+        });
+        // Advanced deliberately. A mitigation that is only planned is not yet
+        // treatment, and this chain exists to show one that holds.
+        await updateMitigation({
+          mitigationId: mitigation.id,
+          organisationId: org.id,
+          status: "in_progress",
+          actor: actorOf(analyst),
+        });
+      } else if (r.treat === "accept") {
+        await acceptRisk({
+          riskId: risk.id,
+          organisationId: org.id,
+          rationale: "Vendor attestation reviewed; residual exposure is tolerable this year.",
+          expiresAt: new Date(Date.now() + 180 * 24 * 3600 * 1000),
+          actor: actorOf(psApprover),
+        });
+      }
+    }
+  }
+  console.log(`Created ${chainCount} AI systems with their assurance chains.`);
+
   await pg.end();
 }
 
 main().catch(async (err) => {
   console.error(err);
+
+
   await pg.end();
   process.exit(1);
 });
