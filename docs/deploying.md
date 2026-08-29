@@ -132,35 +132,51 @@ scheduled job in step 10 does not use it.
 
 ## 6. Migrations
 
-There is nothing to do here. `railway.json` declares a pre-deploy command:
+Set the service's **Settings → Deploy → Custom Start Command** to:
 
-```json
-{ "deploy": { "preDeployCommand": "pnpm db:migrate:deploy" } }
+```
+pnpm db:migrate:deploy && pnpm start
 ```
 
-Railway runs it inside the service — on the private network, with the
-service's own `DATABASE_URL` — after the image is built and **before the new
-version takes traffic**. If it fails, the deploy stops and the previous
-version keeps serving.
+Migrations then run inside the container, on the private network, with the
+service's own `DATABASE_URL`, every time it starts. If one fails the container
+exits non-zero, so the deploy fails and the previous version keeps serving.
 
-This reverses an earlier decision in this document, which held that a
-migration running automatically on every deploy is one that can take the API
-down at three in the morning. Two things changed the balance:
+Leave **Pre-deploy Command** empty. It is the more natural home for this — it
+runs once per deploy rather than once per replica — but on this project it is
+displayed without being executed, which is worse than not setting it: a command
+that looks like it is migrating your database while doing nothing is how a
+schema silently falls behind. If you ever see evidence it does run, move the
+migration there and drop it from the start command.
 
-- A *pre-deploy* command is not a *post-deploy* surprise. It gates the
-  rollout, so the failure mode is a deploy that does not happen rather than a
-  running service that breaks.
-- Forgetting the manual step took this deployment down twice — once on the
-  `persona` column, once on the Article 30 columns. The migration that runs
-  itself is safer than the one that depends on remembering.
+The same caveat applies to `railway.json`. A `deploy.preDeployCommand` there is
+valid against Railway's published schema and was still never executed, so this
+repository does not carry one. Configure the start command in the dashboard.
 
-What that does *not* do is make a destructive migration safe. Read the
-generated SQL before pushing it. A pre-deploy gate stops a migration that
-errors; it cannot stop one that succeeds at dropping a column.
+Because it runs per replica, keep this service at one replica, or move to a
+mechanism that runs once. Two containers starting together would race for the
+same migration.
 
-`pnpm db:migrate:deploy` uses `drizzle-orm`'s migrator rather than
-`drizzle-kit`, which is a development dependency and need not survive into a
-production image. Locally, `pnpm db:migrate` still does the same job.
+This reverses an earlier decision in this document, which held that a migration
+running automatically on every deploy is one that can take the API down at three
+in the morning. Forgetting the manual step took this deployment down twice —
+once on the `persona` column, once on the Article 30 columns — and a migration
+that fails before the process starts cannot take a healthy version down; it
+stops the new one replacing it.
+
+What that does *not* do is make a destructive migration safe. Read the generated
+SQL before pushing it. The gate stops a migration that errors; it cannot stop
+one that succeeds at dropping a column.
+
+`pnpm db:migrate:deploy` uses `drizzle-orm`'s migrator rather than `drizzle-kit`,
+which is a development dependency and need not survive into a production image.
+Locally, `pnpm db:migrate` still does the same job.
+
+**Bootstrapping.** The very first deploy that introduces a migration cannot fix
+itself: the running container is the old image, so `railway ssh` cannot reach the
+new migration, and the new image will not pass its health check until the
+migration is applied. Apply that one from your machine against the public string
+— see the escape hatch below — then redeploy.
 
 ## Running one-off commands
 
@@ -289,11 +305,10 @@ The job is idempotent: running it twice, or retrying after a partial failure,
 converges on the same state. A quiet run logs `nothing due`, which is the normal
 case.
 
-This service deploys from the same repository, so it picks up the same
-`railway.json` and runs the pre-deploy migration too. That is harmless —
-applying migrations is idempotent, and whichever service deploys first does the
-work while the other finds nothing to do. If you would rather it did not, give
-this service its own config file under **Settings → Config as code**.
+Its start command is its own, so it does not run migrations — only the web
+service does (step 6). Leave it that way. Two services migrating on the same
+deploy would race for no benefit, and this one is a job that should do one
+thing.
 
 To check it, trigger the service manually and read the log. You should see
 something like:
