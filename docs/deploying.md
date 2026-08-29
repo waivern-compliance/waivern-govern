@@ -152,9 +152,25 @@ DATABASE_URL='<DATABASE_PUBLIC_URL>' pnpm seed:demo
 `seed:demo` refuses to run twice — a second run would double every assessment
 and quietly wrong every number on the dashboard.
 
-## 8. Redeploy and check it comes up
+## 8. Redeploy, and point the health check at the app
 
-Redeploy the application service so it picks up the variables. Then:
+Redeploy the application service so it picks up the variables.
+
+Then set **Settings → Deploy → Healthcheck Path** to `/api/health`.
+
+Do this rather than leaving it on the port. A Next.js process binds its port and
+reports ready before it has spoken to the database once, so "the container is
+up" and "the application works" are different claims — and the gap between them
+is a deployment that sits green while every page fails. `/api/health` answers the
+second question: it returns 503 when the database is unreachable or when the
+schema is behind the code.
+
+```bash
+curl https://<your-domain>/api/health
+# {"status":"healthy","migrations":14,"expects":"0013_dizzy_wendell_rand"}
+```
+
+Then:
 
 - `https://<your-domain>/sign-in` shows your provider and **no** development
   sign-in box. If the box is there, `ALLOW_DEV_SIGN_IN` leaked into production.
@@ -234,6 +250,13 @@ everything when that variable is unset.
 
 ## Troubleshooting
 
+**Every page fails but the platform says the service is online.**
+
+Check `/api/health` first. `"reason": "behind"` means the code expects
+migrations the database has not had — run `pnpm db:migrate` against the public
+connection string. No redeploy is needed; the code is already right and the
+database was behind it.
+
 **"That account cannot sign in" — or "Sign-in is not working right now."**
 
 Two different faults, and the page distinguishes them. The second means the
@@ -278,4 +301,17 @@ DATABASE_URL='<DATABASE_PUBLIC_URL>' pnpm provision
 Secrets print once and cannot be read back.
 
 **Later schema changes.** Run `pnpm db:migrate` against the public string before
-deploying the code that depends on it.
+deploying the code that depends on it. Migrations are not part of the build, so
+nothing does this for you — and the failure, if you forget, is a deployment that
+reports online while every page that touches the changed table fails.
+
+`/api/health` catches exactly that:
+
+```json
+{ "status": "unhealthy", "reason": "behind",
+  "detail": "The database has 13 of 14 migrations. Run pnpm db:migrate." }
+```
+
+With the healthcheck path set, Railway refuses to cut over to a deployment whose
+schema is behind, so a forgotten migration becomes a failed deploy rather than a
+silent outage.

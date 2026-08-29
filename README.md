@@ -55,6 +55,14 @@ because every build and dev server then sits at near-zero CPU waiting for I/O.
 If you clone fresh and the toolchain feels wedged, check `uptime` before you
 debug the app.
 
+**Being up is not the same as working.** `/api/health` reports whether this
+build can actually serve: whether the database answers, and whether its schema
+matches the migrations this code was compiled against. Point the platform's
+health check at it rather than at the port — a Next.js process binds its port
+and reports ready before it has spoken to the database once, and a forgotten
+migration otherwise produces a deployment that sits green while every page
+fails.
+
 ## Deploying
 
 See [docs/deploying.md](docs/deploying.md) — Railway, three services: the app,
