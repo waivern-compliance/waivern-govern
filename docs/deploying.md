@@ -52,8 +52,15 @@ Railway gives the Postgres service two connection strings:
 | `DATABASE_URL` | `postgres.railway.internal` | Inside this Railway project only |
 | `DATABASE_PUBLIC_URL` | `<name>.proxy.rlwy.net:<port>` | Anywhere |
 
-Both are useful, for different things. The app uses the internal one; your
-laptop has to use the public one.
+The internal one is the default for everything. You should end up pasting
+neither: the application takes `DATABASE_URL` as a *reference* (step 5), and
+one-off commands run inside Railway with `railway ssh` (below), where the
+internal address already works.
+
+`DATABASE_PUBLIC_URL` is the escape hatch — for `psql`, for a GUI client, or
+when the service will not start and you need to look at the database from
+outside. Reach for it deliberately, not by default. Copying it around is how a
+password ends up somewhere it should not be.
 
 ## 3. Deploy the application
 
@@ -123,30 +130,76 @@ every connection has to be reprovisioned.
 `CRON_SECRET` is only needed if you intend to trigger the sweep over HTTP. The
 scheduled job in step 10 does not use it.
 
-## 6. Run the migrations
+## 6. Migrations
 
-From your machine, against the **public** string — your laptop is outside
-Railway's private network. Quote it; Railway passwords contain characters your
-shell will otherwise interpret.
+There is nothing to do here. `railway.json` declares a pre-deploy command:
 
-```bash
-DATABASE_URL='<DATABASE_PUBLIC_URL>' pnpm db:migrate
+```json
+{ "deploy": { "preDeployCommand": "pnpm db:migrate:deploy" } }
 ```
 
-Migrations are deliberately not part of the build. One that runs automatically
-on every deploy is one that can take the API down at three in the morning.
+Railway runs it inside the service — on the private network, with the
+service's own `DATABASE_URL` — after the image is built and **before the new
+version takes traffic**. If it fails, the deploy stops and the previous
+version keeps serving.
+
+This reverses an earlier decision in this document, which held that a
+migration running automatically on every deploy is one that can take the API
+down at three in the morning. Two things changed the balance:
+
+- A *pre-deploy* command is not a *post-deploy* surprise. It gates the
+  rollout, so the failure mode is a deploy that does not happen rather than a
+  running service that breaks.
+- Forgetting the manual step took this deployment down twice — once on the
+  `persona` column, once on the Article 30 columns. The migration that runs
+  itself is safer than the one that depends on remembering.
+
+What that does *not* do is make a destructive migration safe. Read the
+generated SQL before pushing it. A pre-deploy gate stops a migration that
+errors; it cannot stop one that succeeds at dropping a column.
+
+`pnpm db:migrate:deploy` uses `drizzle-orm`'s migrator rather than
+`drizzle-kit`, which is a development dependency and need not survive into a
+production image. Locally, `pnpm db:migrate` still does the same job.
+
+## Running one-off commands
+
+Seeding, granting access and provisioning connections all need a database, and
+your laptop cannot reach the private one. Rather than copy the public string
+into each command, run the command where the database already is:
+
+```bash
+railway link          # once per checkout, to pick the project and service
+railway ssh -- pnpm <script>
+```
+
+`railway ssh` runs inside the deployed service, so `DATABASE_URL` is already
+set to the private address. Nothing is copied, and nothing can be pasted
+wrong. The scripts tolerate a missing `.env.local`, which is why the same
+`pnpm` script works on a laptop and in a container.
+
+If you would rather run from your machine — because the service will not
+start, say — the public string still works:
+
+```bash
+DATABASE_URL='<DATABASE_PUBLIC_URL>' pnpm <script>
+```
+
+The application refuses a private `.railway.internal` address when it is not
+running on Railway, and says so, rather than failing with a DNS error that
+looks like the database is down.
 
 ## 7. Seed
 
 ```bash
-DATABASE_URL='<DATABASE_PUBLIC_URL>' pnpm seed
+railway ssh -- pnpm seed
 ```
 
 That creates the organisation, its legal entities, the people, the template
 library and the approval workflows. Then, for a demonstration portfolio:
 
 ```bash
-DATABASE_URL='<DATABASE_PUBLIC_URL>' pnpm seed:demo
+railway ssh -- pnpm seed:demo
 ```
 
 `seed:demo` refuses to run twice — a second run would double every assessment
@@ -182,15 +235,15 @@ that you belong here. The seed only creates fictional `@example.bbc.co.uk`
 people, so **until you do this, signing in with your real account is refused.**
 
 ```bash
-DATABASE_URL='<DATABASE_PUBLIC_URL>' pnpm grant you@waivern.com --name "Your Name"
+railway ssh -- pnpm grant you@waivern.com --name "Your Name"
 ```
 
 That grants `owner` across the organisation. Narrower grants take a role and,
 optionally, an entity:
 
 ```bash
-DATABASE_URL='<DATABASE_PUBLIC_URL>' pnpm grant analyst@example.com privacy_analyst
-DATABASE_URL='<DATABASE_PUBLIC_URL>' pnpm grant approver@example.com approver --entity "BBC Studios"
+railway ssh -- pnpm grant analyst@example.com privacy_analyst
+railway ssh -- pnpm grant approver@example.com approver --entity "BBC Studios"
 ```
 
 Add `--persona` to set what their home leads with — one of
@@ -199,7 +252,7 @@ presentation only, never access, and they can switch it themselves afterwards.
 Left unset, it is derived from what they can do.
 
 ```bash
-DATABASE_URL='<DATABASE_PUBLIC_URL>' pnpm grant lead@example.com contributor --persona engineering
+railway ssh -- pnpm grant lead@example.com contributor --persona engineering
 ```
 
 The email must match the identity-provider account exactly. Re-running changes
@@ -236,6 +289,12 @@ The job is idempotent: running it twice, or retrying after a partial failure,
 converges on the same state. A quiet run logs `nothing due`, which is the normal
 case.
 
+This service deploys from the same repository, so it picks up the same
+`railway.json` and runs the pre-deploy migration too. That is harmless —
+applying migrations is idempotent, and whichever service deploys first does the
+work while the other finds nothing to do. If you would rather it did not, give
+this service its own config file under **Settings → Config as code**.
+
 To check it, trigger the service manually and read the log. You should see
 something like:
 
@@ -253,9 +312,16 @@ everything when that variable is unset.
 **Every page fails but the platform says the service is online.**
 
 Check `/api/health` first. `"reason": "behind"` means the code expects
-migrations the database has not had — run `pnpm db:migrate` against the public
-connection string. No redeploy is needed; the code is already right and the
-database was behind it.
+migrations the database has not had. Since the pre-deploy command applies them,
+this now means the migration step did not run or did not finish — check the
+deploy log for `pnpm db:migrate:deploy`. To apply them by hand:
+
+```bash
+railway ssh -- pnpm db:migrate:deploy
+```
+
+No redeploy is needed; the code is already right and the database was behind
+it.
 
 **"That account cannot sign in" — or "Sign-in is not working right now."**
 
@@ -295,7 +361,7 @@ and a single client; if concurrency grows, put PgBouncer in front of it.
 **Integration credentials.** To issue them for the Portal or the HAR Analyser:
 
 ```bash
-DATABASE_URL='<DATABASE_PUBLIC_URL>' pnpm provision
+railway ssh -- pnpm provision
 ```
 
 Secrets print once and cannot be read back.
@@ -306,16 +372,19 @@ loaded, transfer routing has nothing to answer with and escalates every
 transfer — safe, but wrong.
 
 ```bash
-DATABASE_URL='<DATABASE_PUBLIC_URL>' pnpm seed:countries
+railway ssh -- pnpm seed:countries
 ```
 
 Idempotent, so it is safe to run whenever you are unsure. `pnpm seed` on a fresh
 deployment loads it too.
 
-**Later schema changes.** Run `pnpm db:migrate` against the public string before
-deploying the code that depends on it. Migrations are not part of the build, so
-nothing does this for you — and the failure, if you forget, is a deployment that
-reports online while every page that touches the changed table fails.
+**Later schema changes.** Generate the migration locally with
+`pnpm db:generate`, read the SQL it produces, and commit it alongside the code
+that needs it. The pre-deploy command applies it on the next deploy, before the
+new version takes traffic.
+
+Read the SQL. That is not a formality: the gate stops a migration that errors,
+not one that succeeds at dropping a column.
 
 `/api/health` catches exactly that:
 
