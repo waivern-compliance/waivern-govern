@@ -17,6 +17,7 @@ import { GENESIS_HASH, appendAuditEvent } from "@/lib/audit";
 import { toCsv } from "@/lib/csv";
 import { libraryFor } from "./countries";
 import { gapsFor } from "./ai-register";
+import { GAP_WORDS, listActivities } from "./ropa";
 import type { Actor } from "./templates";
 
 /**
@@ -33,12 +34,19 @@ import type { Actor } from "./templates";
  * disagree.
  */
 
-export type Dataset = "risks" | "assessments" | "ai-register" | "countries" | "audit";
+export type Dataset =
+  | "risks"
+  | "assessments"
+  | "ai-register"
+  | "ropa"
+  | "countries"
+  | "audit";
 
 export const DATASET_LABEL: Record<Dataset, string> = {
   risks: "Risk register",
   assessments: "Assessments",
   "ai-register": "AI register",
+  ropa: "Processing register (Article 30)",
   countries: "Country library",
   audit: "Audit log",
 };
@@ -321,3 +329,42 @@ export async function recordExport(input: {
 }
 
 export { toCsv };
+
+/**
+ * The Article 30 register, as a regulator would ask for it.
+ *
+ * Column order follows Article 30(1) so a reader can check it off against the
+ * Regulation, and the completeness columns come from the same code the screen
+ * uses — an export that quietly disagreed with the screen about which records
+ * were deficient would be worse than no export.
+ */
+export async function exportRopa(organisationId: string, entityIds: string[] | null) {
+  const rows = await listActivities(organisationId, entityIds);
+
+  return {
+    columns: [
+      "Reference", "Entity", "Activity", "Description",
+      "Controller role", "Controller acted for", "Owner",
+      "Purposes", "Lawful basis",
+      "Categories of data subject", "Categories of personal data",
+      "Categories of recipient", "Transfers", "Retention", "Security measures",
+      "Systems", "Article 30 gaps", "Would fail an inspection", "Last updated",
+    ],
+    rows: rows.map(({ activity, entityName, ownerEmail, gaps, hardGaps }) => [
+      activity.reference, entityName, activity.name, activity.description,
+      activity.controllerRole, activity.controllerName, ownerEmail,
+      (activity.purposes ?? []).join("; "), activity.lawfulBasis,
+      (activity.subjectCategories ?? []).join("; "),
+      (activity.dataCategories ?? []).join("; "),
+      (activity.recipients ?? []).join("; "),
+      (activity.transfers ?? [])
+        .map((t) => (t.mechanism ? `${t.country} (${t.mechanism})` : `${t.country} (none recorded)`))
+        .join("; "),
+      activity.retention, activity.securityMeasures,
+      (activity.systems ?? []).join("; "),
+      gaps.map((g) => GAP_WORDS[g]).join("; ") || "nothing",
+      hardGaps.length > 0 ? "yes" : "no",
+      activity.updatedAt,
+    ]),
+  };
+}

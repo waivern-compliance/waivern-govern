@@ -9,6 +9,7 @@ import {
   exportAudit,
   exportCountries,
   exportRisks,
+  exportRopa,
   recordExport,
   verificationManifest,
   type Dataset,
@@ -88,7 +89,9 @@ export async function GET(
           ? await exportAssessments(org, entityIds)
           : key === "ai-register"
             ? await exportAiRegister(org, entityIds)
-            : await exportCountries(org);
+            : key === "ropa"
+              ? await exportRopa(org, entityIds)
+              : await exportCountries(org);
     rows = result.rows.length;
     body = toCsv(result.columns, result.rows);
   }

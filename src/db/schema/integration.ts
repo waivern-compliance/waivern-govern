@@ -18,7 +18,7 @@ import {
   recordType,
 } from "./enums";
 import { risks } from "./risks";
-import { entities, organisations } from "./tenancy";
+import { entities, organisations, users } from "./tenancy";
 
 /**
  * A system permitted to push records in, and to be told when things change.
@@ -91,6 +91,23 @@ export const processingActivities = pgTable(
       .default([]),
     retention: text("retention"),
     controllerRole: text("controller_role"),
+    /**
+     * Article 30(1)(g) — a general description of the technical and
+     * organisational measures. Qualified by "where possible" in the Regulation,
+     * so its absence is reported as incomplete rather than as a breach.
+     */
+    securityMeasures: text("security_measures"),
+    /**
+     * Named when this organisation acts as processor, since Article 30(2)(a)
+     * requires each controller on whose behalf the processing is carried out.
+     */
+    controllerName: text("controller_name"),
+    /**
+     * The person accountable for keeping this record true. Nullable, because a
+     * record nobody owns is a real and reportable state, and refusing to store
+     * one until somebody volunteers is how a RoPA goes stale unnoticed.
+     */
+    ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
 
     /** Which system this came from, and its identifier over there. */
     sourceConnectionId: uuid("source_connection_id").references(

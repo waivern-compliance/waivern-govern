@@ -131,7 +131,9 @@ export async function ingestProcessingActivities(
         systems: r.systems,
         transfers: r.transfers,
         retention: r.retention,
+        securityMeasures: r.securityMeasures,
         controllerRole: r.controllerRole,
+        controllerName: r.controllerName,
         reviewDueAt: r.reviewDueAt ? new Date(r.reviewDueAt) : undefined,
         updatedAt: new Date(),
       };

@@ -40,6 +40,12 @@ export const NAV: NavItem[] = [
     capability: "record.read",
   },
   {
+    href: "/app/ropa",
+    label: "Processing register",
+    hint: "Article 30 records, and which would fail an inspection",
+    capability: "record.read",
+  },
+  {
     href: "/app/ai",
     label: "AI register",
     hint: "every AI system, and what nobody has assessed",

@@ -36,7 +36,9 @@ export const processingActivityIn = z.object({
     .max(50)
     .default([]),
   retention: z.string().max(2000).optional(),
+  securityMeasures: z.string().max(4000).optional(),
   controllerRole: z.enum(["controller", "processor", "joint_controller"]).optional(),
+  controllerName: z.string().max(200).optional(),
   reviewDueAt: z.iso.datetime().optional(),
 });
 

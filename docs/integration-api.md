@@ -104,6 +104,13 @@ Both accept `entity` (repeatable), `since` (ISO-8601, for incremental sync) and
 being silently ignored — dropping an unparseable `since` would hand back a full
 export when a delta was asked for, and the caller would have no way to tell.
 
+A processing activity carries every Article 30(1) element, in both directions:
+`purposes`, `lawfulBasis`, `subjectCategories`, `dataCategories`, `recipients`,
+`transfers`, `retention`, `securityMeasures`, `controllerRole` and
+`controllerName`. All are optional on ingest. The Portal is generating a
+document from these, and a record that arrives thin should arrive rather than be
+rejected — Waivern Govern reports its own gaps on the register instead.
+
 The context document is versioned (`contextVersion`), so the Portal can tell
 what shape it received:
 

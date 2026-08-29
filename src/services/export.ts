@@ -70,7 +70,11 @@ export type ContextActivity = {
   systems: string[];
   transfers: Array<{ country: string; mechanism?: string }>;
   retention: string | null;
+  /** Article 30(1)(g) — a general description of the measures. */
+  securityMeasures: string | null;
   controllerRole: string | null;
+  /** Article 30(2)(a) — named when this organisation acts as processor. */
+  controllerName: string | null;
   updatedAt: string;
 };
 
@@ -420,7 +424,9 @@ export async function governanceContext(scope: ExportScope): Promise<GovernanceC
       systems: a.systems,
       transfers: a.transfers,
       retention: a.retention,
+      securityMeasures: a.securityMeasures,
       controllerRole: a.controllerRole,
+      controllerName: a.controllerName,
       updatedAt: a.updatedAt.toISOString(),
     })),
     assessments: contextAssessments,
