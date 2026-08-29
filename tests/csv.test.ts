@@ -86,3 +86,31 @@ describe("where the byte order mark goes", () => {
     assert.ok(!stripped.includes(BOM), "no stray mark left anywhere in the file");
   });
 });
+
+describe("a connection string that was never filled in", () => {
+  // The guard lives in db/client, which connects on import — so the rule is
+  // tested here rather than by importing it.
+  const PLACEHOLDER = /[…]|<[^>]*>|\bxxx+\b|\byour[-_]?(password|db|database)\b/i;
+
+  it("catches a password abbreviated for display", () => {
+    // Documentation writes `postgres:AMdWY…@host` and somebody pastes it. The
+    // failure is otherwise a password rejection under a forty-line query dump,
+    // which points at the wrong thing entirely.
+    assert.ok(PLACEHOLDER.test("postgresql://postgres:AMdWY…@host:5432/railway"));
+  });
+
+  it("catches an unreplaced placeholder", () => {
+    assert.ok(PLACEHOLDER.test("<DATABASE_PUBLIC_URL>"));
+    assert.ok(PLACEHOLDER.test("postgresql://user:xxxxx@host/db"));
+    assert.ok(PLACEHOLDER.test("postgresql://user:your-password@host/db"));
+  });
+
+  it("leaves a real connection string alone", () => {
+    assert.ok(!PLACEHOLDER.test("postgresql://govern:govern@localhost:55432/govern"));
+    assert.ok(
+      !PLACEHOLDER.test(
+        "postgresql://postgres:AMdWYHKIXzRaNWSSgxySaeijheCXebRw@kodama.proxy.rlwy.net:46227/railway",
+      ),
+    );
+  });
+});

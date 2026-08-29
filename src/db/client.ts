@@ -10,6 +10,26 @@ if (!connectionString) {
 }
 
 /**
+ * Catch a connection string that was never filled in.
+ *
+ * Documentation abbreviates credentials — `postgres:AMdWY…@host` — and that
+ * gets copied verbatim into a terminal. The failure is a password rejection
+ * buried under a forty-line query dump, which points at the password being
+ * wrong rather than at the string being a placeholder. Cheap to detect, and it
+ * turns a confusing error into an obvious one.
+ */
+const PLACEHOLDER = /[…]|<[^>]*>|xxx+|your[-_]?(password|db|database)/i;
+if (PLACEHOLDER.test(connectionString)) {
+  const shown = connectionString.replace(/:\/\/([^:]+):[^@]*@/, "://$1:***@");
+  throw new Error(
+    `DATABASE_URL still contains a placeholder, so it was probably copied from ` +
+      `documentation rather than from the database itself.\n\n  ${shown}\n\n` +
+      `An ellipsis (…) usually means a password was abbreviated for display. ` +
+      `Take the full string from your database provider.`,
+  );
+}
+
+/**
  * One driver everywhere — local Docker Postgres and the hosted database alike —
  * rather than swapping per environment, so local development exercises the same
  * code path as production.
