@@ -268,3 +268,71 @@ export const taskRelations = relations(tasks, ({ one }) => ({
   entity: one(entities, { fields: [tasks.entityId], references: [entities.id] }),
   assignee: one(users, { fields: [tasks.assigneeUserId], references: [users.id] }),
 }));
+
+/**
+ * Discussion attached to a record.
+ *
+ * Governance stalls in the gap between the person who must decide and the
+ * person who knows. An engineering lead handed a task can currently complete
+ * it or ignore it; asking why it is being asked of them means leaving the
+ * platform, and the answer then lives in somebody's mailbox rather than
+ * beside the record it explains.
+ *
+ * Deliberately not a decision surface. A comment never changes a status —
+ * approvals, acceptances and sign-off stay in the audit chain, where they are
+ * attributable and hash-linked. This is the conversation around that.
+ */
+export const comments = pgTable(
+  "comment",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organisationId: uuid("organisation_id")
+      .notNull()
+      .references(() => organisations.id, { onDelete: "cascade" }),
+    /**
+     * Carried on the row rather than resolved through the subject, so a
+     * comment can be filtered by what the reader may see without a
+     * polymorphic join. Null for records scoped to the organisation as a
+     * whole, such as suppliers.
+     */
+    entityId: uuid("entity_id").references(() => entities.id, { onDelete: "restrict" }),
+
+    subjectType: recordType("subject_type").notNull(),
+    subjectId: uuid("subject_id").notNull(),
+    /**
+     * How the record was known when the remark was made — a reference, or a
+     * name. Stored so a mention inbox can list what it is about without
+     * joining across every record type, and so the entry still reads correctly
+     * if the record is later renamed.
+     */
+    subjectLabel: text("subject_label").notNull().default(""),
+
+    authorId: uuid("author_id").references(() => users.id, { onDelete: "set null" }),
+    /**
+     * Kept alongside the reference so authorship survives the account being
+     * removed. A discussion that turns anonymous when somebody leaves is
+     * worse than useless in a record meant to explain a decision later.
+     */
+    authorLabel: text("author_label").notNull(),
+
+    body: text("body").notNull(),
+    /** Resolved at post time, so a later rename cannot silently re-target. */
+    mentions: jsonb("mentions").$type<string[]>().notNull().default([]),
+
+    /**
+     * Withdrawn rather than removed. The row stays so the thread still reads
+     * in order and the audit chain keeps referring to something.
+     */
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("comment_subject_idx").on(t.subjectType, t.subjectId, t.createdAt),
+    index("comment_org_idx").on(t.organisationId, t.createdAt),
+  ],
+);
+
+export const commentRelations = relations(comments, ({ one }) => ({
+  author: one(users, { fields: [comments.authorId], references: [users.id] }),
+  entity: one(entities, { fields: [comments.entityId], references: [entities.id] }),
+}));

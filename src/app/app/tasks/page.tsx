@@ -1,13 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { pathFor } from "@/lib/records";
 import { getActiveSession, visibleEntityIds } from "@/lib/session";
+import { mentionsFor } from "@/services/collaboration";
 import { openTasks } from "@/services/workflow";
-
-const SUBJECT_PATH: Record<string, (id: string) => string> = {
-  assessment: (id) => `/app/assessments/${id}`,
-  risk: (id) => `/app/risks/${id}`,
-  mitigation: () => "/app/risks",
-};
 
 function relativeDue(due: Date | null): { text: string; late: boolean } {
   if (!due) return { text: "no date", late: false };
@@ -21,11 +17,14 @@ export default async function TasksPage() {
   const active = await getActiveSession();
   if (!active) redirect("/sign-in");
 
-  const all = await openTasks(active.membership.organisationId, {
-    entityIds: visibleEntityIds(active),
-    userId: active.userId,
-    grants: active.membership.grants,
-  });
+  const [all, mentions] = await Promise.all([
+    openTasks(active.membership.organisationId, {
+      entityIds: visibleEntityIds(active),
+      userId: active.userId,
+      grants: active.membership.grants,
+    }),
+    mentionsFor(active.membership.organisationId, active.userId),
+  ]);
   const rolesHeld = new Set(active.membership.grants.map((g) => g.role));
 
   // Yours first: assigned to you by name, or waiting on a role you hold.
@@ -42,6 +41,41 @@ export default async function TasksPage() {
         </Link>
         <h1 className="text-2xl font-semibold tracking-tight">Tasks</h1>
       </header>
+
+      {mentions.length > 0 ? (
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold">Somebody asked you</h2>
+          <ul className="divide-y divide-line overflow-hidden rounded border border-line bg-surface">
+            {mentions.map(({ comment, href }) => {
+              const line = (
+                <>
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                    <span className="text-sm font-medium">{comment.authorLabel}</span>
+                    <span className="font-mono text-[11px] text-ink-soft">
+                      {comment.subjectLabel || comment.subjectType.replace(/_/g, " ")}
+                    </span>
+                  </div>
+                  <p className="mt-1 line-clamp-2 text-xs text-ink-soft">{comment.body}</p>
+                </>
+              );
+              return (
+                <li key={comment.id}>
+                  {href ? (
+                    <Link
+                      href={href}
+                      className="block px-4 py-3 hover:bg-ground focus-visible:outline-2 focus-visible:outline-brand"
+                    >
+                      {line}
+                    </Link>
+                  ) : (
+                    <div className="px-4 py-3">{line}</div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
 
       <TaskList title="Waiting on you" tasks={mine} empty="Nothing is waiting on you." />
       {others.length > 0 ? (
@@ -79,7 +113,7 @@ function TaskList({
         <ul className="divide-y divide-line overflow-hidden rounded border border-line bg-surface">
           {tasks.map((t) => {
             const due = relativeDue(t.dueAt);
-            const href = SUBJECT_PATH[t.subjectType]?.(t.subjectId) ?? "/app";
+            const href = pathFor(t.subjectType, t.subjectId) ?? "/app";
             return (
               <li key={t.id}>
                 <Link

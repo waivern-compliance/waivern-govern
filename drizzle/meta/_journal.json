@@ -127,6 +127,20 @@
       "when": 1788038170486,
       "tag": "0017_slow_christian_walker",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1788039138415,
+      "tag": "0018_vengeful_swordsman",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1788039682068,
+      "tag": "0019_sour_tinkerer",
+      "breakpoints": true
     }
   ]
 }

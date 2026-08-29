@@ -4,6 +4,7 @@ import { asc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { memberships, users } from "@/db/schema";
 import { GapChips } from "@/components/GapChips";
+import { Discussion } from "@/components/Discussion";
 import { NotPermitted } from "@/components/NotPermitted";
 import { can } from "@/lib/rbac";
 import { getActiveSession } from "@/lib/session";
@@ -212,6 +213,13 @@ export default async function SupplierPage({
           </form>
         </>
       ) : null}
+
+      <Discussion
+        subjectType="supplier"
+        subjectId={id}
+        entityId={null}
+        subjectLabel={supplier.name}
+      />
     </main>
   );
 }

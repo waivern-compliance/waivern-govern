@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AssessmentForm } from "@/components/AssessmentForm";
 import { legalRefMap } from "@/lib/legal-refs";
+import { Discussion } from "@/components/Discussion";
 import { NotPermitted } from "@/components/NotPermitted";
 import { can } from "@/lib/rbac";
 import { getActiveSession } from "@/lib/session";
@@ -152,6 +153,13 @@ export default async function AssessmentPage({
           </ul>
         </section>
       ) : null}
+
+      <Discussion
+        subjectType="assessment"
+        subjectId={id}
+        entityId={assessment.entityId}
+        subjectLabel={assessment.reference}
+      />
     </main>
   );
 }

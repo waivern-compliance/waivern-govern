@@ -1,0 +1,1 @@
+ALTER TABLE "comment" ADD COLUMN "subject_label" text DEFAULT '' NOT NULL;

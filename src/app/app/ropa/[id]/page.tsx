@@ -4,6 +4,7 @@ import { asc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { memberships, users } from "@/db/schema";
 import { GapChips } from "@/components/GapChips";
+import { Discussion } from "@/components/Discussion";
 import { NotPermitted } from "@/components/NotPermitted";
 import { can } from "@/lib/rbac";
 import { getActiveSession } from "@/lib/session";
@@ -217,6 +218,13 @@ export default async function ActivityPage({
           <Read label="Security measures" value={activity.securityMeasures} />
         </section>
       )}
+
+      <Discussion
+        subjectType="processing_activity"
+        subjectId={id}
+        entityId={activity.entityId}
+        subjectLabel={activity.reference}
+      />
     </main>
   );
 }

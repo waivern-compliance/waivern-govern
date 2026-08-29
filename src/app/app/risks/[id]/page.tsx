@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { RiskTierBadge } from "@/components/RiskTierBadge";
+import { Discussion } from "@/components/Discussion";
 import { NotPermitted } from "@/components/NotPermitted";
 import { can } from "@/lib/rbac";
 import { IMPACT, LIKELIHOOD, labelFor } from "@/lib/risk/scale";
@@ -244,6 +245,13 @@ export default async function RiskPage({ params }: { params: Promise<{ id: strin
           </form>
         </section>
       ) : null}
+
+      <Discussion
+        subjectType="risk"
+        subjectId={id}
+        entityId={risk.entityId}
+        subjectLabel={risk.reference}
+      />
     </main>
   );
 }
