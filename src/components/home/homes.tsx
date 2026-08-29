@@ -8,6 +8,13 @@ import { visibleEntityIds } from "@/lib/session";
 import { dashboardMetrics } from "@/services/metrics";
 import { Empty, Panel, Row, Rows, Tile, Tiles, dueWords } from "./parts";
 import { aiEstate, myAssessments, myMitigations, myTasks, unratedRisks } from "./data";
+import {
+  GAP_WORDS,
+  SERIOUS_GAPS,
+  STAGE_LABEL,
+  registerSummary,
+  type LifecycleStage,
+} from "@/services/ai-register";
 
 const taskHref: Record<string, (id: string) => string> = {
   assessment: (id) => `/app/assessments/${id}`,
@@ -129,69 +136,74 @@ export async function PrivacyHome({ active }: { active: ActiveSession }) {
 
 /** AI governance: what is running, and what nobody has looked at. */
 export async function AiHome({ active }: { active: ActiveSession }) {
-  const estate = await aiEstate(active);
-  const approved = estate.assessments.filter((a) => a.status === "approved").length;
-  const critical = estate.assessments.filter((a) => a.scoreTier === "critical").length;
+  const [summary, estate] = await Promise.all([
+    registerSummary(active.membership.organisationId, visibleEntityIds(active)),
+    aiEstate(active),
+  ]);
 
   return (
     <div className="space-y-10">
       <Tiles>
         <Tile
-          label="AI systems assessed"
-          value={estate.assessments.length}
-          note={`${approved} cleared`}
-          href="/app/assessments"
+          label="On the register"
+          value={summary.total}
+          note={`${summary.live} live`}
+          href="/app/ai"
+        />
+        <Tile
+          label="Never assessed"
+          value={summary.neverAssessed}
+          note="nobody has looked at these"
+          href="/app/ai"
+          tone={summary.neverAssessed > 0 ? "stop" : "plain"}
+        />
+        <Tile
+          label="Running unexamined"
+          value={summary.serious}
+          note="unassessed, unmonitored or unsupervised"
+          href="/app/ai"
+          tone={summary.serious > 0 ? "stop" : "plain"}
         />
         <Tile
           label="Awaiting a decision"
           value={estate.awaitingDecision}
-          note="with a reviewer or returned"
+          note="assessments with a reviewer"
           href="/app/tasks"
           tone={estate.awaitingDecision > 0 ? "warn" : "plain"}
         />
-        <Tile
-          label="Rated critical"
-          value={critical}
-          note="highest band on the AI scale"
-          href="/app/assessments"
-          tone={critical > 0 ? "stop" : "plain"}
-        />
-        <Tile
-          label="Risks not yet rated"
-          value={estate.unrated}
-          note="raised from an AI assessment"
-          href="/app/risks"
-          tone={estate.unrated > 0 ? "stop" : "plain"}
-        />
       </Tiles>
 
-      <div className="rounded border-l-2 border-amber-700 bg-amber-50 px-4 py-3">
-        <p className="text-sm text-amber-950">
-          <strong>This counts AI that has been assessed, not AI that is running.</strong>{" "}
-          Until there is a use case register, the platform cannot tell you what
-          exists that nobody has looked at — which is the more important question.
-        </p>
-      </div>
-
       <Panel
-        title="AI assessments"
-        hint="Every AI risk assessment, newest first."
-        action={{ href: "/app/assessments", label: "All assessments" }}
+        title="Needs attention"
+        hint="Systems with something outstanding, worst first."
+        action={{ href: "/app/ai", label: "Whole register" }}
       >
-        {estate.assessments.length === 0 ? (
-          <Empty>No AI risk assessments yet.</Empty>
+        {summary.withGaps === 0 ? (
+          <Empty>
+            {summary.total === 0
+              ? "Nothing on the register yet. Start with what you already know is running."
+              : "Nothing outstanding across the register."}
+          </Empty>
         ) : (
           <Rows>
-            {estate.assessments.slice(0, 8).map((a) => (
-              <Row
-                key={a.id}
-                href={`/app/assessments/${a.id}`}
-                title={a.title}
-                detail={a.reference}
-                meta={`${statusWords(a.status, "ai_governance")}${a.scoreBand ? ` · ${a.scoreBand}` : ""}`}
-                tone={a.scoreTier === "critical" ? "stop" : "plain"}
-              />
-            ))}
+            {summary.entries
+              .filter((e) => e.gaps.length > 0)
+              .sort((a, b) => {
+                const weight = (g: typeof a.gaps) =>
+                  g.filter((x) => SERIOUS_GAPS.includes(x)).length * 10 + g.length;
+                return weight(b.gaps) - weight(a.gaps);
+              })
+              .slice(0, 8)
+              .map((e) => (
+                <Row
+                  key={e.useCase.id}
+                  href={`/app/ai/${e.useCase.id}`}
+                  title={e.useCase.name}
+                  detail={e.gaps.map((g) => GAP_WORDS[g]).join(" · ")}
+                  meta={STAGE_LABEL[e.useCase.lifecycleStage as LifecycleStage]}
+                  tone={e.gaps.some((g) => SERIOUS_GAPS.includes(g)) ? "stop" : "warn"}
+                />
+              ))}
           </Rows>
         )}
       </Panel>

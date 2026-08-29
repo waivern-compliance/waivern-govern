@@ -259,3 +259,35 @@ export const persona = pgEnum("persona", [
   "engineering",
   "product",
 ]);
+
+/**
+ * What kind of AI system this is.
+ *
+ * The full spectrum, because the buyer was explicit that scope is not limited
+ * to systems that operate as agents: a decision tree scoring applicants is as
+ * much a governance concern as a language model, and often a bigger one.
+ */
+export const aiSystemType = pgEnum("ai_system_type", [
+  "predictive",
+  "generative",
+  "agentic",
+  "hybrid",
+]);
+
+/** Where it came from, which decides how much of it anybody here can inspect. */
+export const aiProvenance = pgEnum("ai_provenance", [
+  "built_in_house",
+  "fine_tuned",
+  "third_party_api",
+  /** Inside a product bought for something else — the hardest kind to find. */
+  "embedded_vendor",
+]);
+
+export const aiLifecycleStage = pgEnum("ai_lifecycle_stage", [
+  "proposed",
+  "development",
+  "pilot",
+  "production",
+  "retiring",
+  "retired",
+]);

@@ -192,6 +192,19 @@ audit trail keeps both, side by side, as separate facts. A scanner deciding what
 constitutes a governance risk would be automation making the classification,
 which is the one thing this platform must not do.
 
+**The AI register records what exists, not only what was assessed.** A register
+that only holds assessed systems cannot answer the question an AI governance
+lead actually has, which is what is running that nobody has looked at. So a
+system can be added with no owner and no assessment — that is a reportable state,
+not a validation error, and refusing to record it is how shadow AI stays
+invisible. Gaps are computed rather than stored, because a gap is a fact about
+the present: a system that moved into production yesterday is unmonitored today
+whether or not anybody re-saved the record.
+
+Risk facts — what consequence it has for people, what oversight is in place,
+whether bias was assessed — live on the assessment and are read from it, never
+copied into the register. A copy drifts from the judgement somebody signed.
+
 **Four ways in, one set of permissions.** A membership carries a persona
 alongside its roles: privacy governance, AI governance, engineering or product.
 It decides what the home screen leads with and in whose words — a product
@@ -220,8 +233,9 @@ can pull from incrementally; and outbound webhooks carrying approvals and risk
 acceptances back to subscribers.
 
 Still to come: the RoPA and third-party risk editing surfaces, the AI workflow
-graph over the link table, the maintained country risk library, exports, and
-trend reporting over accumulated history.
+graph over the link table, the maintained country risk library, exportable
+reports and audit logs, internal collaboration, and trend reporting over
+accumulated history.
 
 `pnpm seed:demo` loads a plausible portfolio — fourteen assessments at every
 stage, nine risks treated to varying degrees, some work already late — because a

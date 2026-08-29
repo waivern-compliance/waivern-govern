@@ -11,6 +11,16 @@ import {
 } from "@/lib/persona";
 import { can, type Grant } from "@/lib/rbac";
 
+/**
+ * The identifier, not the substring.
+ *
+ * A bare /persona/i also matches `processesPersonalData`, which caught the AI
+ * register the moment it was written and reported a separation breach that was
+ * not one. The trailing boundary excludes "personal" while still catching
+ * `resolvePersona`, `type Persona` and a `persona:` field.
+ */
+const PERSONA_IDENTIFIER = /persona\b/i;
+
 const contributor: Grant[] = [{ role: "contributor", scope: "organisation" }];
 const analyst: Grant[] = [{ role: "privacy_analyst", scope: "organisation" }];
 const admin: Grant[] = [{ role: "privacy_admin", scope: "organisation" }];
@@ -63,7 +73,7 @@ describe("persona never decides access", () => {
         .filter((line) => /\bcan\(|scopedEntityIds|requireCapability/.test(line))
         .join("\n");
       assert.ok(
-        !/persona/i.test(authorising),
+        !PERSONA_IDENTIFIER.test(authorising),
         `${file}: an authorisation path mentions persona`,
       );
     }
@@ -81,7 +91,7 @@ describe("persona never decides access", () => {
     const offenders = walk("src/services")
       .filter((f) => f.endsWith(".ts"))
       .filter((f) => !f.endsWith("persona.ts"))
-      .filter((f) => /persona/i.test(readFileSync(f, "utf8")));
+      .filter((f) => PERSONA_IDENTIFIER.test(readFileSync(f, "utf8")));
 
     assert.deepEqual(offenders, []);
   });

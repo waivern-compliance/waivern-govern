@@ -40,6 +40,12 @@ export const NAV: NavItem[] = [
     capability: "record.read",
   },
   {
+    href: "/app/ai",
+    label: "AI register",
+    hint: "every AI system, and what nobody has assessed",
+    capability: "record.read",
+  },
+  {
     href: "/app/risks",
     label: "Risk register",
     hint: "mitigations, residual rating, acceptance",
