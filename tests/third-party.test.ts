@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   EXPIRING_WITHIN_DAYS,
+  EXPIRING_WITHIN_LABEL,
   HARD_GAPS,
   article28Gaps,
   canonicalise,
@@ -132,6 +133,18 @@ describe("Article 28 cover", () => {
       article28Gaps(supplier(), [dpa({ transferMechanism: "  " })], NOW)
         .includes("no_transfer_mechanism"),
     );
+  });
+});
+
+describe("the expiry horizon", () => {
+  it("is renewal lead time, not a reminder", () => {
+    // Six months, because a processor contract can take that long to
+    // renegotiate. A shorter horizon reports the lapse instead of preventing it.
+    assert.equal(EXPIRING_WITHIN_DAYS, 180);
+  });
+
+  it("renders prose that cannot drift from the number", () => {
+    assert.equal(EXPIRING_WITHIN_LABEL, "6 months");
   });
 });
 

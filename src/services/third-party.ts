@@ -47,8 +47,24 @@ export const GAP_WORDS: Record<Article28Gap, string> = {
  */
 export const HARD_GAPS: Article28Gap[] = ["no_dpa", "dpa_unsigned", "dpa_expired"];
 
-/** How much notice is worth having before a contract lapses. */
-export const EXPIRING_WITHIN_DAYS = 90;
+/**
+ * How much notice is worth having before a contract lapses.
+ *
+ * Six months, because this is renewal lead time rather than a reminder. In an
+ * organisation where a processor contract takes months to renegotiate, a
+ * warning at ninety days arrives after the window to act has closed — it
+ * reports the problem instead of preventing it.
+ */
+export const EXPIRING_WITHIN_DAYS: number = 180;
+
+/**
+ * The same horizon in prose, derived so the wording cannot drift from the
+ * number when somebody changes one and forgets the other.
+ */
+export const EXPIRING_WITHIN_LABEL =
+  EXPIRING_WITHIN_DAYS % 30 === 0
+    ? `${EXPIRING_WITHIN_DAYS / 30} month${EXPIRING_WITHIN_DAYS === 30 ? "" : "s"}`
+    : `${EXPIRING_WITHIN_DAYS} days`;
 
 /**
  * The agreement in force, or null.

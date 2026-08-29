@@ -15,7 +15,7 @@ import { appendAuditEvent } from "@/lib/audit";
 import { queueNotification, raiseTask } from "./workflow";
 import { deliverPending } from "./webhooks";
 import { countriesDueForReview } from "./countries";
-import { EXPIRING_WITHIN_DAYS, dpasNeedingAttention } from "./third-party";
+import { EXPIRING_WITHIN_LABEL, dpasNeedingAttention } from "./third-party";
 
 /**
  * Everything that happens because time passed.
@@ -327,7 +327,7 @@ async function raiseDpaReviews(organisationId: string): Promise<number> {
   if (expired.length > 0) parts.push(`${expired.length} already expired`);
   if (unsigned.length > 0) parts.push(`${unsigned.length} never signed`);
   const soon = due.length - expired.length - unsigned.length;
-  if (soon > 0) parts.push(`${soon} expiring within ${EXPIRING_WITHIN_DAYS} days`);
+  if (soon > 0) parts.push(`${soon} expiring within ${EXPIRING_WITHIN_LABEL}`);
 
   // Keyed on the month so a neglected contract file nags monthly rather than
   // hourly, and a fresh lapse next month raises a fresh task.
