@@ -8,3 +8,4 @@ export * from "./workflow";
 export * from "./integration";
 export * from "./ai";
 export * from "./countries";
+export * from "./assistant";

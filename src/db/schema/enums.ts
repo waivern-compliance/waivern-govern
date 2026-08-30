@@ -84,7 +84,21 @@ export const actorKind = pgEnum("actor_kind", [
   "user",
   "contributor_link",
   "system",
+  /**
+   * A model proposed this. Never the actor on a decision — an assistant can
+   * author a suggestion, and only a person can accept one.
+   */
+  "assistant",
   "integration",
+]);
+
+export const assistantRole = pgEnum("assistant_role", ["user", "assistant"]);
+
+export const suggestionStatus = pgEnum("suggestion_status", [
+  "proposed",
+  "accepted",
+  /** Seen and declined. Kept, because that is evidence of review. */
+  "rejected",
 ]);
 
 /**
@@ -217,6 +231,8 @@ export const integrationKind = pgEnum("integration_kind", [
   "waivern_portal",
   /** The HAR Analyser: cookie, tracker and consent-behaviour scanning. */
   "har_analyser",
+  /** A language model endpoint the organisation chooses and controls. */
+  "model_provider",
   "other",
 ]);
 

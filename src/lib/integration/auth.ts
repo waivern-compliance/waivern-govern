@@ -3,10 +3,21 @@ import { db } from "@/db/client";
 import { integrationConnections } from "@/db/schema";
 import { openSecret, verifyRequest } from "./crypto";
 
+/** The connection kinds that may authenticate an inbound request. */
+export const INGEST_KINDS = ["waivern_portal", "har_analyser", "other"] as const;
+
+export type IngestKind = (typeof INGEST_KINDS)[number];
+
 export type AuthedConnection = {
   id: string;
   organisationId: string;
-  kind: "waivern_portal" | "har_analyser" | "other";
+  /**
+   * Deliberately narrower than the connection kinds the platform stores. A
+   * model provider is outbound configuration, not an inbound credential, and
+   * widening this would let a key held for calling a model be used to push
+   * records into the registers.
+   */
+  kind: IngestKind;
   name: string;
   defaultEntityId: string | null;
 };
@@ -66,6 +77,13 @@ export async function authenticate(
     );
   if (!connection) return { ok: false, failure: REFUSED };
 
+  // A model-provider credential is outbound configuration. Refused here rather
+  // than narrowed by a type, so a key held for calling a model cannot be used
+  // to push records into the registers even if one were signed correctly.
+  if (!INGEST_KINDS.includes(connection.kind as IngestKind)) {
+    return { ok: false, failure: REFUSED };
+  }
+
   let secret: string;
   try {
     secret = openSecret({
@@ -102,7 +120,7 @@ export async function authenticate(
     connection: {
       id: connection.id,
       organisationId: connection.organisationId,
-      kind: connection.kind,
+      kind: connection.kind as IngestKind,
       name: connection.name,
       defaultEntityId: connection.defaultEntityId,
     },

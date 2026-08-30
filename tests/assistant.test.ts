@@ -1,0 +1,98 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import { extractJson } from "@/lib/assistant/parse";
+import { redact, summariseRedactions } from "@/lib/assistant/redact";
+
+describe("what leaves the platform", () => {
+  it("passes ordinary governance prose through untouched", () => {
+    const text = "We keep viewing history for 13 months to support recommendations.";
+    const { text: out, redactions } = redact(text);
+    assert.equal(out, text);
+    assert.deepEqual(redactions, []);
+  });
+
+  it("removes an email address and says so", () => {
+    const { text, redactions } = redact("Ask vincent.nunan@waivern.com about it.");
+    assert.ok(!text.includes("vincent.nunan@waivern.com"));
+    assert.match(text, /\[email removed\]/);
+    assert.deepEqual(redactions, [{ kind: "email address", count: 1 }]);
+  });
+
+  it("counts several of the same kind", () => {
+    const { redactions } = redact("a@b.com and c@d.com and e@f.com");
+    assert.deepEqual(redactions, [{ kind: "email address", count: 3 }]);
+  });
+
+  it("ignores a string that only looks like a national insurance number", () => {
+    // Q is not a valid first letter. Matching it would mean stripping ordinary
+    // text that happens to resemble one.
+    assert.deepEqual(redact("reference QQ 12 34 56 C").redactions, []);
+  });
+
+  it("removes the identifiers a chat box invites", () => {
+    for (const [input, kind] of [
+      ["My number is 07700 900123", "UK telephone number"],
+      ["NINO AB 12 34 56 C", "national insurance number"],
+      ["card 4111 1111 1111 1111", "payment card number"],
+      ["they live at SW1A 1AA", "UK postcode"],
+      ["from 192.168.1.44", "IP address"],
+    ] as const) {
+      const { redactions } = redact(input);
+      assert.ok(
+        redactions.some((r) => r.kind === kind),
+        `${kind} not removed from "${input}" (got ${redactions.map((r) => r.kind).join(", ") || "nothing"})`,
+      );
+    }
+  });
+
+  it("keeps a national insurance number intact rather than shredding it", () => {
+    // The number rules would otherwise cut it into pieces that no longer look
+    // like anything, which reads as safe while leaving fragments behind.
+    const { text } = redact("NINO AB123456C on file");
+    assert.match(text, /\[national insurance number removed\]/);
+    assert.ok(!/\d/.test(text), `digits survived: ${text}`);
+  });
+
+  it("says plainly what it took out", () => {
+    const { redactions } = redact("a@b.com, c@d.com and 192.168.0.1");
+    const said = summariseRedactions(redactions);
+    assert.match(said!, /2 email addresses/);
+    assert.match(said!, /1 IP address/);
+    assert.equal(summariseRedactions([]), null);
+  });
+
+  it("is honest about what it cannot catch", () => {
+    // Shapes, not meaning. This is why the control is described as partial and
+    // why the user is warned at the point of entry.
+    const { redactions } = redact("The claimant's mother is unwell.");
+    assert.deepEqual(redactions, []);
+  });
+});
+
+describe("reading a model's answer", () => {
+  it("reads plain JSON", () => {
+    assert.deepEqual(extractJson('{"answer":"yes"}'), { answer: "yes" });
+  });
+
+  it("reads it out of a fenced block", () => {
+    assert.deepEqual(extractJson('```json\n{"answer":"yes"}\n```'), { answer: "yes" });
+    assert.deepEqual(extractJson('```\n{"answer":"yes"}\n```'), { answer: "yes" });
+  });
+
+  it("reads it out of prose the model wrapped around it", () => {
+    const raw = 'Certainly! Here is the result:\n{"answer":"yes"}\nLet me know if that helps.';
+    assert.deepEqual(extractJson(raw), { answer: "yes" });
+  });
+
+  it("reads an array as readily as an object", () => {
+    assert.deepEqual(extractJson('Here you go: [1,2,3]'), [1, 2, 3]);
+  });
+
+  it("returns nothing rather than throwing when it cannot", () => {
+    // The property that matters: a governance record stays savable whether or
+    // not the advisory layer answered.
+    assert.equal(extractJson("I'm sorry, I can't help with that."), null);
+    assert.equal(extractJson(""), null);
+    assert.equal(extractJson('{"unclosed": '), null);
+  });
+});

@@ -6,7 +6,13 @@ import { canonicalise, sha256Hex } from "./canonical";
 /** Predecessor hash of the first event in an organisation's chain. */
 export const GENESIS_HASH = "0".repeat(64);
 
-export type ActorKind = "user" | "contributor_link" | "system" | "integration";
+export type ActorKind =
+  | "user"
+  | "contributor_link"
+  | "system"
+  /** Authored a suggestion. Never the actor on a decision. */
+  | "assistant"
+  | "integration";
 
 export type AuditInput = {
   organisationId: string;
