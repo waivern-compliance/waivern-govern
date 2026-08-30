@@ -55,6 +55,18 @@ because every build and dev server then sits at near-zero CPU waiting for I/O.
 If you clone fresh and the toolchain feels wedged, check `uptime` before you
 debug the app.
 
+**iCloud is the other cause, and it looks identical.** This checkout lives
+under `~/Documents`, which macOS syncs when "Desktop & Documents Folders" is
+on. The file provider then fights the build for `.next`: builds deadlock at
+0% CPU, and sync conflicts appear as duplicated files with a ` 2` suffix —
+`.next/types/cache-life.d 2.ts`, `.next/package 2.json` — which TypeScript
+then reports as duplicate identifiers in files nobody wrote.
+
+`rm -rf .next` clears it for one build. The fix is to keep the checkout
+outside a synced folder, or to turn that sync off. If a build sits at zero
+CPU, run `ps aux | sort -nrk3 | head` before suspecting the code: `fileproviderd`,
+`bird` or `cloudd` near the top is this, not Next.js.
+
 **Being up is not the same as working.** `/api/health` reports whether this
 build can actually serve: whether the database answers, and whether its schema
 matches the migrations this code was compiled against. Point the platform's

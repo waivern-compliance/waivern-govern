@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Waivern">
+  <!--
+    A recreation of the Waivern mark: a three-by-three field of nodes with four
+    connections drawn through it. Geometry only, so it scales and can be
+    recoloured by `currentColor` — replace with the official vector if one
+    exists, keeping the same filename.
+  -->
+  <g fill="none" stroke="#0a2540" stroke-width="2.4">
+    <!-- Connections, drawn first so the nodes sit over their ends. -->
+    <path d="M20 29 V41" />
+    <path d="M26.36 56.36 L43.64 73.64" />
+    <path d="M59 80 H71" />
+    <path d="M56.36 43.64 L73.64 26.36" />
+
+    <circle cx="20" cy="20" r="7.8" />
+    <circle cx="50" cy="20" r="7.8" />
+    <circle cx="80" cy="20" r="7.8" />
+    <circle cx="20" cy="50" r="7.8" />
+    <circle cx="50" cy="50" r="7.8" />
+    <circle cx="80" cy="50" r="7.8" />
+    <circle cx="20" cy="80" r="7.8" />
+    <circle cx="50" cy="80" r="7.8" />
+    <circle cx="80" cy="80" r="7.8" />
+  </g>
+</svg>

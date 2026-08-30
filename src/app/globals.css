@@ -6,7 +6,14 @@
   --color-line: oklch(90.5% 0.008 240);
   --color-ink: oklch(24% 0.02 250);
   --color-ink-soft: oklch(50% 0.018 250);
-  --color-brand: oklch(45% 0.075 210);
+  /* Waivern navy, from the mark. Dark enough to carry white text at ~14:1,
+     so it is used for the masthead and anywhere the brand is the surface. */
+  --color-navy: #0a2540;
+  /* Interactive blue, on the same hue as the navy but light enough to read as
+     a link rather than as body text. Deliberately not the navy itself: at 22%
+     lightness a link would sit two points from --color-ink and stop looking
+     like one. */
+  --color-brand: oklch(38% 0.09 254);
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
 }

@@ -59,7 +59,7 @@ export default async function TrendsPage() {
             title="Risks open"
             note="Raised by the end of each month and not yet closed."
             points={points}
-            series={[{ key: "risksOpen", label: "Open at month end", tone: "brand" }]}
+            series={[{ key: "risksOpen", label: "Open at month end", tone: "primary" }]}
             kind="line"
           />
 
@@ -68,7 +68,7 @@ export default async function TrendsPage() {
             note="Flow through the register. Closing more than you raise is the register shrinking."
             points={points}
             series={[
-              { key: "risksOpened", label: "Raised", tone: "brand" },
+              { key: "risksOpened", label: "Raised", tone: "primary" },
               { key: "risksClosed", label: "Closed", tone: "good" },
             ]}
             kind="bars"
@@ -79,8 +79,8 @@ export default async function TrendsPage() {
             note="Started, and decided. A widening gap is work accumulating in the pipeline."
             points={points}
             series={[
-              { key: "assessmentsStarted", label: "Started", tone: "muted" },
-              { key: "assessmentsApproved", label: "Decided", tone: "brand" },
+              { key: "assessmentsStarted", label: "Started", tone: "secondary" },
+              { key: "assessmentsApproved", label: "Decided", tone: "primary" },
             ]}
             kind="bars"
           />
@@ -89,7 +89,7 @@ export default async function TrendsPage() {
             title="Days to decide"
             note="Median from submission to decision, for assessments decided that month."
             points={points}
-            series={[{ key: "daysToDecide", label: "Median days", tone: "brand" }]}
+            series={[{ key: "daysToDecide", label: "Median days", tone: "primary" }]}
             kind="line"
           />
 
@@ -98,8 +98,8 @@ export default async function TrendsPage() {
             note="Tasks completed, and those that breached their service level."
             points={points}
             series={[
-              { key: "tasksCompleted", label: "Completed", tone: "muted" },
-              { key: "tasksBreached", label: "Breached", tone: "stop" },
+              { key: "tasksCompleted", label: "Completed", tone: "secondary" },
+              { key: "tasksBreached", label: "Breached", tone: "critical" },
             ]}
             kind="bars"
           />
@@ -112,14 +112,22 @@ export default async function TrendsPage() {
 }
 
 type SeriesKey = keyof Omit<TrendPoint, "period">;
-type Tone = "brand" | "good" | "stop" | "muted";
+type Tone = "primary" | "secondary" | "good" | "critical";
 type Series = { key: SeriesKey; label: string; tone: Tone };
 
+/**
+ * The chart palette this codebase already validated against the chart surface
+ * — see the note in globals.css. Picking fresh colours here would have put
+ * unchecked pairs on the page beside checked ones.
+ *
+ * Every series is named in the legend and repeated in the table, so a reader
+ * who cannot separate two of these still gets the figures.
+ */
 const FILL: Record<Tone, string> = {
-  brand: "var(--color-brand, #2563eb)",
-  good: "#047857",
-  stop: "#b91c1c",
-  muted: "#94a3b8",
+  primary: "var(--viz-after)",
+  secondary: "var(--viz-before)",
+  good: "var(--viz-good)",
+  critical: "var(--viz-critical)",
 };
 
 /**
@@ -153,7 +161,7 @@ function Chart({
   const y = (v: number) => pad.top + plotH - (v / max) * plotH;
 
   return (
-    <section className="space-y-2 rounded border border-line bg-surface p-4">
+    <section className="viz space-y-2 rounded border border-line bg-surface p-4">
       <div className="space-y-0.5">
         <h2 className="text-sm font-semibold">{title}</h2>
         <p className="max-w-prose text-xs text-ink-soft">{note}</p>

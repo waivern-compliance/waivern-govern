@@ -2,8 +2,11 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Waivern Govern",
+  // Each page names itself and the product names itself once, so a row of
+  // browser tabs is readable rather than nine identical ones.
+  title: { default: "Waivern Govern", template: "%s · Waivern Govern" },
   description: "Privacy and AI governance workflow",
+  icons: { icon: "/waivern-mark.svg" },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

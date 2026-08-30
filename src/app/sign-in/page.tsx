@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { Mark } from "@/components/Wordmark";
 import { authConfig, signIn } from "@/auth";
 import { getActiveSession } from "@/lib/session";
 
@@ -23,9 +24,14 @@ export default async function SignIn({
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-8 px-6">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Waivern Govern</h1>
-        <p className="text-sm text-ink-soft">Privacy and AI governance workflow</p>
+      <header className="space-y-3">
+        <Mark className="h-12 w-12 text-navy" />
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Waivern <span className="font-normal text-ink-soft">Govern</span>
+          </h1>
+          <p className="text-sm text-ink-soft">Privacy and AI governance workflow</p>
+        </div>
       </header>
 
       {error ? (
