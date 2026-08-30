@@ -286,3 +286,52 @@ export async function assertSinglePublishedVersion(templateId: string) {
   `);
   return Number(rows[0]?.count ?? 0);
 }
+
+/**
+ * Every template, with every version — drafts included.
+ *
+ * `availableTemplates` deliberately returns only what an assessment can be
+ * started from. Authoring needs the opposite view: a template whose only
+ * version is an unpublished draft is invisible there, and is exactly what
+ * somebody editing came to find.
+ */
+export async function templateLibrary(organisationId: string) {
+  const rows = await db
+    .select({ template: templates, version: templateVersions })
+    .from(templates)
+    .leftJoin(templateVersions, eq(templateVersions.templateId, templates.id))
+    .where(eq(templates.organisationId, organisationId))
+    .orderBy(templates.kind, templates.name, desc(templateVersions.version));
+
+  const byTemplate = new Map<
+    string,
+    { template: typeof templates.$inferSelect; versions: (typeof templateVersions.$inferSelect)[] }
+  >();
+  for (const { template, version } of rows) {
+    const entry = byTemplate.get(template.id) ?? { template, versions: [] };
+    if (version) entry.versions.push(version);
+    byTemplate.set(template.id, entry);
+  }
+  return [...byTemplate.values()];
+}
+
+export async function loadTemplate(templateId: string, organisationId: string) {
+  const [row] = await db
+    .select()
+    .from(templates)
+    .where(and(eq(templates.id, templateId), eq(templates.organisationId, organisationId)));
+  if (!row) return null;
+
+  const versions = await db
+    .select()
+    .from(templateVersions)
+    .where(eq(templateVersions.templateId, templateId))
+    .orderBy(desc(templateVersions.version));
+
+  return {
+    template: row,
+    versions,
+    published: versions.find((v) => v.status === "published") ?? null,
+    draft: versions.find((v) => v.status === "draft") ?? null,
+  };
+}
