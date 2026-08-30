@@ -15,6 +15,7 @@ import { appendAuditEvent } from "@/lib/audit";
 import { queueNotification, raiseTask } from "./workflow";
 import { deliverPending } from "./webhooks";
 import { countriesDueForReview } from "./countries";
+import { forgetExpiredConversations } from "./assistant";
 import { EXPIRING_WITHIN_LABEL, dpasNeedingAttention } from "./third-party";
 
 /**
@@ -46,6 +47,7 @@ export type SweepResult = {
   breachesRecorded: number;
   countryReviewsRaised: number;
   dpaReviewsRaised: number;
+  conversationsForgotten: number;
   webhooksDelivered: number;
   webhooksFailed: number;
 };
@@ -367,6 +369,8 @@ export async function sweepOrganisation(organisationId: string): Promise<SweepRe
     breachesRecorded: await recordBreaches(organisationId),
     countryReviewsRaised: await raiseCountryReviews(organisationId),
     dpaReviewsRaised: await raiseDpaReviews(organisationId),
+    // Retention is a promise, and a promise nothing enforces is a claim.
+    conversationsForgotten: await forgetExpiredConversations(organisationId),
     webhooksDelivered: 0,
     webhooksFailed: 0,
   };

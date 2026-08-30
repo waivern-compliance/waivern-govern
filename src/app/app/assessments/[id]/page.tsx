@@ -2,9 +2,11 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AssessmentForm } from "@/components/AssessmentForm";
 import { legalRefMap } from "@/lib/legal-refs";
+import { Chat } from "@/components/assistant/Chat";
 import { Discussion } from "@/components/Discussion";
 import { NotPermitted } from "@/components/NotPermitted";
 import { can } from "@/lib/rbac";
+import { providerFor } from "@/services/assistant";
 import { getActiveSession } from "@/lib/session";
 import { assessmentHistory, loadAssessment } from "@/services/assessments";
 import { linksForAssessment } from "@/services/contributor-links";
@@ -28,6 +30,24 @@ export default async function AssessmentPage({
   if (!loaded) notFound();
 
   const { assessment, definition, templateName, answers, answerMeta } = loaded;
+
+  const configured = await providerFor(active.membership.organisationId);
+  const assistant = configured?.surfaces.includes("assessment") ?? false;
+  /**
+   * Deliberately the questions and not the answers. The questions are template
+   * text the organisation already published; the answers are where somebody
+   * may have written about a real person.
+   */
+  const assistantContext = [
+    `Assessment ${assessment.reference}, from the template "${templateName}".`,
+    "These are its questions. The user's answers are not included.",
+    ...definition.schema.sections.flatMap((section) => [
+      `Section: ${section.title}`,
+      ...section.questions.map((q) =>
+        `- ${q.label}${q.help ? ` — ${q.help}` : ""}`,
+      ),
+    ]),
+  ].join("\n");
 
   // Entity scoping was being enforced on every list and ignored here, so an
   // assessment could be read by anyone in the organisation who had its id.
@@ -151,6 +171,21 @@ export default async function AssessmentPage({
               </li>
             ))}
           </ul>
+        </section>
+      ) : null}
+
+      {assistant ? (
+        <section className="space-y-2 rounded border border-line bg-surface p-4">
+          <h2 className="text-sm font-semibold">Stuck on a question?</h2>
+          <Chat
+            surface="assessment"
+            subjectType="assessment"
+            subjectId={id}
+            entityId={assessment.entityId}
+            contextText={assistantContext}
+            invitation="It has been given this assessment's questions, not your answers. It will explain what one is asking, or draft wording for you to edit — it cannot fill anything in for you."
+            placeholder="What counts as special category data here?"
+          />
         </section>
       ) : null}
 

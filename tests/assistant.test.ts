@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import { extractJson } from "@/lib/assistant/parse";
 import { redact, summariseRedactions } from "@/lib/assistant/redact";
@@ -94,5 +95,61 @@ describe("reading a model's answer", () => {
     assert.equal(extractJson("I'm sorry, I can't help with that."), null);
     assert.equal(extractJson(""), null);
     assert.equal(extractJson('{"unclosed": '), null);
+  });
+});
+
+describe("the boundary the product claims", () => {
+  it("tells the model what it may not decide", async () => {
+    // Belt and braces. The surfaces do not offer to write these fields, and
+    // the prompt says so too, because a model that volunteers a rating puts a
+    // number in front of somebody who then has to un-see it.
+    const source = readFileSync("src/services/assistant.ts", "utf8");
+    for (const forbidden of [
+      "likelihood",
+      "residual",
+      "DPIA is required",
+      "adequate",
+      "processor",
+    ]) {
+      assert.ok(
+        source.includes(forbidden),
+        `the house rules should name "${forbidden}" among what it must not do`,
+      );
+    }
+  });
+
+  it("never sends an assessment's answers to the model", () => {
+    // The questions are template text the organisation published. The answers
+    // are where somebody may have written about a real person.
+    const page = readFileSync("src/app/app/assessments/[id]/page.tsx", "utf8");
+    const context = page.slice(
+      page.indexOf("const assistantContext"),
+      page.indexOf("].join(", page.indexOf("const assistantContext")),
+    );
+    assert.ok(context.length > 0, "assistant context should be assembled on the page");
+
+    // Strip strings and comments first: the context deliberately *says* the
+    // answers are excluded, and matching that sentence would pass a test that
+    // proves nothing while failing one that should pass.
+    const code = context
+      .replace(/`[^`]*`/g, "``")
+      .replace(/"[^"]*"/g, '""')
+      .replace(/'[^']*'/g, "''")
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/\/\/.*$/gm, "");
+
+    for (const identifier of ["answers", "answerMeta"]) {
+      assert.ok(
+        !new RegExp(`\\b${identifier}\\b`).test(code),
+        `${identifier} is referenced in the assistant context`,
+      );
+    }
+  });
+
+  it("has no default endpoint to fall back to", () => {
+    // An organisation that has not configured a provider has no assistant,
+    // rather than quietly having ours.
+    const source = readFileSync("src/lib/assistant/providers.ts", "utf8");
+    assert.ok(!/https?:\/\/[a-z]/i.test(source), "no hardcoded endpoint should appear");
   });
 });

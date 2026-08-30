@@ -1,7 +1,10 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { Chat } from "@/components/assistant/Chat";
 import { HelpSearch } from "@/components/help/HelpSearch";
 import { HELP_TOPICS } from "@/lib/help/topics";
+import { getActiveSession } from "@/lib/session";
+import { providerFor } from "@/services/assistant";
 
 export const metadata: Metadata = { title: "Help" };
 
@@ -13,7 +16,14 @@ export const metadata: Metadata = { title: "Help" };
  * people conclude a tool is impenetrable rather than that their access is
  * narrow.
  */
-export default function HelpPage() {
+export default async function HelpPage() {
+  const active = await getActiveSession();
+  // Absent unless this organisation has configured its own model.
+  const configured = active
+    ? await providerFor(active.membership.organisationId)
+    : null;
+  const assistant = configured?.surfaces.includes("help") ?? false;
+
   const grouped = [
     { heading: "Getting your bearings", ids: ["getting-started", "personas", "roles-and-access", "tasks"] },
     { heading: "Doing the work", ids: ["assessments", "approvals", "contributor-links", "risks", "discussion"] },
@@ -36,6 +46,19 @@ export default function HelpPage() {
       </header>
 
       <HelpSearch autoFocus />
+
+      {assistant ? (
+        <section className="space-y-2 rounded border border-line bg-surface p-4">
+          <h2 className="text-sm font-semibold">Ask in your own words</h2>
+          <Chat
+            surface="help"
+            entityId={null}
+            contextText=""
+            invitation="Answered from the help topics below, and it will name the one it used. It cannot see your records."
+            placeholder="Why can't I see the risk register?"
+          />
+        </section>
+      ) : null}
 
       {grouped.map((group) => (
         <section key={group.heading} className="space-y-2">
