@@ -23,11 +23,22 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           >
             <Wordmark />
           </Link>
-          {active ? (
-            <span className="font-mono text-[11px] text-white/70">
-              {active.membership.organisationName}
-            </span>
-          ) : null}
+          <div className="flex items-center gap-5">
+            {active ? (
+              <span className="font-mono text-[11px] text-white/70">
+                {active.membership.organisationName}
+              </span>
+            ) : null}
+            {/* Always present, always in the same place. Help that moves, or
+                that only appears when something has gone wrong, is help
+                nobody learns to reach for. */}
+            <Link
+              href="/app/help"
+              className="rounded border border-white/25 px-2.5 py-1 text-xs text-white hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            >
+              Help
+            </Link>
+          </div>
         </div>
       </header>
       {children}

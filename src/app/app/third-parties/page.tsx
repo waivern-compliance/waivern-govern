@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { HelpLink } from "@/components/help/HelpLink";
 import { redirect } from "next/navigation";
 import { GapChips } from "@/components/GapChips";
 import { NotPermitted } from "@/components/NotPermitted";
@@ -41,6 +42,8 @@ export default async function ThirdPartiesPage() {
           third party too, whether or not anybody procured it.
         </p>
       </header>
+
+      <HelpLink topic="third-parties" />
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Third parties" value={health.total} note="on the register" />

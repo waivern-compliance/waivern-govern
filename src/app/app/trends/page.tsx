@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { HelpLink } from "@/components/help/HelpLink";
 import { redirect } from "next/navigation";
 import { NotPermitted } from "@/components/NotPermitted";
 import { can } from "@/lib/rbac";
@@ -42,6 +43,8 @@ export default async function TrendsPage() {
           goes back as far as the records do.
         </p>
       </header>
+
+      <HelpLink topic="trends" />
 
       {begins === null ? (
         <p className="rounded border border-line bg-surface px-4 py-6 text-sm text-ink-soft">

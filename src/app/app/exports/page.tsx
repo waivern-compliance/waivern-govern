@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { HelpLink } from "@/components/help/HelpLink";
 import { redirect } from "next/navigation";
 import { NotPermitted } from "@/components/NotPermitted";
 import { can } from "@/lib/rbac";
@@ -46,6 +47,8 @@ export default async function ExportsPage() {
           can see, and each is recorded in the audit log — including this page.
         </p>
       </header>
+
+      <HelpLink topic="exports" />
 
       <ul className="divide-y divide-line overflow-hidden rounded border border-line bg-surface">
         {(Object.keys(DATASET_LABEL) as Dataset[])

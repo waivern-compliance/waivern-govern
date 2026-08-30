@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { HelpLink } from "@/components/help/HelpLink";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
@@ -57,6 +58,8 @@ export default async function AiRegisterPage() {
           question worth asking.
         </p>
       </header>
+
+      <HelpLink topic="ai-register" />
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat

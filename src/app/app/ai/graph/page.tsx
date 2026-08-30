@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { HelpLink } from "@/components/help/HelpLink";
 import { redirect } from "next/navigation";
 import { NotPermitted } from "@/components/NotPermitted";
 import { can } from "@/lib/rbac";
@@ -35,6 +36,8 @@ export default async function AiGraphPage() {
           point is where a chain stops.
         </p>
       </header>
+
+      <HelpLink topic="ai-chain" />
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Systems" value={totals.total} note={`${totals.live} live`} />

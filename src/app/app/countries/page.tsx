@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { HelpLink } from "@/components/help/HelpLink";
 import { redirect } from "next/navigation";
 import { NotPermitted } from "@/components/NotPermitted";
 import { can } from "@/lib/rbac";
@@ -60,6 +61,8 @@ export default async function CountriesPage({
           weaker than it appears.
         </p>
       </header>
+
+      <HelpLink topic="transfers" />
 
       {health.unverified > 0 ? (
         <div className="rounded border-l-2 border-red-700 bg-red-50 px-4 py-3">

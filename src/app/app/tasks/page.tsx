@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { HelpLink } from "@/components/help/HelpLink";
 import { redirect } from "next/navigation";
 import { pathFor } from "@/lib/records";
 import { getActiveSession, visibleEntityIds } from "@/lib/session";
@@ -41,6 +42,8 @@ export default async function TasksPage() {
         </Link>
         <h1 className="text-2xl font-semibold tracking-tight">Tasks</h1>
       </header>
+
+      <HelpLink topic="tasks" />
 
       {mentions.length > 0 ? (
         <section className="space-y-3">

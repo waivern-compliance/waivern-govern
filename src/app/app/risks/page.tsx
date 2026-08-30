@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { HelpLink } from "@/components/help/HelpLink";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
@@ -41,6 +42,8 @@ const org = active.membership.organisationId;
         </Link>
         <h1 className="text-2xl font-semibold tracking-tight">Risk register</h1>
       </header>
+
+      <HelpLink topic="risks" />
 
       {lapsed.length > 0 ? (
         <div className="rounded border-l-2 border-amber-700 bg-amber-50 px-4 py-3">

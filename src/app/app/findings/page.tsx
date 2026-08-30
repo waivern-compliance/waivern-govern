@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { HelpLink } from "@/components/help/HelpLink";
 import { redirect } from "next/navigation";
 import { can } from "@/lib/rbac";
 import { NotPermitted } from "@/components/NotPermitted";
@@ -36,6 +37,8 @@ const rows = await openFindings(active.membership.organisationId, visibleEntityI
           and how serious it is.
         </p>
       </header>
+
+      <HelpLink topic="findings" />
 
       {rows.length === 0 ? (
         <p className="text-sm text-ink-soft">

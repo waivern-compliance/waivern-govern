@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { HelpLink } from "@/components/help/HelpLink";
 import { redirect } from "next/navigation";
 import { PairedBars } from "@/components/charts/PairedBars";
 import { StatusBars } from "@/components/charts/StatusBars";
@@ -45,6 +46,8 @@ const m = await dashboardMetrics(
           {visibleEntityIds(active) === null ? "" : " · limited to your entities"}
         </p>
       </header>
+
+      <HelpLink topic="dashboard" />
 
       {/* Four numbers, four questions. No chart: the number is the answer. */}
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

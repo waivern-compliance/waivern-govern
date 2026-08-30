@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { HelpLink } from "@/components/help/HelpLink";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
@@ -45,6 +46,8 @@ export default async function RopaPage() {
           inspection before somebody else does.
         </p>
       </header>
+
+      <HelpLink topic="ropa" />
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Activities" value={health.total} note="on the register" />

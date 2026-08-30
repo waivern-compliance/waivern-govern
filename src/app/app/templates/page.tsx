@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { HelpLink } from "@/components/help/HelpLink";
 import { redirect } from "next/navigation";
 import { questionsOf } from "@/lib/templates/logic";
 import { can } from "@/lib/rbac";
@@ -44,6 +45,8 @@ const rows = await availableTemplates(active.membership.organisationId);
           and assessments record the version they ran against.
         </p>
       </header>
+
+      <HelpLink topic="templates" />
 
       <ul className="space-y-3">
         {rows.map(({ template, version }) => {

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { HelpLink } from "@/components/help/HelpLink";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
@@ -55,6 +56,8 @@ const org = active.membership.organisationId;
         </Link>
         <h1 className="text-2xl font-semibold tracking-tight">Assessments</h1>
       </header>
+
+      <HelpLink topic="assessments" />
 
       {mayCreate ? (
         <form
