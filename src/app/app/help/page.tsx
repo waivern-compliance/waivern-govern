@@ -29,7 +29,7 @@ export default async function HelpPage() {
     { heading: "Doing the work", ids: ["assessments", "approvals", "contributor-links", "risks", "discussion"] },
     { heading: "The registers", ids: ["ropa", "third-parties", "ai-register", "ai-chain", "transfers", "findings"] },
     { heading: "Seeing where you stand", ids: ["dashboard", "trends", "service-levels", "exports", "audit"] },
-    { heading: "Setting it up", ids: ["templates", "integrations"] },
+    { heading: "Setting it up", ids: ["templates", "integrations", "managing-people", "assistant"] },
   ];
 
   return (

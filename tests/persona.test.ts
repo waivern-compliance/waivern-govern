@@ -91,9 +91,33 @@ describe("persona never decides access", () => {
     const offenders = walk("src/services")
       .filter((f) => f.endsWith(".ts"))
       .filter((f) => !f.endsWith("persona.ts"))
+      // access.ts administers memberships, and a persona is a field on one.
+      // Storing what somebody chose is not the same as consulting it, and the
+      // test below holds it to that.
+      .filter((f) => !f.endsWith("access.ts"))
       .filter((f) => PERSONA_IDENTIFIER.test(readFileSync(f, "utf8")));
 
     assert.deepEqual(offenders, []);
+  });
+
+  it("lets the access service store a persona but never read one", () => {
+    // The exemption above would be a hole if access.ts could branch on it. It
+    // may assign a persona; it may not compare one.
+    const source = readFileSync("src/services/access.ts", "utf8")
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/\/\/.*$/gm, "");
+
+    for (const comparison of [
+      /persona\s*===/,
+      /persona\s*!==/,
+      /persona\s*==[^=]/,
+      /switch\s*\(\s*[a-z.]*persona/i,
+    ]) {
+      assert.ok(
+        !comparison.test(source),
+        `access.ts branches on persona (${comparison}) — persona must not decide anything`,
+      );
+    }
   });
 });
 

@@ -88,6 +88,18 @@ export const NAV: NavItem[] = [
     capability: "record.read",
   },
   {
+    href: "/app/admin/people",
+    label: "People and access",
+    hint: "who may sign in, and as what",
+    capability: "member.manage",
+  },
+  {
+    href: "/app/admin/assistant",
+    label: "Assistant",
+    hint: "point the platform at a model you control",
+    capability: "org.manage",
+  },
+  {
     href: "/app/templates",
     label: "Assessment templates",
     hint: "DPIA, transfer risk and impact, AI risk, screening",

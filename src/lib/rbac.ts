@@ -1,6 +1,9 @@
-import type { appRole } from "@/db/schema";
+import { appRole } from "@/db/schema";
 
 export type AppRole = (typeof appRole.enumValues)[number];
+
+/** Every role, in the order they are offered. */
+export const ROLES = appRole.enumValues;
 
 /**
  * Capabilities describe decisions, not screens. A screen is visible when the

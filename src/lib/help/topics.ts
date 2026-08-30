@@ -581,6 +581,76 @@ export const HELP_TOPICS: HelpTopic[] = [
     related: ["findings", "third-parties", "ropa"],
   },
   {
+    id: "managing-people",
+    title: "Giving somebody access",
+    summary:
+      "Grant a role, confine it to one entity, suspend or reinstate. Every change is written to the audit log.",
+    path: "/app/admin/people",
+    keywords: ["invite", "user", "member", "grant", "revoke", "suspend", "admin", "onboard", "offboard"],
+    sections: [
+      {
+        heading: "How somebody gets in",
+        body: [
+          "Granting access records the person and the role; it creates no password. They sign in with the organisation's identity provider, and the first time they do, their account is matched by email address.",
+          "Somebody who already has access keeps what they have and gains the new role as well. Roles add up, so grant the narrowest one that lets them do the job.",
+        ],
+      },
+      {
+        heading: "Confining a role to one entity",
+        body: [
+          "A role granted against an entity applies only there. An approver for BBC Studios cannot decide an approval elsewhere, and will be told a record belongs to another part of the organisation rather than shown an empty page.",
+        ],
+      },
+      {
+        heading: "Suspending, and the last owner",
+        body: [
+          "Suspending keeps the person and their history and stops them signing in. Reinstating restores exactly what they had.",
+          "The last active owner cannot be suspended or stripped of that role. An organisation that locks itself out needs a database console to get back in, which is not a state a button should be able to produce.",
+        ],
+      },
+    ],
+    related: ["roles-and-access", "personas", "audit"],
+  },
+  {
+    id: "assistant",
+    title: "The assistant, and what it may not do",
+    summary:
+      "Optional help from a model your organisation chooses and controls. It drafts and explains; it never decides.",
+    path: "/app/admin/assistant",
+    keywords: ["ai", "model", "chat", "assistant", "llm", "openai", "azure", "anthropic", "prompt"],
+    sections: [
+      {
+        heading: "It is off until you configure it",
+        body: [
+          "There is no default endpoint. Until an organisation points the platform at a model it controls and switches on a surface, nobody sees an assistant anywhere.",
+          "The endpoint is yours: Azure OpenAI, an OpenAI account, Anthropic, or anything OpenAI-compatible you host. The key is stored encrypted and is never shown again.",
+        ],
+      },
+      {
+        heading: "What it may do",
+        body: [
+          "Explain what a question or a record means, draft wording for you to edit, and point at where something is recorded. Answers are proposals. Nothing reaches a record until you write it yourself, and that act is what the audit log attributes to you.",
+        ],
+      },
+      {
+        heading: "What it may not do",
+        body: [
+          "Rate a risk, decide whether a DPIA is required, approve or accept anything, state that a country is adequate, or confirm that a supplier is a processor. Those are decisions a named person must make and attest to.",
+          "The rule it follows: where the platform would escalate a question rather than answer it, the assistant does not answer it either.",
+        ],
+      },
+      {
+        heading: "What is sent, and what is kept",
+        body: [
+          "On an assessment it is given the template's questions and never your answers. In help it is given the built-in help topics and no records at all.",
+          "Obvious identifiers — email addresses, telephone numbers, postcodes, card and national insurance numbers — are removed from a question before it is sent, and you are told what was removed. That catches shapes, not meaning: it will not notice a sentence about a named person's health. Do not type such things.",
+          "Conversations are kept for thirty days and then deleted by the scheduled sweep.",
+        ],
+      },
+    ],
+    related: ["assessments", "getting-started", "audit"],
+  },
+  {
     id: "templates",
     title: "Assessment templates",
     summary:

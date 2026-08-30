@@ -7,7 +7,7 @@ import {
   integrationConnections,
 } from "@/db/schema";
 import { appendAuditEvent } from "@/lib/audit";
-import { openSecret } from "@/lib/integration/crypto";
+import { openSecret, sealSecret } from "@/lib/integration/crypto";
 import { ask, type ProviderConfig, type ProviderKind, type Turn } from "@/lib/assistant/providers";
 import { summariseRedactions } from "@/lib/assistant/redact";
 import type { Actor } from "./templates";
@@ -315,4 +315,201 @@ export async function recentConversations(organisationId: string, limit = 20) {
     .where(eq(aiConversations.organisationId, organisationId))
     .orderBy(desc(aiConversations.lastMessageAt))
     .limit(limit);
+}
+
+/** What the settings screen may show. Never the key. */
+export type ProviderSummary = {
+  connectionId: string;
+  kind: ProviderKind;
+  baseUrl: string;
+  model: string;
+  apiVersion: string | null;
+  surfaces: Surface[];
+  isActive: boolean;
+  lastSeenAt: Date | null;
+};
+
+export async function providerSummary(
+  organisationId: string,
+): Promise<ProviderSummary | null> {
+  const [connection] = await db
+    .select()
+    .from(integrationConnections)
+    .where(
+      and(
+        eq(integrationConnections.organisationId, organisationId),
+        eq(integrationConnections.kind, "model_provider"),
+      ),
+    );
+  if (!connection) return null;
+
+  let settings: ProviderSettings = {} as ProviderSettings;
+  try {
+    settings = JSON.parse(connection.webhookUrl ?? "{}") as ProviderSettings;
+  } catch {
+    // A malformed row should still be visible and replaceable, not invisible.
+  }
+
+  return {
+    connectionId: connection.id,
+    kind: settings.kind === "anthropic" ? "anthropic" : "openai_compatible",
+    baseUrl: settings.baseUrl ?? "",
+    model: settings.model ?? "",
+    apiVersion: settings.apiVersion ?? null,
+    surfaces: settings.surfaces ?? [],
+    isActive: connection.isActive,
+    lastSeenAt: connection.lastSeenAt,
+  };
+}
+
+/**
+ * Store the organisation's model configuration.
+ *
+ * The key is sealed with the same AES-256-GCM helper the ingest connections
+ * use, and is never read back out to a screen. Leaving the key field blank on
+ * an update keeps the stored one, so somebody changing which surfaces are
+ * enabled does not have to re-enter a credential they may not have to hand.
+ */
+export async function saveProvider(input: {
+  organisationId: string;
+  kind: ProviderKind;
+  baseUrl: string;
+  model: string;
+  apiVersion?: string;
+  surfaces: Surface[];
+  /** Absent means keep whatever is stored. */
+  apiKey?: string;
+  isActive: boolean;
+  actor: Actor;
+}) {
+  const settings: ProviderSettings = {
+    kind: input.kind,
+    baseUrl: input.baseUrl.trim(),
+    model: input.model.trim(),
+    ...(input.apiVersion?.trim() ? { apiVersion: input.apiVersion.trim() } : {}),
+    surfaces: input.surfaces,
+  };
+
+  return db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select()
+      .from(integrationConnections)
+      .where(
+        and(
+          eq(integrationConnections.organisationId, input.organisationId),
+          eq(integrationConnections.kind, "model_provider"),
+        ),
+      );
+
+    if (!existing && !input.apiKey) {
+      throw new Error("A key is needed the first time a provider is configured");
+    }
+
+    const sealed = input.apiKey
+      ? sealSecret(input.apiKey)
+      : {
+          ciphertext: existing!.secretCiphertext,
+          iv: existing!.secretIv,
+          tag: existing!.secretTag,
+        };
+
+    const values = {
+      organisationId: input.organisationId,
+      kind: "model_provider" as const,
+      name: `${input.kind} · ${input.model}`,
+      secretCiphertext: sealed.ciphertext,
+      secretIv: sealed.iv,
+      secretTag: sealed.tag,
+      webhookUrl: JSON.stringify(settings),
+      isActive: input.isActive,
+    };
+
+    const row = existing
+      ? (
+          await tx
+            .update(integrationConnections)
+            .set(values)
+            .where(eq(integrationConnections.id, existing.id))
+            .returning()
+        )[0]
+      : (await tx.insert(integrationConnections).values(values).returning())[0];
+
+    await appendAuditEvent(tx, {
+      ...input.actor,
+      organisationId: input.organisationId,
+      action: existing ? "model_provider.updated" : "model_provider.configured",
+      subjectType: "integration_connection",
+      subjectId: row.id,
+      // The endpoint and model are recorded; the key never is.
+      after: {
+        kind: input.kind,
+        baseUrl: settings.baseUrl,
+        model: settings.model,
+        surfaces: input.surfaces,
+        isActive: input.isActive,
+        keyReplaced: Boolean(input.apiKey),
+      },
+    });
+
+    return row;
+  });
+}
+
+export async function removeProvider(input: { organisationId: string; actor: Actor }) {
+  return db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select()
+      .from(integrationConnections)
+      .where(
+        and(
+          eq(integrationConnections.organisationId, input.organisationId),
+          eq(integrationConnections.kind, "model_provider"),
+        ),
+      );
+    if (!existing) return;
+
+    await tx.delete(integrationConnections).where(eq(integrationConnections.id, existing.id));
+    await appendAuditEvent(tx, {
+      ...input.actor,
+      organisationId: input.organisationId,
+      action: "model_provider.removed",
+      subjectType: "integration_connection",
+      subjectId: existing.id,
+    });
+  });
+}
+
+/**
+ * Send one harmless request, so the first real call is not in front of a user.
+ *
+ * Adapters are written to documented wire formats, which is not the same as
+ * having spoken to the endpoint an organisation actually has. This is where a
+ * wrong base URL, a missing api-version or a bad key should surface.
+ */
+export async function testProvider(organisationId: string): Promise<{
+  ok: boolean;
+  detail: string;
+  model?: string;
+}> {
+  const configured = await providerFor(organisationId);
+  if (!configured) return { ok: false, detail: "No model is configured." };
+
+  const result = await ask(configured.config, {
+    system: "Reply with the single word: ready",
+    turns: [{ role: "user", content: "Are you reachable?" }],
+    maxTokens: 16,
+  });
+
+  if (!result.ok) return { ok: false, detail: result.reason };
+  if (!result.text.trim()) {
+    return {
+      ok: false,
+      detail: "The endpoint answered, but with nothing. Check the model name.",
+    };
+  }
+  return {
+    ok: true,
+    model: result.model,
+    detail: `Answered: “${result.text.trim().slice(0, 80)}”`,
+  };
 }

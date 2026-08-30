@@ -9,7 +9,7 @@ import {
   users,
 } from "@/db/schema";
 import { appendAuditEvent } from "@/lib/audit";
-import type { AppRole } from "@/lib/rbac";
+import { ROLES, type AppRole } from "@/lib/rbac";
 import { PERSONAS, type Persona } from "@/lib/persona";
 
 /**
@@ -28,7 +28,7 @@ import { PERSONAS, type Persona } from "@/lib/persona";
  * Idempotent: re-running adds nothing and changes nothing.
  */
 
-const ROLES = appRole.enumValues;
+
 
 function usage(message?: string): never {
   if (message) console.error(`\n${message}\n`);
