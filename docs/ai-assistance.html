@@ -1,0 +1,594 @@
+<title>Conversational Assistance</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+
+<style>
+:root{
+  --paper:#F4F6F8;
+  --surface:#FFFFFF;
+  --surface-2:#EBEFF3;
+  --ink:#131A22;
+  --ink-2:#3A4551;
+  --muted:#5F6C7B;
+  --rule:#D8DFE6;
+  --rule-soft:#E6EBF0;
+  --accent:#0D5461;
+  --accent-soft:#DCEBEE;
+  --accent-line:#0D5461;
+  --low:#2C6E4F;
+  --med:#95660A;
+  --high:#A83A2C;
+  --crit:#6E1D1D;
+  --shadow:0 1px 2px rgba(19,26,34,.05);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#0D1218;
+    --surface:#141B23;
+    --surface-2:#1B242E;
+    --ink:#E4EAF0;
+    --ink-2:#B7C2CE;
+    --muted:#8C99A8;
+    --rule:#26313D;
+    --rule-soft:#1E2732;
+    --accent:#4FADBC;
+    --accent-soft:#12333A;
+    --accent-line:#3E96A6;
+    --low:#5FB98B;
+    --med:#D4A03C;
+    --high:#E1796A;
+    --crit:#C4685F;
+    --shadow:0 1px 2px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0D1218;
+  --surface:#141B23;
+  --surface-2:#1B242E;
+  --ink:#E4EAF0;
+  --ink-2:#B7C2CE;
+  --muted:#8C99A8;
+  --rule:#26313D;
+  --rule-soft:#1E2732;
+  --accent:#4FADBC;
+  --accent-soft:#12333A;
+  --accent-line:#3E96A6;
+  --low:#5FB98B;
+  --med:#D4A03C;
+  --high:#E1796A;
+  --crit:#C4685F;
+  --shadow:0 1px 2px rgba(0,0,0,.35);
+}
+
+*{box-sizing:border-box;}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:"Source Serif 4",Georgia,"Times New Roman",serif;
+  font-size:17px;
+  line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:760px;margin:0 auto;padding:56px 28px 120px;}
+.eyebrow{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--accent);font-weight:600;
+}
+h1{
+  font-family:Archivo,"Helvetica Neue",Arial,sans-serif;
+  font-weight:700;font-size:clamp(32px,4.6vw,46px);
+  line-height:1.05;letter-spacing:-.022em;margin:14px 0 0;
+  text-wrap:balance;
+}
+.standfirst{
+  font-size:20px;line-height:1.5;color:var(--ink-2);
+  margin:18px 0 0;max-width:60ch;text-wrap:pretty;
+}
+.meta{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:12px;color:var(--muted);margin-top:26px;
+  padding-top:18px;border-top:1px solid var(--rule);
+  display:flex;flex-wrap:wrap;gap:6px 22px;
+}
+h2{
+  font-family:Archivo,"Helvetica Neue",Arial,sans-serif;
+  font-weight:600;font-size:25px;line-height:1.2;letter-spacing:-.012em;
+  margin:0;text-wrap:balance;
+}
+h3{
+  font-family:Archivo,"Helvetica Neue",Arial,sans-serif;
+  font-weight:600;font-size:17.5px;line-height:1.3;
+  margin:0;color:var(--ink);
+}
+section{margin-top:56px;display:flex;flex-direction:column;gap:16px;}
+section > p{margin:0;max-width:65ch;}
+p{margin:0;max-width:65ch;}
+strong{font-weight:600;}
+em{font-style:italic;color:var(--ink-2);}
+
+.lede{
+  border-left:3px solid var(--accent-line);
+  padding:2px 0 2px 20px;
+  font-size:19px;line-height:1.5;color:var(--ink);
+}
+
+.card{
+  background:var(--surface);
+  border:1px solid var(--rule);
+  border-radius:3px;
+  box-shadow:var(--shadow);
+  padding:20px 22px;
+  display:flex;flex-direction:column;gap:10px;
+}
+
+.rule-list{
+  list-style:none;margin:0;padding:0;
+  display:flex;flex-direction:column;gap:0;
+  border-top:1px solid var(--rule-soft);
+}
+.rule-list li{
+  border-bottom:1px solid var(--rule-soft);
+  padding:14px 0;
+  display:grid;grid-template-columns:auto 1fr;gap:0 16px;align-items:baseline;
+}
+.rank{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:12.5px;font-weight:600;color:var(--accent);
+  font-variant-numeric:tabular-nums;
+}
+.rule-list .body{display:flex;flex-direction:column;gap:5px;}
+.rule-list .what{font-weight:600;font-size:17px;}
+.rule-list .why{color:var(--ink-2);font-size:16px;}
+.rule-list .out{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:12px;color:var(--muted);
+}
+
+.no-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px;}
+.no-list li{
+  display:grid;grid-template-columns:auto 1fr;gap:0 14px;align-items:baseline;
+  padding-left:2px;
+}
+.bar{
+  width:3px;align-self:stretch;background:var(--high);border-radius:2px;
+}
+.no-list .body{display:flex;flex-direction:column;gap:3px;}
+.no-list .what{font-weight:600;}
+.no-list .why{color:var(--ink-2);font-size:16px;}
+
+ul.plain{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:8px;max-width:65ch;}
+ul.plain li::marker{color:var(--accent);}
+
+.mono{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.88em;}
+code{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:.86em;background:var(--surface-2);
+  padding:1px 5px;border-radius:2px;color:var(--ink-2);
+}
+
+.flow{
+  display:flex;flex-wrap:wrap;align-items:stretch;gap:0;
+  border:1px solid var(--rule);border-radius:3px;overflow:hidden;
+  background:var(--surface);
+}
+.flow .step{
+  flex:1 1 150px;padding:16px 18px;
+  border-right:1px solid var(--rule-soft);
+  display:flex;flex-direction:column;gap:5px;
+}
+.flow .step:last-child{border-right:0;}
+.flow .k{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);
+}
+.flow .v{font-size:15.5px;line-height:1.35;}
+.flow .step.human{background:var(--accent-soft);}
+.flow .step.human .k{color:var(--accent);}
+
+.tablewrap{overflow-x:auto;border:1px solid var(--rule);border-radius:3px;background:var(--surface);}
+table{border-collapse:collapse;width:100%;min-width:520px;font-size:15.5px;}
+th,td{text-align:left;padding:11px 16px;border-bottom:1px solid var(--rule-soft);vertical-align:top;}
+th{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--muted);font-weight:600;
+}
+tr:last-child td{border-bottom:0;}
+td.effort{font-family:"IBM Plex Mono",ui-monospace,monospace;white-space:nowrap;color:var(--ink-2);font-variant-numeric:tabular-nums;}
+
+.callout{
+  background:var(--accent-soft);
+  border:1px solid var(--accent-line);
+  border-radius:3px;padding:18px 22px;
+  display:flex;flex-direction:column;gap:9px;
+}
+.callout .tag{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--accent);font-weight:600;
+}
+.callout p{max-width:62ch;}
+
+footer{
+  margin-top:72px;padding-top:20px;border-top:1px solid var(--rule);
+  font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:12px;color:var(--muted);
+  display:flex;flex-wrap:wrap;gap:6px 20px;
+}
+a{color:var(--accent);}
+a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px;}
+@media (max-width:560px){
+  .wrap{padding:40px 20px 90px;}
+  body{font-size:16.5px;}
+}
+</style>
+
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">Waivern Govern · Annexe to §07, The AI layer</p>
+    <h1>Conversational assistance in a governance workflow</h1>
+    <p class="standfirst">
+      Where a chat-style assistant belongs in this platform, where it must not
+      go, and what has to be true of the architecture before either question
+      is worth answering.
+    </p>
+    <p class="meta">
+      <span>Prepared for the BBC Privacy and AI Governance Platform RFI</span>
+      <span>Extends §07 of the design document</span>
+    </p>
+  </header>
+
+  <section>
+    <h2>The position, and what this annexe adds</h2>
+    <p class="lede">
+      The model proposes. A named human decides and attests. Model output
+      never writes to a decision field.
+    </p>
+    <p>
+      That commitment is made in §07 and is not revisited here. What §07
+      describes, though, is <em>inline suggestion</em>: proposals derived from
+      answers already captured in the platform, offered against a specific
+      field, recorded in an <code>ai_suggestion</code> row and accepted or
+      discarded by a person.
+    </p>
+    <p>
+      A conversational interface is a materially different thing, and the
+      difference is not the interaction style. It is the direction of data
+      flow. Inline suggestion reads from records the organisation has already
+      chosen to hold. A chat box is an <strong>open ingress</strong>: it
+      invites a user to type whatever they think is relevant, and some of them
+      will type a claimant's name, a colleague's health condition, or the
+      contents of an incident report.
+    </p>
+    <p>
+      A governance platform that opens an unminimised channel to a third-party
+      model has created a processing activity it did not record, in a place its
+      own registers cannot see. That is the risk this annexe exists to address,
+      and it shapes every recommendation below.
+    </p>
+  </section>
+
+  <section>
+    <h2>The rule that decides placement</h2>
+    <p>
+      The platform already refuses to decide anything. Routing rules escalate
+      rather than answer when a question is unanswerable; an empty country
+      library flags every transfer rather than clearing it; a scanner finding
+      becomes a risk only when a person converts it. An assistant has to
+      inherit that posture or it becomes a route around it.
+    </p>
+    <div class="callout">
+      <span class="tag">The test</span>
+      <p>
+        If a routing rule or the scheduled sweep would escalate a question
+        rather than answer it, the assistant may not answer it either. It may
+        explain what the question means, and it may draft what an answer could
+        look like. It may not supply the judgement.
+      </p>
+    </div>
+    <p>
+      Stated as a boundary: the assistant may <strong>draft, explain and
+      find</strong>. It may never <strong>attest, decide, or close a
+      gap</strong>.
+    </p>
+  </section>
+
+  <section>
+    <h2>How a contribution travels</h2>
+    <p>
+      Every conversational output follows the same path, whichever surface it
+      came from. The step in colour is the only one that changes the record,
+      and it is always a person.
+    </p>
+    <div class="flow">
+      <div class="step">
+        <span class="k">Ask</span>
+        <span class="v">User question, plus minimised record context</span>
+      </div>
+      <div class="step">
+        <span class="k">Propose</span>
+        <span class="v">Model returns a draft, an explanation, or nothing</span>
+      </div>
+      <div class="step">
+        <span class="k">Hold</span>
+        <span class="v">Stored as a suggestion with model, prompt version and inputs</span>
+      </div>
+      <div class="step human">
+        <span class="k">Accept</span>
+        <span class="v">A named person edits and commits it. This is the audited act</span>
+      </div>
+    </div>
+    <p>
+      The suggestion record is retained whether or not it was accepted. A
+      proposal that a reviewer rejected is evidence of diligence, and deleting
+      it would leave the audit trail showing only the proposals that happened
+      to be agreed with.
+    </p>
+  </section>
+
+  <section>
+    <h2>Where it earns its place</h2>
+    <p>
+      Ranked by value against risk. The first two share all of their
+      infrastructure, which is why they are proposed as one increment.
+    </p>
+    <ol class="rule-list">
+      <li>
+        <span class="rank">01</span>
+        <span class="body">
+          <span class="what">Beside a question, while answering an assessment</span>
+          <span class="why">
+            This is where the non-specialist personas actually stall. An
+            engineering lead facing “does this involve special category data?”
+            is blocked on vocabulary, not effort. Most acute on no-account
+            contributor links, where the person has one screen and no
+            surrounding context to learn from.
+          </span>
+          <span class="out">Outputs — plain-language explanation · draft answer text · what evidence would satisfy this</span>
+        </span>
+      </li>
+      <li>
+        <span class="rank">02</span>
+        <span class="body">
+          <span class="what">Natural-language questions about the platform</span>
+          <span class="why">
+            The in-product help is already a structured corpus of twenty-two
+            topics covering every screen and the reasoning behind it. It gives
+            retrieval a defined ground truth, so answers can be grounded in
+            shipped documentation rather than generated from the model's
+            general knowledge of privacy law.
+          </span>
+          <span class="out">Outputs — an answer citing the help topic it came from · no writes</span>
+        </span>
+      </li>
+      <li>
+        <span class="rank">03</span>
+        <span class="body">
+          <span class="what">Drafting a register entry from a description</span>
+          <span class="why">
+            Turning “we send viewing history to a US analytics vendor” into
+            proposed purposes, data categories, recipients and a transfer with
+            its destination. Converts a blank Article 30 form into an editing
+            task, which is a far lower barrier. Each field is proposed
+            separately and accepted separately.
+          </span>
+          <span class="out">Outputs — per-field suggestions · never a wholesale record write</span>
+        </span>
+      </li>
+      <li>
+        <span class="rank">04</span>
+        <span class="body">
+          <span class="what">“What is this, and why has it come to me?”</span>
+          <span class="why">
+            Contextual explanation on a task, risk or finding. The product
+            manager's real question, and currently answerable only by asking a
+            privacy colleague. Combines the record with the governance reason
+            it exists.
+          </span>
+          <span class="out">Outputs — explanation only</span>
+        </span>
+      </li>
+      <li>
+        <span class="rank">05</span>
+        <span class="body">
+          <span class="what">Explaining a scanner finding</span>
+          <span class="why">
+            What a pre-consent cookie from an unfamiliar vendor implies, and
+            what would need to be true for it to matter. Conversion into a risk
+            remains a human act, as it is today.
+          </span>
+          <span class="out">Outputs — explanation · candidate risk wording. Never a materiality verdict</span>
+        </span>
+      </li>
+      <li>
+        <span class="rank">06</span>
+        <span class="body">
+          <span class="what">Wording for risks and mitigations</span>
+          <span class="why">
+            Turning “it might leak” into a properly framed risk statement with
+            candidate treatments. Wording only; the likelihood and impact
+            ratings stay with the person.
+          </span>
+          <span class="out">Outputs — draft text for description and mitigation fields</span>
+        </span>
+      </li>
+      <li>
+        <span class="rank">07</span>
+        <span class="body">
+          <span class="what">Reviewing a template against a checklist</span>
+          <span class="why">
+            “Does this DPIA cover Article 35(7)(a) to (d)?” Newly practical,
+            because template definitions are now readable in the interface with
+            their conditional logic rendered in English.
+          </span>
+          <span class="out">Outputs — gap list against a named checklist</span>
+        </span>
+      </li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Where it must not go</h2>
+    <p>
+      Each of these is a point where the platform already declines to decide.
+      An assistant answering them would not be adding a feature; it would be
+      removing a control.
+    </p>
+    <ul class="no-list">
+      <li><span class="bar"></span><span class="body">
+        <span class="what">Setting a likelihood, impact or residual rating</span>
+        <span class="why">The judgement the register exists to record. Under Article 35 the controller carries the assessment; a platform that lets a model set a residual score has moved accountability somewhere it cannot legally sit.</span>
+      </span></li>
+      <li><span class="bar"></span><span class="body">
+        <span class="what">Deciding an approval gate, or accepting a risk</span>
+        <span class="why">Both sit with the approver role alone, deliberately separated from the ability to edit the record. An assistant reaching them would collapse that separation.</span>
+      </span></li>
+      <li><span class="bar"></span><span class="body">
+        <span class="what">Determining a screening outcome</span>
+        <span class="why">Whether a DPIA is required is the decision the screening template exists to put to a person.</span>
+      </span></li>
+      <li><span class="bar"></span><span class="body">
+        <span class="what">Setting adequacy status, or confirming a processor</span>
+        <span class="why">Both are attestations that a person checked something against a source. A model asserting them produces a register that looks verified and is not.</span>
+      </span></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>What has to change first</h2>
+    <p>
+      One gap has to close before any of this is defensible, and it is small.
+      The audit chain records an actor kind of <code>user</code>,
+      <code>contributor_link</code>, <code>system</code> or
+      <code>integration</code>. There is no value for an assistant.
+    </p>
+    <p>
+      Without one, an answer drafted by a model and accepted by a person is
+      indistinguishable in the audit trail from one that person wrote
+      themselves. For a platform whose central claim is an unbroken record of
+      who decided what, that is the first question a regulator would ask and
+      the one currently unanswerable. Provenance comes before surfaces.
+    </p>
+    <ul class="plain">
+      <li><strong>An assistant actor kind</strong>, so a proposal is attributable to a model and a version, distinctly from the person who accepted it.</li>
+      <li><strong>Acceptance recorded as its own act</strong>, carrying both the suggestion it came from and the human who took responsibility for it.</li>
+      <li><strong>Conversation retention</strong> scoped and disclosed, since a multi-turn exchange accumulates context that no single record shows.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>A model of the client's choosing</h2>
+    <p>
+      The platform already stores per-organisation integration secrets
+      encrypted at rest with AES-256-GCM, and already scopes each connection to
+      the endpoints its kind is entitled to use. A model provider is another
+      connection kind on that existing mechanism rather than new infrastructure.
+    </p>
+    <ul class="plain">
+      <li><strong>Provider adapters</strong> behind one interface — Azure OpenAI, Amazon Bedrock, Anthropic, or any OpenAI-compatible endpoint the organisation hosts itself. The BBC would be expected to require its own tenancy, and this shape gives it without a code change.</li>
+      <li><strong>Off by default, and off per surface.</strong> An organisation that enables drafting assistance on assessments is not thereby enabling it on the risk register.</li>
+      <li><strong>Minimisation as a control, not an optimisation.</strong> What is sent is the question and the organisation's own prose. Never the register wholesale, never identities. What was sent is as auditable as what came back.</li>
+      <li><strong>Fail soft, always.</strong> JSON is coerced through the prompt rather than assistant prefill, parsing recovers fenced and prose-wrapped output, and an unparseable response yields an empty suggestion rather than blocking a save. A governance record must remain savable whether or not the advisory layer answered.</li>
+    </ul>
+    <div class="callout">
+      <span class="tag">Self-application</span>
+      <p>
+        Where an organisation enables this, the platform records its own use of
+        AI in its own register — system, provenance, lifecycle stage, oversight
+        model, and the transfer if the endpoint sits outside the UK. A
+        governance platform that does not govern the AI inside itself invites
+        the obvious question, and answering it in advance is a stronger
+        position than being asked.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Residual risks, stated plainly</h2>
+    <p>
+      These do not have clean engineering answers. They are stated because a
+      buyer should hear them from the supplier rather than discover them.
+    </p>
+    <div class="card">
+      <h3>Anchoring on a proposed rating</h3>
+      <p>
+        §07 admits proposing a risk rating among the four permitted uses, with
+        bias towards escalation. Escalation bias controls the direction of
+        error but not the anchoring: a reviewer shown “high” is measurably more
+        likely to accept high. Mitigations are presentational — proposing a
+        range rather than a point, requiring the rationale field before
+        acceptance — and none removes the effect. It should be measured in
+        pilot rather than assumed away.
+      </p>
+    </div>
+    <div class="card">
+      <h3>Free-text ingress</h3>
+      <p>
+        Users will type things into a chat box that they would not enter into a
+        form. Detection and redaction of obvious identifiers before a request
+        leaves the platform is the practical control, together with a plainly
+        worded standing notice at the point of entry. Neither is complete, and
+        a control that is not complete should be described as partial.
+      </p>
+    </div>
+    <div class="card">
+      <h3>Context accumulating across turns</h3>
+      <p>
+        A conversation gathers material from several records into one exchange
+        that no single record reflects. Retention, scope and the reader's right
+        of access to it need to be settled before launch, not after.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Proposed increments</h2>
+    <p>
+      Estimates assume the existing codebase, and are given for the build only.
+    </p>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th scope="col">Increment</th><th scope="col">Contents</th><th scope="col">Effort</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Provenance</td>
+            <td>Assistant actor kind, suggestion and acceptance records, retention policy. Prerequisite for everything else.</td>
+            <td class="effort">1 day</td>
+          </tr>
+          <tr>
+            <td>Provider layer</td>
+            <td>Adapter interface, per-organisation configuration on the existing encrypted-secret mechanism, per-surface switches, minimisation and fail-soft parsing.</td>
+            <td class="effort">1 day</td>
+          </tr>
+          <tr>
+            <td>First two surfaces</td>
+            <td>Assistance while answering an assessment, and natural-language help grounded in the shipped corpus.</td>
+            <td class="effort">1–2 days</td>
+          </tr>
+          <tr>
+            <td>Register drafting</td>
+            <td>Article 30 and AI register entries proposed field by field from a description.</td>
+            <td class="effort">1 day</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      Sequenced so that the first two increments are useful on their own: they
+      are what makes any later surface auditable, and they are the part a buyer
+      should hold the supplier to before any assistant is switched on.
+    </p>
+  </section>
+
+  <footer>
+    <span>Waivern Govern</span>
+    <span>Annexe to §07 of the design document</span>
+  </footer>
+
+</div>
