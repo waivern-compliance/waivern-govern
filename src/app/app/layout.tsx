@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Wordmark } from "@/components/Wordmark";
+import { can } from "@/lib/rbac";
 import { getActiveSession } from "@/lib/session";
 
 /**
@@ -12,6 +13,12 @@ import { getActiveSession } from "@/lib/session";
  */
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const active = await getActiveSession();
+  // Shown to whoever can actually change something. Administration belongs
+  // where it is always reachable, not below a task list.
+  const mayAdminister =
+    active !== null &&
+    (can(active.membership.grants, "member.manage") ||
+      can(active.membership.grants, "org.manage"));
 
   return (
     <>
@@ -32,6 +39,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             {/* Always present, always in the same place. Help that moves, or
                 that only appears when something has gone wrong, is help
                 nobody learns to reach for. */}
+            {mayAdminister ? (
+              <Link
+                href="/app/admin"
+                className="rounded border border-white/25 px-2.5 py-1 text-xs text-white hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+              >
+                Settings
+              </Link>
+            ) : null}
             <Link
               href="/app/help"
               className="rounded border border-white/25 px-2.5 py-1 text-xs text-white hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"

@@ -351,15 +351,34 @@ export async function ProductHome({ active }: { active: ActiveSession }) {
 
 function QuickLinks({ active }: { active: ActiveSession }) {
   const items = navFor(active.membership.grants).filter((i) => i.href !== "/app/tasks");
+  // Administration is a different kind of thing from a register. Mixed into
+  // one list it reads as an afterthought, which is how somebody who knew a
+  // screen existed still could not find it.
+  const work = items.filter((i) => i.group !== "admin");
+  const admin = items.filter((i) => i.group === "admin");
+
   if (items.length === 0) return null;
   return (
-    <Panel title="Everything else">
-      <Rows>
-        {items.map((i) => (
-          <Row key={i.href} href={i.href} title={i.label} detail={i.hint} />
-        ))}
-      </Rows>
-    </Panel>
+    <>
+      {work.length > 0 ? (
+        <Panel title="Everything else">
+          <Rows>
+            {work.map((i) => (
+              <Row key={i.href} href={i.href} title={i.label} detail={i.hint} />
+            ))}
+          </Rows>
+        </Panel>
+      ) : null}
+      {admin.length > 0 ? (
+        <Panel title="Setting this up">
+          <Rows>
+            {admin.map((i) => (
+              <Row key={i.href} href={i.href} title={i.label} detail={i.hint} />
+            ))}
+          </Rows>
+        </Panel>
+      ) : null}
+    </>
   );
 }
 

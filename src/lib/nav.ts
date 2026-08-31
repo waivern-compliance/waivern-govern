@@ -17,6 +17,12 @@ export type NavItem = {
   hint: string;
   /** Absent means everybody signed in. */
   capability?: Capability;
+  /**
+   * Administration is a different kind of thing from a register, and filing
+   * it under "everything else" is how the owner of a platform ends up unable
+   * to find the screen that configures it.
+   */
+  group?: "admin";
 };
 
 export const NAV: NavItem[] = [
@@ -88,22 +94,24 @@ export const NAV: NavItem[] = [
     capability: "record.read",
   },
   {
+    href: "/app/templates",
+    label: "Assessment templates",
+    hint: "DPIA, transfer risk and impact, AI risk, screening",
+    capability: "record.read",
+  },
+  {
     href: "/app/admin/people",
     label: "People and access",
     hint: "who may sign in, and as what",
     capability: "member.manage",
+    group: "admin",
   },
   {
     href: "/app/admin/assistant",
     label: "Assistant",
     hint: "point the platform at a model you control",
     capability: "org.manage",
-  },
-  {
-    href: "/app/templates",
-    label: "Assessment templates",
-    hint: "DPIA, transfer risk and impact, AI risk, screening",
-    capability: "record.read",
+    group: "admin",
   },
 ];
 

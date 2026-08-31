@@ -3,7 +3,7 @@ import { after, describe, it } from "node:test";
 import { eq } from "drizzle-orm";
 import { db, sql as pg } from "@/db/client";
 import { entities, organisations, tasks, users } from "@/db/schema";
-import { navFor } from "@/lib/nav";
+import { NAV, navFor } from "@/lib/nav";
 import type { Grant } from "@/lib/rbac";
 import { openTasks } from "@/services/workflow";
 
@@ -163,5 +163,34 @@ describe("which tasks reach a person", () => {
       grants: [{ role: "privacy_analyst", scope: "organisation" }],
     });
     assert.equal(seen.length, 1);
+  });
+});
+
+describe("administration is kept apart", () => {
+  it("gates every admin entry on a capability that manages something", () => {
+    // The group decides where it is filed. If an entry were grouped as admin
+    // but gated on record.read, it would appear under settings for people who
+    // cannot change any setting.
+    const managing = ["member.manage", "org.manage", "entity.manage"];
+    for (const item of NAV.filter((i) => i.group === "admin")) {
+      assert.ok(
+        item.capability && managing.includes(item.capability),
+        `${item.href} is grouped as admin but gated on ${item.capability ?? "nothing"}`,
+      );
+    }
+  });
+
+  it("keeps administration out of the ordinary list", () => {
+    // Anything under /app/admin belongs in the admin group, or it reappears
+    // among the registers.
+    for (const item of NAV.filter((i) => i.href.startsWith("/app/admin"))) {
+      assert.equal(item.group, "admin", `${item.href} is not grouped as admin`);
+    }
+  });
+
+  it("offers nothing under settings to somebody who manages nothing", () => {
+    const analyst: Grant[] = [{ role: "privacy_analyst", scope: "organisation" }];
+    const offered = navFor(analyst).filter((i) => i.group === "admin");
+    assert.deepEqual(offered, []);
   });
 });
