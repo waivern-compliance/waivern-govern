@@ -148,6 +148,13 @@
       "when": 1788090494295,
       "tag": "0020_flashy_jazinda",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1788281708097,
+      "tag": "0021_pale_liz_osborn",
+      "breakpoints": true
     }
   ]
 }

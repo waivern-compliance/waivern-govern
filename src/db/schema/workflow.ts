@@ -146,6 +146,22 @@ export const tasks = pgTable(
      * carries one, so re-running a sweep is safe — which is most of what
      * durability buys.
      */
+    /**
+     * The machine identifier in whatever system is tracking this work. Jira
+     * returns an issue id, ServiceNow a sys_id; both are what the API wants
+     * back and neither is meant for a person to read.
+     */
+    externalId: text("external_id"),
+    /**
+     * The reference a person recognises — PRIV-142, TASK0012345. Held apart
+     * from the identifier because the two systems disagree about whether those
+     * are the same thing, and storing one would mean either being unable to
+     * call the API or being unable to show anybody where the work went.
+     */
+    externalRef: text("external_ref"),
+    /** Where to open it. Stored rather than rebuilt, so the link survives the connection being changed. */
+    externalUrl: text("external_url"),
+
     idempotencyKey: text("idempotency_key"),
 
     completedAt: timestamp("completed_at", { withTimezone: true }),

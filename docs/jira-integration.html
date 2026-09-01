@@ -368,6 +368,12 @@ a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-of
       then differ by configuration and a small client, not by a second design.
       Microsoft Lists, also at P3, reads through the same shape.
     </p>
+    <p>
+      That seam's shape is already in the platform: one connection kind for
+      work trackers, a configuration holding the destination and the statuses
+      that mean finished, and the two identifier fields on a task. Neither
+      adapter is written; neither needs a migration before it can be.
+    </p>
     <ul class="plain">
       <li><strong>Which project, and whose.</strong> One privacy project is simplest and least useful; raising into each product team's own board is what makes the work visible to the people who must do it. Mapped per entity.</li>
       <li><strong>Which statuses mean done.</strong> Jira workflows are per-project and every organisation customises them, so this is configuration rather than code. A status mapping nobody can edit is an integration that breaks the first time a team adds a column.</li>
@@ -399,6 +405,24 @@ a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-of
       per-organisation encrypted credentials, scoped connection kinds, outbound
       delivery with backoff, and an hourly reconciliation job.
     </p>
+    <div class="callout">
+      <span class="tag">Already in place</span>
+      <p>
+        The three decisions that would otherwise make the second adapter
+        expensive have been taken, so the figures below are not resting on
+        work still to be argued about. A task carries a machine identifier and
+        a human reference separately, because Jira and ServiceNow disagree
+        about whether those are the same thing. A destination is a map in the
+        connection's configuration rather than named columns, so ServiceNow's
+        table and assignment group need no schema change. And completion is
+        matched against stored strings, so a ServiceNow state of 3 and a Jira
+        status of “Done” go through one comparison.
+      </p>
+      <p>
+        What remains for each product is a client, a form, and the
+        reconciliation step — which is what the figures describe.
+      </p>
+    </div>
     <div class="tablewrap">
       <table>
         <thead>

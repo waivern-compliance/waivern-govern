@@ -233,6 +233,12 @@ export const integrationKind = pgEnum("integration_kind", [
   "har_analyser",
   /** A language model endpoint the organisation chooses and controls. */
   "model_provider",
+  /**
+   * Where work is tracked — Jira, ServiceNow. One kind rather than one per
+   * product: they differ by adapter and configuration, not by design, and a
+   * kind each would put that difference in the schema where it does not belong.
+   */
+  "work_tracker",
   "other",
 ]);
 
