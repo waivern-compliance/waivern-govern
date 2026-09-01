@@ -1,0 +1,476 @@
+<title>Jira and Work Trackers</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+
+<style>
+:root{
+  --paper:#F4F6F8;
+  --surface:#FFFFFF;
+  --surface-2:#EBEFF3;
+  --ink:#131A22;
+  --ink-2:#3A4551;
+  --muted:#5F6C7B;
+  --rule:#D8DFE6;
+  --rule-soft:#E6EBF0;
+  --accent:#0D5461;
+  --accent-soft:#DCEBEE;
+  --accent-line:#0D5461;
+  --low:#2C6E4F;
+  --med:#95660A;
+  --high:#A83A2C;
+  --crit:#6E1D1D;
+  --shadow:0 1px 2px rgba(19,26,34,.05);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#0D1218;
+    --surface:#141B23;
+    --surface-2:#1B242E;
+    --ink:#E4EAF0;
+    --ink-2:#B7C2CE;
+    --muted:#8C99A8;
+    --rule:#26313D;
+    --rule-soft:#1E2732;
+    --accent:#4FADBC;
+    --accent-soft:#12333A;
+    --accent-line:#3E96A6;
+    --low:#5FB98B;
+    --med:#D4A03C;
+    --high:#E1796A;
+    --crit:#C4685F;
+    --shadow:0 1px 2px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0D1218;
+  --surface:#141B23;
+  --surface-2:#1B242E;
+  --ink:#E4EAF0;
+  --ink-2:#B7C2CE;
+  --muted:#8C99A8;
+  --rule:#26313D;
+  --rule-soft:#1E2732;
+  --accent:#4FADBC;
+  --accent-soft:#12333A;
+  --accent-line:#3E96A6;
+  --low:#5FB98B;
+  --med:#D4A03C;
+  --high:#E1796A;
+  --crit:#C4685F;
+  --shadow:0 1px 2px rgba(0,0,0,.35);
+}
+
+*{box-sizing:border-box;}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:"Source Serif 4",Georgia,"Times New Roman",serif;
+  font-size:17px;
+  line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:760px;margin:0 auto;padding:56px 28px 120px;}
+.eyebrow{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--accent);font-weight:600;
+}
+h1{
+  font-family:Archivo,"Helvetica Neue",Arial,sans-serif;
+  font-weight:700;font-size:clamp(32px,4.6vw,46px);
+  line-height:1.05;letter-spacing:-.022em;margin:14px 0 0;
+  text-wrap:balance;
+}
+.standfirst{
+  font-size:20px;line-height:1.5;color:var(--ink-2);
+  margin:18px 0 0;max-width:60ch;text-wrap:pretty;
+}
+.meta{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:12px;color:var(--muted);margin-top:26px;
+  padding-top:18px;border-top:1px solid var(--rule);
+  display:flex;flex-wrap:wrap;gap:6px 22px;
+}
+h2{
+  font-family:Archivo,"Helvetica Neue",Arial,sans-serif;
+  font-weight:600;font-size:25px;line-height:1.2;letter-spacing:-.012em;
+  margin:0;text-wrap:balance;
+}
+h3{
+  font-family:Archivo,"Helvetica Neue",Arial,sans-serif;
+  font-weight:600;font-size:17.5px;line-height:1.3;
+  margin:0;color:var(--ink);
+}
+section{margin-top:56px;display:flex;flex-direction:column;gap:16px;}
+section > p{margin:0;max-width:65ch;}
+p{margin:0;max-width:65ch;}
+strong{font-weight:600;}
+em{font-style:italic;color:var(--ink-2);}
+
+.lede{
+  border-left:3px solid var(--accent-line);
+  padding:2px 0 2px 20px;
+  font-size:19px;line-height:1.5;color:var(--ink);
+}
+
+.card{
+  background:var(--surface);
+  border:1px solid var(--rule);
+  border-radius:3px;
+  box-shadow:var(--shadow);
+  padding:20px 22px;
+  display:flex;flex-direction:column;gap:10px;
+}
+
+.rule-list{
+  list-style:none;margin:0;padding:0;
+  display:flex;flex-direction:column;gap:0;
+  border-top:1px solid var(--rule-soft);
+}
+.rule-list li{
+  border-bottom:1px solid var(--rule-soft);
+  padding:14px 0;
+  display:grid;grid-template-columns:auto 1fr;gap:0 16px;align-items:baseline;
+}
+.rank{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:12.5px;font-weight:600;color:var(--accent);
+  font-variant-numeric:tabular-nums;
+}
+.rule-list .body{display:flex;flex-direction:column;gap:5px;}
+.rule-list .what{font-weight:600;font-size:17px;}
+.rule-list .why{color:var(--ink-2);font-size:16px;}
+.rule-list .out{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:12px;color:var(--muted);
+}
+
+.no-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px;}
+.no-list li{
+  display:grid;grid-template-columns:auto 1fr;gap:0 14px;align-items:baseline;
+  padding-left:2px;
+}
+.bar{
+  width:3px;align-self:stretch;background:var(--high);border-radius:2px;
+}
+.no-list .body{display:flex;flex-direction:column;gap:3px;}
+.no-list .what{font-weight:600;}
+.no-list .why{color:var(--ink-2);font-size:16px;}
+
+ul.plain{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:8px;max-width:65ch;}
+ul.plain li::marker{color:var(--accent);}
+
+.mono{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.88em;}
+code{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:.86em;background:var(--surface-2);
+  padding:1px 5px;border-radius:2px;color:var(--ink-2);
+}
+
+.flow{
+  display:flex;flex-wrap:wrap;align-items:stretch;gap:0;
+  border:1px solid var(--rule);border-radius:3px;overflow:hidden;
+  background:var(--surface);
+}
+.flow .step{
+  flex:1 1 150px;padding:16px 18px;
+  border-right:1px solid var(--rule-soft);
+  display:flex;flex-direction:column;gap:5px;
+}
+.flow .step:last-child{border-right:0;}
+.flow .k{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);
+}
+.flow .v{font-size:15.5px;line-height:1.35;}
+.flow .step.human{background:var(--accent-soft);}
+.flow .step.human .k{color:var(--accent);}
+
+.tablewrap{overflow-x:auto;border:1px solid var(--rule);border-radius:3px;background:var(--surface);}
+table{border-collapse:collapse;width:100%;min-width:520px;font-size:15.5px;}
+th,td{text-align:left;padding:11px 16px;border-bottom:1px solid var(--rule-soft);vertical-align:top;}
+th{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--muted);font-weight:600;
+}
+tr:last-child td{border-bottom:0;}
+td.effort{font-family:"IBM Plex Mono",ui-monospace,monospace;white-space:nowrap;color:var(--ink-2);font-variant-numeric:tabular-nums;}
+
+.callout{
+  background:var(--accent-soft);
+  border:1px solid var(--accent-line);
+  border-radius:3px;padding:18px 22px;
+  display:flex;flex-direction:column;gap:9px;
+}
+.callout .tag{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--accent);font-weight:600;
+}
+.callout p{max-width:62ch;}
+
+footer{
+  margin-top:72px;padding-top:20px;border-top:1px solid var(--rule);
+  font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:12px;color:var(--muted);
+  display:flex;flex-wrap:wrap;gap:6px 20px;
+}
+a{color:var(--accent);}
+a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px;}
+@media (max-width:560px){
+  .wrap{padding:40px 20px 90px;}
+  body{font-size:16.5px;}
+}
+</style>
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">Waivern Govern · Annexe to §09, Requirement map</p>
+    <h1>Jira, and what may be delegated to it</h1>
+    <p class="standfirst">
+      Governance work that belongs in a sprint should reach the sprint. The
+      question worth settling first is which work that is, because the
+      difference decides the design.
+    </p>
+    <p class="meta">
+      <span>Prepared for the BBC Privacy and AI Governance Platform RFI</span>
+      <span>Extends the P3 integration rows of the requirement map</span>
+    </p>
+  </header>
+
+  <section>
+    <h2>Why this is worth doing at all</h2>
+    <p class="lede">
+      A privacy task assigned to an engineering lead lands in a system they do
+      not open. It is not ignored out of indifference; it is invisible.
+    </p>
+    <p>
+      That is the actual failure mode this addresses. The platform can raise a
+      mitigation, name an owner, set a service level and record a breach when
+      it lapses — and none of that helps if the person who has to do the work
+      lives in a Jira board and hears nothing.
+    </p>
+    <p>
+      The requirement map lists Jira at P3 as <em>“mitigation actions as
+      issues, status returned”</em>. That scoping is narrower than “sync tasks
+      with Jira”, and deliberately so. The rest of this annexe explains why the
+      narrow version is the correct one rather than a reduced one.
+    </p>
+  </section>
+
+  <section>
+    <h2>The rule: Jira may carry the work, not the attestation</h2>
+    <p>
+      The platform holds seven kinds of task. They are not equally delegable,
+      and treating them as though they were is the way this integration goes
+      wrong.
+    </p>
+    <ol class="rule-list">
+      <li>
+        <span class="rank">✓</span>
+        <span class="body">
+          <span class="what">Mitigation due — fully delegable</span>
+          <span class="why">
+            Engineering work that belongs in a sprint. When somebody closes the
+            issue, the work genuinely happened, and that closure is legitimate
+            evidence for closing the task here. This is the one case where
+            state flows back into the platform.
+          </span>
+          <span class="out">Issue closed in Jira → task completed in Govern</span>
+        </span>
+      </li>
+      <li>
+        <span class="rank">~</span>
+        <span class="body">
+          <span class="what">Answer a section · reassess · verify a mitigation</span>
+          <span class="why">
+            A ticket can carry the prompt and the deadline. It cannot carry the
+            act: the answers are the record, and verification is a person other
+            than the owner confirming a control is in place. The ticket points
+            at the platform and closes when the work is done here.
+          </span>
+          <span class="out">Issue created as a pointer · closed by Govern, never the reverse</span>
+        </span>
+      </li>
+      <li>
+        <span class="rank">✕</span>
+        <span class="body">
+          <span class="what">Approve a stage · review an acceptance · privacy review</span>
+          <span class="why">
+            Role-gated attestations. Approving an assessment and accepting a
+            risk sit with the approver alone, separated on purpose from the
+            ability to edit the record. A configuration in which closing a Jira
+            issue approves a DPIA would undo the audit chain's entire claim,
+            and no amount of convenience is worth that.
+          </span>
+          <span class="out">No issue raised, or a read-only reference at most</span>
+        </span>
+      </li>
+    </ol>
+    <div class="callout">
+      <span class="tag">The test</span>
+      <p>
+        If completing the work is itself the governance act — an approval, an
+        acceptance, an answer that becomes part of the record — it stays here.
+        If the governance act is <em>recording that the work was done</em>, the
+        work can live wherever the person doing it lives.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>How a mitigation travels</h2>
+    <p>
+      The delegable case, end to end. Only the step in colour changes state in
+      the platform, and it is triggered by evidence rather than by assertion.
+    </p>
+    <div class="flow">
+      <div class="step">
+        <span class="k">Raised</span>
+        <span class="v">A mitigation is recorded against a risk, with an owner and a date</span>
+      </div>
+      <div class="step">
+        <span class="k">Pushed</span>
+        <span class="v">An issue is created in that team's project, holding the key</span>
+      </div>
+      <div class="step">
+        <span class="k">Worked</span>
+        <span class="v">The team does it where they already work</span>
+      </div>
+      <div class="step human">
+        <span class="k">Reconciled</span>
+        <span class="v">The sweep reads the issue status and completes the task</span>
+      </div>
+    </div>
+    <p>
+      The issue key is stored on the task, so a sweep that runs a thousand times
+      creates one issue. Everything already in the platform behaves this way —
+      tasks, notifications and outbound deliveries all carry idempotency keys —
+      and an integration that did not would produce a board nobody could use
+      within a day.
+    </p>
+  </section>
+
+  <section>
+    <h2>Build the seam, not the integration</h2>
+    <p>
+      The requirement map lists ServiceNow directly above Jira, described as
+      “outbound task creation and status sync”. That is the same shape with a
+      different vocabulary: create an item of work somewhere else, hold its
+      identifier, read back whether it is finished.
+    </p>
+    <p>
+      So the thing worth building is a <strong>work tracker seam</strong> with
+      one adapter per system, rather than a Jira feature. Jira and ServiceNow
+      then differ by configuration and a small client, not by a second design.
+      Microsoft Lists, also at P3, reads through the same shape.
+    </p>
+    <ul class="plain">
+      <li><strong>Which project, and whose.</strong> One privacy project is simplest and least useful; raising into each product team's own board is what makes the work visible to the people who must do it. Mapped per entity.</li>
+      <li><strong>Which statuses mean done.</strong> Jira workflows are per-project and every organisation customises them, so this is configuration rather than code. A status mapping nobody can edit is an integration that breaks the first time a team adds a column.</li>
+      <li><strong>Field mapping.</strong> Issue type, and whether the due date and service level are pushed as fields or written into the description.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Poll rather than receive</h2>
+    <p>
+      Jira can push webhooks when an issue changes. The recommendation is to
+      poll from the scheduled sweep instead, and it is not a shortcut.
+    </p>
+    <ul class="plain">
+      <li><strong>No inbound endpoint.</strong> A platform whose argument is the integrity of its audit chain should add attack surface only where it buys something. Sub-minute latency on a mitigation due in three weeks buys nothing.</li>
+      <li><strong>It works behind a boundary.</strong> If the instance is Data Center inside the network, an outbound poll works and an inbound webhook needs an exception.</li>
+      <li><strong>It is already idempotent.</strong> The sweep runs hourly and re-running it converges on the same state. Reconciliation is exactly the kind of work it was built for.</li>
+    </ul>
+    <p>
+      A webhook receiver can be added later for the organisation that wants it,
+      without changing what reconciliation does.
+    </p>
+  </section>
+
+  <section>
+    <h2>What it costs</h2>
+    <p>
+      Estimates assume the existing codebase, which already provides
+      per-organisation encrypted credentials, scoped connection kinds, outbound
+      delivery with backoff, and an hourly reconciliation job.
+    </p>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th scope="col">Scope</th><th scope="col">Contents</th><th scope="col">Effort</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>One way</td>
+            <td>Connection and credentials, Jira client, an issue raised per mitigation holding its key, closing here closes there. Configuration screen for project and issue type.</td>
+            <td class="effort">1.5–2 days</td>
+          </tr>
+          <tr>
+            <td>Both ways</td>
+            <td>The above, plus status mapping and reconciliation in the sweep, so a closed issue completes the mitigation task.</td>
+            <td class="effort">4–4.5 days</td>
+          </tr>
+          <tr>
+            <td>ServiceNow after it</td>
+            <td>A second adapter against the same seam. No new design.</td>
+            <td class="effort">1–1.5 days</td>
+          </tr>
+          <tr>
+            <td>Issues that start assessments</td>
+            <td>A new issue in nominated projects raises a screening — privacy reached at the point work is proposed rather than after it ships.</td>
+            <td class="effort">+2 days</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      The last row is the one with the most governance value and the least
+      certainty. It depends on the BBC having project conventions consistent
+      enough to decide which issues warrant screening, which is a question
+      about the organisation rather than about software.
+    </p>
+  </section>
+
+  <section>
+    <h2>What would change these numbers</h2>
+    <div class="card">
+      <h3>Cloud or Data Center</h3>
+      <p>
+        Jira Cloud with an API token is trivial to authenticate. OAuth 2.0 3LO
+        adds roughly a day and a consent flow. Data Center uses personal access
+        tokens and may sit behind a network boundary, which settles the polling
+        question rather than leaving it as a preference.
+      </p>
+    </div>
+    <div class="card">
+      <h3>One board or many</h3>
+      <p>
+        Raising every issue into a single privacy project is a day cheaper and
+        substantially less useful. Per-team projects need an entity-to-project
+        mapping and someone at the BBC who can say what that mapping is.
+      </p>
+    </div>
+    <div class="card">
+      <h3>Who reconciles a disagreement</h3>
+      <p>
+        A task completed here while its issue stays open, or the reverse.
+        Govern holds the governance state and Jira closure is evidence feeding
+        it, never the other way round — but somebody has to decide whether a
+        reopened Jira issue should reopen a completed mitigation. It is a
+        policy question, and it should be answered before launch rather than
+        discovered.
+      </p>
+    </div>
+  </section>
+
+  <footer>
+    <span>Waivern Govern</span>
+    <span>Annexe to §09 of the design document</span>
+  </footer>
+
+</div>
