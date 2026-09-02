@@ -1,7 +1,9 @@
 import type { TemplateKind } from "@/services/templates";
 import type { TemplateDefinition } from "../schema";
 import { AI_RISK } from "./ai-risk";
+import { CNIL_PIA } from "./cnil-pia";
 import { DPIA } from "./dpia";
+import { LIA } from "./lia";
 import { SCREENING } from "./screening";
 import { TIA_EU, TRA_UK } from "./transfers";
 
@@ -32,6 +34,22 @@ export const SYSTEM_TEMPLATES: Array<{
     description: "Full DPIA covering the minimum content required by Article 35(7).",
     jurisdiction: "UK",
     definition: DPIA,
+  },
+  {
+    kind: "dpia",
+    name: "Data protection impact assessment (CNIL method)",
+    description:
+      "The CNIL's PIA structure — context, fundamental principles, three feared events, validation.",
+    jurisdiction: "EU",
+    definition: CNIL_PIA,
+  },
+  {
+    kind: "lia",
+    name: "Legitimate interests assessment",
+    description:
+      "The three-part test under Article 6(1)(f): purpose, necessity, and the balance against data subjects' rights.",
+    jurisdiction: "EU",
+    definition: LIA,
   },
   {
     kind: "tra",

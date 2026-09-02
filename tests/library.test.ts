@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import { evaluate, questionsOf } from "@/lib/templates/logic";
 import { LEGAL_REFERENCES, SYSTEM_TEMPLATES } from "@/lib/templates/library";
 import { templateDefinition } from "@/lib/templates/schema";
+import type { Answers } from "@/lib/templates/logic";
 import { score } from "@/lib/templates/scoring";
 import { validateTemplate } from "@/lib/templates/validate";
 
@@ -54,8 +55,18 @@ describe("shipped template library", () => {
   });
 
   it("covers every template kind the platform advertises today", () => {
-    const kinds = SYSTEM_TEMPLATES.map((t) => t.kind).sort();
-    assert.deepEqual(kinds, ["ai_risk", "dpia", "screening", "tia", "tra"]);
+    // Distinct kinds, not a list: more than one template may serve a kind —
+    // the UK Article 35(7) DPIA and the CNIL PIA are both DPIAs, and offering
+    // both is the point. What this guards is the set of kinds shipping at all.
+    const kinds = [...new Set(SYSTEM_TEMPLATES.map((t) => t.kind))].sort();
+    assert.deepEqual(kinds, ["ai_risk", "dpia", "lia", "screening", "tia", "tra"]);
+  });
+
+  it("gives templates sharing a kind distinct names", () => {
+    // Two DPIAs called "Data protection impact assessment" would be
+    // indistinguishable in the list somebody picks from when starting one.
+    const names = SYSTEM_TEMPLATES.map((t) => t.name);
+    assert.equal(new Set(names).size, names.length);
   });
 });
 
@@ -117,5 +128,133 @@ describe("AI risk scoring", () => {
     assert.equal(r.questions.monitoring.visible, false);
     // The monitoring answer is on record but must not contribute to the score.
     assert.equal(r.questions.monitoring.suppressed, true);
+  });
+});
+
+describe("legitimate interests scoring", () => {
+  const lia = templateDefinition.parse(
+    SYSTEM_TEMPLATES.find((t) => t.kind === "lia")!.definition,
+  );
+
+  const base: Answers = {
+    activity_name: "Fraud detection on card payments",
+    interest: "Detecting fraudulent transactions before they complete",
+    whose_interest: ["controller"],
+    benefit: "Prevents loss to customers and to us",
+    lawful_and_specific: "yes",
+    unlawful_consequence: "We would have to stop screening transactions",
+    necessity: "The pattern is only visible across transactions",
+    less_intrusive: "no",
+    data_minimised: "Transaction metadata only",
+    relationship: "existing_customer",
+    reasonable_expectations: "clearly",
+    vulnerable: "no",
+    special_category: "no",
+    intrusiveness: "low",
+    impact: "A declined transaction requiring a call",
+    safeguards: "Human review before any account is blocked",
+    objection: "Reviewed on request",
+    transparency: "Privacy notice, section 4",
+    conclusion: "yes",
+    conclusion_reasoning: "Expected, necessary and low impact",
+    assessed_by: "DPO",
+    review_date: "2027-01-01",
+  };
+
+  const rate = (answers: Answers) =>
+    score(lia.scoring, lia.schema, answers, evaluate(lia.schema, answers));
+
+  it("reads a well-founded interest as straightforward", () => {
+    const r = rate(base);
+    assert.ok(r.scored);
+    assert.equal(r.band?.tier, "low");
+  });
+
+  it("reads an unexpected, intrusive case against strangers as hard to sustain", () => {
+    const weak = {
+      ...base,
+      relationship: "none",
+      reasonable_expectations: "unlikely",
+      intrusiveness: "high",
+      less_intrusive: "not_considered",
+      lawful_and_specific: "partly",
+      conclusion: "no",
+    };
+    const r = rate(weak);
+    assert.ok(r.scored);
+    assert.ok(
+      r.band?.tier === "high" || r.band?.tier === "critical",
+      `expected high or critical, got ${r.band?.tier} at ${r.score}`,
+    );
+  });
+
+  it("weighs children heavily enough to change the answer on their own", () => {
+    // The balancing test turns on whether the people affected can be expected
+    // to look after their own interests. A template that treated children as
+    // one factor among many would be wrong about the thing that matters most.
+    const withChildren = rate({ ...base, vulnerable: "yes" });
+    const without = rate(base);
+    assert.ok(withChildren.scored, "children case should score");
+    assert.ok(without.scored, "base case should score");
+    if (!withChildren.scored || !without.scored) return;
+    assert.ok(
+      withChildren.score > without.score,
+      "involving children must raise the score",
+    );
+  });
+
+  it("asks why a less intrusive option was rejected, only when one was", () => {
+    const rejected = evaluate(lia.schema, { ...base, less_intrusive: "yes_rejected" });
+    assert.equal(rejected.questions.less_intrusive_detail?.visible, true);
+    assert.equal(rejected.questions.less_intrusive_detail?.required, true);
+
+    const none = evaluate(lia.schema, base);
+    assert.equal(none.questions.less_intrusive_detail?.visible, false);
+  });
+});
+
+describe("the CNIL PIA", () => {
+  const pia = templateDefinition.parse(
+    SYSTEM_TEMPLATES.find((t) => t.name.includes("CNIL"))!.definition,
+  );
+
+  it("rates all three feared events the method requires", () => {
+    const keys = new Set(questionsOf(pia.schema).map(({ question }) => question.key));
+    for (const event of ["access", "modification", "disappearance"]) {
+      for (const part of ["impacts", "sources", "measures", "severity", "likelihood"]) {
+        assert.ok(keys.has(`${event}_${part}`), `missing ${event}_${part}`);
+      }
+    }
+  });
+
+  it("scores on the overall judgement, not on one of the three", () => {
+    // Deliberate: a maximum the platform took across three events would look
+    // like an assessment somebody made, and would not be one.
+    assert.equal(pia.scoring.method, "likelihood_impact");
+    if (pia.scoring.method !== "likelihood_impact") return;
+    assert.equal(pia.scoring.likelihoodQuestion, "overall_likelihood");
+    assert.equal(pia.scoring.impactQuestion, "overall_severity");
+  });
+
+  it("lands on the same four tiers as the register", () => {
+    // A PIA and a UK DPIA have to be comparable once they reach the board.
+    if (pia.scoring.method !== "likelihood_impact") return;
+    assert.deepEqual(
+      pia.scoring.bands.map((b) => b.tier),
+      ["low", "medium", "high", "critical"],
+    );
+    assert.deepEqual(
+      pia.scoring.bands.map((b) => [b.min, b.max]),
+      [[1, 3], [4, 7], [8, 11], [12, 16]],
+    );
+  });
+
+  it("asks for a transfer impact assessment only where data leaves the EEA", () => {
+    const inside = evaluate(pia.schema, { transfers_outside_eea: false });
+    assert.equal(inside.questions.transfer_tool?.visible, false);
+
+    const outside = evaluate(pia.schema, { transfers_outside_eea: true });
+    assert.equal(outside.questions.transfer_tool?.visible, true);
+    assert.equal(outside.questions.transfer_tool?.required, true);
   });
 });

@@ -4,6 +4,8 @@ import { evaluate } from "@/lib/templates/logic";
 import { score } from "@/lib/templates/scoring";
 import { templateDefinition, type TemplateDefinition } from "@/lib/templates/schema";
 import { validateTemplate } from "@/lib/templates/validate";
+import { LEGAL_REFERENCES, SYSTEM_TEMPLATES } from "@/lib/templates/library";
+import { questionsOf } from "@/lib/templates/logic";
 
 /** Parsing through zod applies the same defaults the real loader applies. */
 function define(input: unknown): TemplateDefinition {
@@ -375,5 +377,74 @@ describe("publish-time validation", () => {
       scoring: { method: "none" },
     });
     assert.match(validateTemplate(def)[0].message, /needs options/);
+  });
+});
+
+describe("the shipped library", () => {
+  it("passes its own validator, every template", () => {
+    for (const t of SYSTEM_TEMPLATES) {
+      const shape = templateDefinition.safeParse(t.definition);
+      assert.ok(shape.success, `${t.name} does not match the schema`);
+      assert.deepEqual(
+        validateTemplate(shape.data),
+        [],
+        `${t.name} has structural problems`,
+      );
+    }
+  });
+
+  it("never cites a legal reference that does not exist", () => {
+    // A citation that does not resolve renders as a broken reference beside a
+    // question. Adding eugdpr.art30 to five questions without adding it to the
+    // library is exactly the mistake this catches.
+    const codes = new Set<string>(LEGAL_REFERENCES.map((r) => r.code));
+    for (const t of SYSTEM_TEMPLATES) {
+      for (const { question } of questionsOf(t.definition.schema)) {
+        for (const ref of question.legalRefs ?? []) {
+          assert.ok(codes.has(ref), `${t.name} · ${question.key} cites unknown "${ref}"`);
+        }
+      }
+    }
+  });
+
+  it("scores on a scale whose options actually exist", () => {
+    // A likelihood scale keyed on an option the question does not offer scores
+    // nothing, and reports itself as incomplete rather than as misconfigured.
+    for (const t of SYSTEM_TEMPLATES) {
+      const scoring = t.definition.scoring;
+      if (scoring.method !== "likelihood_impact") continue;
+      const byKey = new Map(
+        questionsOf(t.definition.schema).map(({ question }) => [question.key, question]),
+      );
+      for (const [qKey, scale] of [
+        [scoring.likelihoodQuestion, scoring.likelihoodScale],
+        [scoring.impactQuestion, scoring.impactScale],
+      ] as const) {
+        const question = byKey.get(qKey);
+        assert.ok(question, `${t.name} scores on missing question ${qKey}`);
+        const offered = new Set((question.options ?? []).map((o) => o.value));
+        for (const value of Object.keys(scale)) {
+          assert.ok(offered.has(value), `${t.name} · ${qKey} scales "${value}", which it does not offer`);
+        }
+      }
+    }
+  });
+
+  it("gives every weighted question at least one weighted option", () => {
+    for (const t of SYSTEM_TEMPLATES) {
+      const scoring = t.definition.scoring;
+      if (scoring.method !== "weighted_sum") continue;
+      const byKey = new Map(
+        questionsOf(t.definition.schema).map(({ question }) => [question.key, question]),
+      );
+      for (const qKey of scoring.questions) {
+        const question = byKey.get(qKey);
+        assert.ok(question, `${t.name} sums missing question ${qKey}`);
+        assert.ok(
+          (question.options ?? []).some((o) => o.weight !== undefined),
+          `${t.name} · ${qKey} is summed but no option carries a weight`,
+        );
+      }
+    }
   });
 });

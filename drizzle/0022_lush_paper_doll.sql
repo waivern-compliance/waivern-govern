@@ -1,0 +1,1 @@
+ALTER TYPE "public"."template_kind" ADD VALUE 'lia' BEFORE 'ai_risk';

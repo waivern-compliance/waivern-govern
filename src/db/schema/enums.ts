@@ -112,6 +112,12 @@ export const templateKind = pgEnum("template_kind", [
   "tra",
   /** EU transfer impact assessment. */
   "tia",
+  /**
+   * Legitimate interests assessment: the three-part test under Article 6(1)(f).
+   * A distinct kind rather than a DPIA section, because the test is required
+   * wherever that basis is relied on, including where no DPIA is.
+   */
+  "lia",
   "ai_risk",
   /** Short triage that decides whether a full assessment is needed. */
   "screening",
