@@ -27,7 +27,8 @@
     "sweep": "tsx --env-file-if-exists=.env.local scripts/sweep.ts",
     "sweep:prod": "tsx scripts/sweep.ts",
     "seed:countries": "tsx --env-file-if-exists=.env.local scripts/seed-countries.ts",
-    "db:migrate:deploy": "tsx --env-file-if-exists=.env.local scripts/migrate.ts"
+    "db:migrate:deploy": "tsx --env-file-if-exists=.env.local scripts/migrate.ts",
+    "help:md": "tsx --env-file-if-exists=.env.local scripts/help-to-markdown.ts"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.2",

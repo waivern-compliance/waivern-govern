@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { Chat } from "@/components/assistant/Chat";
 import { HelpSearch } from "@/components/help/HelpSearch";
-import { HELP_TOPICS } from "@/lib/help/topics";
+import { HELP_GROUPS, HELP_TOPICS } from "@/lib/help/topics";
 import { getActiveSession } from "@/lib/session";
 import { providerFor } from "@/services/assistant";
 
@@ -24,13 +24,6 @@ export default async function HelpPage() {
     : null;
   const assistant = configured?.surfaces.includes("help") ?? false;
 
-  const grouped = [
-    { heading: "Getting your bearings", ids: ["getting-started", "personas", "roles-and-access", "tasks"] },
-    { heading: "Doing the work", ids: ["assessments", "approvals", "contributor-links", "risks", "discussion"] },
-    { heading: "The registers", ids: ["ropa", "third-parties", "ai-register", "ai-chain", "transfers", "findings"] },
-    { heading: "Seeing where you stand", ids: ["dashboard", "trends", "service-levels", "exports", "audit"] },
-    { heading: "Setting it up", ids: ["templates", "integrations", "managing-people", "assistant"] },
-  ];
 
   return (
     <main className="mx-auto max-w-3xl space-y-8 px-6 py-12">
@@ -60,7 +53,7 @@ export default async function HelpPage() {
         </section>
       ) : null}
 
-      {grouped.map((group) => (
+      {HELP_GROUPS.map((group) => (
         <section key={group.heading} className="space-y-2">
           <h2 className="text-sm font-semibold">{group.heading}</h2>
           <ul className="divide-y divide-line overflow-hidden rounded border border-line bg-surface">

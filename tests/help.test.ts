@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import { readFileSync } from "node:fs";
 import { NAV } from "@/lib/nav";
 import { searchHelp, topicForPath } from "@/lib/help/search";
-import { HELP_TOPICS, TOPIC_BY_ID } from "@/lib/help/topics";
+import { HELP_GROUPS, HELP_TOPICS, TOPIC_BY_ID } from "@/lib/help/topics";
 
 describe("finding help", () => {
   it("finds nothing for an empty or trivial query", () => {
@@ -131,6 +131,29 @@ describe("help where the question arises", () => {
       const source = readFileSync(`src/app${item.href}/page.tsx`, "utf8");
       for (const [, id] of source.matchAll(/<HelpLink topic="([^"]+)"/g)) {
         assert.ok(TOPIC_BY_ID.has(id), `${item.href} points at missing topic ${id}`);
+      }
+    }
+  });
+});
+
+describe("how the topics are filed", () => {
+  it("files every topic under exactly one heading", () => {
+    // A topic nobody filed still answers a search, but cannot be found by
+    // browsing — which is how the two most recent ones nearly shipped
+    // invisible.
+    const filed = HELP_GROUPS.flatMap((g) => g.ids);
+    const counts = new Map<string, number>();
+    for (const id of filed) counts.set(id, (counts.get(id) ?? 0) + 1);
+
+    for (const topic of HELP_TOPICS) {
+      assert.equal(counts.get(topic.id) ?? 0, 1, `${topic.id} is filed ${counts.get(topic.id) ?? 0} times`);
+    }
+  });
+
+  it("does not file a heading against a topic that does not exist", () => {
+    for (const group of HELP_GROUPS) {
+      for (const id of group.ids) {
+        assert.ok(TOPIC_BY_ID.has(id), `"${group.heading}" lists missing topic ${id}`);
       }
     }
   });

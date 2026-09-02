@@ -675,4 +675,36 @@ export const HELP_TOPICS: HelpTopic[] = [
   },
 ];
 
+
+/**
+ * How the topics are grouped for a reader.
+ *
+ * Here rather than in the page, so the index, the exported document and
+ * anything else that presents the help all order it the same way — and so a
+ * topic added without being filed is a test failure rather than a topic
+ * nobody can find by browsing.
+ */
+export const HELP_GROUPS: Array<{ heading: string; ids: string[] }> = [
+  {
+    heading: "Getting your bearings",
+    ids: ["getting-started", "personas", "roles-and-access", "tasks"],
+  },
+  {
+    heading: "Doing the work",
+    ids: ["assessments", "approvals", "contributor-links", "risks", "discussion"],
+  },
+  {
+    heading: "The registers",
+    ids: ["ropa", "third-parties", "ai-register", "ai-chain", "transfers", "findings"],
+  },
+  {
+    heading: "Seeing where you stand",
+    ids: ["dashboard", "trends", "service-levels", "exports", "audit"],
+  },
+  {
+    heading: "Setting it up",
+    ids: ["templates", "integrations", "managing-people", "assistant"],
+  },
+];
+
 export const TOPIC_BY_ID = new Map(HELP_TOPICS.map((t) => [t.id, t]));
