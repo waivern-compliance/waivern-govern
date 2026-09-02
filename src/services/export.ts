@@ -19,7 +19,7 @@ import {
 } from "@/db/schema";
 
 /**
- * What Waivern Govern hands back.
+ * What this platform hands back.
  *
  * The Portal generates documents from confirmed facts, so this exports the
  * facts rather than the tables: an assessment appears once it has been

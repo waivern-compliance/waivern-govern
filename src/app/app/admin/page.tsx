@@ -11,6 +11,13 @@ const SETTINGS: Array<{
   capability: Capability;
 }> = [
   {
+    href: "/app/admin/organisation",
+    title: "Organisation",
+    detail:
+      "What this organisation is called wherever the platform refers to it — the masthead, exports, and the audit manifest.",
+    capability: "org.manage",
+  },
+  {
     href: "/app/admin/people",
     title: "People and access",
     detail:

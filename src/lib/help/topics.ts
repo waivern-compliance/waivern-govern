@@ -612,6 +612,30 @@ export const HELP_TOPICS: HelpTopic[] = [
     related: ["roles-and-access", "personas", "audit"],
   },
   {
+    id: "organisation",
+    title: "Naming the organisation",
+    summary:
+      "What this organisation is called wherever the platform refers to it, and what renaming does not change.",
+    path: "/app/admin/organisation",
+    keywords: ["organisation", "company", "client", "rename", "name", "branding", "tenant"],
+    sections: [
+      {
+        heading: "Where the name appears",
+        body: [
+          "In the masthead on every page, on the provenance header of every export, and in the manifest that ships with an audit extract. It is a governance-visible fact rather than a label, which is why renaming is written to the audit log — a register exported last month under one name and this month under another should be explicable.",
+        ],
+      },
+      {
+        heading: "What renaming leaves alone",
+        body: [
+          "The short reference — the slug — stays as it is. The `grant` script uses it, and so does anything an administrator has written down. A display name changing should not break either.",
+          "Legal entities are named separately. They scope access and reporting, and are set when the organisation is created.",
+        ],
+      },
+    ],
+    related: ["managing-people", "exports", "audit"],
+  },
+  {
     id: "assistant",
     title: "The assistant, and what it may not do",
     summary:
@@ -703,7 +727,7 @@ export const HELP_GROUPS: Array<{ heading: string; ids: string[] }> = [
   },
   {
     heading: "Setting it up",
-    ids: ["templates", "integrations", "managing-people", "assistant"],
+    ids: ["templates", "integrations", "organisation", "managing-people", "assistant"],
   },
 ];
 

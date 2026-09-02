@@ -7,6 +7,7 @@ import { requireCapability } from "@/lib/session";
 import {
   LastOwnerRemains,
   inviteMember,
+  renameOrganisation,
   revokeRole,
   setMembershipActive,
   setPersona,
@@ -158,4 +159,27 @@ export async function removeProviderAction() {
     actor: actorOf(active),
   });
   revalidatePath("/app/admin/assistant");
+}
+
+export async function renameOrganisationAction(
+  _prev: AdminResult,
+  formData: FormData,
+): Promise<AdminResult> {
+  const name = text(formData.get("name"));
+  const active = await requireCapability("org.manage");
+
+  try {
+    const updated = await renameOrganisation({
+      organisationId: active.membership.organisationId,
+      name,
+      actor: actorOf(active),
+    });
+    revalidatePath("/app", "layout");
+    return { ok: true, message: `Now shown as “${updated.name}” throughout.` };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : "That could not be saved.",
+    };
+  }
 }

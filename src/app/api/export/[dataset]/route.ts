@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { PRODUCT_NAME } from "@/lib/product";
 import { BOM, exportFilename, toCsv } from "@/lib/csv";
 import { can } from "@/lib/rbac";
 import { getActiveSession, visibleEntityIds } from "@/lib/session";
@@ -72,7 +73,7 @@ export async function GET(
     // check without asking us is a claim, not evidence.
     const header = result.complete
       ? verificationManifest(active.membership.organisationName, rows)
-      : `Waivern Govern — audit log extract\n\n${result.caveat}`;
+      : `${PRODUCT_NAME} — audit log extract\n\n${result.caveat}`;
     // The mark leads the file, ahead of the commentary — it only works at byte
     // zero, and anywhere else it silently becomes part of the first column name.
     body =

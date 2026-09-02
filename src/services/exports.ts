@@ -14,6 +14,7 @@ import {
   users,
 } from "@/db/schema";
 import { GENESIS_HASH, appendAuditEvent } from "@/lib/audit";
+import { PRODUCT_NAME } from "@/lib/product";
 import { toCsv } from "@/lib/csv";
 import { libraryFor } from "./countries";
 import { gapsFor } from "./ai-register";
@@ -282,7 +283,7 @@ export async function exportAudit(
  */
 export function verificationManifest(organisationName: string, rows: number): string {
   return [
-    `Waivern Govern — audit log export`,
+    `${PRODUCT_NAME} — audit log export`,
     `Organisation: ${organisationName}`,
     `Events: ${rows}`,
     ``,

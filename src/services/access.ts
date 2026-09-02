@@ -1,6 +1,12 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db/client";
-import { entities, memberships, roleAssignments, users } from "@/db/schema";
+import {
+  entities,
+  memberships,
+  organisations,
+  roleAssignments,
+  users,
+} from "@/db/schema";
 import { appendAuditEvent } from "@/lib/audit";
 import type { AppRole } from "@/lib/rbac";
 import type { Persona } from "@/lib/persona";
@@ -313,4 +319,59 @@ export async function setPersona(input: {
       after: { persona: input.persona },
     });
   });
+}
+
+/**
+ * Rename the organisation, or change how it is referred to.
+ *
+ * The name appears in the masthead, on every export's provenance header and in
+ * the audit manifest, so it is a governance-visible fact rather than a label.
+ * Audited for that reason: a register exported last month under one name and
+ * this month under another should be explicable.
+ *
+ * The slug is left alone deliberately. It is referenced by the `grant` script
+ * and by anything an administrator has written down, and renaming a display
+ * name should not break either.
+ */
+export async function renameOrganisation(input: {
+  organisationId: string;
+  name: string;
+  actor: Actor;
+}) {
+  const name = input.name.trim();
+  if (name.length < 2) throw new Error("An organisation needs a name");
+
+  return db.transaction(async (tx) => {
+    const [before] = await tx
+      .select()
+      .from(organisations)
+      .where(eq(organisations.id, input.organisationId));
+    if (!before) throw new Error("No such organisation");
+
+    const [after] = await tx
+      .update(organisations)
+      .set({ name, updatedAt: new Date() })
+      .where(eq(organisations.id, input.organisationId))
+      .returning();
+
+    await appendAuditEvent(tx, {
+      ...input.actor,
+      organisationId: input.organisationId,
+      action: "organisation.renamed",
+      subjectType: "organisation",
+      subjectId: input.organisationId,
+      before: { name: before.name },
+      after: { name: after.name },
+    });
+
+    return after;
+  });
+}
+
+export async function organisationDetail(organisationId: string) {
+  const [row] = await db
+    .select()
+    .from(organisations)
+    .where(eq(organisations.id, organisationId));
+  return row ?? null;
 }

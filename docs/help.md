@@ -1,4 +1,4 @@
-# Waivern Govern — help
+# Waivern Governance Tool — help
 
 Every help topic the application carries, in the order it presents them.
 
@@ -43,6 +43,7 @@ Every help topic the application carries, in the order it presents them.
 
 - [Assessment templates](#assessment-templates) — The question sets, versioned, so an assessment always shows the questions it was actually answered against.
 - [Connected tools](#connected-tools) — Signed endpoints that let the Compliance Portal and scanning tools push records in and pull current state out.
+- [Naming the organisation](#naming-the-organisation) — What this organisation is called wherever the platform refers to it, and what renaming does not change.
 - [Giving somebody access](#giving-somebody-access) — Grant a role, confine it to one entity, suspend or reinstate. Every change is written to the audit log.
 - [The assistant, and what it may not do](#the-assistant-and-what-it-may-not-do) — Optional help from a model your organisation chooses and controls. It drafts and explains; it never decides.
 
@@ -548,6 +549,26 @@ They are marked as such throughout. A scanner can see what data moves; it cannot
 **See also:** Scan findings · Third parties and processor agreements (Article 28) · The processing register (Article 30)
 
 <sub>Also searchable as: api, integration, portal, har analyser, webhook, sync, connection</sub>
+
+## Naming the organisation
+
+*What this organisation is called wherever the platform refers to it, and what renaming does not change.*
+
+**Screen:** `/app/admin/organisation`
+
+### Where the name appears
+
+In the masthead on every page, on the provenance header of every export, and in the manifest that ships with an audit extract. It is a governance-visible fact rather than a label, which is why renaming is written to the audit log — a register exported last month under one name and this month under another should be explicable.
+
+### What renaming leaves alone
+
+The short reference — the slug — stays as it is. The `grant` script uses it, and so does anything an administrator has written down. A display name changing should not break either.
+
+Legal entities are named separately. They scope access and reporting, and are set when the organisation is created.
+
+**See also:** Giving somebody access · Exports · The audit trail
+
+<sub>Also searchable as: organisation, company, client, rename, name, branding, tenant</sub>
 
 ## Giving somebody access
 

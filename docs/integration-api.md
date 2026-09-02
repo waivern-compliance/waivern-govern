@@ -1,6 +1,6 @@
 # Integration API v1
 
-Two systems push records into Waivern Govern: the **Waivern Compliance Portal**
+Two systems push records into Waivern Governance Tool: the **Waivern Compliance Portal**
 (discovery, DPA extraction, generated documents) and the **HAR Analyser**
 (cookie, tracker and consent-behaviour scanning). Both use the same envelope.
 
@@ -109,7 +109,7 @@ A processing activity carries every Article 30(1) element, in both directions:
 `transfers`, `retention`, `securityMeasures`, `controllerRole` and
 `controllerName`. All are optional on ingest. The Portal is generating a
 document from these, and a record that arrives thin should arrive rather than be
-rejected — Waivern Govern reports its own gaps on the register instead.
+rejected — Waivern Governance Tool reports its own gaps on the register instead.
 
 The context document is versioned (`contextVersion`), so the Portal can tell
 what shape it received:

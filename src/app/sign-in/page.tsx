@@ -1,5 +1,10 @@
 import { redirect } from "next/navigation";
 import { Mark } from "@/components/Wordmark";
+import {
+  PRODUCT_DESCRIPTION,
+  PRODUCT_SUFFIX,
+  PRODUCT_VENDOR,
+} from "@/lib/product";
 import { authConfig, signIn } from "@/auth";
 import { getActiveSession } from "@/lib/session";
 
@@ -28,9 +33,10 @@ export default async function SignIn({
         <Mark className="h-12 w-12 text-navy" />
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">
-            Waivern <span className="font-normal text-ink-soft">Govern</span>
+            {PRODUCT_VENDOR}{" "}
+            <span className="font-normal text-ink-soft">{PRODUCT_SUFFIX}</span>
           </h1>
-          <p className="text-sm text-ink-soft">Privacy and AI governance workflow</p>
+          <p className="text-sm text-ink-soft">{PRODUCT_DESCRIPTION}</p>
         </div>
       </header>
 

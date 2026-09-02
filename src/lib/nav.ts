@@ -100,6 +100,13 @@ export const NAV: NavItem[] = [
     capability: "record.read",
   },
   {
+    href: "/app/admin/organisation",
+    label: "Organisation",
+    hint: "what this organisation is called throughout",
+    capability: "org.manage",
+    group: "admin",
+  },
+  {
     href: "/app/admin/people",
     label: "People and access",
     hint: "who may sign in, and as what",

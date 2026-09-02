@@ -1,5 +1,6 @@
 import { writeFileSync } from "node:fs";
 import { HELP_GROUPS, HELP_TOPICS, TOPIC_BY_ID } from "@/lib/help/topics";
+import { PRODUCT_NAME } from "@/lib/product";
 
 /**
  * The in-product help, as one readable document.
@@ -12,7 +13,7 @@ const OUT = "docs/help.md";
 
 function main() {
   const lines: string[] = [
-    "# Waivern Govern — help",
+    `# ${PRODUCT_NAME} — help`,
     "",
     "Every help topic the application carries, in the order it presents them.",
     "",

@@ -6,6 +6,7 @@ import {
   aiSuggestions,
   integrationConnections,
 } from "@/db/schema";
+import { PRODUCT_NAME } from "@/lib/product";
 import { appendAuditEvent } from "@/lib/audit";
 import { openSecret, sealSecret } from "@/lib/integration/crypto";
 import { ask, type ProviderConfig, type ProviderKind, type Turn } from "@/lib/assistant/providers";
@@ -38,7 +39,7 @@ export const PROMPT_VERSION = "2026-08-30.1";
  * un-see it. Belt and braces: the surfaces do not offer to write these fields
  * either.
  */
-const HOUSE_RULES = `You assist users of Waivern Govern, a privacy and AI governance platform.
+const HOUSE_RULES = `You assist users of ${PRODUCT_NAME}, a privacy and AI governance platform.
 
 You may explain what a question or record means, draft wording a person will
 review, and point to where something is recorded.

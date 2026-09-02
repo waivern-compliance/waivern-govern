@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
+import { PRODUCT_DESCRIPTION, PRODUCT_NAME } from "@/lib/product";
 import "./globals.css";
 
 export const metadata: Metadata = {
   // Each page names itself and the product names itself once, so a row of
   // browser tabs is readable rather than nine identical ones.
-  title: { default: "Waivern Govern", template: "%s · Waivern Govern" },
-  description: "Privacy and AI governance workflow",
+  title: { default: PRODUCT_NAME, template: `%s · ${PRODUCT_NAME}` },
+  description: PRODUCT_DESCRIPTION,
   icons: { icon: "/waivern-mark.svg" },
 };
 

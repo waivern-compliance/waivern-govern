@@ -1,4 +1,4 @@
-# Waivern Govern
+# Waivern Governance Tool
 
 A privacy and AI governance workflow platform: assessments, risk decisions,
 approvals, recurring governance and a tamper-evident audit record. Multi-tenant,

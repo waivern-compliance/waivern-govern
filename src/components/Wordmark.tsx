@@ -1,3 +1,5 @@
+import { PRODUCT_SUFFIX, PRODUCT_VENDOR } from "@/lib/product";
+
 /**
  * The Waivern mark, inline.
  *
@@ -39,8 +41,8 @@ export function Wordmark({
     <span className={`flex items-center ${large ? "gap-3" : "gap-2.5"}`}>
       <Mark className={large ? "h-10 w-10" : "h-6 w-6"} />
       <span className={large ? "text-xl font-semibold tracking-tight" : "text-sm font-semibold tracking-tight"}>
-        Waivern{" "}
-        <span className="font-normal opacity-70">Govern</span>
+        {PRODUCT_VENDOR}{" "}
+        <span className="font-normal opacity-70">{PRODUCT_SUFFIX}</span>
       </span>
     </span>
   );
