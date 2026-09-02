@@ -7,11 +7,14 @@ export const maxDuration = 300;
 /**
  * The hourly tick.
  *
- * Vercel Cron calls this with a bearer token. The check is deliberately not
- * "is this request from Vercel" — anything reachable on the internet must
- * assume it will be found — so an unauthenticated call is refused outright, and
- * a deployment with no secret configured refuses everything rather than
- * defaulting open.
+ * For a scheduler that can only make an HTTP request. A job runner that can
+ * execute a command should run `pnpm sweep:prod` instead and skip the network
+ * entirely.
+ *
+ * The check is deliberately not "is this request from a particular platform" —
+ * anything reachable on the internet must assume it will be found — so an
+ * unauthenticated call is refused outright, and a deployment with no secret
+ * configured refuses everything rather than defaulting open.
  */
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;
