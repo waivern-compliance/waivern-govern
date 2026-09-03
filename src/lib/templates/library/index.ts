@@ -1,6 +1,7 @@
 import type { TemplateKind } from "@/services/templates";
 import type { TemplateDefinition } from "../schema";
 import { AI_RISK } from "./ai-risk";
+import { BREACH_SEVERITY } from "./breach";
 import { CNIL_PIA } from "./cnil-pia";
 import { DPIA } from "./dpia";
 import { LIA } from "./lia";
@@ -64,6 +65,14 @@ export const SYSTEM_TEMPLATES: Array<{
     description: "EU transfer assessment following the EDPB's six-step method.",
     jurisdiction: "EU",
     definition: TIA_EU,
+  },
+  {
+    kind: "breach",
+    name: "Breach severity assessment",
+    description:
+      "The ICO's factors for judging whether a breach must be reported, and whether the people affected must be told.",
+    jurisdiction: "UK",
+    definition: BREACH_SEVERITY,
   },
   {
     kind: "ai_risk",

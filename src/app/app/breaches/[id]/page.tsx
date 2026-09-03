@@ -9,9 +9,13 @@ import { NotPermitted } from "@/components/NotPermitted";
 import { NOTIFICATION_CONTENT } from "@/lib/breach/statutory";
 import { can } from "@/lib/rbac";
 import { getActiveSession } from "@/lib/session";
-import { loadBreach } from "@/services/breaches";
+import { loadBreach, severitySuggestion } from "@/services/breaches";
 import { DecisionForm } from "../DecisionForm";
-import { updateBreachAction } from "../actions";
+import {
+  detachAssessmentAction,
+  startSeverityAssessmentAction,
+  updateBreachAction,
+} from "../actions";
 
 const stamp = (d: Date | null) =>
   d ? d.toISOString().slice(0, 16).replace("T", " ") + " UTC" : null;
@@ -38,6 +42,8 @@ export default async function BreachPage({
     );
   }
   const mayEdit = can(active.membership.grants, "record.write", breach.entityId);
+  const mayAssess = can(active.membership.grants, "assessment.create", breach.entityId);
+  const suggestion = await severitySuggestion(breach);
 
   const colleagues = await db
     .select({ id: users.id, email: users.email })
@@ -62,6 +68,69 @@ export default async function BreachPage({
         </p>
         <Clock clock={clock} />
       </header>
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold">Severity</h2>
+        {suggestion ? (
+          <>
+            <div className="rounded border border-line bg-surface px-4 py-3">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                <Link
+                  href={`/app/assessments/${breach.assessmentId}`}
+                  className="text-sm font-medium hover:text-brand"
+                >
+                  {suggestion.reference} — severity assessment
+                </Link>
+                <span className="font-mono text-[11px] text-ink-soft">
+                  {suggestion.status}
+                  {suggestion.score !== null ? ` · scored ${suggestion.score}` : ""}
+                </span>
+              </div>
+              {suggestion.band ? (
+                <p className="mt-1.5 max-w-prose text-sm">{suggestion.band}</p>
+              ) : (
+                <p className="mt-1.5 text-sm text-ink-soft">
+                  Not yet scored — answer it through to the end and a band appears.
+                </p>
+              )}
+              <p className="mt-1.5 max-w-prose text-xs text-ink-soft">
+                A suggestion, not a decision. Article 33 and Article 34 are
+                still judgements somebody records below, with their reasoning.
+              </p>
+            </div>
+            {mayEdit ? (
+              <form action={detachAssessmentAction.bind(null, breach.id)}>
+                <button
+                  type="submit"
+                  className="text-xs text-ink-soft underline hover:text-brand"
+                >
+                  Detach this assessment
+                </button>
+              </form>
+            ) : null}
+          </>
+        ) : (
+          <div className="space-y-2 rounded border border-line bg-surface px-4 py-3">
+            <p className="max-w-prose text-sm text-ink-soft">
+              Severity has not been assessed with a template. You can record the
+              judgement in the decisions below as free text, which is enough for
+              a breach settled quickly — or run the structured assessment, which
+              works through the ICO&rsquo;s factors and proposes an answer to
+              both statutory questions.
+            </p>
+            {mayAssess ? (
+              <form action={startSeverityAssessmentAction.bind(null, breach.id)}>
+                <button
+                  type="submit"
+                  className="rounded border border-line px-3.5 py-1.5 text-sm font-medium hover:bg-ground focus-visible:outline-2 focus-visible:outline-brand"
+                >
+                  Assess severity with the ICO template
+                </button>
+              </form>
+            ) : null}
+          </div>
+        )}
+      </section>
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold">What the Regulation requires here</h2>

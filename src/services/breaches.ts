@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
+  assessments,
   breachDecisions,
   breaches,
   entities,
@@ -450,4 +451,96 @@ export async function breachesNeedingAttention(organisationId: string) {
       };
     })
     .filter((b) => b.clock.state === "overdue" || b.clock.state === "due_soon");
+}
+
+/**
+ * Start a severity assessment against a breach, or attach an existing one.
+ *
+ * Optional by design. A small breach settled in an afternoon does not need a
+ * structured assessment, and requiring one would push people to record the
+ * breach later — which is the one thing that must not happen, since the
+ * seventy-two hours runs from awareness whatever anybody is doing about it.
+ *
+ * Linking does not decide anything. The assessment's band becomes a suggestion
+ * on the breach; the Article 33 and Article 34 decisions remain acts a named
+ * person records with their reasoning.
+ */
+export async function linkAssessment(input: {
+  breachId: string;
+  organisationId: string;
+  assessmentId: string | null;
+  actor: Actor;
+}) {
+  return db.transaction(async (tx) => {
+    const [breach] = await tx
+      .select()
+      .from(breaches)
+      .where(
+        and(eq(breaches.id, input.breachId), eq(breaches.organisationId, input.organisationId)),
+      );
+    if (!breach) throw new Error("No such breach");
+
+    await tx
+      .update(breaches)
+      .set({
+        assessmentId: input.assessmentId,
+        // Recording an assessment is the act of assessing, so the status
+        // follows unless it has already moved past that.
+        ...(input.assessmentId && breach.status === "discovered"
+          ? { status: "assessing" as const }
+          : {}),
+        updatedAt: new Date(),
+      })
+      .where(eq(breaches.id, input.breachId));
+
+    await appendAuditEvent(tx, {
+      ...input.actor,
+      organisationId: input.organisationId,
+      entityId: breach.entityId,
+      action: input.assessmentId ? "breach.assessment_linked" : "breach.assessment_unlinked",
+      subjectType: "breach",
+      subjectId: input.breachId,
+      after: { assessment: input.assessmentId },
+    });
+  });
+}
+
+/**
+ * What a linked severity assessment suggests, if there is one.
+ *
+ * Read from the assessment's own scoring rather than copied onto the breach: a
+ * copy drifts from the judgement somebody signed, and the band is meaningful
+ * only alongside the answers that produced it.
+ */
+export async function severitySuggestion(breach: Breach) {
+  if (!breach.assessmentId) return null;
+
+  const [row] = await db
+    .select({
+      reference: assessments.reference,
+      status: assessments.status,
+      band: assessments.scoreBand,
+      tier: assessments.scoreTier,
+      score: assessments.scoreValue,
+    })
+    .from(assessments)
+    .where(
+      and(
+        eq(assessments.id, breach.assessmentId),
+        eq(assessments.organisationId, breach.organisationId),
+      ),
+    );
+  if (!row) return null;
+
+  // The band maps onto the statutory questions, but only as a proposal.
+  const suggests: RiskLevel | null =
+    row.tier === null
+      ? null
+      : row.tier === "low"
+        ? "none"
+        : row.tier === "medium"
+          ? "risk"
+          : "high_risk";
+
+  return { ...row, suggests };
 }

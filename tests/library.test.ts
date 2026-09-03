@@ -59,7 +59,7 @@ describe("shipped template library", () => {
     // the UK Article 35(7) DPIA and the CNIL PIA are both DPIAs, and offering
     // both is the point. What this guards is the set of kinds shipping at all.
     const kinds = [...new Set(SYSTEM_TEMPLATES.map((t) => t.kind))].sort();
-    assert.deepEqual(kinds, ["ai_risk", "dpia", "lia", "screening", "tia", "tra"]);
+    assert.deepEqual(kinds, ["ai_risk", "breach", "dpia", "lia", "screening", "tia", "tra"]);
   });
 
   it("gives templates sharing a kind distinct names", () => {
@@ -295,5 +295,106 @@ describe("legal references a lawyer can check", () => {
     for (const ref of LEGAL_REFERENCES.filter((r) => r.code.startsWith("ukgdpr."))) {
       assert.match(ref.url!, /\/article\/\d+$/, `${ref.code} is not an article-level link`);
     }
+  });
+});
+
+describe("breach severity", () => {
+  const t = templateDefinition.parse(
+    SYSTEM_TEMPLATES.find((x) => x.kind === "breach")!.definition,
+  );
+  const base: Answers = {
+    summary: "A file was emailed to the wrong recipient",
+    breach_type: ["confidentiality"],
+    recoverable: "contained",
+    unintelligible: "no",
+    data_categories: ["Contact details"],
+    sensitivity: "basic",
+    special_category: false,
+    identifiability: "direct",
+    volume: "single_field",
+    subjects_affected: 3,
+    scale: "individual",
+    vulnerable: "no",
+    controller_character: "no",
+    consequences: "Mild embarrassment",
+    harm_type: ["distress"],
+    mitigated: "no",
+    measures: "Recipient confirmed deletion",
+    reportable_view: "no",
+    communicable_view: "no",
+    reasoning: "Contained, trivial data, three people",
+    assessed_by: "DPO",
+  };
+  const rate = (a: Answers) => score(t.scoring, t.schema, a, evaluate(t.schema, a));
+
+  it("does not report a handful of contact details, contained", () => {
+    // The archetypal non-reportable breach. A triage that flagged this would
+    // not be trusted on the ones that matter, which is worse than no triage.
+    const r = rate(base);
+    assert.ok(r.scored);
+    assert.equal(r.band?.tier, "low");
+    assert.match(r.band!.label, /not indicated/);
+  });
+
+  it("does not report an encrypted device whose keys are safe", () => {
+    // Article 34(3)(a) in substance, and the ICO's standard example.
+    const r = rate({ ...base, breach_type: ["availability"], unintelligible: "yes" });
+    assert.ok(r.scored);
+    assert.equal(r.band?.tier, "low");
+  });
+
+  it("treats readable financial data at scale as high risk", () => {
+    const r = rate({
+      ...base, sensitivity: "behavioural", volume: "record", scale: "group",
+      harm_type: ["financial"], recoverable: "partly",
+    });
+    assert.ok(r.scored);
+    assert.ok(r.band?.tier === "high" || r.band?.tier === "critical", `got ${r.band?.tier}`);
+    assert.match(r.band!.label, /tell the people affected|communicate/);
+  });
+
+  it("puts special category data about children at the top", () => {
+    const r = rate({
+      ...base, recoverable: "no", sensitivity: "special", special_category: true,
+      special_category_detail: "Health records", volume: "history", scale: "large",
+      vulnerable: "yes", controller_character: "yes",
+      harm_type: ["discrimination", "identity", "distress"],
+    });
+    assert.ok(r.scored);
+    assert.equal(r.band?.tier, "critical");
+  });
+
+  it("lets containment and encryption reduce the score", () => {
+    // Both were scoring zero at first, so a breach recovered within the hour
+    // weighed the same as one still live.
+    const live = rate({ ...base, recoverable: "no" });
+    const contained = rate(base);
+    assert.ok(live.scored && contained.scored);
+    if (!live.scored || !contained.scored) return;
+    assert.ok(contained.score < live.score, "containment must reduce the score");
+
+    const encrypted = rate({ ...base, unintelligible: "yes" });
+    assert.ok(encrypted.scored);
+    if (!encrypted.scored) return;
+    assert.ok(encrypted.score < contained.score, "unintelligible data must reduce the score");
+  });
+
+  it("says what the Regulation then requires, not how bad it is", () => {
+    // The bands are written to answer the two statutory questions, so somebody
+    // reading one knows what to do rather than how to feel.
+    if (t.scoring.method !== "weighted_sum") return;
+    const labels = t.scoring.bands.map((b) => b.label).join(" ");
+    assert.match(labels, /Article 33/);
+    assert.match(labels, /notify the supervisory authority/);
+    assert.match(labels, /tell the people affected/);
+  });
+
+  it("asks which exemption applies only when one is claimed", () => {
+    const claimed = evaluate(t.schema, { ...base, communicable_view: "exempt" });
+    assert.equal(claimed.questions.exemption?.visible, true);
+    assert.equal(claimed.questions.exemption?.required, true);
+
+    const not = evaluate(t.schema, base);
+    assert.equal(not.questions.exemption?.visible, false);
   });
 });

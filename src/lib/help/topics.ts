@@ -337,6 +337,14 @@ export const HELP_TOPICS: HelpTopic[] = [
         ],
       },
       {
+        heading: "Assessing severity: template or free text",
+        body: [
+          "Either works. A breach settled in an afternoon can be judged in the decision itself, in your own words — requiring a structured assessment would push people to record breaches later, and the seventy-two hours runs from when you became aware whatever anybody is doing about it.",
+          "The structured option works through the ICO's factors: the type of breach, the nature and sensitivity and volume of the data, how easily people can be identified, the severity of the consequences, whether any of them are children or otherwise vulnerable, and how many are affected. It proposes an answer to both statutory questions.",
+          "It proposes. The decisions remain acts a named person records with their reasoning, and the band appears beside them rather than in place of them.",
+        ],
+      },
+      {
         heading: "If you are the processor",
         body: [
           "Your obligation under Article 33(2) is to tell the controller without undue delay. You do not notify the authority in your own right, and no seventy-two hour clock is shown — setting your role correctly is what makes the platform stop offering you the wrong deadline.",

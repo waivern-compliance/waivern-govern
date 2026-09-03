@@ -347,6 +347,14 @@ Article 34 asks whether that risk is high. If it is, the people affected must be
 - Article 34(3)(b) — subsequent measures mean the high risk is no longer likely to materialise.
 - Article 34(3)(c) — individual communication would take disproportionate effort, so a public communication is made instead. This substitutes a communication; it does not remove one.
 
+### Assessing severity: template or free text
+
+Either works. A breach settled in an afternoon can be judged in the decision itself, in your own words — requiring a structured assessment would push people to record breaches later, and the seventy-two hours runs from when you became aware whatever anybody is doing about it.
+
+The structured option works through the ICO's factors: the type of breach, the nature and sensitivity and volume of the data, how easily people can be identified, the severity of the consequences, whether any of them are children or otherwise vulnerable, and how many are affected. It proposes an answer to both statutory questions.
+
+It proposes. The decisions remain acts a named person records with their reasoning, and the band appears beside them rather than in place of them.
+
 ### If you are the processor
 
 Your obligation under Article 33(2) is to tell the controller without undue delay. You do not notify the authority in your own right, and no seventy-two hour clock is shown — setting your role correctly is what makes the platform stop offering you the wrong deadline.

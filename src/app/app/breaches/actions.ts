@@ -4,11 +4,14 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db/client";
-import { entities } from "@/db/schema";
+import { breaches, entities } from "@/db/schema";
+import { createAssessment } from "@/services/assessments";
+import { availableTemplates } from "@/services/templates";
 import { requireCapability } from "@/lib/session";
 import {
   RationaleRequired,
   closeBreach,
+  linkAssessment,
   recordBreach,
   recordDecision,
   updateBreach,
@@ -169,4 +172,63 @@ export async function closeBreachAction(
   revalidatePath(`/app/breaches/${breachId}`);
   revalidatePath("/app/breaches");
   return { ok: true, message: "Closed." };
+}
+
+/**
+ * Start a breach severity assessment and attach it.
+ *
+ * Optional. The register takes a free-text judgement perfectly well, and a
+ * breach settled in an afternoon does not need a structured one — requiring it
+ * would push people to record the breach later, which is the one thing that
+ * must not happen.
+ */
+export async function startSeverityAssessmentAction(breachId: string) {
+  const active = await requireCapability("assessment.create");
+
+  const [breach] = await db
+    .select()
+    .from(breaches)
+    .where(
+      and(eq(breaches.id, breachId), eq(breaches.organisationId, active.membership.organisationId)),
+    );
+  if (!breach) throw new Error("No such breach");
+
+  const [available] = await availableTemplates(active.membership.organisationId, "breach");
+  if (!available) {
+    // Nothing to run. Said out loud rather than failing silently: a shipped
+    // template that was never published is a setup problem, not a user error.
+    return;
+  }
+
+  const assessment = await createAssessment({
+    organisationId: active.membership.organisationId,
+    entityId: breach.entityId,
+    templateVersionId: available.version.id,
+    title: `Severity — ${breach.reference} ${breach.title}`,
+    subjectType: "breach",
+    subjectId: breach.id,
+    ownerId: active.userId,
+    actor: { actorKind: "user", actorUserId: active.userId, actorLabel: active.email },
+  });
+
+  await linkAssessment({
+    breachId,
+    organisationId: active.membership.organisationId,
+    assessmentId: assessment.id,
+    actor: { actorKind: "user", actorUserId: active.userId, actorLabel: active.email },
+  });
+
+  revalidatePath(`/app/breaches/${breachId}`);
+  redirect(`/app/assessments/${assessment.id}`);
+}
+
+export async function detachAssessmentAction(breachId: string) {
+  const active = await requireCapability("record.write");
+  await linkAssessment({
+    breachId,
+    organisationId: active.membership.organisationId,
+    assessmentId: null,
+    actor: { actorKind: "user", actorUserId: active.userId, actorLabel: active.email },
+  });
+  revalidatePath(`/app/breaches/${breachId}`);
 }
