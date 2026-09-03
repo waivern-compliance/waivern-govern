@@ -16,6 +16,8 @@ import { queueNotification, raiseTask } from "./workflow";
 import { deliverPending } from "./webhooks";
 import { countriesDueForReview } from "./countries";
 import { forgetExpiredConversations } from "./assistant";
+import { notificationDeadline } from "@/lib/breach/statutory";
+import { breachesNeedingAttention } from "./breaches";
 import { EXPIRING_WITHIN_LABEL, dpasNeedingAttention } from "./third-party";
 
 /**
@@ -48,6 +50,7 @@ export type SweepResult = {
   countryReviewsRaised: number;
   dpaReviewsRaised: number;
   conversationsForgotten: number;
+  breachDeadlinesRaised: number;
   webhooksDelivered: number;
   webhooksFailed: number;
 };
@@ -359,6 +362,54 @@ async function raiseDpaReviews(organisationId: string): Promise<number> {
   return raised;
 }
 
+/**
+ * Breaches whose seventy-two hours is running out, or has run out.
+ *
+ * One task per breach rather than one naming a count, which is the opposite of
+ * how country reviews and processor agreements are handled — and deliberately.
+ * Those are housekeeping that accumulates; this is a statutory deadline
+ * attaching to a specific incident, and rolling three of them into one line
+ * would be the wrong instinct entirely.
+ *
+ * Keyed on the breach and the state, so a breach that moves from due-soon to
+ * overdue raises a second task rather than silently reusing the first.
+ */
+async function raiseBreachDeadlines(organisationId: string): Promise<number> {
+  const pressing = await breachesNeedingAttention(organisationId);
+  if (pressing.length === 0) return 0;
+
+  let raised = 0;
+  for (const { breach, clock } of pressing) {
+    const overdue = clock.state === "overdue";
+    await db.transaction(async (tx) => {
+      const task = await raiseTask(tx, {
+        organisationId,
+        entityId: breach.entityId,
+        type: "breach_deadline",
+        title: overdue
+          ? `${breach.reference}: past seventy-two hours`
+          : `${breach.reference}: seventy-two hours running out`,
+        description:
+          `${clock.words}. ` +
+          (overdue
+            ? "Article 33(1) still requires notification, accompanied by the reasons for the delay."
+            : "Notify the supervisory authority, or record why Article 33 does not require it."),
+        subjectType: "breach",
+        subjectId: breach.id,
+        assigneeRole: "privacy_admin",
+        // The statutory deadline, not a service level counted from now.
+        // Without this the task inherits 72 hours from its own creation and
+        // shows "in 4d" for something due this afternoon.
+        dueAt: notificationDeadline(breach.discoveredAt),
+        idempotencyKey: `breach-deadline:${breach.id}:${clock.state}`,
+        actor: SYSTEM,
+      });
+      if (task) raised += 1;
+    });
+  }
+  return raised;
+}
+
 export async function sweepOrganisation(organisationId: string): Promise<SweepResult> {
   const [org] = await db.select().from(organisations).where(eq(organisations.id, organisationId));
   const result: SweepResult = {
@@ -371,6 +422,7 @@ export async function sweepOrganisation(organisationId: string): Promise<SweepRe
     dpaReviewsRaised: await raiseDpaReviews(organisationId),
     // Retention is a promise, and a promise nothing enforces is a claim.
     conversationsForgotten: await forgetExpiredConversations(organisationId),
+    breachDeadlinesRaised: await raiseBreachDeadlines(organisationId),
     webhooksDelivered: 0,
     webhooksFailed: 0,
   };

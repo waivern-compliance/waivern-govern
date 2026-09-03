@@ -36,6 +36,14 @@ const DEFAULT_SLA_HOURS: Record<TaskType, number> = {
   verify_mitigation: 24 * 7,
   reassess: 24 * 14,
   review_acceptance: 24 * 14,
+  /**
+   * Article 33(1), and not a service level an organisation may relax. It sits
+   * in this map because every task needs a figure, but the deadline that
+   * matters is computed from when the breach was discovered — see
+   * lib/breach/statutory — rather than from when the task happened to be
+   * raised.
+   */
+  breach_deadline: 72,
 };
 
 async function slaHoursFor(tx: Tx, organisationId: string, type: TaskType) {

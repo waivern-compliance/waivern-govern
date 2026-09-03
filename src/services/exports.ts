@@ -21,6 +21,7 @@ import { questionsOf } from "@/lib/templates/logic";
 import { libraryFor } from "./countries";
 import { gapsFor } from "./ai-register";
 import { GAP_WORDS, listActivities } from "./ropa";
+import { breachRegister } from "./breaches";
 import { trendFor } from "./trends";
 import {
   GAP_WORDS as SUPPLIER_GAP_WORDS,
@@ -48,6 +49,7 @@ export type Dataset =
   | "ai-register"
   | "ropa"
   | "third-parties"
+  | "breaches"
   | "trends"
   | "countries"
   | "audit";
@@ -58,6 +60,7 @@ export const DATASET_LABEL: Record<Dataset, string> = {
   "ai-register": "AI register",
   ropa: "Processing register (Article 30)",
   "third-parties": "Third parties (Article 28)",
+  breaches: "Breach register (Article 33(5))",
   trends: "Trends by month",
   countries: "Country library",
   audit: "Audit log",
@@ -462,5 +465,66 @@ export async function exportTrends(organisationId: string, entityIds: string[] |
       p.tasksCompleted, p.tasksBreached, p.acceptancesGranted,
       p.acceptancesExpired,
     ]),
+  };
+}
+
+/**
+ * The Article 33(5) register.
+ *
+ * Every breach, including the ones judged not notifiable, with the reasoning
+ * for each decision in its own column. That is the point of the record: a
+ * regulator asking why something was not reported is asking about a sentence
+ * somebody wrote, and an export that carried only outcomes would leave them
+ * asking us instead of reading it.
+ */
+export async function exportBreaches(organisationId: string, entityIds: string[] | null) {
+  const register = await breachRegister(organisationId, entityIds);
+
+  const decision = (
+    row: (typeof register.rows)[number],
+    kind: string,
+  ): [string, string, string] => {
+    // The latest decision of that kind: decisions are appended, and the most
+    // recent is the position the organisation currently holds.
+    const found = [...row.decisions].reverse().find((d) => d.kind === kind);
+    if (!found) return ["", "", ""];
+    return [found.outcome, found.statutoryBasis ?? "not required by law", found.rationale];
+  };
+
+  return {
+    columns: [
+      "Reference", "Entity", "What happened", "Description", "Our role",
+      "Became aware", "Occurred", "Contained", "Kind",
+      "Categories of data subject", "Categories of personal data",
+      "People affected", "Records affected", "Special category",
+      "Likely consequences", "Measures taken", "Data unintelligible",
+      "Risk assessed as", "Seventy-two hour position",
+      "Authority — outcome", "Authority — basis", "Authority — reasoning",
+      "Data subjects — outcome", "Data subjects — basis", "Data subjects — reasoning",
+      "Other decisions", "Status", "Closed", "Closure reasoning",
+    ],
+    rows: register.rows.map((row) => {
+      const b = row.breach;
+      const [aOut, aBasis, aWhy] = decision(row, "supervisory_authority");
+      const [sOut, sBasis, sWhy] = decision(row, "data_subjects");
+      const others = row.decisions
+        .filter((d) => !["supervisory_authority", "data_subjects"].includes(d.kind))
+        .map((d) => `${d.kind.replace(/_/g, " ")}: ${d.outcome} — ${d.rationale}`)
+        .join(" | ");
+
+      return [
+        b.reference, row.entityName, b.title, b.description, b.controllerRole,
+        b.discoveredAt, b.occurredAt, b.containedAt, (b.categories ?? []).join("; "),
+        (b.subjectCategories ?? []).join("; "), (b.dataCategories ?? []).join("; "),
+        b.subjectsAffected, b.recordsAffected,
+        b.specialCategory === null ? "not known" : b.specialCategory ? "yes" : "no",
+        b.likelyConsequences, b.measuresTaken,
+        b.dataUnintelligible === null ? "not known" : b.dataUnintelligible ? "yes" : "no",
+        row.risk ?? "not assessed", row.clock.words,
+        aOut, aBasis, aWhy,
+        sOut, sBasis, sWhy,
+        others, b.status, b.closedAt, b.closureRationale,
+      ];
+    }),
   };
 }

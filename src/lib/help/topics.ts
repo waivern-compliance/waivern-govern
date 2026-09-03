@@ -307,6 +307,60 @@ export const HELP_TOPICS: HelpTopic[] = [
     related: ["ropa", "transfers", "findings"],
   },
   {
+    id: "breaches",
+    title: "Personal data breaches",
+    summary:
+      "Record every breach, decide the two statutory questions separately, and keep the reasoning for both.",
+    path: "/app/breaches",
+    keywords: [
+      "breach", "incident", "72 hours", "seventy-two", "article 33", "article 34",
+      "notify", "ico", "supervisory authority", "data subjects", "ransomware", "leak",
+    ],
+    sections: [
+      {
+        heading: "Record it before you assess it",
+        body: [
+          "The seventy-two hours runs from when the organisation became aware, not from when the breach happened, and not from when somebody finished deciding what it amounted to. So the form asks for four facts and the time you became aware, and the assessment comes afterwards.",
+          "Every breach goes on the register, including the ones you decide not to report. Article 33(5) requires all of them to be documented, and an absence of notification with nothing written down is indistinguishable from an oversight.",
+        ],
+      },
+      {
+        heading: "Two questions, not one",
+        body: [
+          "Article 33 asks whether the breach is likely to result in a risk to people's rights and freedoms. If it is, the supervisory authority must be told within seventy-two hours.",
+          "Article 34 asks whether that risk is high. If it is, the people affected must be told without undue delay — a different test, a different deadline, and a breach can be notifiable without being communicable.",
+        ],
+        points: [
+          "Article 34(3)(a) — the data was unintelligible, through encryption or effective pseudonymisation.",
+          "Article 34(3)(b) — subsequent measures mean the high risk is no longer likely to materialise.",
+          "Article 34(3)(c) — individual communication would take disproportionate effort, so a public communication is made instead. This substitutes a communication; it does not remove one.",
+        ],
+      },
+      {
+        heading: "If you are the processor",
+        body: [
+          "Your obligation under Article 33(2) is to tell the controller without undue delay. You do not notify the authority in your own right, and no seventy-two hour clock is shown — setting your role correctly is what makes the platform stop offering you the wrong deadline.",
+        ],
+      },
+      {
+        heading: "Decisions, including the ones nobody required",
+        body: [
+          "Contacting an insurer, calling the police, telling a partner organisation, offering credit monitoring — none of it is required by the Regulation, and all of it is worth an audit trail. Each is recorded the same way, and what separates them is the provision relied on: an Article reference where the law compelled it, blank where you chose to act.",
+          "Every decision needs its reasoning, including \"not required\". That sentence is what a regulator would ask about.",
+          "Decisions are appended, never edited. Changing your mind is a second decision, and the sequence shows how the judgement developed.",
+        ],
+      },
+      {
+        heading: "What the platform will not do",
+        body: [
+          "It will not decide whether a breach is notifiable, and it will not notify anybody. It works out which obligations are engaged, tracks the seventy-two hours, and says which parts of Article 33(3) are not yet recorded. A person makes each call.",
+          "A missed deadline does not remove the obligation. Article 33(1) still requires notification, accompanied by the reasons for the delay, and the platform says so rather than turning the task green.",
+        ],
+      },
+    ],
+    related: ["risks", "service-levels", "audit", "ropa"],
+  },
+  {
     id: "ai-register",
     title: "The AI register",
     summary:
@@ -719,7 +773,7 @@ export const HELP_GROUPS: Array<{ heading: string; ids: string[] }> = [
   },
   {
     heading: "The registers",
-    ids: ["ropa", "third-parties", "ai-register", "ai-chain", "transfers", "findings"],
+    ids: ["ropa", "third-parties", "breaches", "ai-register", "ai-chain", "transfers", "findings"],
   },
   {
     heading: "Seeing where you stand",

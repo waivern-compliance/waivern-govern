@@ -70,6 +70,12 @@ export const NAV: NavItem[] = [
     capability: "record.read",
   },
   {
+    href: "/app/breaches",
+    label: "Breaches",
+    hint: "the Article 33(5) register, and the seventy-two hours",
+    capability: "record.read",
+  },
+  {
     href: "/app/risks",
     label: "Risk register",
     hint: "mitigations, residual rating, acceptance",

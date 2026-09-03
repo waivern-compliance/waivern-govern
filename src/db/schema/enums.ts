@@ -28,6 +28,8 @@ export const recordType = pgEnum("record_type", [
   "risk",
   "mitigation",
   "risk_acceptance",
+  "breach",
+  "breach_decision",
   "comment",
   "task",
   "approval",
@@ -205,6 +207,12 @@ export const taskType = pgEnum("task_type", [
   "verify_mitigation",
   "reassess",
   "review_acceptance",
+  /**
+   * The seventy-two hours under Article 33(1). Its own type because it is the
+   * only deadline here set by statute rather than by a service level somebody
+   * chose, and it must not be quietly rescheduled.
+   */
+  "breach_deadline",
 ]);
 
 export const taskStatus = pgEnum("task_status", [
@@ -346,4 +354,67 @@ export const transferRiskLevel = pgEnum("transfer_risk_level", [
   "high",
   /** Nobody has established this. Distinct from low, and treated as worse. */
   "unknown",
+]);
+
+/**
+ * What kind of breach it is. The three are not exclusive — losing the only
+ * copy of a database to ransomware is a breach of availability and, if it was
+ * exfiltrated first, of confidentiality too.
+ */
+export const breachCategory = pgEnum("breach_category", [
+  "confidentiality",
+  "integrity",
+  "availability",
+]);
+
+/**
+ * Where a breach is in its handling.
+ *
+ * `assessing` exists because the two statutory judgements — whether to notify
+ * the authority and whether to tell the people affected — are separate acts
+ * that take time, and the seventy-two hours runs while they are being made.
+ */
+export const breachStatus = pgEnum("breach_status", [
+  "discovered",
+  "assessing",
+  "contained",
+  "notified",
+  "closed",
+]);
+
+/**
+ * Who a decision was about.
+ *
+ * The first two are statutory: Article 33 to the supervisory authority,
+ * Article 34 to the data subjects. `processor_to_controller` is the obligation
+ * that falls the other way under Article 33(2) when we are the processor. The
+ * rest are decisions an organisation takes that the Regulation does not
+ * require, and which are worth recording precisely because nobody made them
+ * do it.
+ */
+export const breachDecisionKind = pgEnum("breach_decision_kind", [
+  "supervisory_authority",
+  "data_subjects",
+  "processor_to_controller",
+  "insurer",
+  "law_enforcement",
+  "other_regulator",
+  "affected_organisation",
+  "voluntary_action",
+]);
+
+/**
+ * What was decided.
+ *
+ * `not_required` carries a rationale like any other outcome. Deciding that
+ * Article 33 does not bite is a judgement the controller has to be able to
+ * defend, and an absence of notification with no recorded reasoning is
+ * indistinguishable from an oversight.
+ */
+export const breachDecisionOutcome = pgEnum("breach_decision_outcome", [
+  "pending",
+  "done",
+  "not_required",
+  "deferred",
+  "declined",
 ]);

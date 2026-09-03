@@ -13,6 +13,7 @@ import {
   exportRopa,
   exportThirdParties,
   exportTrends,
+  exportBreaches,
   recordExport,
   verificationManifest,
   type Dataset,
@@ -98,7 +99,9 @@ export async function GET(
                 ? await exportThirdParties(org)
                 : key === "trends"
                   ? await exportTrends(org, entityIds)
-                  : await exportCountries(org);
+                  : key === "breaches"
+                    ? await exportBreaches(org, entityIds)
+                    : await exportCountries(org);
     rows = result.rows.length;
     body = toCsv(result.columns, result.rows);
   }

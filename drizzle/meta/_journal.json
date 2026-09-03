@@ -162,6 +162,20 @@
       "when": 1788367335265,
       "tag": "0022_lush_paper_doll",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1788431376430,
+      "tag": "0023_workable_sinister_six",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1788431503103,
+      "tag": "0024_harsh_lucky_pierre",
+      "breakpoints": true
     }
   ]
 }

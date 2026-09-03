@@ -18,6 +18,8 @@ const PATHS: Record<string, (id: string) => string> = {
   dpa: () => "/app/third-parties",
   country_risk: () => "/app/countries",
   scan_finding: () => "/app/findings",
+  breach: (id) => `/app/breaches/${id}`,
+  breach_decision: () => "/app/breaches",
 };
 
 /**
