@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import type { ResolvedRef } from "@/lib/legal-refs";
 import { optionsForType } from "@/lib/templates/catalogues";
 import { evaluate, type AnswerValue, type Answers } from "@/lib/templates/logic";
 import type { Question, TemplateDefinition } from "@/lib/templates/schema";
@@ -13,7 +14,7 @@ type Props = {
   /** Restricts the form to one section, for a contributor working on their part. */
   onlySection?: string | null;
   readOnly?: boolean;
-  legalRefs: Record<string, { citation: string; title: string; regime: string }>;
+  legalRefs: Record<string, ResolvedRef>;
   answerMeta?: Record<string, { by: string; at: string }>;
   onSave: (answers: Record<string, AnswerValue>) => Promise<SaveResult>;
   onFinish?: () => Promise<SaveResult>;
@@ -347,9 +348,28 @@ function Field({
       {question.help ? <p className="text-xs text-ink-soft">{question.help}</p> : null}
       {control}
       {refs.length > 0 ? (
-        <p className="font-mono text-[11px] text-ink-soft">
-          {refs.map((r) => `${r.regime} ${r.citation}`).join("  ·  ")}
-        </p>
+        <ul className="flex flex-wrap gap-x-4 gap-y-1">
+          {refs.map((r) => (
+            <li key={r.citation} className="text-[11px] text-ink-soft">
+              <span className="font-mono">
+                {r.regime} {r.citation}
+              </span>
+              {" — "}
+              {r.url ? (
+                <a
+                  href={r.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-brand hover:underline"
+                >
+                  {r.title}
+                </a>
+              ) : (
+                r.title
+              )}
+            </li>
+          ))}
+        </ul>
       ) : null}
       {meta ? (
         <p className="font-mono text-[11px] text-ink-soft">

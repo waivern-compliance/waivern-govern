@@ -258,3 +258,42 @@ describe("the CNIL PIA", () => {
     assert.equal(outside.questions.transfer_tool?.required, true);
   });
 });
+
+describe("legal references a lawyer can check", () => {
+  it("gives every reference a link to its source", () => {
+    // A citation nobody can follow asks a reviewer to take our word for it.
+    for (const ref of LEGAL_REFERENCES) {
+      assert.ok(ref.url, `${ref.code} has no url`);
+      assert.match(ref.url!, /^https:\/\//, `${ref.code} url is not https`);
+    }
+  });
+
+  it("gives every reference a regime, a citation and a title", () => {
+    // The citation says where to look; the title says why it is cited. Both
+    // are rendered, so both have to be there.
+    for (const ref of LEGAL_REFERENCES) {
+      assert.ok(ref.regime.length > 1, `${ref.code} regime`);
+      assert.ok(ref.citation.length > 1, `${ref.code} citation`);
+      assert.ok(ref.title.length > 5, `${ref.code} title`);
+    }
+  });
+
+  it("keeps UK and EU articles distinguishable", () => {
+    // Article 35 exists in both regimes. The regime prefix is what stops a
+    // reviewer citing the wrong one, so the pair must never collide.
+    const seen = new Map<string, string>();
+    for (const ref of LEGAL_REFERENCES) {
+      const key = `${ref.regime} ${ref.citation}`;
+      assert.ok(!seen.has(key), `${key} is claimed by both ${seen.get(key)} and ${ref.code}`);
+      seen.set(key, ref.code);
+    }
+  });
+
+  it("points UK articles at the article, not the whole regulation", () => {
+    // legislation.gov.uk supports article-level links and EUR-Lex does not, so
+    // the UK half of the library is expected to be more precise.
+    for (const ref of LEGAL_REFERENCES.filter((r) => r.code.startsWith("ukgdpr."))) {
+      assert.match(ref.url!, /\/article\/\d+$/, `${ref.code} is not an article-level link`);
+    }
+  });
+});

@@ -2,10 +2,12 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { DraftEditor } from "@/components/templates/DraftEditor";
 import { NotPermitted } from "@/components/NotPermitted";
+import { legalRefMap } from "@/lib/legal-refs";
 import { describeCondition, describeType, questionLabels } from "@/lib/templates/describe";
 import { can } from "@/lib/rbac";
 import { getActiveSession } from "@/lib/session";
 import { validateTemplate } from "@/lib/templates/validate";
+import type { ResolvedRef } from "@/lib/legal-refs";
 import { loadTemplate } from "@/services/templates";
 import { publishAction, startDraftAction } from "../actions";
 
@@ -29,7 +31,10 @@ export default async function TemplatePage({
     );
   }
 
-  const loaded = await loadTemplate(id, active.membership.organisationId);
+  const [loaded, refs] = await Promise.all([
+    loadTemplate(id, active.membership.organisationId),
+    legalRefMap(),
+  ]);
   if (!loaded) notFound();
 
   const { template, versions, published, draft } = loaded;
@@ -84,7 +89,7 @@ export default async function TemplatePage({
           <h2 className="text-sm font-semibold">
             What version {showing.version} asks
           </h2>
-          <Definition definition={showing.definition} />
+          <Definition definition={showing.definition} refs={refs} />
         </section>
       ) : null}
 
@@ -148,7 +153,13 @@ export default async function TemplatePage({
 }
 
 /** The questions, as a reviewer needs to read them. */
-function Definition({ definition }: { definition: any }) {
+function Definition({
+  definition,
+  refs,
+}: {
+  definition: any;
+  refs: Record<string, ResolvedRef>;
+}) {
   const labels = questionLabels(definition.schema);
   const scoring = definition.scoring;
 
@@ -183,8 +194,39 @@ function Definition({ definition }: { definition: any }) {
                 <p className="text-xs text-ink-soft">
                   Expects {describeType(q)}
                   {q.evidence !== "none" ? ` · evidence ${q.evidence}` : ""}
-                  {q.legalRefs?.length ? ` · ${q.legalRefs.join(", ")}` : ""}
                 </p>
+                {q.legalRefs?.length ? (
+                  <ul className="flex flex-wrap gap-x-4 gap-y-1">
+                    {q.legalRefs.map((code: string) => {
+                      const ref = refs[code];
+                      // An unresolved code is shown as itself rather than
+                      // hidden: a citation nobody can resolve is a fault worth
+                      // seeing on the page that reviews the template.
+                      if (!ref) {
+                        return (
+                          <li key={code} className="font-mono text-[11px] text-amber-900">
+                            {code} — unknown reference
+                          </li>
+                        );
+                      }
+                      return (
+                        <li key={code} className="text-[11px] text-ink-soft">
+                          <span className="font-mono">
+                            {ref.regime} {ref.citation}
+                          </span>
+                          {" — "}
+                          {ref.url ? (
+                            <a href={ref.url} target="_blank" rel="noopener noreferrer" className="text-brand hover:underline">
+                              {ref.title}
+                            </a>
+                          ) : (
+                            ref.title
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : null}
                 {q.help ? <p className="text-xs text-ink-soft">{q.help}</p> : null}
                 {q.options?.length ? (
                   <p className="text-xs text-ink-soft">

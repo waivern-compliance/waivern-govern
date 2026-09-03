@@ -16,6 +16,8 @@ import {
 import { GENESIS_HASH, appendAuditEvent } from "@/lib/audit";
 import { PRODUCT_NAME } from "@/lib/product";
 import { toCsv } from "@/lib/csv";
+import { legalRefMap } from "@/lib/legal-refs";
+import { questionsOf } from "@/lib/templates/logic";
 import { libraryFor } from "./countries";
 import { gapsFor } from "./ai-register";
 import { GAP_WORDS, listActivities } from "./ropa";
@@ -138,6 +140,7 @@ export async function exportAssessments(organisationId: string, entityIds: strin
       kind: templates.kind,
       templateName: templates.name,
       version: templateVersions.version,
+      definition: templateVersions.definition,
       owner: users.email,
     })
     .from(assessments)
@@ -155,16 +158,44 @@ export async function exportAssessments(organisationId: string, entityIds: strin
     )
     .orderBy(asc(assessments.reference));
 
+  // Resolved once, not per row: an organisation has one reference library and
+  // most assessments cite the same handful of articles.
+  const refs = await legalRefMap();
+
+  /**
+   * The law an assessment was answered against.
+   *
+   * Read from the version it actually ran on rather than from the template as
+   * it stands today, so an export of an assessment approved last year cites
+   * what it was assessed against. A lawyer reviewing it should not have to
+   * work out which questions were on the page at the time.
+   */
+  const citationsFor = (definition: (typeof rows)[number]["definition"]) => {
+    const codes = new Set<string>();
+    for (const { question } of questionsOf(definition.schema)) {
+      for (const code of question.legalRefs ?? []) codes.add(code);
+    }
+    return [...codes]
+      .map((code) => {
+        const ref = refs[code];
+        return ref ? `${ref.regime} ${ref.citation}` : `${code} (unknown)`;
+      })
+      .sort()
+      .join("; ");
+  };
+
   return {
     columns: [
       "Reference", "Entity", "Title", "Type", "Template", "Template version",
       "Status", "Owner", "Score", "Band", "Tier",
+      "Legal references",
       "Created", "Submitted", "Completed",
     ],
     rows: rows.map((r) => [
       r.assessment.reference, r.entity, r.assessment.title, r.kind,
       r.templateName, r.version, r.assessment.status, r.owner,
       r.assessment.scoreValue, r.assessment.scoreBand, r.assessment.scoreTier,
+      citationsFor(r.definition),
       r.assessment.createdAt, r.assessment.submittedAt, r.assessment.completedAt,
     ]),
   };
