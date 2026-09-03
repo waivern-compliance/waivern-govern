@@ -245,6 +245,43 @@ export const HELP_TOPICS: HelpTopic[] = [
     related: ["approvals", "findings", "ai-chain"],
   },
   {
+    id: "reviews",
+    title: "Reviews that come round again",
+    summary:
+      "Approved assessments carry a review date, and both the owner and the people who approved it are reminded.",
+    path: "/app/reviews",
+    keywords: ["review", "reassess", "reapprove", "recurring", "expiry", "annual", "overdue", "stale"],
+    sections: [
+      {
+        heading: "How a review date is set",
+        body: [
+          "When an assessment is approved, the platform reads the review cycle from the template it ran on and sets the date. A DPIA comes round every twelve months, a screening every twenty-four. A template that declares no cycle produces no review — the platform does not invent one on the organisation's behalf.",
+          "The date is on the assessment and can be brought forward. A controller may have its own reason to revisit sooner than the cycle says.",
+        ],
+      },
+      {
+        heading: "Who is reminded",
+        body: [
+          "Two different people, because reassessing and reapproving are different jobs. The owner is asked to redo the work. Everybody who decided an approval gate is asked to decide again, and they are found from the approvals themselves rather than guessed at when the date was set — membership changes over a year, and the record of who actually signed it off does not.",
+        ],
+      },
+      {
+        heading: "Overdue reviews are everybody's business",
+        body: [
+          "The recurring reviews page shows everything you can read, not only what is assigned to you. An approved assessment past its review date is one the organisation is still relying on without anybody having confirmed it is still true, so an administrator sees every one — including those belonging to colleagues who have not acted.",
+          "The scheduled sweep also raises a monthly reminder while any remain overdue. It nags monthly rather than hourly, and it does not stop until they are dealt with.",
+        ],
+      },
+      {
+        heading: "Approved with no review date",
+        body: [
+          "Shown separately rather than hidden. Either the template sets no cycle, or the assessment was approved before review dates existed — and an assessment nobody will revisit looks identical to one nobody needs to unless the difference is stated.",
+        ],
+      },
+    ],
+    related: ["assessments", "approvals", "service-levels", "templates"],
+  },
+  {
     id: "ropa",
     title: "The processing register (Article 30)",
     summary:
@@ -785,7 +822,7 @@ export const HELP_GROUPS: Array<{ heading: string; ids: string[] }> = [
   },
   {
     heading: "Seeing where you stand",
-    ids: ["dashboard", "trends", "service-levels", "exports", "audit"],
+    ids: ["dashboard", "trends", "reviews", "service-levels", "exports", "audit"],
   },
   {
     heading: "Setting it up",

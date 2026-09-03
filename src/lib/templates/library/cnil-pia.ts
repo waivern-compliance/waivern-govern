@@ -212,4 +212,5 @@ export const CNIL_PIA: TemplateDefinition = {
       { min: 12, max: 16, label: "Critical", tier: "critical" },
     ],
   },
+  reviewIntervalMonths: 12,
 };

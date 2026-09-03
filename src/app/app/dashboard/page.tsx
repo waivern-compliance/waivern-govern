@@ -83,6 +83,13 @@ const m = await dashboardMetrics(
           tone={m.attention.lapsedAcceptances > 0 ? "warning" : "good"}
           note="need looking at again"
         />
+        <Tile
+          label="Past review"
+          value={m.attention.reviewsOverdue}
+          href="/app/reviews"
+          tone={m.attention.reviewsOverdue > 0 ? "critical" : "good"}
+          note="approved, and nobody has confirmed it still holds"
+        />
       </section>
 
       <div className="grid gap-8 lg:grid-cols-2">

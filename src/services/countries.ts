@@ -2,6 +2,7 @@ import { and, asc, eq, isNull, lte, or, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { countryRisk, countryRiskReviews } from "@/db/schema";
 import { appendAuditEvent } from "@/lib/audit";
+import { addMonths } from "@/lib/dates";
 import { COUNTRY_LIBRARY, REVIEW_INTERVAL_MONTHS, SEED_REVIEWER } from "@/lib/countries/library";
 import type { AdequacyStatus, Regime, RiskLevel } from "@/lib/countries/labels";
 import type { Actor } from "./templates";
@@ -104,12 +105,6 @@ export async function libraryHealth(organisationId: string): Promise<LibraryHeal
     unverified: library.filter((c) => c.unverified).length,
     dueSoon: library.filter((c) => !c.stale && c.nextReviewAt.getTime() <= soon).length,
   };
-}
-
-function addMonths(from: Date, months: number): Date {
-  const d = new Date(from);
-  d.setUTCMonth(d.getUTCMonth() + months);
-  return d;
 }
 
 /**

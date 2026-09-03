@@ -1,6 +1,8 @@
-import { and, eq, inArray, isNull, lte, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, lte, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
+  approvals,
+  assessments,
   entities,
   mitigations,
   notifications,
@@ -12,6 +14,7 @@ import {
   tasks,
 } from "@/db/schema";
 import { appendAuditEvent } from "@/lib/audit";
+import { addMonths } from "@/lib/dates";
 import { queueNotification, raiseTask } from "./workflow";
 import { deliverPending } from "./webhooks";
 import { countriesDueForReview } from "./countries";
@@ -51,15 +54,10 @@ export type SweepResult = {
   dpaReviewsRaised: number;
   conversationsForgotten: number;
   breachDeadlinesRaised: number;
+  lapsedReviewsRaised: number;
   webhooksDelivered: number;
   webhooksFailed: number;
 };
-
-function addMonths(from: Date, months: number): Date {
-  const d = new Date(from);
-  d.setUTCMonth(d.getUTCMonth() + months);
-  return d;
-}
 
 /** Turn schedules that are within their lead time into tasks. */
 async function materialiseSchedules(organisationId: string): Promise<number> {
@@ -90,6 +88,56 @@ async function materialiseSchedules(organisationId: string): Promise<number> {
         actor: SYSTEM,
       });
       if (task) raised += 1;
+
+      /**
+       * The people who approved it are asked to reapprove.
+       *
+       * A schedule holds one name, and the owner redoing the work is not the
+       * same person as the approver signing it off again. So the approvers are
+       * found here, from the approvals themselves, rather than being guessed
+       * at when the schedule was created — membership changes over a year, and
+       * the record of who actually decided does not.
+       */
+      if (s.action === "reassess" && s.subjectType === "assessment") {
+        const decided = await tx
+          .select({
+            userId: approvals.decidedByUserId,
+            name: approvals.name,
+            role: approvals.requiredRole,
+          })
+          .from(approvals)
+          .where(
+            and(
+              eq(approvals.assessmentId, s.subjectId),
+              eq(approvals.status, "approved"),
+            ),
+          );
+
+        const seen = new Set<string>();
+        for (const gate of decided) {
+          if (!gate.userId || seen.has(gate.userId)) continue;
+          // Not the owner twice: they already have the reassessment task.
+          if (gate.userId === s.assigneeUserId) continue;
+          seen.add(gate.userId);
+
+          const notice = await raiseTask(tx, {
+            organisationId,
+            entityId: s.entityId,
+            type: "review_assessment",
+            title: `Reapproval due: ${s.title.replace(/^Reassess /, "")}`,
+            description:
+              `You approved this at the "${gate.name}" stage. It is being reassessed and ` +
+              `will need deciding again.`,
+            subjectType: s.subjectType,
+            subjectId: s.subjectId,
+            assigneeUserId: gate.userId,
+            dueAt: s.nextDueAt,
+            idempotencyKey: `reapproval:${s.id}:${s.nextDueAt.toISOString().slice(0, 10)}:${gate.userId}`,
+            actor: SYSTEM,
+          });
+          if (notice) raised += 1;
+        }
+      }
 
       // Roll forward whether or not the task was new: if it already existed,
       // this occurrence is handled and the next one is what matters.
@@ -410,6 +458,59 @@ async function raiseBreachDeadlines(organisationId: string): Promise<number> {
   return raised;
 }
 
+/**
+ * Approved assessments whose review date has passed.
+ *
+ * Separate from the schedule that raised the reassessment, because the two say
+ * different things. A schedule coming due means work is now expected; a review
+ * date in the past means the organisation is currently relying on a stale
+ * assessment, and that is worth saying out loud rather than leaving a task to
+ * sit quietly in somebody's queue.
+ *
+ * Keyed on the month, so a neglected review nags monthly rather than hourly.
+ */
+async function raiseLapsedReviews(organisationId: string): Promise<number> {
+  const lapsed = await db
+    .select({ assessment: assessments, entityId: assessments.entityId })
+    .from(assessments)
+    .where(
+      and(
+        eq(assessments.organisationId, organisationId),
+        eq(assessments.status, "approved"),
+        isNull(assessments.supersedesId),
+        lte(assessments.reviewDueAt, new Date()),
+      ),
+    )
+    .orderBy(asc(assessments.reviewDueAt));
+  if (lapsed.length === 0) return 0;
+
+  const period = new Date().toISOString().slice(0, 7);
+  let raised = 0;
+
+  await db.transaction(async (tx) => {
+    const oldest = lapsed[0].assessment;
+    const task = await raiseTask(tx, {
+      organisationId,
+      entityId: oldest.entityId,
+      type: "reassess",
+      title:
+        lapsed.length === 1
+          ? `${oldest.reference} is past its review date`
+          : `${lapsed.length} approved assessments are past their review date`,
+      description:
+        `Oldest is ${oldest.reference}, due ${oldest.reviewDueAt!.toISOString().slice(0, 10)}. ` +
+        `An approved assessment past its review date is one the organisation is still relying on.`,
+      subjectType: "assessment",
+      subjectId: oldest.id,
+      assigneeRole: "privacy_admin",
+      idempotencyKey: `lapsed-reviews:${period}`,
+      actor: SYSTEM,
+    });
+    if (task) raised = lapsed.length;
+  });
+  return raised;
+}
+
 export async function sweepOrganisation(organisationId: string): Promise<SweepResult> {
   const [org] = await db.select().from(organisations).where(eq(organisations.id, organisationId));
   const result: SweepResult = {
@@ -423,6 +524,7 @@ export async function sweepOrganisation(organisationId: string): Promise<SweepRe
     // Retention is a promise, and a promise nothing enforces is a claim.
     conversationsForgotten: await forgetExpiredConversations(organisationId),
     breachDeadlinesRaised: await raiseBreachDeadlines(organisationId),
+    lapsedReviewsRaised: await raiseLapsedReviews(organisationId),
     webhooksDelivered: 0,
     webhooksFailed: 0,
   };

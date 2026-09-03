@@ -35,6 +35,14 @@ export type DashboardMetrics = {
      */
     notWithinAppetite: number;
     lapsedAcceptances: number;
+    /**
+     * Approved assessments past their review date.
+     *
+     * Counted for everybody who can read them, not only for whoever they are
+     * assigned to: an assessment nobody has confirmed is still true is an
+     * organisational exposure rather than one person's outstanding task.
+     */
+    reviewsOverdue: number;
   };
   riskPosture: TierCount[];
   /** Risks rated but not yet accepted, closed or mitigated. */
@@ -111,7 +119,11 @@ export async function dashboardMetrics(
     pendingApprovals,
   ] = await Promise.all([
     db
-      .select({ status: assessments.status, entityId: assessments.entityId })
+      .select({
+        status: assessments.status,
+        entityId: assessments.entityId,
+        reviewDueAt: assessments.reviewDueAt,
+      })
       .from(assessments)
       .where(assessmentScope),
     db
@@ -192,6 +204,12 @@ export async function dashboardMetrics(
       awaitingDecision: assessmentRows.filter((a) => a.status === "in_review").length,
       openGates: Number(pendingApprovals[0]?.n ?? 0),
       overdueTasks: overdue,
+      reviewsOverdue: assessmentRows.filter(
+        (a) =>
+          a.status === "approved" &&
+          a.reviewDueAt !== null &&
+          a.reviewDueAt.getTime() <= Date.now(),
+      ).length,
       // An unrated risk is not a risk within appetite — it is one nobody has
       // measured. Counting it as "fine" is how a dashboard reassures an
       // executive about exposure that has simply never been looked at.

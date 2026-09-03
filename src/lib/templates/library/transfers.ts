@@ -126,6 +126,7 @@ export const TRA_UK: TemplateDefinition = {
       { min: 12, max: 16, label: "Critical", tier: "critical" },
     ],
   },
+  reviewIntervalMonths: 12,
 };
 
 /**
@@ -299,4 +300,5 @@ export const TIA_EU: TemplateDefinition = {
       { min: 12, max: 16, label: "Critical", tier: "critical" },
     ],
   },
+  reviewIntervalMonths: 12,
 };

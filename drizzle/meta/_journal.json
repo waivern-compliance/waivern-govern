@@ -176,6 +176,13 @@
       "when": 1788431503103,
       "tag": "0024_harsh_lucky_pierre",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1788433028854,
+      "tag": "0025_exotic_madame_masque",
+      "breakpoints": true
     }
   ]
 }

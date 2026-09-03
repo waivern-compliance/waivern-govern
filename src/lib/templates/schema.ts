@@ -150,5 +150,14 @@ export type ScoringConfig = z.infer<typeof scoringConfig>;
 export const templateDefinition = z.object({
   schema: templateSchema,
   scoring: scoringConfig,
+  /**
+   * How often an approved assessment of this kind should come round again.
+   *
+   * Template policy rather than a per-assessment guess: a DPIA and a screening
+   * questionnaire do not share a cycle. Optional, so a template that says
+   * nothing produces no schedule and nobody is reminded of something the
+   * organisation never asked to revisit.
+   */
+  reviewIntervalMonths: z.number().int().min(1).max(120).optional(),
 });
 export type TemplateDefinition = z.infer<typeof templateDefinition>;

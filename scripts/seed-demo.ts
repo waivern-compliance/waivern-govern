@@ -161,6 +161,12 @@ const SPECS: Spec[] = [
       practice_evidence: "Importer transparency report and contractual attestations.",
       problematic: "no", likelihood: "unlikely", impact: "limited",
       decision: "proceed", rationale: "The transfer tool remains effective in practice.",
+      // EDPB Recommendations 01/2020 steps four to six, added to the template
+      // after this portfolio was first written.
+      measures_needed: false,
+      importer_notification: "Contractual duty to notify us within 72 hours of any access request.",
+      monitoring: "Annual review of the destination's access legislation and the importer's transparency reporting.",
+      review_date: "2027-06-30",
     },
   },
   {
@@ -330,11 +336,27 @@ async function main() {
   const entityByName = new Map(ents.map((e) => [e.name, e.id]));
 
   const versions = await db
-    .select({ id: templateVersions.id, kind: templates.kind })
+    .select({ id: templateVersions.id, kind: templates.kind, name: templates.name })
     .from(templateVersions)
     .innerJoin(templates, eq(templates.id, templateVersions.templateId))
     .where(eq(templates.organisationId, org.id));
-  const versionByKind = new Map(versions.map((v) => [v.kind, v.id]));
+  /**
+   * Keyed by name, not by kind.
+   *
+   * Two templates now share the kind "dpia" — the Article 35(7) one and the
+   * CNIL PIA — and a map keyed on kind silently resolved to whichever was
+   * inserted last, applying DPIA answers to a template whose questions are
+   * named differently. Keying on the name makes the choice explicit and the
+   * failure loud.
+   */
+  const versionByName = new Map(versions.map((v) => [v.name, v.id]));
+  const versionByKind = new Map<string, string>();
+  for (const v of versions) {
+    // First one wins, so the shipped order decides the default for a kind.
+    if (!versionByKind.has(v.kind)) versionByKind.set(v.kind, v.id);
+  }
+  const versionFor = (spec: { kind: string; template?: string }) =>
+    spec.template ? versionByName.get(spec.template) : versionByKind.get(spec.kind);
 
   const people = await db.select().from(users);
   const byEmail = (e: string) => people.find((p) => p.email === e);
@@ -357,7 +379,7 @@ async function main() {
 
   let created = 0;
   for (const spec of SPECS) {
-    const templateVersionId = versionByKind.get(spec.kind);
+    const templateVersionId = versionFor(spec);
     const entityId = entityByName.get(spec.entity);
     if (!templateVersionId || !entityId) continue;
 

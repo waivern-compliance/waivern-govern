@@ -147,4 +147,5 @@ export const LIA: TemplateDefinition = {
       { min: 19, max: 100, label: "Another basis is likely needed", tier: "critical" },
     ],
   },
+  reviewIntervalMonths: 24,
 };

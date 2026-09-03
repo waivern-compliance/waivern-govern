@@ -183,4 +183,5 @@ export const AI_RISK: TemplateDefinition = {
       { min: 23, max: 100, label: "Unacceptable without change", tier: "critical" },
     ],
   },
+  reviewIntervalMonths: 12,
 };

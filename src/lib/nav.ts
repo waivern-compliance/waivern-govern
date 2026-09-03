@@ -52,6 +52,12 @@ export const NAV: NavItem[] = [
     capability: "record.read",
   },
   {
+    href: "/app/reviews",
+    label: "Recurring reviews",
+    hint: "what comes round again, and what is already overdue",
+    capability: "record.read",
+  },
+  {
     href: "/app/ropa",
     label: "Processing register",
     hint: "Article 30 records, and which would fail an inspection",

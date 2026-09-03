@@ -1,12 +1,15 @@
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { db, type Db } from "@/db/client";
 import {
+  approvals,
   assessmentAnswers,
   assessmentRevisions,
   assessments,
+  entities,
   referenceCounters,
   templateVersions,
   templates,
+  users,
 } from "@/db/schema";
 import { appendAuditEvent, type AuditInput } from "@/lib/audit";
 import {
@@ -458,4 +461,97 @@ export async function assessmentHistory(assessmentId: string) {
     .from(assessmentRevisions)
     .where(eq(assessmentRevisions.assessmentId, assessmentId))
     .orderBy(asc(assessmentRevisions.revision));
+}
+
+/**
+ * Approved assessments and when they come round again.
+ *
+ * Scoped to what the viewer may read rather than to what is assigned to them,
+ * which is the point: an overdue review is an organisational exposure, not one
+ * person's task. An administrator with organisation-wide read sees every one,
+ * including those belonging to colleagues who have not acted.
+ */
+export async function reviewSchedule(
+  organisationId: string,
+  entityIds: string[] | null,
+  now = new Date(),
+) {
+  const scope =
+    entityIds === null
+      ? and(eq(assessments.organisationId, organisationId), eq(assessments.status, "approved"))
+      : and(
+          eq(assessments.organisationId, organisationId),
+          eq(assessments.status, "approved"),
+          inArray(assessments.entityId, entityIds.length ? entityIds : [""]),
+        );
+
+  const rows = await db
+    .select({
+      assessment: assessments,
+      entityName: entities.name,
+      templateName: templates.name,
+      kind: templates.kind,
+      ownerEmail: users.email,
+    })
+    .from(assessments)
+    .innerJoin(entities, eq(entities.id, assessments.entityId))
+    .innerJoin(templateVersions, eq(templateVersions.id, assessments.templateVersionId))
+    .innerJoin(templates, eq(templates.id, templateVersions.templateId))
+    .leftJoin(users, eq(users.id, assessments.ownerId))
+    .where(scope)
+    .orderBy(asc(assessments.reviewDueAt));
+
+  // Who signed each one off. Shown because a reassessment needs them back, and
+  // "who approved this" is otherwise a question requiring somebody to dig.
+  const ids = rows.map((r) => r.assessment.id);
+  const signatories = ids.length
+    ? await db
+        .select({
+          assessmentId: approvals.assessmentId,
+          name: approvals.name,
+          label: approvals.decidedByLabel,
+          decidedAt: approvals.decidedAt,
+        })
+        .from(approvals)
+        .where(and(inArray(approvals.assessmentId, ids), eq(approvals.status, "approved")))
+        .orderBy(asc(approvals.position))
+    : [];
+
+  const byAssessment = new Map<string, typeof signatories>();
+  for (const s of signatories) {
+    const list = byAssessment.get(s.assessmentId) ?? [];
+    list.push(s);
+    byAssessment.set(s.assessmentId, list);
+  }
+
+  const items = rows.map((r) => {
+    const due = r.assessment.reviewDueAt;
+    const days = due ? Math.floor((due.getTime() - now.getTime()) / 86_400_000) : null;
+    return {
+      ...r,
+      approvedBy: byAssessment.get(r.assessment.id) ?? [],
+      daysUntilDue: days,
+      state:
+        due === null
+          ? ("unscheduled" as const)
+          : days! < 0
+            ? ("overdue" as const)
+            : days! <= 60
+              ? ("due_soon" as const)
+              : ("scheduled" as const),
+    };
+  });
+
+  return {
+    overdue: items.filter((i) => i.state === "overdue"),
+    dueSoon: items.filter((i) => i.state === "due_soon"),
+    scheduled: items.filter((i) => i.state === "scheduled"),
+    /**
+     * Approved with no review date. Either the template declares no cycle, or
+     * it was approved before this existed — worth showing rather than hiding,
+     * since an assessment nobody will revisit looks identical to one nobody
+     * needs to.
+     */
+    unscheduled: items.filter((i) => i.state === "unscheduled"),
+  };
 }

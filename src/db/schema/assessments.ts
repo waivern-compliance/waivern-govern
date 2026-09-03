@@ -49,6 +49,16 @@ export const assessments = pgTable(
     dueAt: timestamp("due_at", { withTimezone: true }),
 
     /** The assessment this one replaces, forming a reassessment chain. */
+    /**
+     * When this needs doing again. Set on approval from the template's
+     * interval, and editable — a controller may have its own reason to revisit
+     * sooner. Null means no review was scheduled, which is a legitimate state
+     * for a template that declares no cycle.
+     */
+    reviewDueAt: timestamp("review_due_at", { withTimezone: true }),
+    /** Carried so a reassessment inherits the cycle rather than re-deriving it. */
+    reviewIntervalMonths: integer("review_interval_months"),
+
     supersedesId: uuid("supersedes_id"),
 
     /**

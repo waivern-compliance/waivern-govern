@@ -78,4 +78,5 @@ export const SCREENING: TemplateDefinition = {
       { min: 5, max: 100, label: "DPIA required", tier: "high" },
     ],
   },
+  reviewIntervalMonths: 24,
 };

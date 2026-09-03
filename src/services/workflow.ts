@@ -4,6 +4,7 @@ import {
   approvals,
   assessments,
   notifications,
+  schedules,
   slaPolicies,
   tasks,
   templateVersions,
@@ -13,6 +14,7 @@ import {
   workflowStages,
 } from "@/db/schema";
 import { appendAuditEvent } from "@/lib/audit";
+import { addMonths } from "@/lib/dates";
 import type { RiskTier } from "@/lib/risk/scale";
 import { describe, matches, type RoutingContext } from "@/lib/workflow/routing";
 import { loadAssessment, submitAssessment } from "./assessments";
@@ -367,14 +369,55 @@ export async function decideApproval(input: {
       assessmentStatus = nextPending ? "in_review" : "approved";
     }
 
+    /**
+     * A review date, set from the template's own cycle.
+     *
+     * Nothing created a schedule before this: the table, the sweep that reads
+     * it and the capability that guards it all existed, and no code path ever
+     * wrote a row — so an approved assessment was never brought back. Where a
+     * template declares no cycle, none is created rather than one being
+     * invented on the organisation's behalf.
+     */
+    let reviewDueAt: Date | null = null;
+    let intervalMonths: number | null = null;
+    if (assessmentStatus === "approved") {
+      const [version] = await tx
+        .select({ definition: templateVersions.definition })
+        .from(templateVersions)
+        .where(eq(templateVersions.id, row.assessment.templateVersionId));
+      intervalMonths = version?.definition.reviewIntervalMonths ?? null;
+      if (intervalMonths) reviewDueAt = addMonths(now, intervalMonths);
+    }
+
     await tx
       .update(assessments)
       .set({
         status: assessmentStatus,
         updatedAt: now,
         completedAt: assessmentStatus === "approved" ? now : null,
+        ...(reviewDueAt ? { reviewDueAt, reviewIntervalMonths: intervalMonths } : {}),
       })
       .where(eq(assessments.id, row.approval.assessmentId));
+
+    if (reviewDueAt && intervalMonths) {
+      await tx
+        .insert(schedules)
+        .values({
+          organisationId: input.organisationId,
+          entityId: row.assessment.entityId,
+          subjectType: "assessment",
+          subjectId: row.approval.assessmentId,
+          action: "reassess",
+          title: `Reassess ${row.assessment.reference} ${row.assessment.title}`,
+          intervalMonths,
+          nextDueAt: reviewDueAt,
+          // The owner does the work. The people who approved it are found at
+          // materialisation time from the approvals themselves, because a
+          // reapproval is theirs and a schedule holds only one name.
+          assigneeUserId: row.assessment.ownerId,
+        })
+        .onConflictDoNothing();
+    }
 
     if (nextPending) {
       await raiseTask(tx, {
