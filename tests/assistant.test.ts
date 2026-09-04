@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { after, describe, it } from "node:test";
+import {
+  SUGGESTIONS_REVIEWED,
+  VENDOR_ENDPOINTS,
+  suggestionsFor,
+} from "@/lib/assistant/models";
 import { ask } from "@/lib/assistant/providers";
 import { extractJson } from "@/lib/assistant/parse";
 import { mismatchedWireFormat } from "@/services/assistant";
@@ -254,5 +259,57 @@ describe("reading what a provider sent back", () => {
     if (r.ok) return;
     assert.equal(r.reason, "The model could not be reached.");
     assert.ok(r.detail && r.detail !== r.reason);
+  });
+});
+
+describe("model suggestions", () => {
+  it("keeps Anthropic identifiers out of the OpenAI-shaped list", () => {
+    // The suggestion list must not be able to recreate the mismatch the guard
+    // exists to catch: picking claude-sonnet-5 while the OpenAI shape is
+    // selected sends a bearer token to an endpoint expecting x-api-key.
+    for (const m of suggestionsFor("openai_compatible")) {
+      assert.ok(!m.id.startsWith("claude-"), `${m.id} should not be offered here`);
+    }
+    for (const m of suggestionsFor("anthropic")) {
+      assert.ok(m.id.startsWith("claude-"), `${m.id} does not speak the Anthropic shape`);
+    }
+  });
+
+  it("covers the vendors somebody would look for", () => {
+    const vendors = new Set(suggestionsFor("openai_compatible").map((m) => m.vendor));
+    for (const v of ["OpenAI", "Mistral", "Qwen (Alibaba)", "DeepSeek"]) {
+      assert.ok([...vendors].some((x) => x.startsWith(v.split(" ")[0])), `no ${v} models`);
+    }
+    assert.ok(suggestionsFor("anthropic").length >= 3, "too few Anthropic models");
+  });
+
+  it("prefers a stable alias where the provider publishes one", () => {
+    // A dated snapshot goes stale; an alias does not. Mistral and DeepSeek
+    // both offer them, so those are what is listed.
+    const ids = suggestionsFor("openai_compatible").map((m) => m.id);
+    assert.ok(ids.includes("mistral-large-latest"));
+    assert.ok(ids.includes("deepseek-chat"));
+  });
+
+  it("suggests no identifier twice", () => {
+    for (const kind of ["anthropic", "openai_compatible"] as const) {
+      const ids = suggestionsFor(kind).map((m) => m.id);
+      assert.equal(new Set(ids).size, ids.length, `${kind} has a duplicate`);
+    }
+  });
+
+  it("gives every endpoint suggestion the wire format it speaks", () => {
+    for (const e of VENDOR_ENDPOINTS) {
+      assert.equal(
+        mismatchedWireFormat(e.kind, e.url),
+        null,
+        `${e.vendor} is offered under a format its own guard rejects`,
+      );
+    }
+  });
+
+  it("says when the list was last looked at", () => {
+    // Model identifiers move. Better to show the date than to imply currency.
+    assert.match(SUGGESTIONS_REVIEWED, /\d{4}/);
   });
 });

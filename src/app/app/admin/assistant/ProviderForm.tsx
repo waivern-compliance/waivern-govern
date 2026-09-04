@@ -1,6 +1,12 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
+import {
+  SUGGESTIONS_REVIEWED,
+  VENDOR_ENDPOINTS,
+  suggestionsFor,
+} from "@/lib/assistant/models";
+import type { ProviderKind } from "@/lib/assistant/providers";
 import { saveProviderAction, testProviderAction, type AdminResult } from "../actions";
 
 const SURFACES: Array<{ id: string; label: string; note: string }> = [
@@ -34,6 +40,19 @@ export function ProviderForm({
     null,
   );
 
+  /**
+   * Held in state so the model suggestions follow it.
+   *
+   * Offering Anthropic identifiers while the OpenAI shape is selected is how
+   * the two fields end up disagreeing, which reads as an authentication
+   * failure rather than as the configuration error it is.
+   */
+  const [kind, setKind] = useState<ProviderKind>(
+    existing?.kind === "anthropic" ? "anthropic" : "openai_compatible",
+  );
+  const models = suggestionsFor(kind);
+  const endpoints = VENDOR_ENDPOINTS.filter((e) => e.kind === kind);
+
   return (
     <div className="space-y-5">
       <form action={save} className="space-y-4 rounded border border-line bg-surface p-5">
@@ -44,7 +63,8 @@ export function ProviderForm({
             </span>
             <select
               name="kind"
-              defaultValue={existing?.kind ?? "openai_compatible"}
+              value={kind}
+              onChange={(e) => setKind(e.target.value as ProviderKind)}
               className="w-full rounded border border-line bg-ground px-3 py-2 text-sm"
             >
               <option value="openai_compatible">
@@ -66,10 +86,23 @@ export function ProviderForm({
             <input
               name="model"
               required
+              list="model-suggestions"
               defaultValue={existing?.model ?? ""}
               placeholder="claude-sonnet-5, gpt-4o, or your Azure deployment name"
               className="w-full rounded border border-line bg-ground px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-brand"
             />
+            <datalist id="model-suggestions">
+              {models.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.vendor} — {m.label}
+                </option>
+              ))}
+            </datalist>
+            <span className="block text-xs text-ink-soft">
+              Suggestions for this wire format, reviewed {SUGGESTIONS_REVIEWED}. Type
+              anything — a fine-tune, a private deployment, an Azure deployment
+              name. Your provider&rsquo;s documentation is what is authoritative.
+            </span>
           </label>
         </div>
 
@@ -86,8 +119,21 @@ export function ProviderForm({
             required
             defaultValue={existing?.baseUrl ?? ""}
             placeholder="https://api.anthropic.com/v1/messages, or your Azure deployment URL"
+            list="endpoint-suggestions"
             className="w-full rounded border border-line bg-ground px-3 py-2 font-mono text-xs focus-visible:outline-2 focus-visible:outline-brand"
           />
+          <datalist id="endpoint-suggestions">
+            {endpoints.map((e) => (
+              <option key={e.url} value={e.url}>
+                {e.vendor}
+              </option>
+            ))}
+          </datalist>
+          <span className="block text-xs text-ink-soft">
+            {kind === "anthropic"
+              ? "Anthropic's own API, or a gateway that speaks its shape."
+              : "Azure carries your resource and deployment name, so it has no template — take it from the portal."}
+          </span>
         </label>
 
         <div className="grid gap-3 sm:grid-cols-2">
