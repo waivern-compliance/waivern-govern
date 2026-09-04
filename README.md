@@ -81,6 +81,14 @@ administer yourself.
 That is the whole list. There is no queue, no object store, no cache tier and no
 platform SDK, which is why the deployment story stays short.
 
+Files attached to records — signed agreements, due diligence, forensic reports —
+are held in Postgres rather than in object storage, which is what keeps that
+list at five. It also means a document and the audit trail about it travel in
+one backup rather than two systems that can drift apart. Uploads are capped at
+10MB each and the accepted types are an allowlist; an organisation storing
+thousands of large documents should move to object storage, which is a change
+of adapter rather than of model.
+
 **Migrations.** `pnpm db:migrate:deploy` applies them using the application's own
 runtime dependencies, so it works in a pruned production image. Run it wherever
 your platform lets you act before new code takes traffic — a release phase, a

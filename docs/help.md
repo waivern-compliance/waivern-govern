@@ -316,6 +316,14 @@ Article 28(3) requires processing to be governed by a contract. No agreement, an
 
 Sub-processors and transfer mechanism are reported when missing but not called breaches — an empty sub-processor list may honestly mean none.
 
+### Attaching the agreement itself
+
+Each agreement takes files, and several at once — a master agreement, a processing schedule and a sub-processor annexe are three documents describing one arrangement, and uploading them one at a time is how two of the three go missing.
+
+There is a separate place on the third party for anything not tied to one agreement: due diligence, certifications, an audit report.
+
+A hash is recorded when a file is uploaded and checked when it is read back, so the platform can say the agreement it hands you is the one it was given. Downloads are recorded, because taking a signed contract out of the building is worth knowing about.
+
 ### Expiry is watched
 
 The agreement in force is the unexpired one, and among those the most recently signed. An agreement with no end date is perpetual rather than incomplete.

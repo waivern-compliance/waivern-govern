@@ -30,6 +30,7 @@ export const recordType = pgEnum("record_type", [
   "risk_acceptance",
   "breach",
   "breach_decision",
+  "document",
   "comment",
   "task",
   "approval",

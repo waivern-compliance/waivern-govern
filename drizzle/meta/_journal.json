@@ -183,6 +183,13 @@
       "when": 1788433028854,
       "tag": "0025_exotic_madame_masque",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1788512820847,
+      "tag": "0026_eager_red_ghost",
+      "breakpoints": true
     }
   ]
 }

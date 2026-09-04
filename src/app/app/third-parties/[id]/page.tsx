@@ -3,11 +3,13 @@ import { notFound, redirect } from "next/navigation";
 import { asc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { memberships, users } from "@/db/schema";
+import { Attachments } from "@/components/documents/Attachments";
 import { GapChips } from "@/components/GapChips";
 import { Discussion } from "@/components/Discussion";
 import { NotPermitted } from "@/components/NotPermitted";
 import { can } from "@/lib/rbac";
 import { getActiveSession } from "@/lib/session";
+import { documentsFor } from "@/services/documents";
 import { GAP_WORDS, HARD_GAPS, loadSupplier } from "@/services/third-party";
 import { confirmSupplierAction, recordDpaAction, updateSupplierAction } from "../actions";
 
@@ -43,6 +45,14 @@ export default async function SupplierPage({
     .innerJoin(users, eq(users.id, memberships.userId))
     .where(eq(memberships.organisationId, active.membership.organisationId))
     .orderBy(asc(users.email));
+
+  const org = active.membership.organisationId;
+  const [supplierDocs, ...dpaDocs] = await Promise.all([
+    documentsFor(org, "supplier", supplier.id),
+    ...dpas.map((d) => documentsFor(org, "dpa", d.id)),
+  ]);
+  const docsByDpa = new Map(dpas.map((d, i) => [d.id, dpaDocs[i] ?? []]));
+  const here = `/app/third-parties/${supplier.id}`;
 
   const needsConfirming = Boolean(supplier.sourceConnectionId && !supplier.reviewedAt);
 
@@ -123,6 +133,15 @@ export default async function SupplierPage({
                   ? `sub-processors: ${(d.subProcessors ?? []).join(", ")}`
                   : "sub-processors not recorded"}
               </p>
+              <Attachments
+                subjectType="dpa"
+                subjectId={d.id}
+                entityId={null}
+                revalidate={here}
+                documents={docsByDpa.get(d.id) ?? []}
+                mayEdit={mayEdit}
+                what="the signed agreement and its schedules"
+              />
             </li>
           ))}
           {dpas.length === 0 ? (
@@ -132,6 +151,23 @@ export default async function SupplierPage({
             </li>
           ) : null}
         </ul>
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="text-sm font-semibold">Other documents</h2>
+        <p className="max-w-prose text-xs text-ink-soft">
+          Anything about this third party that is not tied to one agreement —
+          due diligence, certifications, an audit report.
+        </p>
+        <Attachments
+          subjectType="supplier"
+          subjectId={supplier.id}
+          entityId={null}
+          revalidate={here}
+          documents={supplierDocs}
+          mayEdit={mayEdit}
+          what="documents"
+        />
       </section>
 
       {mayEdit ? (
