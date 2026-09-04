@@ -29,7 +29,20 @@ export type Turn = { role: "user" | "assistant"; content: string };
 
 export type AskResult =
   | { ok: true; text: string; model: string; redactions: Redaction[] }
-  | { ok: false; reason: string; redactions: Redaction[] };
+  | {
+      ok: false;
+      reason: string;
+      /**
+       * What actually happened — a status code and whatever the provider said.
+       *
+       * Never shown to somebody answering an assessment: they can do nothing
+       * with it, and it is noise beside their work. Shown on the settings
+       * screen, whose whole purpose is to find out why a configuration does
+       * not work, and where "could not be reached" is useless.
+       */
+      detail?: string;
+      redactions: Redaction[];
+    };
 
 /** Beyond this the assistant has failed to be useful and should stop waiting. */
 const TIMEOUT_MS = 25_000;
@@ -60,14 +73,46 @@ export async function ask(
     return { ok: true, text, model: config.model, redactions };
   } catch (error) {
     // Fail soft, and never leak the endpoint or key into a user-facing string.
-    const reason =
-      error instanceof Error && error.name === "AbortError"
-        ? "The model did not answer in time."
-        : "The model could not be reached.";
-    return { ok: false, reason, redactions };
+    const aborted = error instanceof Error && error.name === "AbortError";
+    const reason = aborted
+      ? "The model did not answer in time."
+      : "The model could not be reached.";
+    const detail =
+      !aborted && error instanceof Error && error.name === "ProviderError"
+        ? error.message
+        : undefined;
+    return { ok: false, reason, detail, redactions };
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * The provider's own account of what went wrong.
+ *
+ * Truncated, and the key is never in it — providers report the request that
+ * failed, not the credential that failed to authenticate it. Worth reading:
+ * "authentication_error" and "model: not found" need entirely different fixes,
+ * and a generic message sends somebody looking in the wrong place.
+ */
+async function providerError(response: Response): Promise<Error> {
+  let said = "";
+  try {
+    const body = await response.text();
+    const parsed = JSON.parse(body) as {
+      error?: { message?: string; type?: string };
+      message?: string;
+    };
+    said =
+      parsed.error?.message ??
+      parsed.message ??
+      (parsed.error?.type ? String(parsed.error.type) : body.slice(0, 200));
+  } catch {
+    said = "";
+  }
+  const error = new Error(said ? `${response.status}: ${said}` : `status ${response.status}`);
+  error.name = "ProviderError";
+  return error;
 }
 
 async function askOpenAiCompatible(
@@ -97,7 +142,7 @@ async function askOpenAiCompatible(
       messages: [{ role: "system", content: system }, ...turns],
     }),
   });
-  if (!response.ok) throw new Error(`status ${response.status}`);
+  if (!response.ok) throw await providerError(response);
 
   const data = (await response.json()) as {
     choices?: Array<{ message?: { content?: string } }>;
@@ -129,7 +174,7 @@ async function askAnthropic(
       messages: turns,
     }),
   });
-  if (!response.ok) throw new Error(`status ${response.status}`);
+  if (!response.ok) throw await providerError(response);
 
   const data = (await response.json()) as { content?: Array<{ text?: string }> };
   return data.content?.map((c) => c.text ?? "").join("") ?? "";

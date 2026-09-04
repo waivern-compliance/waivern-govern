@@ -487,6 +487,28 @@ export async function removeProvider(input: { organisationId: string; actor: Act
  * having spoken to the endpoint an organisation actually has. This is where a
  * wrong base URL, a missing api-version or a bad key should surface.
  */
+/**
+ * Wire formats and the endpoints that speak them.
+ *
+ * Selecting the wrong one sends a correct key to a correct URL in a shape it
+ * does not understand, and the provider answers with an authentication error —
+ * which sends somebody looking at their key. Caught here, before the request,
+ * because the mistake is obvious from the two fields together.
+ */
+export function mismatchedWireFormat(
+  kind: ProviderKind,
+  baseUrl: string,
+): string | null {
+  const host = baseUrl.toLowerCase();
+  if (host.includes("api.anthropic.com") && kind !== "anthropic") {
+    return 'That endpoint is Anthropic\'s own API, but the wire format is set to OpenAI-compatible. Anthropic needs an x-api-key header and an anthropic-version, which the OpenAI shape does not send — set the wire format to Anthropic.';
+  }
+  if (kind === "anthropic" && (host.includes("openai.azure.com") || host.includes("api.openai.com"))) {
+    return "That endpoint speaks the OpenAI shape, but the wire format is set to Anthropic. Set it to OpenAI-compatible.";
+  }
+  return null;
+}
+
 export async function testProvider(organisationId: string): Promise<{
   ok: boolean;
   detail: string;
@@ -495,13 +517,24 @@ export async function testProvider(organisationId: string): Promise<{
   const configured = await providerFor(organisationId);
   if (!configured) return { ok: false, detail: "No model is configured." };
 
+  const mismatch = mismatchedWireFormat(configured.config.kind, configured.config.baseUrl);
+  if (mismatch) return { ok: false, detail: mismatch };
+
   const result = await ask(configured.config, {
     system: "Reply with the single word: ready",
     turns: [{ role: "user", content: "Are you reachable?" }],
     maxTokens: 16,
   });
 
-  if (!result.ok) return { ok: false, detail: result.reason };
+  if (!result.ok) {
+    // The settings screen exists to find out why a configuration fails, so it
+    // gets what the provider actually said rather than the reassuring line
+    // shown to somebody in the middle of an assessment.
+    return {
+      ok: false,
+      detail: result.detail ? `${result.reason} ${result.detail}` : result.reason,
+    };
+  }
   if (!result.text.trim()) {
     return {
       ok: false,

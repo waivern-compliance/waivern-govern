@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import { extractJson } from "@/lib/assistant/parse";
+import { mismatchedWireFormat } from "@/services/assistant";
 import { redact, summariseRedactions } from "@/lib/assistant/redact";
 
 describe("what leaves the platform", () => {
@@ -151,5 +152,35 @@ describe("the boundary the product claims", () => {
     // rather than quietly having ours.
     const source = readFileSync("src/lib/assistant/providers.ts", "utf8");
     assert.ok(!/https?:\/\/[a-z]/i.test(source), "no hardcoded endpoint should appear");
+  });
+});
+
+describe("choosing the wrong wire format", () => {
+  it("catches an Anthropic endpoint set to the OpenAI shape", () => {
+    // The failure mode this exists for: a correct key sent to a correct URL in
+    // a shape it does not understand. Anthropic answers with an authentication
+    // error, which sends somebody looking at their key for hours.
+    const said = mismatchedWireFormat("openai_compatible", "https://api.anthropic.com/v1/messages");
+    assert.ok(said);
+    assert.match(said!, /wire format to Anthropic/);
+    assert.match(said!, /x-api-key/);
+  });
+
+  it("catches an OpenAI endpoint set to the Anthropic shape", () => {
+    const said = mismatchedWireFormat("anthropic", "https://myco.openai.azure.com/openai/deployments/x/chat/completions");
+    assert.ok(said);
+    assert.match(said!, /OpenAI-compatible/);
+  });
+
+  it("says nothing when the two agree", () => {
+    assert.equal(mismatchedWireFormat("anthropic", "https://api.anthropic.com/v1/messages"), null);
+    assert.equal(mismatchedWireFormat("openai_compatible", "https://api.openai.com/v1/chat/completions"), null);
+  });
+
+  it("says nothing about an endpoint it cannot recognise", () => {
+    // A self-hosted gateway may speak either shape, and guessing would block a
+    // configuration that works.
+    assert.equal(mismatchedWireFormat("anthropic", "https://llm.internal.example/v1/messages"), null);
+    assert.equal(mismatchedWireFormat("openai_compatible", "https://llm.internal.example/v1/chat"), null);
   });
 });

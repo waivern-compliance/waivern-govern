@@ -13,6 +13,7 @@ import {
   setPersona,
 } from "@/services/access";
 import {
+  mismatchedWireFormat,
   removeProvider,
   saveProvider,
   testProvider,
@@ -113,12 +114,17 @@ export async function saveProviderAction(
   }
   if (!model) return { ok: false, message: "Name the model to call." };
 
+  const kind: ProviderKind =
+    text(formData.get("kind")) === "anthropic" ? "anthropic" : "openai_compatible";
+  const mismatch = mismatchedWireFormat(kind, baseUrl);
+  if (mismatch) return { ok: false, message: mismatch };
+
   const surfaces = formData.getAll("surfaces").map(String) as Surface[];
 
   try {
     await saveProvider({
       organisationId: active.membership.organisationId,
-      kind: text(formData.get("kind")) === "anthropic" ? "anthropic" : ("openai_compatible" as ProviderKind),
+      kind,
       baseUrl,
       model,
       apiVersion: text(formData.get("apiVersion")) || undefined,

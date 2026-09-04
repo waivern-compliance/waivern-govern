@@ -50,18 +50,24 @@ export function ProviderForm({
               <option value="openai_compatible">
                 OpenAI-compatible — Azure OpenAI, OpenAI, self-hosted
               </option>
-              <option value="anthropic">Anthropic</option>
+              <option value="anthropic">
+                Anthropic — api.anthropic.com, or a proxy speaking its shape
+              </option>
             </select>
           </label>
           <label className="block space-y-1">
-            <span className="text-xs font-medium uppercase tracking-wider text-ink-soft">
+            <span className="block text-xs font-medium uppercase tracking-wider text-ink-soft">
               Model
+              <span className="block font-normal normal-case tracking-normal">
+                The API identifier, not the name it is marketed under — {'"'}claude-sonnet-5{'"'},
+                not {'"'}Sonnet 5{'"'}.
+              </span>
             </span>
             <input
               name="model"
               required
               defaultValue={existing?.model ?? ""}
-              placeholder="gpt-4o, claude-sonnet-4-5, your deployment name"
+              placeholder="claude-sonnet-5, gpt-4o, or your Azure deployment name"
               className="w-full rounded border border-line bg-ground px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-brand"
             />
           </label>
@@ -79,7 +85,7 @@ export function ProviderForm({
             type="url"
             required
             defaultValue={existing?.baseUrl ?? ""}
-            placeholder="https://your-resource.openai.azure.com/openai/deployments/x/chat/completions"
+            placeholder="https://api.anthropic.com/v1/messages, or your Azure deployment URL"
             className="w-full rounded border border-line bg-ground px-3 py-2 font-mono text-xs focus-visible:outline-2 focus-visible:outline-brand"
           />
         </label>
