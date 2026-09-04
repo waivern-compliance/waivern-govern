@@ -523,7 +523,10 @@ export async function testProvider(organisationId: string): Promise<{
   const result = await ask(configured.config, {
     system: "Reply with the single word: ready",
     turns: [{ role: "user", content: "Are you reachable?" }],
-    maxTokens: 16,
+    // Generous for a one-word answer, because a model that emits anything
+    // before its text — a thinking block, a preamble — can exhaust a tighter
+    // budget and return a truncated response with no text in it at all.
+    maxTokens: 256,
   });
 
   if (!result.ok) {
@@ -536,10 +539,9 @@ export async function testProvider(organisationId: string): Promise<{
     };
   }
   if (!result.text.trim()) {
-    return {
-      ok: false,
-      detail: "The endpoint answered, but with nothing. Check the model name.",
-    };
+    // Unreachable now: an empty answer is raised as a provider error naming
+    // the blocks and the stop reason, which is a great deal more use.
+    return { ok: false, detail: "The endpoint answered, but with no text." };
   }
   return {
     ok: true,

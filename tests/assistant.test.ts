@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { describe, it } from "node:test";
+import { after, describe, it } from "node:test";
+import { ask } from "@/lib/assistant/providers";
 import { extractJson } from "@/lib/assistant/parse";
 import { mismatchedWireFormat } from "@/services/assistant";
 import { redact, summariseRedactions } from "@/lib/assistant/redact";
@@ -182,5 +183,76 @@ describe("choosing the wrong wire format", () => {
     // configuration that works.
     assert.equal(mismatchedWireFormat("anthropic", "https://llm.internal.example/v1/messages"), null);
     assert.equal(mismatchedWireFormat("openai_compatible", "https://llm.internal.example/v1/chat"), null);
+  });
+});
+
+describe("reading what a provider sent back", () => {
+  const config = {
+    kind: "anthropic" as const,
+    baseUrl: "https://api.anthropic.com/v1/messages",
+    model: "claude-sonnet-5",
+    apiKey: "not-a-real-key",
+  };
+  const one = { system: "s", turns: [{ role: "user" as const, content: "q" }] };
+
+  const serve = (body: unknown, status = 200) => {
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify(body), {
+        status,
+        headers: { "content-type": "application/json" },
+      })) as typeof fetch;
+  };
+
+  const real = globalThis.fetch;
+  after(() => {
+    globalThis.fetch = real;
+  });
+
+  it("reads a text block", async () => {
+    serve({ content: [{ type: "text", text: "ready" }] });
+    const r = await ask(config, one);
+    assert.ok(r.ok);
+    if (r.ok) assert.equal(r.text, "ready");
+  });
+
+  it("skips a block that is not text and still finds the answer", async () => {
+    // The defect this replaced mapped over every block and turned the others
+    // into empty strings, so a reply that began with one looked like none.
+    serve({ content: [{ type: "thinking", thinking: "…" }, { type: "text", text: "ready" }] });
+    const r = await ask(config, one);
+    assert.ok(r.ok);
+    if (r.ok) assert.equal(r.text, "ready");
+  });
+
+  it("says what came back when there is no text at all", async () => {
+    serve({ content: [{ type: "thinking", thinking: "…" }], stop_reason: "max_tokens" });
+    const r = await ask(config, one);
+    assert.ok(!r.ok);
+    if (r.ok) return;
+    // "Nothing" is not a diagnosis, and the message it replaced blamed the
+    // model name — which cannot be the cause of a 200.
+    assert.match(r.detail!, /thinking/);
+    assert.match(r.detail!, /max_tokens/);
+    assert.ok(!/model name/.test(r.detail!));
+  });
+
+  it("passes on what the provider said about a rejection", async () => {
+    serve({ error: { type: "authentication_error", message: "invalid x-api-key" } }, 401);
+    const r = await ask(config, one);
+    assert.ok(!r.ok);
+    if (r.ok) return;
+    assert.match(r.detail!, /401/);
+    assert.match(r.detail!, /invalid x-api-key/);
+  });
+
+  it("keeps the user-facing reason free of the detail", async () => {
+    // Somebody mid-assessment gets the reassuring line; only the settings
+    // screen joins the two together.
+    serve({ error: { message: "boom" } }, 500);
+    const r = await ask(config, one);
+    assert.ok(!r.ok);
+    if (r.ok) return;
+    assert.equal(r.reason, "The model could not be reached.");
+    assert.ok(r.detail && r.detail !== r.reason);
   });
 });

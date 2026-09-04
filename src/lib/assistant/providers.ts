@@ -95,6 +95,13 @@ export async function ask(
  * "authentication_error" and "model: not found" need entirely different fixes,
  * and a generic message sends somebody looking in the wrong place.
  */
+/** A failure attributable to the provider, carried to the settings screen. */
+function provider(message: string): Error {
+  const error = new Error(message);
+  error.name = "ProviderError";
+  return error;
+}
+
 async function providerError(response: Response): Promise<Error> {
   let said = "";
   try {
@@ -110,9 +117,7 @@ async function providerError(response: Response): Promise<Error> {
   } catch {
     said = "";
   }
-  const error = new Error(said ? `${response.status}: ${said}` : `status ${response.status}`);
-  error.name = "ProviderError";
-  return error;
+  return provider(said ? `${response.status}: ${said}` : `status ${response.status}`);
 }
 
 async function askOpenAiCompatible(
@@ -145,9 +150,17 @@ async function askOpenAiCompatible(
   if (!response.ok) throw await providerError(response);
 
   const data = (await response.json()) as {
-    choices?: Array<{ message?: { content?: string } }>;
+    choices?: Array<{ message?: { content?: string }; finish_reason?: string }>;
   };
-  return data.choices?.[0]?.message?.content ?? "";
+  const text = data.choices?.[0]?.message?.content ?? "";
+  if (text) return text;
+
+  const finish = data.choices?.[0]?.finish_reason;
+  throw provider(
+    `the model answered with no text` +
+      (finish ? ` (finish reason: ${finish})` : "") +
+      `. If the finish reason is length, the budget was too small for a reply.`,
+  );
 }
 
 async function askAnthropic(
@@ -176,6 +189,26 @@ async function askAnthropic(
   });
   if (!response.ok) throw await providerError(response);
 
-  const data = (await response.json()) as { content?: Array<{ text?: string }> };
-  return data.content?.map((c) => c.text ?? "").join("") ?? "";
+  const data = (await response.json()) as {
+    content?: Array<{ type?: string; text?: string }>;
+    stop_reason?: string;
+  };
+
+  // Only text blocks. A response may carry others — thinking, tool use — and
+  // mapping over everything turned those into empty strings, so a reply that
+  // began with one looked like no reply at all.
+  const text = (data.content ?? [])
+    .filter((c) => c.type === "text" || (c.type === undefined && c.text !== undefined))
+    .map((c) => c.text ?? "")
+    .join("");
+  if (text) return text;
+
+  // Say what did come back. "Nothing" is not a diagnosis, and the previous
+  // message guessed at the model name — which cannot be the cause of a 200.
+  const kinds = (data.content ?? []).map((c) => c.type ?? "untyped").join(", ") || "no blocks";
+  throw provider(
+    `the model answered with no text (blocks: ${kinds}` +
+      (data.stop_reason ? `; stop reason: ${data.stop_reason}` : "") +
+      `). If the stop reason is max_tokens, the budget was too small for a reply.`,
+  );
 }
