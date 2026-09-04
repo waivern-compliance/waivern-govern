@@ -20,6 +20,13 @@ const SURFACES: Array<{ id: string; label: string; note: string }> = [
     label: "Questions about the platform",
     note: "Answers only from the built-in help topics. Sees no records.",
   },
+  {
+    id: "extraction",
+    label: "Reading an uploaded agreement",
+    note:
+      "Sees the text of agreements attached to a third party, when somebody asks it to. " +
+      "Returns proposals with quotes, which a person accepts or rejects.",
+  },
 ];
 
 export function ProviderForm({

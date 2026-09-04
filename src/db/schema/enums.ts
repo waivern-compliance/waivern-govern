@@ -31,6 +31,8 @@ export const recordType = pgEnum("record_type", [
   "breach",
   "breach_decision",
   "document",
+  "extraction",
+  "extraction_finding",
   "comment",
   "task",
   "approval",
@@ -418,4 +420,29 @@ export const breachDecisionOutcome = pgEnum("breach_decision_outcome", [
   "not_required",
   "deferred",
   "declined",
+]);
+
+/** Where a piece of an extraction came from. */
+export const extractionSourceKind = pgEnum("extraction_source_kind", [
+  "document",
+  "web_page",
+]);
+
+/** What an extraction found. Both are read from a source, never inferred. */
+export const extractionFindingKind = pgEnum("extraction_finding_kind", [
+  "transfer_mechanism",
+  "sub_processor",
+]);
+
+/**
+ * A sub-processor list the documents point at but do not contain.
+ *
+ * "proposed" is the resting state: the platform does not fetch an address it
+ * found inside somebody else's file until a person says to.
+ */
+export const extractionLinkStatus = pgEnum("extraction_link_status", [
+  "proposed",
+  "fetched",
+  "declined",
+  "failed",
 ]);

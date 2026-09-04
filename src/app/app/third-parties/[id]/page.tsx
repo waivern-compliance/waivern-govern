@@ -4,12 +4,14 @@ import { asc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { memberships, users } from "@/db/schema";
 import { Attachments } from "@/components/documents/Attachments";
+import { ReadAgreement } from "@/components/thirdparty/ReadAgreement";
 import { GapChips } from "@/components/GapChips";
 import { Discussion } from "@/components/Discussion";
 import { NotPermitted } from "@/components/NotPermitted";
 import { can } from "@/lib/rbac";
 import { getActiveSession } from "@/lib/session";
 import { documentsFor } from "@/services/documents";
+import { extractionAvailable, latestExtraction } from "@/services/extraction";
 import { GAP_WORDS, HARD_GAPS, loadSupplier } from "@/services/third-party";
 import { confirmSupplierAction, recordDpaAction, updateSupplierAction } from "../actions";
 
@@ -52,6 +54,14 @@ export default async function SupplierPage({
     ...dpas.map((d) => documentsFor(org, "dpa", d.id)),
   ]);
   const docsByDpa = new Map(dpas.map((d, i) => [d.id, dpaDocs[i] ?? []]));
+
+  // What a model has already been asked to read out of each agreement, and
+  // whether asking is even on offer for this organisation.
+  const [mayRead, ...readings] = await Promise.all([
+    extractionAvailable(org),
+    ...dpas.map((d) => latestExtraction(org, d.id)),
+  ]);
+  const readingByDpa = new Map(dpas.map((d, i) => [d.id, readings[i] ?? null]));
   const here = `/app/third-parties/${supplier.id}`;
 
   const needsConfirming = Boolean(supplier.sourceConnectionId && !supplier.reviewedAt);
@@ -141,6 +151,14 @@ export default async function SupplierPage({
                 documents={docsByDpa.get(d.id) ?? []}
                 mayEdit={mayEdit}
                 what="the signed agreement and its schedules"
+              />
+              <ReadAgreement
+                dpaId={d.id}
+                entityId={null}
+                revalidate={here}
+                available={mayRead}
+                latest={readingByDpa.get(d.id) ?? null}
+                mayEdit={mayEdit}
               />
             </li>
           ))}

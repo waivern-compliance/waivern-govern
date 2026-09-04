@@ -11,3 +11,4 @@ export * from "./countries";
 export * from "./assistant";
 export * from "./breach";
 export * from "./documents";
+export * from "./extraction";

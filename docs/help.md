@@ -324,6 +324,28 @@ There is a separate place on the third party for anything not tied to one agreem
 
 A hash is recorded when a file is uploaded and checked when it is read back, so the platform can say the agreement it hands you is the one it was given. Downloads are recorded, because taking a signed contract out of the building is worth knowing about.
 
+### Having a model read the agreement
+
+Where an organisation has configured its own model and switched on 'reading an uploaded agreement', each agreement offers a button that reads the files attached to it — and those attached to the third party, since a sub-processor annexe is as often filed there as against the contract.
+
+What comes back is a set of proposals, never a register entry. Each one carries the sentence it was taken from and the file that sentence is in, so checking it is faster than reading the contract. Accepting a proposal is what writes it to the agreement, and it is recorded as your act, with the quote and the source hash carried into the audit trail.
+
+A proposal you reject is kept. That a person looked at a claim and disagreed with it is evidence of review, and keeping only the accepted ones would leave a trail showing agreement that never happened.
+
+### Sub-processor lists held on a web page
+
+Most agreements do not list sub-processors. They say the current list is maintained at an address, or in an annexe. Where the model finds such an address it is reported rather than followed, and the platform will not open it until somebody asks.
+
+That is deliberate. The address was written by the supplier, not by you, and fetching it is the platform making a request chosen by an outside party from inside your network. Private and internal addresses are refused outright, as are redirects into them.
+
+A page that is fetched is recorded with its hash and the moment it was retrieved. A sub-processor list is a page that changes, so 'these were the names on that date' is the only claim worth keeping.
+
+### What it can and cannot read
+
+PDFs, .docx, .xlsx, plain text and CSV. A scanned agreement is a picture of words and has no text to read; the platform says so by name rather than returning a thin answer, and OCR is not something it does.
+
+Files that could not be read are listed with the reason, so a gap in what was proposed can be explained rather than guessed at.
+
 ### Expiry is watched
 
 The agreement in force is the unexpired one, and among those the most recently signed. An agreement with no end date is perpetual rather than incomplete.
@@ -332,7 +354,7 @@ Anything within six months of lapsing raises a monthly task. Six months because 
 
 **See also:** The processing register (Article 30) · Countries, adequacy and transfers · Scan findings
 
-<sub>Also searchable as: supplier, vendor, dpa, article 28, processor, sub-processor, contract, expiry</sub>
+<sub>Also searchable as: supplier, vendor, dpa, article 28, processor, sub-processor, contract, expiry, extract, read the agreement, transfer mechanism, provenance, sub-processor list</sub>
 
 ## Personal data breaches
 

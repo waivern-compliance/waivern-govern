@@ -382,6 +382,24 @@ the person is told what was removed, and conversations are deleted on a stated
 schedule. `docs/ai-assistance.html` sets out where such a thing belongs and
 where it must not go.
 
+One surface goes further than drafting: with it switched on, a model can be
+asked to read the agreements attached to a third party and report the transfer
+mechanism and sub-processors they name. Text is pulled out of PDF, .docx, .xlsx
+and plain files in-process — no conversion service, no additional dependency,
+including the ToUnicode maps that subset fonts need — and a scan is refused by
+name rather than answered thinly. Every finding carries the sentence it came
+from and the file or page that sentence is in, hashed; findings citing a source
+that was never sent are dropped rather than kept with unknown provenance.
+Nothing reaches the register until a person accepts it, and rejected proposals
+are retained, because a reviewer disagreeing is evidence of review.
+
+Agreements usually do not list sub-processors — they point at a page that does.
+Those addresses are reported, not followed. Fetching one is a separate act
+requiring a person, since the URL came out of a supplier's document rather than
+from the customer: private address space is refused, so are redirects into it,
+and what comes back is stored with its hash and retrieval time, because a
+sub-processor list is a page that changes.
+
 `pnpm seed:demo` loads a plausible portfolio — fourteen assessments at every
 stage, nine risks treated to varying degrees, some work already late — because a
 dashboard reviewed against a single record tells you nothing about whether it

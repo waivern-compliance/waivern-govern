@@ -26,6 +26,7 @@ import type { Actor } from "./templates";
 export const SURFACES = {
   assessment: "Help with answering an assessment",
   help: "Questions about how the platform works",
+  extraction: "Read an uploaded agreement for transfers and sub-processors",
 } as const;
 export type Surface = keyof typeof SURFACES;
 
