@@ -19,6 +19,7 @@ import {
   testProvider,
   type Surface,
 } from "@/services/assistant";
+import { unresolvedPlaceholder } from "@/lib/assistant/models";
 import type { ProviderKind } from "@/lib/assistant/providers";
 
 const text = (v: FormDataEntryValue | null) => String(v ?? "").trim();
@@ -113,6 +114,9 @@ export async function saveProviderAction(
     return { ok: false, message: "The endpoint must be an https address." };
   }
   if (!model) return { ok: false, message: "Name the model to call." };
+
+  const unfilled = unresolvedPlaceholder(baseUrl);
+  if (unfilled) return { ok: false, message: unfilled };
 
   const kind: ProviderKind =
     text(formData.get("kind")) === "anthropic" ? "anthropic" : "openai_compatible";

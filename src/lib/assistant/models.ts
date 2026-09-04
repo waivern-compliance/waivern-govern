@@ -79,10 +79,93 @@ export function suggestionsFor(kind: ProviderKind): ModelSuggestion[] {
  * no canonical URL — it carries the resource name — so it says so instead of
  * offering a template that would be wrong for everybody.
  */
-export const VENDOR_ENDPOINTS: Array<{ vendor: string; url: string; kind: ProviderKind }> = [
-  { vendor: "Anthropic", url: "https://api.anthropic.com/v1/messages", kind: "anthropic" },
-  { vendor: "OpenAI", url: "https://api.openai.com/v1/chat/completions", kind: "openai_compatible" },
-  { vendor: "Mistral", url: "https://api.mistral.ai/v1/chat/completions", kind: "openai_compatible" },
-  { vendor: "Qwen (Alibaba)", url: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions", kind: "openai_compatible" },
-  { vendor: "DeepSeek", url: "https://api.deepseek.com/v1/chat/completions", kind: "openai_compatible" },
+export type EndpointSuggestion = {
+  vendor: string;
+  url: string;
+  kind: ProviderKind;
+  /** Said beside it, where the URL needs something doing to it. */
+  note?: string;
+};
+
+/**
+ * The endpoint each vendor publishes.
+ *
+ * Listed because the endpoint and the model are the two fields people get
+ * wrong together, and knowing one narrows the other.
+ *
+ * Azure is a template rather than an address: the URL carries the resource and
+ * deployment names, so no fixed string is right for anybody. Offering it with
+ * the parts marked is more use than offering nothing, and saving it unedited
+ * is refused — see `unresolvedPlaceholder`.
+ *
+ * Everything here is https. An endpoint inside your own network still crosses
+ * it, and the platform has no way to know a hostname is really in-cluster.
+ */
+export const VENDOR_ENDPOINTS: EndpointSuggestion[] = [
+  {
+    vendor: "Anthropic",
+    url: "https://api.anthropic.com/v1/messages",
+    kind: "anthropic",
+  },
+  {
+    vendor: "Anthropic via a gateway",
+    url: "https://llm-gateway.internal.example/v1/messages",
+    kind: "anthropic",
+    note: "Replace with your own gateway if it speaks the Anthropic shape.",
+  },
+  {
+    vendor: "Azure OpenAI",
+    url: "https://<your-resource>.openai.azure.com/openai/deployments/<your-deployment>/chat/completions",
+    kind: "openai_compatible",
+    note: "Replace both bracketed parts, and set the API version below.",
+  },
+  {
+    vendor: "OpenAI",
+    url: "https://api.openai.com/v1/chat/completions",
+    kind: "openai_compatible",
+  },
+  {
+    vendor: "Mistral",
+    url: "https://api.mistral.ai/v1/chat/completions",
+    kind: "openai_compatible",
+  },
+  {
+    vendor: "Qwen (Alibaba) — international",
+    url: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions",
+    kind: "openai_compatible",
+  },
+  {
+    vendor: "Qwen (Alibaba) — mainland China",
+    url: "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+    kind: "openai_compatible",
+    note: "A different jurisdiction from the international endpoint. Worth a transfer assessment.",
+  },
+  {
+    vendor: "DeepSeek",
+    url: "https://api.deepseek.com/v1/chat/completions",
+    kind: "openai_compatible",
+  },
+  {
+    vendor: "Self-hosted — vLLM, Ollama, LM Studio",
+    url: "https://llm.internal.example/v1/chat/completions",
+    kind: "openai_compatible",
+    note: "Replace with your own host. Most self-hosted servers speak the OpenAI shape.",
+  },
 ];
+
+/**
+ * A template that was offered and never filled in.
+ *
+ * The Azure suggestion carries bracketed parts on purpose, and somebody in a
+ * hurry will save it as it stands. The request then fails against a hostname
+ * that does not resolve, which reads as a network problem rather than as an
+ * unedited field. Refused at the point of the mistake instead.
+ */
+export function unresolvedPlaceholder(url: string): string | null {
+  const found = url.match(/<[^>]+>/g);
+  if (!found) return null;
+  return (
+    `The endpoint still contains ${found.join(", ")} from the suggested template. ` +
+    `Replace ${found.length === 1 ? "it" : "them"} with your own resource and deployment names.`
+  );
+}

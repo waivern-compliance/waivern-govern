@@ -5,6 +5,7 @@ import {
   SUGGESTIONS_REVIEWED,
   VENDOR_ENDPOINTS,
   suggestionsFor,
+  unresolvedPlaceholder,
 } from "@/lib/assistant/models";
 import { ask } from "@/lib/assistant/providers";
 import { extractJson } from "@/lib/assistant/parse";
@@ -311,5 +312,59 @@ describe("model suggestions", () => {
   it("says when the list was last looked at", () => {
     // Model identifiers move. Better to show the date than to imply currency.
     assert.match(SUGGESTIONS_REVIEWED, /\d{4}/);
+  });
+});
+
+describe("endpoint suggestions", () => {
+  it("catches a template that was never filled in", () => {
+    // The Azure suggestion carries bracketed parts on purpose, and somebody in
+    // a hurry saves it as it stands. It then fails against a hostname that
+    // does not resolve, which reads as a network fault rather than a blank.
+    const said = unresolvedPlaceholder(
+      "https://<your-resource>.openai.azure.com/openai/deployments/<your-deployment>/chat/completions",
+    );
+    assert.ok(said);
+    assert.match(said!, /<your-resource>/);
+    assert.match(said!, /<your-deployment>/);
+    assert.match(said!, /Replace them/);
+  });
+
+  it("says nothing about a URL that has been filled in", () => {
+    assert.equal(
+      unresolvedPlaceholder("https://acme.openai.azure.com/openai/deployments/gpt4o/chat/completions"),
+      null,
+    );
+    assert.equal(unresolvedPlaceholder("https://api.anthropic.com/v1/messages"), null);
+  });
+
+  it("offers Azure, which is the one with no fixed address", () => {
+    const azure = VENDOR_ENDPOINTS.find((e) => e.vendor.includes("Azure"));
+    assert.ok(azure, "Azure should be offered");
+    assert.equal(azure!.kind, "openai_compatible");
+    assert.ok(azure!.note, "a template needs saying so");
+  });
+
+  it("offers only https, even for something self-hosted", () => {
+    // An endpoint inside your own network still crosses it, and the platform
+    // cannot tell that a hostname is really in-cluster.
+    for (const e of VENDOR_ENDPOINTS) {
+      assert.match(e.url, /^https:\/\//, `${e.vendor} is not https`);
+    }
+  });
+
+  it("keeps each endpoint under a format its own guard accepts", () => {
+    for (const e of VENDOR_ENDPOINTS) {
+      assert.equal(
+        mismatchedWireFormat(e.kind, e.url),
+        null,
+        `${e.vendor} is offered under a format the guard rejects`,
+      );
+    }
+  });
+
+  it("covers both Qwen regions, since they are different jurisdictions", () => {
+    const qwen = VENDOR_ENDPOINTS.filter((e) => e.vendor.startsWith("Qwen"));
+    assert.equal(qwen.length, 2);
+    assert.ok(qwen.some((e) => e.note?.includes("jurisdiction")), "the difference should be said");
   });
 });

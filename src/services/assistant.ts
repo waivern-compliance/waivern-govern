@@ -10,6 +10,7 @@ import { PRODUCT_NAME } from "@/lib/product";
 import { appendAuditEvent } from "@/lib/audit";
 import { openSecret, sealSecret } from "@/lib/integration/crypto";
 import { ask, type ProviderConfig, type ProviderKind, type Turn } from "@/lib/assistant/providers";
+import { unresolvedPlaceholder } from "@/lib/assistant/models";
 import { summariseRedactions } from "@/lib/assistant/redact";
 import type { Actor } from "./templates";
 
@@ -516,6 +517,9 @@ export async function testProvider(organisationId: string): Promise<{
 }> {
   const configured = await providerFor(organisationId);
   if (!configured) return { ok: false, detail: "No model is configured." };
+
+  const unfilled = unresolvedPlaceholder(configured.config.baseUrl);
+  if (unfilled) return { ok: false, detail: unfilled };
 
   const mismatch = mismatchedWireFormat(configured.config.kind, configured.config.baseUrl);
   if (mismatch) return { ok: false, detail: mismatch };

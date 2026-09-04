@@ -126,13 +126,14 @@ export function ProviderForm({
             {endpoints.map((e) => (
               <option key={e.url} value={e.url}>
                 {e.vendor}
+                {e.note ? ` — ${e.note}` : ""}
               </option>
             ))}
           </datalist>
           <span className="block text-xs text-ink-soft">
-            {kind === "anthropic"
-              ? "Anthropic's own API, or a gateway that speaks its shape."
-              : "Azure carries your resource and deployment name, so it has no template — take it from the portal."}
+            Endpoints for this wire format. Some are templates — anything in
+            angle brackets is yours to replace, and saving it unedited is
+            refused rather than failing later as a name that will not resolve.
           </span>
         </label>
 
