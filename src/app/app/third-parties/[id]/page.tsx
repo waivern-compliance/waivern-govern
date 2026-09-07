@@ -4,6 +4,7 @@ import { asc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { memberships, users } from "@/db/schema";
 import { Attachments } from "@/components/documents/Attachments";
+import { AgreementAdmin } from "@/components/thirdparty/AgreementAdmin";
 import { ReadAgreement } from "@/components/thirdparty/ReadAgreement";
 import { GapChips } from "@/components/GapChips";
 import { Discussion } from "@/components/Discussion";
@@ -127,13 +128,18 @@ export default async function SupplierPage({
                       in force
                     </span>
                   ) : null}
+                  {d.archivedAt ? (
+                    <span className="ml-2 rounded border border-line px-1.5 py-0.5 font-mono text-[10px] text-ink-soft">
+                      archived
+                    </span>
+                  ) : null}
                 </span>
                 <span className="font-mono text-[11px] text-ink-soft">
                   {d.signedAt ? `signed ${day(d.signedAt)}` : "not signed"}
                   {d.expiresAt ? ` → ${day(d.expiresAt)}` : " → no end date"}
                 </span>
               </div>
-              <p className="text-xs text-ink-soft">
+              <p className={`text-xs text-ink-soft${d.archivedAt ? " line-through" : ""}`}>
                 {d.documentRef ? `${d.documentRef} · ` : ""}
                 {d.transferMechanism
                   ? `transfers: ${d.transferMechanism}`
@@ -160,6 +166,7 @@ export default async function SupplierPage({
                 latest={readingByDpa.get(d.id) ?? null}
                 mayEdit={mayEdit}
               />
+              {mayEdit ? <AgreementAdmin supplierId={supplier.id} dpa={d} /> : null}
             </li>
           ))}
           {dpas.length === 0 ? (

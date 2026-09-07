@@ -75,8 +75,11 @@ export const EXPIRING_WITHIN_LABEL =
  * than missing data.
  */
 export function currentDpa(supplierDpas: readonly Dpa[], now = new Date()): Dpa | null {
-  const live = supplierDpas.filter((d) => !d.expiresAt || d.expiresAt > now);
-  const pool = live.length > 0 ? live : supplierDpas;
+  // Archived first, and here rather than at each call site, so that no caller
+  // can forget it and report a retired contract as the one in force.
+  const active = supplierDpas.filter((d) => !d.archivedAt);
+  const live = active.filter((d) => !d.expiresAt || d.expiresAt > now);
+  const pool = live.length > 0 ? live : active;
   if (pool.length === 0) return null;
   return [...pool].sort((a, b) => {
     const at = a.signedAt?.getTime() ?? 0;
@@ -330,8 +333,178 @@ export async function dpasNeedingAttention(organisationId: string, within = EXPI
     .where(
       and(
         eq(dpas.organisationId, organisationId),
+        // An archived agreement is not renewed, so nagging about its expiry
+        // is noise that trains people to ignore the reminders that matter.
+        isNull(dpas.archivedAt),
         or(lte(dpas.expiresAt, horizon), isNull(dpas.signedAt)),
       ),
     )
     .orderBy(asc(dpas.expiresAt));
+}
+
+
+/**
+ * Correct a recorded agreement.
+ *
+ * Dates get typed wrong, titles get pasted from the wrong contract, and a
+ * transfer mechanism gets recorded before somebody reads the schedule that
+ * changes it. Before this the only way to fix any of that was to record a
+ * second agreement, which left the register claiming two contracts where there
+ * was one.
+ *
+ * Every field's previous value goes into the audit trail, because "the expiry
+ * date was changed" is a different fact from "the expiry date is this", and an
+ * Article 28 register has to be able to answer both.
+ */
+export async function updateDpa(input: {
+  organisationId: string;
+  dpaId: string;
+  title: string;
+  documentRef?: string | null;
+  signedAt?: Date | null;
+  expiresAt?: Date | null;
+  transferMechanism?: string | null;
+  subProcessors?: string[];
+  actor: Actor;
+}) {
+  return db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select()
+      .from(dpas)
+      .where(and(eq(dpas.id, input.dpaId), eq(dpas.organisationId, input.organisationId)));
+    if (!existing) throw new Error("No such agreement");
+
+    const next = {
+      title: input.title.trim(),
+      documentRef: input.documentRef?.trim() || null,
+      signedAt: input.signedAt ?? null,
+      expiresAt: input.expiresAt ?? null,
+      transferMechanism: input.transferMechanism?.trim() || null,
+      subProcessors: input.subProcessors ?? existing.subProcessors ?? [],
+    };
+
+    const [row] = await tx
+      .update(dpas)
+      .set({ ...next, updatedAt: new Date() })
+      .where(eq(dpas.id, existing.id))
+      .returning();
+
+    await appendAuditEvent(tx, {
+      ...input.actor,
+      organisationId: input.organisationId,
+      action: "dpa.updated",
+      subjectType: "dpa",
+      subjectId: row.id,
+      before: {
+        title: existing.title,
+        documentRef: existing.documentRef,
+        signedAt: existing.signedAt,
+        expiresAt: existing.expiresAt,
+        transferMechanism: existing.transferMechanism,
+        subProcessors: existing.subProcessors,
+      },
+      after: next,
+    });
+    return row;
+  });
+}
+
+export class ArchiveRefused extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ArchiveRefused";
+  }
+}
+
+/**
+ * Take an agreement out of the live register without destroying it.
+ *
+ * An agreement ends for reasons the contract does not describe: terminated,
+ * superseded, the supplier dropped, or it was recorded in error. Expiry cannot
+ * express any of those, and the alternative people reach for — editing the
+ * expiry date to yesterday — puts a false fact in a compliance record.
+ *
+ * Archiving stops the renewal reminders and removes it from the in-force
+ * calculation. It deliberately does not hide the resulting gap: archive the
+ * only agreement a processor has and the register immediately reports that
+ * processor as uncovered, which is the truth.
+ */
+export async function archiveDpa(input: {
+  organisationId: string;
+  dpaId: string;
+  reason: string;
+  actor: Actor;
+}) {
+  const reason = input.reason.trim();
+  if (reason.length < 3) {
+    throw new ArchiveRefused(
+      "Say why this agreement is being archived. An agreement that disappears " +
+        "without a reason is worse than one still listed.",
+    );
+  }
+
+  return db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select()
+      .from(dpas)
+      .where(and(eq(dpas.id, input.dpaId), eq(dpas.organisationId, input.organisationId)));
+    if (!existing) throw new ArchiveRefused("That agreement no longer exists.");
+    if (existing.archivedAt) return existing;
+
+    const archivedAt = new Date();
+    const [row] = await tx
+      .update(dpas)
+      .set({
+        archivedAt,
+        archivedBy: input.actor.actorUserId ?? null,
+        archivedReason: reason,
+        updatedAt: archivedAt,
+      })
+      .where(eq(dpas.id, existing.id))
+      .returning();
+
+    await appendAuditEvent(tx, {
+      ...input.actor,
+      organisationId: input.organisationId,
+      action: "dpa.archived",
+      subjectType: "dpa",
+      subjectId: row.id,
+      before: { archivedAt: null },
+      after: { archivedAt, reason, title: existing.title },
+    });
+    return row;
+  });
+}
+
+/** Undo an archiving. Reversible, because it is a judgement and judgements are revised. */
+export async function restoreDpa(input: {
+  organisationId: string;
+  dpaId: string;
+  actor: Actor;
+}) {
+  return db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select()
+      .from(dpas)
+      .where(and(eq(dpas.id, input.dpaId), eq(dpas.organisationId, input.organisationId)));
+    if (!existing) throw new ArchiveRefused("That agreement no longer exists.");
+    if (!existing.archivedAt) return existing;
+
+    const [row] = await tx
+      .update(dpas)
+      .set({ archivedAt: null, archivedBy: null, archivedReason: null, updatedAt: new Date() })
+      .where(eq(dpas.id, existing.id))
+      .returning();
+
+    await appendAuditEvent(tx, {
+      ...input.actor,
+      organisationId: input.organisationId,
+      action: "dpa.restored",
+      subjectType: "dpa",
+      subjectId: row.id,
+      before: { archivedAt: existing.archivedAt, reason: existing.archivedReason },
+      after: { archivedAt: null },
+    });
+    return row;
+  });
 }

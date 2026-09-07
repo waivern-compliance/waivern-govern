@@ -193,6 +193,20 @@ export const dpas = pgTable(
       { onDelete: "set null" },
     ),
     externalRef: text("external_ref"),
+    /**
+     * When this agreement stopped being part of the live register.
+     *
+     * Distinct from expiry, which is what the contract says. An agreement can
+     * end early — terminated, superseded, or recorded in error — and before
+     * this column the only way to express that was to falsify the expiry date.
+     * Archiving takes it out of the "in force" calculation and stops the
+     * renewal reminders; it never removes the row, because a register has to
+     * be able to say which contract governed processing in a past year.
+     */
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    archivedBy: uuid("archived_by").references(() => users.id, { onDelete: "set null" }),
+    /** Required when archiving: an agreement that vanished without a stated reason is worse than one still listed. */
+    archivedReason: text("archived_reason"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

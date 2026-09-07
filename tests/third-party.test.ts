@@ -31,6 +31,7 @@ function dpa(over: Partial<Dpa> = {}): Dpa {
     documentRef: "DPA-2026-01", signedAt: days(-400), expiresAt: days(400),
     terms: {}, transferMechanism: "UK Addendum to SCCs", subProcessors: ["AWS"],
     sourceConnectionId: null, externalRef: null,
+    archivedAt: null, archivedBy: null, archivedReason: null,
     createdAt: NOW, updatedAt: NOW,
     ...over,
   };

@@ -3,7 +3,15 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireCapability } from "@/lib/session";
-import { createSupplier, recordDpa, updateSupplier } from "@/services/third-party";
+import {
+  ArchiveRefused,
+  archiveDpa,
+  createSupplier,
+  recordDpa,
+  restoreDpa,
+  updateDpa,
+  updateSupplier,
+} from "@/services/third-party";
 
 const text = (v: FormDataEntryValue | null) => String(v ?? "").trim();
 
@@ -96,6 +104,69 @@ export async function recordDpaAction(supplierId: string, formData: FormData) {
     actor: { actorKind: "user", actorUserId: active.userId, actorLabel: active.email },
   });
 
+  revalidatePath(`/app/third-parties/${supplierId}`);
+  revalidatePath("/app/third-parties");
+}
+
+
+export async function updateDpaAction(
+  supplierId: string,
+  dpaId: string,
+  formData: FormData,
+) {
+  const title = text(formData.get("title"));
+  if (!title) return;
+
+  const active = await requireCapability("record.write");
+  await updateDpa({
+    organisationId: active.membership.organisationId,
+    dpaId,
+    title,
+    documentRef: text(formData.get("documentRef")),
+    signedAt: date(formData.get("signedAt")),
+    expiresAt: date(formData.get("expiresAt")),
+    transferMechanism: text(formData.get("transferMechanism")),
+    subProcessors: lines(formData.get("subProcessors")),
+    actor: { actorKind: "user", actorUserId: active.userId, actorLabel: active.email },
+  });
+
+  revalidatePath(`/app/third-parties/${supplierId}`);
+  revalidatePath("/app/third-parties");
+}
+
+export type ArchiveResult = { ok: boolean; message: string } | null;
+
+export async function archiveDpaAction(
+  supplierId: string,
+  dpaId: string,
+  _prev: ArchiveResult,
+  formData: FormData,
+): Promise<ArchiveResult> {
+  const active = await requireCapability("record.write");
+  try {
+    await archiveDpa({
+      organisationId: active.membership.organisationId,
+      dpaId,
+      reason: String(formData.get("reason") ?? ""),
+      actor: { actorKind: "user", actorUserId: active.userId, actorLabel: active.email },
+    });
+  } catch (error) {
+    if (error instanceof ArchiveRefused) return { ok: false, message: error.message };
+    throw error;
+  }
+
+  revalidatePath(`/app/third-parties/${supplierId}`);
+  revalidatePath("/app/third-parties");
+  return { ok: true, message: "Archived." };
+}
+
+export async function restoreDpaAction(supplierId: string, dpaId: string) {
+  const active = await requireCapability("record.write");
+  await restoreDpa({
+    organisationId: active.membership.organisationId,
+    dpaId,
+    actor: { actorKind: "user", actorUserId: active.userId, actorLabel: active.email },
+  });
   revalidatePath(`/app/third-parties/${supplierId}`);
   revalidatePath("/app/third-parties");
 }

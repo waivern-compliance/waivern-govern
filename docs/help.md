@@ -324,6 +324,16 @@ There is a separate place on the third party for anything not tied to one agreem
 
 A hash is recorded when a file is uploaded and checked when it is read back, so the platform can say the agreement it hands you is the one it was given. Downloads are recorded, because taking a signed contract out of the building is worth knowing about.
 
+### Correcting and retiring an agreement
+
+A recorded agreement can be edited in place — title, dates, document reference, transfer mechanism, sub-processors. Every field's previous value is written to the audit trail, because 'the expiry date was changed' is a different fact from 'the expiry date is this', and a register has to answer both.
+
+Archiving is for an agreement that has ended for a reason its expiry date does not describe: terminated, superseded, the supplier dropped, or recorded in error. It stops the renewal reminders and takes the agreement out of the in-force calculation, but the row stays, because the register must be able to say what governed processing in a past year. A reason is required.
+
+Archiving never hides a gap. Archive the only agreement a processor has and that processor immediately reports as uncovered, which is the truth rather than an oversight. It is also reversible.
+
+The thing to avoid is the workaround this replaces: editing an expiry date to yesterday so an ended agreement stops counting. That puts a date in the record that never appeared in the contract.
+
 ### Having a model read the agreement
 
 Where an organisation has configured its own model and switched on 'reading an uploaded agreement', each agreement offers a button that reads the files attached to it — and those attached to the third party, since a sub-processor annexe is as often filed there as against the contract.

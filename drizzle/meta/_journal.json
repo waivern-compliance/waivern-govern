@@ -197,6 +197,13 @@
       "when": 1788514719141,
       "tag": "0027_amusing_darwin",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1788786519718,
+      "tag": "0028_fancy_katie_power",
+      "breakpoints": true
     }
   ]
 }
