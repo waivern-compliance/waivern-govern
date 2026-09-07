@@ -1,5 +1,6 @@
 "use server";
 
+import { EMPTY_CHAT, type ChatState } from "@/lib/assistant/chat-state";
 import { requireCapability } from "@/lib/session";
 import { searchHelp } from "@/lib/help/search";
 import { HELP_TOPICS } from "@/lib/help/topics";
@@ -31,19 +32,6 @@ function helpContext(question: string): string {
   ].join("\n");
 }
 
-export type ChatState = {
-  conversationId: string | null;
-  turns: Array<{ role: "user" | "assistant"; content: string }>;
-  minimisation: string | null;
-  error: string | null;
-};
-
-export const EMPTY_CHAT: ChatState = {
-  conversationId: null,
-  turns: [],
-  minimisation: null,
-  error: null,
-};
 
 /**
  * Ask the organisation's model a question.

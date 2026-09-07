@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
-import { askAction, EMPTY_CHAT, type ChatState } from "@/app/app/assistant/actions";
+import { askAction } from "@/app/app/assistant/actions";
+import { EMPTY_CHAT, type ChatState } from "@/lib/assistant/chat-state";
 
 /**
  * A conversation with the organisation's model, beside the work.
@@ -33,13 +34,17 @@ export function Chat({
     EMPTY_CHAT,
   );
 
+  // The panel is a side feature of every page it appears on. It must not be
+  // able to take one down, whatever state it is handed.
+  const turns = state?.turns ?? [];
+
   return (
     <div className="space-y-3">
       <p className="max-w-prose text-xs text-ink-soft">{invitation}</p>
 
-      {state.turns.length > 0 ? (
+      {turns.length > 0 ? (
         <ul className="space-y-2">
-          {state.turns.map((turn, i) => (
+          {turns.map((turn, i) => (
             <li
               key={i}
               className={
@@ -57,13 +62,13 @@ export function Chat({
         </ul>
       ) : null}
 
-      {state.minimisation ? (
+      {state?.minimisation ? (
         <p className="rounded border border-line bg-surface px-3 py-2 font-mono text-[11px] text-ink-soft">
           {state.minimisation}
         </p>
       ) : null}
 
-      {state.error ? (
+      {state?.error ? (
         <p
           role="alert"
           className="rounded border border-amber-700 bg-amber-50 px-3 py-2 text-xs text-amber-900"
