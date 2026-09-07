@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { after, describe, it } from "node:test";
 import { eq } from "drizzle-orm";
 import { db, sql as pg } from "@/db/client";
-import { documents, entities, organisations } from "@/db/schema";
+import { auditEvents, documents, entities, organisations } from "@/db/schema";
 import {
   ACCEPTED,
   ContentAltered,
@@ -11,6 +11,7 @@ import {
   UploadRefused,
   attachDocument,
   documentsFor,
+  moveDocument,
   readDocument,
   removeDocument,
 } from "@/services/documents";
@@ -185,5 +186,103 @@ describe("removing one", () => {
     await removeDocument({ id: stored.id, organisationId: b.org.id, actor: ACTOR });
     assert.equal((await documentsFor(a.org.id, "dpa", a.subjectId)).length, 1, "it should survive");
     assert.equal(await readDocument(stored.id, b.org.id), null, "and be invisible from there");
+  });
+});
+
+
+describe("reattaching a file to the right record", () => {
+  it("moves it without touching the bytes or the hash", async () => {
+    const { org } = await scratch();
+    const supplierId = randomUUID();
+    const dpaId = randomUUID();
+    await attachDocument({
+      organisationId: org.id, entityId: null, subjectType: "supplier", subjectId: supplierId,
+      filename: "signed-dpa.pdf", contentType: "application/pdf", content: PDF, actor: ACTOR,
+    });
+    const [before] = await documentsFor(org.id, "supplier", supplierId);
+
+    await moveDocument({
+      id: before.id, organisationId: org.id,
+      subjectType: "dpa", subjectId: dpaId, actor: ACTOR,
+    });
+
+    assert.equal((await documentsFor(org.id, "supplier", supplierId)).length, 0);
+    const [after] = await documentsFor(org.id, "dpa", dpaId);
+    assert.equal(after.id, before.id);
+    assert.equal(after.sha256, before.sha256, "the hash is unchanged, so verification still passes");
+    assert.equal(after.byteSize, before.byteSize);
+  });
+
+  it("still hands back the same bytes afterwards", async () => {
+    const { org } = await scratch();
+    const from = randomUUID();
+    const to = randomUUID();
+    await attachDocument({
+      organisationId: org.id, entityId: null, subjectType: "supplier", subjectId: from,
+      filename: "schedule.pdf", contentType: "application/pdf", content: PDF, actor: ACTOR,
+    });
+    const [doc] = await documentsFor(org.id, "supplier", from);
+    await moveDocument({ id: doc.id, organisationId: org.id, subjectType: "dpa", subjectId: to, actor: ACTOR });
+
+    const read = await readDocument(doc.id, org.id);
+    assert.ok(read, "the file is still readable after the move");
+    assert.deepEqual(read.content, PDF);
+  });
+
+  it("records the move against both records", async () => {
+    // The record it left must not simply show a file disappearing.
+    const { org } = await scratch();
+    const from = randomUUID();
+    const to = randomUUID();
+    await attachDocument({
+      organisationId: org.id, entityId: null, subjectType: "supplier", subjectId: from,
+      filename: "annexe.pdf", contentType: "application/pdf", content: PDF, actor: ACTOR,
+    });
+    const [doc] = await documentsFor(org.id, "supplier", from);
+    await moveDocument({ id: doc.id, organisationId: org.id, subjectType: "dpa", subjectId: to, actor: ACTOR });
+
+    const events = await db
+      .select()
+      .from(auditEvents)
+      .where(eq(auditEvents.organisationId, org.id));
+    const moves = events.filter((e) => e.action === "document.moved");
+    assert.equal(moves.length, 2);
+    assert.ok(moves.some((e) => e.subjectId === from), "against the record it left");
+    assert.ok(moves.some((e) => e.subjectId === to), "and the one it joined");
+  });
+
+  it("moving it where it already is changes nothing", async () => {
+    const { org } = await scratch();
+    const where = randomUUID();
+    await attachDocument({
+      organisationId: org.id, entityId: null, subjectType: "dpa", subjectId: where,
+      filename: "same.pdf", contentType: "application/pdf", content: PDF, actor: ACTOR,
+    });
+    const [doc] = await documentsFor(org.id, "dpa", where);
+    await moveDocument({ id: doc.id, organisationId: org.id, subjectType: "dpa", subjectId: where, actor: ACTOR });
+
+    const events = await db
+      .select()
+      .from(auditEvents)
+      .where(eq(auditEvents.organisationId, org.id));
+    assert.equal(events.filter((e) => e.action === "document.moved").length, 0);
+  });
+
+  it("cannot be moved from another organisation", async () => {
+    const { org } = await scratch();
+    const other = await scratch();
+    const where = randomUUID();
+    await attachDocument({
+      organisationId: org.id, entityId: null, subjectType: "supplier", subjectId: where,
+      filename: "theirs.pdf", contentType: "application/pdf", content: PDF, actor: ACTOR,
+    });
+    const [doc] = await documentsFor(org.id, "supplier", where);
+
+    const moved = await moveDocument({
+      id: doc.id, organisationId: other.org.id,
+      subjectType: "dpa", subjectId: randomUUID(), actor: ACTOR,
+    });
+    assert.equal(moved, null);
+    assert.equal((await documentsFor(org.id, "supplier", where)).length, 1, "it stayed put");
   });
 });

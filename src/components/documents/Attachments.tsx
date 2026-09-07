@@ -4,10 +4,14 @@ import { useActionState } from "react";
 import { ACCEPTED, MAX_BYTES } from "@/lib/documents/limits";
 import type { StoredDocument } from "@/services/documents";
 import {
+  moveDocumentAction,
   removeDocumentAction,
   uploadDocumentsAction,
   type UploadResult,
 } from "@/app/app/third-parties/documentActions";
+
+/** Somewhere else on this third party a file could belong instead. */
+export type MoveTarget = { value: string; label: string; current: boolean };
 
 const size = (bytes: number) =>
   bytes < 1024 * 1024
@@ -29,6 +33,7 @@ export function Attachments({
   documents,
   mayEdit,
   what,
+  moveTargets = [],
 }: {
   subjectType: StoredDocument["subjectType"];
   subjectId: string;
@@ -38,6 +43,12 @@ export function Attachments({
   mayEdit: boolean;
   /** What these are, in the words of the record they hang off. */
   what: string;
+  /**
+   * Where else this file could live. Offered because people attach the signed
+   * contract wherever the upload box happens to be, and an agreement reading
+   * "nothing attached" while the contract sits below it is worse than useless.
+   */
+  moveTargets?: MoveTarget[];
 }) {
   const [result, action, pending] = useActionState<UploadResult, FormData>(
     uploadDocumentsAction.bind(null, { subjectType, subjectId, entityId, revalidate }),
@@ -66,20 +77,46 @@ export function Attachments({
                 </span>
               </span>
               {mayEdit ? (
-                <form action={removeDocumentAction.bind(null, d.id, revalidate)}>
-                  <button
-                    type="submit"
-                    className="text-xs text-ink-soft underline hover:text-red-900"
-                  >
-                    Remove
-                  </button>
-                </form>
+                <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  {moveTargets.length > 1 ? (
+                    <form
+                      action={moveDocumentAction.bind(null, d.id, revalidate)}
+                      className="flex items-center gap-1.5"
+                    >
+                      <label className="text-[11px] text-ink-soft">
+                        Belongs to
+                        <select
+                          name="target"
+                          defaultValue={moveTargets.find((t) => t.current)?.value}
+                          className="ml-1.5 max-w-[16rem] rounded border border-line bg-surface px-1.5 py-0.5 text-[11px]"
+                        >
+                          {moveTargets.map((t) => (
+                            <option key={t.value} value={t.value}>
+                              {t.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <button type="submit" className="text-[11px] text-brand underline">
+                        Move
+                      </button>
+                    </form>
+                  ) : null}
+                  <form action={removeDocumentAction.bind(null, d.id, revalidate)}>
+                    <button
+                      type="submit"
+                      className="text-xs text-ink-soft underline hover:text-red-900"
+                    >
+                      Remove
+                    </button>
+                  </form>
+                </span>
               ) : null}
             </li>
           ))}
         </ul>
       ) : (
-        <p className="text-xs text-ink-soft">No {what} attached.</p>
+        <p className="text-xs text-ink-soft">Nothing attached here yet — {what}.</p>
       )}
 
       {mayEdit ? (

@@ -5,6 +5,7 @@ import { requireCapability } from "@/lib/session";
 import {
   UploadRefused,
   attachDocument,
+  moveDocument,
   removeDocument,
 } from "@/services/documents";
 import type { StoredDocument } from "@/services/documents";
@@ -86,6 +87,28 @@ export async function removeDocumentAction(id: string, revalidate: string) {
   await removeDocument({
     id,
     organisationId: active.membership.organisationId,
+    actor: { actorKind: "user", actorUserId: active.userId, actorLabel: active.email },
+  });
+  revalidatePath(revalidate);
+}
+
+/**
+ * Reattach a file to a different record on the same third party.
+ *
+ * The target arrives as "type:id" from a select whose options the page built,
+ * so the only values offered are the supplier and its own agreements.
+ */
+export async function moveDocumentAction(id: string, revalidate: string, formData: FormData) {
+  const active = await requireCapability("record.write");
+  const [subjectType, subjectId] = String(formData.get("target") ?? "").split(":");
+  if (subjectType !== "dpa" && subjectType !== "supplier") return;
+  if (!subjectId) return;
+
+  await moveDocument({
+    id,
+    organisationId: active.membership.organisationId,
+    subjectType,
+    subjectId,
     actor: { actorKind: "user", actorUserId: active.userId, actorLabel: active.email },
   });
   revalidatePath(revalidate);

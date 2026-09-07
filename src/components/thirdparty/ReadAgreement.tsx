@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import type { extractionFindings, extractionLinks, extractions } from "@/db/schema";
 import {
@@ -31,6 +32,8 @@ export function ReadAgreement({
   available,
   latest,
   mayEdit,
+  mayConfigure,
+  readable,
 }: {
   dpaId: string;
   entityId: string | null;
@@ -38,13 +41,44 @@ export function ReadAgreement({
   available: boolean;
   latest: { run: Run; findings: Finding[]; links: Link[] } | null;
   mayEdit: boolean;
+  /** Whether this person could switch the capability on themselves. */
+  mayConfigure: boolean;
+  /** The files this would be given, and which record each hangs off. */
+  readable: Array<{ name: string; where: string }>;
 }) {
   const [result, run, running] = useActionState<ExtractionResult>(
     readAgreementAction.bind(null, { dpaId, entityId, revalidate }),
     null,
   );
 
-  if (!available && !latest) return null;
+  // Never render nothing. An absent feature that leaves no trace is
+  // indistinguishable from one that does not exist, and the first report of
+  // this was somebody looking for a button that had simply been switched off.
+  if (!available && !latest) {
+    return (
+      <div className="space-y-1.5 rounded border border-dashed border-line bg-ground px-3 py-2">
+        <p className="text-xs font-medium text-ink-soft">
+          Read transfers and sub-processors from the attached files
+        </p>
+        <p className="text-xs text-ink-soft">
+          A model can read the {readable.length > 0 ? "files attached here" : "agreement once a copy is attached"} and
+          propose the transfer mechanism and sub-processors they name, each with the
+          sentence it came from. It is switched off for this organisation.{" "}
+          {mayConfigure ? (
+            <>
+              Turn on <span className="font-medium">Reading an uploaded agreement</span> under{" "}
+              <Link href="/app/admin/assistant" className="text-brand hover:underline">
+                Settings → Assistant
+              </Link>
+              .
+            </>
+          ) : (
+            <>An administrator can turn it on under Settings → Assistant.</>
+          )}
+        </p>
+      </div>
+    );
+  }
 
   const transfers = latest?.findings.filter((f) => f.kind === "transfer_mechanism") ?? [];
   const processors = latest?.findings.filter((f) => f.kind === "sub_processor") ?? [];
@@ -83,11 +117,26 @@ export function ReadAgreement({
       ) : null}
 
       {!latest ? (
-        <p className="text-xs text-ink-soft">
-          The model reads the files attached here and to the third party, and proposes the
-          transfer mechanism and sub-processors they name. Nothing it proposes is recorded
-          until you accept it.
-        </p>
+        <div className="space-y-1.5">
+          <p className="text-xs text-ink-soft">
+            Proposes the transfer mechanism and sub-processors named in the files below.
+            Nothing it proposes is recorded until you accept it.
+          </p>
+          {readable.length > 0 ? (
+            <ul className="space-y-0.5">
+              {readable.map((file) => (
+                <li key={`${file.where}:${file.name}`} className="font-mono text-[11px] text-ink-soft">
+                  {file.name} <span className="font-sans">— on {file.where}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs text-ink-soft">
+              Nothing to read yet. Attach the signed agreement above, or move a file
+              already held against the third party onto this agreement.
+            </p>
+          )}
+        </div>
       ) : (
         <>
           <p className="font-mono text-[11px] text-ink-soft">

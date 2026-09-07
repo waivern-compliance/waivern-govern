@@ -324,6 +324,12 @@ There is a separate place on the third party for anything not tied to one agreem
 
 A hash is recorded when a file is uploaded and checked when it is read back, so the platform can say the agreement it hands you is the one it was given. Downloads are recorded, because taking a signed contract out of the building is worth knowing about.
 
+### Which agreement a document belongs to
+
+Every file carries a 'belongs to' selector listing the third party and each of its agreements, so a contract uploaded in the wrong place can be moved onto the agreement it governs. The bytes and the hash do not change, so verification still passes; the move is recorded against both records, because the one it left should not simply show a file disappearing.
+
+Files held against the third party rather than a specific agreement are still read when a model is asked to find transfers and sub-processors — a sub-processor annexe is as often filed there as against the contract. The reading panel names every file it will be given, so what it saw is never a guess.
+
 ### Correcting and retiring an agreement
 
 A recorded agreement can be edited in place — title, dates, document reference, transfer mechanism, sub-processors. Every field's previous value is written to the audit trail, because 'the expiry date was changed' is a different fact from 'the expiry date is this', and a register has to answer both.

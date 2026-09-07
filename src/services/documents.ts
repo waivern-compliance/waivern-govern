@@ -207,3 +207,76 @@ export async function removeDocument(input: {
     });
   });
 }
+
+/**
+ * Reattach a file to a different record.
+ *
+ * People upload the signed contract wherever the upload control happens to be
+ * in front of them, which is often the third party rather than the agreement
+ * it belongs to. Once that has happened there was no way to correct it, so the
+ * agreement said "nothing attached" while the contract sat a few inches below,
+ * and nobody could tell which of three PDFs governed which arrangement.
+ *
+ * The bytes do not move and the hash does not change. What changes is which
+ * record the file hangs off, and that is audited against both records — the
+ * one it left and the one it joined — because a document silently changing
+ * parents is exactly the kind of thing a register has to be able to explain.
+ */
+export async function moveDocument(input: {
+  id: string;
+  organisationId: string;
+  subjectType: StoredDocument["subjectType"];
+  subjectId: string;
+  actor: Actor;
+}) {
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .select({
+        id: documents.id,
+        filename: documents.filename,
+        subjectType: documents.subjectType,
+        subjectId: documents.subjectId,
+        entityId: documents.entityId,
+      })
+      .from(documents)
+      .where(and(eq(documents.id, input.id), eq(documents.organisationId, input.organisationId)));
+    if (!row) return null;
+    if (row.subjectType === input.subjectType && row.subjectId === input.subjectId) return row;
+
+    await tx
+      .update(documents)
+      .set({ subjectType: input.subjectType, subjectId: input.subjectId })
+      .where(eq(documents.id, row.id));
+
+    const move = {
+      document: row.id,
+      filename: row.filename,
+      from: `${row.subjectType}:${row.subjectId}`,
+      to: `${input.subjectType}:${input.subjectId}`,
+    };
+
+    // Once against the record it left, so that record's history does not just
+    // show a file vanishing.
+    await appendAuditEvent(tx, {
+      ...input.actor,
+      organisationId: input.organisationId,
+      entityId: row.entityId ?? undefined,
+      action: "document.moved",
+      subjectType: row.subjectType,
+      subjectId: row.subjectId,
+      before: { attachedTo: move.from },
+      after: move,
+    });
+    await appendAuditEvent(tx, {
+      ...input.actor,
+      organisationId: input.organisationId,
+      entityId: row.entityId ?? undefined,
+      action: "document.moved",
+      subjectType: input.subjectType,
+      subjectId: input.subjectId,
+      after: move,
+    });
+
+    return { ...row, subjectType: input.subjectType, subjectId: input.subjectId };
+  });
+}

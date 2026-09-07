@@ -63,6 +63,40 @@ export default async function SupplierPage({
     ...dpas.map((d) => latestExtraction(org, d.id)),
   ]);
   const readingByDpa = new Map(dpas.map((d, i) => [d.id, readings[i] ?? null]));
+
+  /**
+   * Everywhere on this third party a document could belong.
+   *
+   * Offered on every file so a contract filed against the third party can be
+   * moved onto the agreement it governs. Without it the two lists read as
+   * unrelated, and an agreement says "nothing attached" while its own contract
+   * sits a few inches below.
+   */
+  const moveTargets = (current: string) => [
+    {
+      value: `supplier:${supplier.id}`,
+      label: `${supplier.name} — not tied to one agreement`,
+      current: current === `supplier:${supplier.id}`,
+    },
+    ...dpas.map((d) => ({
+      value: `dpa:${d.id}`,
+      label: d.title + (d.archivedAt ? " (archived)" : ""),
+      current: current === `dpa:${d.id}`,
+    })),
+  ];
+
+  /**
+   * What a reading of one agreement would actually be given.
+   *
+   * Documents held against the third party are included, because a
+   * sub-processor annexe is as often filed there as against the contract — but
+   * that is invisible unless the files are named, so they are.
+   */
+  const readableFor = (dpaId: string) => [
+    ...(docsByDpa.get(dpaId) ?? []).map((d) => ({ name: d.filename, where: "this agreement" })),
+    ...supplierDocs.map((d) => ({ name: d.filename, where: supplier.name })),
+  ];
+  const mayConfigure = can(active.membership.grants, "org.manage");
   const here = `/app/third-parties/${supplier.id}`;
 
   const needsConfirming = Boolean(supplier.sourceConnectionId && !supplier.reviewedAt);
@@ -156,7 +190,8 @@ export default async function SupplierPage({
                 revalidate={here}
                 documents={docsByDpa.get(d.id) ?? []}
                 mayEdit={mayEdit}
-                what="the signed agreement and its schedules"
+                what="the signed agreement and its schedules go here"
+                moveTargets={moveTargets(`dpa:${d.id}`)}
               />
               <ReadAgreement
                 dpaId={d.id}
@@ -165,6 +200,8 @@ export default async function SupplierPage({
                 available={mayRead}
                 latest={readingByDpa.get(d.id) ?? null}
                 mayEdit={mayEdit}
+                mayConfigure={mayConfigure}
+                readable={readableFor(d.id)}
               />
               {mayEdit ? <AgreementAdmin supplierId={supplier.id} dpa={d} /> : null}
             </li>
@@ -182,7 +219,10 @@ export default async function SupplierPage({
         <h2 className="text-sm font-semibold">Other documents</h2>
         <p className="max-w-prose text-xs text-ink-soft">
           Anything about this third party that is not tied to one agreement —
-          due diligence, certifications, an audit report.
+          due diligence, certifications, an audit report. These are read
+          alongside every agreement when a model is asked to find transfers and
+          sub-processors, so a sub-processor annexe filed here is still found.
+          If a file belongs to one specific agreement, move it there.
         </p>
         <Attachments
           subjectType="supplier"
@@ -191,7 +231,8 @@ export default async function SupplierPage({
           revalidate={here}
           documents={supplierDocs}
           mayEdit={mayEdit}
-          what="documents"
+          what="due diligence, certifications, an audit report"
+          moveTargets={moveTargets(`supplier:${supplier.id}`)}
         />
       </section>
 
