@@ -36,8 +36,15 @@ import type { Actor } from "./templates";
  * with it.
  */
 
-/** Enough of the model's budget for a long list of sub-processors. */
-const MAX_TOKENS = 4096;
+/**
+ * Room for a long list of sub-processors, each with a quote.
+ *
+ * Forty sub-processors with a quoted clause apiece is a substantial document,
+ * and 4096 tokens ran out partway through one — which arrives as JSON that
+ * stops mid-object and cannot be parsed at all. The budget is generous because
+ * being clipped costs the whole answer, not the tail of it.
+ */
+const MAX_TOKENS = 16_384;
 
 /**
  * How long to let the model read.
@@ -217,10 +224,20 @@ async function persist(input: {
 
   const found = answer.ok ? readResponse(answer.text, input.sources) : null;
   const characters = input.sources.reduce((total, source) => total + source.text.length, 0);
+  const clipped = answer.ok && /max_tokens|length/i.test(answer.stopReason ?? "");
   const failure = answer.ok
     ? found
       ? null
-      : "The model answered, but not in a shape that could be read. Try again."
+      : clipped
+        ? "The model ran out of room before finishing its answer, and not enough " +
+          "of it survived to read. There is probably more in these files than one " +
+          "pass can report — move the files that do not bear on transfers and " +
+          "sub-processors off this agreement and read them separately."
+        : // Carries its own diagnosis: without the stop reason and the size of
+          // the reply, "not in a shape that could be read" covers a refusal, a
+          // wrapper of prose and a clipped document, which need different fixes.
+          `The model answered, but not in a shape that could be read ` +
+          `(stopped: ${answer.stopReason ?? "not stated"}; ${answer.text.length} characters). Try again.`
     : answer.timedOut
       ? `The model did not finish within ${TIMEOUT_MS / 1000} seconds. ` +
         `It was given ${Math.round(characters / 1000)},000 characters across ` +
@@ -242,7 +259,15 @@ async function persist(input: {
         sources: input.stored,
         unreadable: input.unreadable,
         redactions: answer.redactions,
-        notes: found?.notes ?? null,
+        notes: clipped && found
+        ? [
+            "The model's answer was cut off, so this may be incomplete — " +
+              "check the agreement for anything missing.",
+            found.notes,
+          ]
+            .filter(Boolean)
+            .join(" ")
+        : (found?.notes ?? null),
         failure,
         requestedBy: input.actor.actorUserId ?? null,
         requestedByLabel: input.actor.actorLabel,

@@ -8,7 +8,7 @@ import {
   unresolvedPlaceholder,
 } from "@/lib/assistant/models";
 import { ask } from "@/lib/assistant/providers";
-import { extractJson } from "@/lib/assistant/parse";
+import { closeTruncated, extractJson } from "@/lib/assistant/parse";
 import { mismatchedWireFormat } from "@/services/assistant";
 import { redact, summariseRedactions } from "@/lib/assistant/redact";
 
@@ -391,5 +391,40 @@ describe("how long the model is given", () => {
       assert.equal(result.timedOut, true);
       assert.match(result.reason, /did not answer in time/);
     }
+  });
+});
+
+
+describe("an answer that ran out of room", () => {
+  it("keeps the entries that finished, rather than losing all of them", () => {
+    // What a clipped list actually looks like: the last object stops mid-value.
+    const clipped =
+      '{"subProcessors":[' +
+      '{"name":"Amazon Web Services EMEA SARL","quote":"AWS (Ireland)","source":"S1"},' +
+      '{"name":"Twilio Ireland Limited","quote":"Twilio (Ireland)","source":"S1"},' +
+      '{"name":"Datadog In';
+    const found = extractJson<{ subProcessors: Array<{ name: string }> }>(clipped);
+    assert.ok(found, "something was recovered");
+    assert.equal(found.subProcessors.length, 2);
+    assert.equal(found.subProcessors[1].name, "Twilio Ireland Limited");
+  });
+
+  it("is not confused by a brace inside a quoted clause", () => {
+    const clipped =
+      '{"transfers":[{"detail":"see clause {4} and [5]","quote":"a } inside text","source":"S1"},{"det';
+    const found = extractJson<{ transfers: Array<{ detail: string }> }>(clipped);
+    assert.ok(found);
+    assert.equal(found.transfers.length, 1);
+    assert.equal(found.transfers[0].detail, "see clause {4} and [5]");
+  });
+
+  it("leaves a whole answer exactly as it was", () => {
+    const whole = '{"subProcessors":[{"name":"Datadog Inc."}]}';
+    assert.deepEqual(extractJson(whole), { subProcessors: [{ name: "Datadog Inc." }] });
+  });
+
+  it("recovers nothing from text that was never JSON", () => {
+    assert.equal(closeTruncated("I am afraid I cannot read that file."), null);
+    assert.equal(extractJson("I am afraid I cannot read that file."), null);
   });
 });

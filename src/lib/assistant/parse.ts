@@ -33,5 +33,67 @@ export function extractJson<T>(raw: string): T | null {
       // an error worth surfacing.
     }
   }
+
+  // Nothing parsed whole. An answer that ran out of output budget stops
+  // mid-object, and throwing it away discards every complete entry before the
+  // cut — which for a list of forty sub-processors means losing thirty-nine
+  // because the fortieth was clipped.
+  for (const candidate of candidates) {
+    const closed = closeTruncated(candidate);
+    if (!closed) continue;
+    try {
+      return JSON.parse(closed) as T;
+    } catch {
+      // Nothing recoverable in this one.
+    }
+  }
   return null;
+}
+
+/**
+ * The longest prefix of a cut-off document that can be validly closed.
+ *
+ * Scans for the last point at which a value finished while still inside a
+ * container, and shuts the open brackets from there. A half-written object is
+ * dropped; the ones before it survive. Text inside strings is skipped, so a
+ * brace in a quoted contract clause cannot throw the count off.
+ */
+export function closeTruncated(text: string): string | null {
+  const start = text.search(/[[{]/);
+  if (start === -1) return null;
+
+  const open: string[] = [];
+  let inString = false;
+  let escaped = false;
+  let best: string | null = null;
+
+  for (let at = start; at < text.length; at += 1) {
+    const character = text[at];
+
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (character === "\\") {
+      escaped = true;
+      continue;
+    }
+    if (character === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+
+    if (character === "{") open.push("}");
+    else if (character === "[") open.push("]");
+    else if (character === "}" || character === "]") {
+      open.pop();
+      // A value just closed. If we are still inside something, everything up
+      // to here plus the outstanding closers is a whole document.
+      if (open.length > 0) {
+        best = text.slice(start, at + 1) + [...open].reverse().join("");
+      }
+    }
+  }
+  return best;
 }

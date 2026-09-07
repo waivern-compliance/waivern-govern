@@ -28,7 +28,18 @@ export type ProviderConfig = {
 export type Turn = { role: "user" | "assistant"; content: string };
 
 export type AskResult =
-  | { ok: true; text: string; model: string; redactions: Redaction[] }
+  | {
+      ok: true;
+      text: string;
+      model: string;
+      redactions: Redaction[];
+      /**
+       * Why the model stopped. "max_tokens" / "length" means the answer was cut
+       * off mid-sentence, which for a structured reply means unparseable — and
+       * without this the caller can only report that something went wrong.
+       */
+      stopReason?: string;
+    }
   | {
       ok: false;
       reason: string;
@@ -76,11 +87,11 @@ export async function ask(
   const timer = setTimeout(() => controller.abort(), input.timeoutMs ?? TIMEOUT_MS);
 
   try {
-    const text =
+    const answer =
       config.kind === "anthropic"
         ? await askAnthropic(config, input.system, turns, input.maxTokens ?? 1024, controller.signal)
         : await askOpenAiCompatible(config, input.system, turns, input.maxTokens ?? 1024, controller.signal);
-    return { ok: true, text, model: config.model, redactions };
+    return { ok: true, ...answer, model: config.model, redactions };
   } catch (error) {
     // Fail soft, and never leak the endpoint or key into a user-facing string.
     const aborted = error instanceof Error && error.name === "AbortError";
@@ -136,7 +147,7 @@ async function askOpenAiCompatible(
   turns: Turn[],
   maxTokens: number,
   signal: AbortSignal,
-): Promise<string> {
+): Promise<{ text: string; stopReason?: string }> {
   const url = config.apiVersion
     ? `${config.baseUrl}?api-version=${encodeURIComponent(config.apiVersion)}`
     : config.baseUrl;
@@ -163,7 +174,7 @@ async function askOpenAiCompatible(
     choices?: Array<{ message?: { content?: string }; finish_reason?: string }>;
   };
   const text = data.choices?.[0]?.message?.content ?? "";
-  if (text) return text;
+  if (text) return { text, stopReason: data.choices?.[0]?.finish_reason };
 
   const finish = data.choices?.[0]?.finish_reason;
   throw provider(
@@ -179,7 +190,7 @@ async function askAnthropic(
   turns: Turn[],
   maxTokens: number,
   signal: AbortSignal,
-): Promise<string> {
+): Promise<{ text: string; stopReason?: string }> {
   const response = await fetch(config.baseUrl, {
     method: "POST",
     signal,
@@ -211,7 +222,7 @@ async function askAnthropic(
     .filter((c) => c.type === "text" || (c.type === undefined && c.text !== undefined))
     .map((c) => c.text ?? "")
     .join("");
-  if (text) return text;
+  if (text) return { text, stopReason: data.stop_reason };
 
   // Say what did come back. "Nothing" is not a diagnosis, and the previous
   // message guessed at the model name — which cannot be the cause of a 200.
