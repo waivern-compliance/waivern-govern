@@ -159,7 +159,10 @@ export function buildTurn(sources: Source[]): string {
  * an unknown provenance — a citation the platform cannot resolve to a real
  * source is exactly the thing this feature exists to prevent.
  */
-export function readResponse(raw: string, sources: Source[]): Extracted | null {
+export function readResponse(
+  raw: string,
+  sources: Source[],
+): { data: Extracted; dropped: number } | null {
   const parsed = Response.safeParse(extractJson(raw));
   if (!parsed.success) return null;
 
@@ -167,11 +170,18 @@ export function readResponse(raw: string, sources: Source[]): Extracted | null {
   const resolves = (label: string | null | undefined) =>
     Boolean(label && known.has(label.trim().toUpperCase()));
 
-  return {
-    ...parsed.data,
-    transfers: parsed.data.transfers.filter((t) => resolves(t.source)),
-    subProcessors: parsed.data.subProcessors.filter((s) => resolves(s.source)),
-  };
+  const transfers = parsed.data.transfers.filter((t) => resolves(t.source));
+  const subProcessors = parsed.data.subProcessors.filter((s) => resolves(s.source));
+
+  // Counted, not merely discarded. A model citing sources it was never given
+  // is the failure this design exists to catch, and it should be visible when
+  // it happens rather than showing up as a quietly short list.
+  const dropped =
+    parsed.data.transfers.length -
+    transfers.length +
+    (parsed.data.subProcessors.length - subProcessors.length);
+
+  return { data: { ...parsed.data, transfers, subProcessors }, dropped };
 }
 
 /** The source a citation points at, matched however the model cased it. */

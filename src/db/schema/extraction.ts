@@ -81,6 +81,29 @@ export const extractions = pgTable(
       .notNull()
       .default([]),
 
+    /**
+     * How the exchange went, in shapes rather than content.
+     *
+     * Held on the run as well as written to the logs, because the person who
+     * needs it is looking at a failed reading in the interface and generally
+     * cannot read the hosting platform's log stream — and by the time they
+     * ask, the line has usually rotated away.
+     */
+    diagnostics: jsonb("diagnostics")
+      .$type<{
+        ms?: number;
+        promptChars?: number;
+        replyChars?: number;
+        stopReason?: string | null;
+        maxTokens?: number;
+        parsed?: boolean;
+        /** Citations naming a source that was never sent, and so discarded. */
+        droppedCitations?: number;
+        clipped?: boolean;
+      }>()
+      .notNull()
+      .default({}),
+
     notes: text("notes"),
     /** Set when the model could not be reached or its answer made no sense. */
     failure: text("failure"),

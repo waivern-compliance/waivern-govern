@@ -1,0 +1,1 @@
+ALTER TABLE "extraction" ADD COLUMN "diagnostics" jsonb DEFAULT '{}'::jsonb NOT NULL;

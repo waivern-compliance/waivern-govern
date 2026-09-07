@@ -393,6 +393,17 @@ that was never sent are dropped rather than kept with unknown provenance.
 Nothing reaches the register until a person accepts it, and rejected proposals
 are retained, because a reviewer disagreeing is evidence of review.
 
+Every exchange with a model writes two JSON lines to stdout — one for the
+request, one for the response — carrying sizes, durations, stop reasons and
+counts, and no content. The same shape is kept on the extraction run itself,
+because the person looking at a failed reading is in the interface rather than
+in a log aggregator, and by the time they ask the line has rotated away. That
+is what makes "it didn't work" answerable: a request that was too large, an
+answer that was cut off, and one that was never JSON need different fixes and
+used to look identical. `ASSISTANT_DEBUG_BODIES=true` adds an excerpt of the
+model's reply, off by default and documented as unfit for production, because a
+reply quotes the document it read.
+
 Agreements usually do not list sub-processors — they point at a page that does.
 Those addresses are reported, not followed. Fetching one is a separate act
 requiring a person, since the URL came out of a supplier's document rather than

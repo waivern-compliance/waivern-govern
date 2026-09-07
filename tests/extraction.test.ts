@@ -148,7 +148,7 @@ describe("reading the model's answer", () => {
       }),
       sources,
     );
-    assert.equal(found?.subProcessors.length, 1);
+    assert.equal(found?.data.subProcessors.length, 1);
   });
 
   it("drops an entry citing a source that was never sent", () => {
@@ -160,7 +160,8 @@ describe("reading the model's answer", () => {
       }),
       sources,
     );
-    assert.equal(found?.subProcessors.length, 0);
+    assert.equal(found?.data.subProcessors.length, 0);
+    assert.equal(found?.dropped, 1, "and the drop is counted, not silent");
   });
 
   it("returns nothing when the answer is not JSON at all", () => {
@@ -473,5 +474,65 @@ describe("the trail it leaves", () => {
       .where(eq(extractionLinks.extractionId, run.extractionId));
     assert.equal(findings.length, 0);
     assert.equal(links.length, 0);
+  });
+});
+
+
+describe("what a run leaves behind for debugging", () => {
+  it("records how long it took, how much was sent and why it stopped", async () => {
+    const { org, dpa } = await scratch();
+    await attach(org.id, "dpa", dpa.id, "agreement.docx", fixture("agreement.docx"));
+    reply = JSON.stringify({
+      subProcessors: [{ name: "Datadog Inc.", quote: "Datadog Inc.", source: "S1" }],
+    });
+    await runExtraction({ organisationId: org.id, entityId: null, dpaId: dpa.id, actor: ACTOR });
+
+    const loaded = await latestExtraction(org.id, dpa.id);
+    const d = loaded!.run.diagnostics;
+    assert.ok(typeof d.ms === "number" && d.ms >= 0);
+    assert.ok((d.promptChars ?? 0) > 100, "the size of what was sent is recorded");
+    assert.ok((d.replyChars ?? 0) > 0);
+    assert.equal(d.parsed, true);
+    assert.equal(d.droppedCitations, 0);
+  });
+
+  it("records a citation the model invented, rather than losing it silently", async () => {
+    const { org, dpa } = await scratch();
+    await attach(org.id, "dpa", dpa.id, "agreement.docx", fixture("agreement.docx"));
+    reply = JSON.stringify({
+      subProcessors: [
+        { name: "Datadog Inc.", quote: "Datadog Inc.", source: "S1" },
+        { name: "Invented Ltd", quote: "nowhere", source: "S7" },
+      ],
+    });
+    const run = await runExtraction({ organisationId: org.id, entityId: null, dpaId: dpa.id, actor: ACTOR });
+    assert.equal(run.subProcessors, 1, "only the citeable one is kept");
+
+    const loaded = await latestExtraction(org.id, dpa.id);
+    assert.equal(loaded!.run.diagnostics.droppedCitations, 1);
+  });
+
+  it("records that nothing parsed, so a failure can be told apart from an empty answer", async () => {
+    const { org, dpa } = await scratch();
+    await attach(org.id, "dpa", dpa.id, "agreement.docx", fixture("agreement.docx"));
+    reply = "I am sorry, I cannot do that.";
+    await runExtraction({ organisationId: org.id, entityId: null, dpaId: dpa.id, actor: ACTOR });
+
+    const loaded = await latestExtraction(org.id, dpa.id);
+    assert.equal(loaded!.run.diagnostics.parsed, false);
+    assert.ok((loaded!.run.diagnostics.replyChars ?? 0) > 0, "something did come back");
+  });
+
+  it("keeps no document text in the diagnostics", async () => {
+    // The whole point of logging shapes: a run's diagnostics must be safe to
+    // paste into a support conversation.
+    const { org, dpa } = await scratch();
+    await attach(org.id, "dpa", dpa.id, "agreement.docx", fixture("agreement.docx"));
+    reply = JSON.stringify({ subProcessors: [{ name: "Datadog Inc.", quote: "Datadog Inc.", source: "S1" }] });
+    await runExtraction({ organisationId: org.id, entityId: null, dpaId: dpa.id, actor: ACTOR });
+
+    const loaded = await latestExtraction(org.id, dpa.id);
+    const serialised = JSON.stringify(loaded!.run.diagnostics);
+    assert.doesNotMatch(serialised, /Sub-processors|Datadog|Standard Contractual/i);
   });
 });

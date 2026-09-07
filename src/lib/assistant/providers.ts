@@ -1,3 +1,4 @@
+import { assistantBodies, excerpt, log } from "@/lib/log";
 import { redact, type Redaction } from "./redact";
 
 /**
@@ -84,13 +85,37 @@ export async function ask(
   });
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), input.timeoutMs ?? TIMEOUT_MS);
+  const budget = input.timeoutMs ?? TIMEOUT_MS;
+  const timer = setTimeout(() => controller.abort(), budget);
+  const started = Date.now();
+
+  // Sizes, not text. Enough to tell a request that was too big from one that
+  // was refused, without the contract travelling into the log stream.
+  const sent = {
+    kind: config.kind,
+    model: config.model,
+    systemChars: input.system.length,
+    promptChars: turns.reduce((total, turn) => total + turn.content.length, 0),
+    turns: turns.length,
+    maxTokens: input.maxTokens ?? 1024,
+    timeoutMs: budget,
+    redacted: redactions.reduce((total, r) => total + r.count, 0),
+  };
+  log("info", "assistant.request", sent);
 
   try {
     const answer =
       config.kind === "anthropic"
         ? await askAnthropic(config, input.system, turns, input.maxTokens ?? 1024, controller.signal)
         : await askOpenAiCompatible(config, input.system, turns, input.maxTokens ?? 1024, controller.signal);
+    log("info", "assistant.response", {
+      ...sent,
+      ok: true,
+      ms: Date.now() - started,
+      stopReason: answer.stopReason ?? null,
+      replyChars: answer.text.length,
+      ...(assistantBodies() ? { reply: excerpt(answer.text) } : {}),
+    });
     return { ok: true, ...answer, model: config.model, redactions };
   } catch (error) {
     // Fail soft, and never leak the endpoint or key into a user-facing string.
@@ -102,6 +127,15 @@ export async function ask(
       !aborted && error instanceof Error && error.name === "ProviderError"
         ? error.message
         : undefined;
+    log("warn", "assistant.response", {
+      ...sent,
+      ok: false,
+      ms: Date.now() - started,
+      timedOut: aborted,
+      // The provider's own words, which never contain the credential and are
+      // already shown on the settings screen.
+      detail: detail ?? null,
+    });
     return { ok: false, reason, detail, redactions, timedOut: aborted };
   } finally {
     clearTimeout(timer);

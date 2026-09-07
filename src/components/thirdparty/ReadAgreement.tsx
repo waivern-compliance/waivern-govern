@@ -157,6 +157,36 @@ export function ReadAgreement({
             read {latest.run.sources.map((s) => s.name).join(", ") || "nothing"}
           </p>
 
+          {/*
+            Shapes, never content. Enough to tell a request that was too big
+            from an answer that was cut off from one that was never JSON —
+            which is the distinction the first three failure reports needed and
+            could not make.
+          */}
+          {Object.keys(latest.run.diagnostics).length > 0 ? (
+            <p className="font-mono text-[11px] text-ink-soft">
+              {[
+                latest.run.diagnostics.ms !== undefined
+                  ? `${(latest.run.diagnostics.ms / 1000).toFixed(1)}s`
+                  : null,
+                latest.run.diagnostics.promptChars !== undefined
+                  ? `sent ${latest.run.diagnostics.promptChars.toLocaleString("en-GB")} chars`
+                  : null,
+                latest.run.diagnostics.replyChars
+                  ? `back ${latest.run.diagnostics.replyChars.toLocaleString("en-GB")}`
+                  : null,
+                latest.run.diagnostics.stopReason
+                  ? `stopped: ${latest.run.diagnostics.stopReason}`
+                  : null,
+                latest.run.diagnostics.droppedCitations
+                  ? `${latest.run.diagnostics.droppedCitations} unciteable, dropped`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+          ) : null}
+
           {latest.run.failure ? (
             <p className="rounded border border-amber-700 bg-amber-50 px-3 py-2 text-xs text-amber-900">
               {latest.run.failure}

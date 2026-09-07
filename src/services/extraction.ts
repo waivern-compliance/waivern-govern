@@ -8,6 +8,7 @@ import {
   extractions,
 } from "@/db/schema";
 import { appendAuditEvent } from "@/lib/audit";
+import { log } from "@/lib/log";
 import { ask } from "@/lib/assistant/providers";
 import { textFrom, textFromHtml } from "@/lib/documents/text";
 import { FetchRefused, fetchPage } from "@/lib/net/fetch-page";
@@ -215,16 +216,30 @@ async function persist(input: {
   configured: NonNullable<Awaited<ReturnType<typeof providerFor>>>;
   parentLinkId?: string;
 }): Promise<RunResult> {
+  const turn = buildTurn(input.sources);
+  const started = Date.now();
   const answer = await ask(input.configured.config, {
     system: SYSTEM,
-    turns: [{ role: "user", content: buildTurn(input.sources) }],
+    turns: [{ role: "user", content: turn }],
     maxTokens: MAX_TOKENS,
     timeoutMs: TIMEOUT_MS,
   });
+  const ms = Date.now() - started;
 
-  const found = answer.ok ? readResponse(answer.text, input.sources) : null;
+  const read = answer.ok ? readResponse(answer.text, input.sources) : null;
+  const found = read?.data ?? null;
   const characters = input.sources.reduce((total, source) => total + source.text.length, 0);
   const clipped = answer.ok && /max_tokens|length/i.test(answer.stopReason ?? "");
+  const diagnostics = {
+    ms,
+    promptChars: turn.length,
+    replyChars: answer.ok ? answer.text.length : 0,
+    stopReason: answer.ok ? (answer.stopReason ?? null) : null,
+    maxTokens: MAX_TOKENS,
+    parsed: Boolean(found),
+    droppedCitations: read?.dropped ?? 0,
+    clipped,
+  };
   const failure = answer.ok
     ? found
       ? null
@@ -259,6 +274,7 @@ async function persist(input: {
         sources: input.stored,
         unreadable: input.unreadable,
         redactions: answer.redactions,
+        diagnostics,
         notes: clipped && found
         ? [
             "The model's answer was cut off, so this may be incomplete — " +
@@ -359,6 +375,20 @@ async function persist(input: {
         unreadable: input.unreadable.length,
         failure,
       },
+    });
+
+    log(failure ? "warn" : "info", "extraction.run", {
+      ...diagnostics,
+      extraction: run.id,
+      dpa: input.dpa.id,
+      model: input.configured.config.model,
+      promptVersion: EXTRACTION_PROMPT_VERSION,
+      sources: input.stored.length,
+      unreadable: input.unreadable.length,
+      transfers: findings.filter((f) => f.kind === "transfer_mechanism").length,
+      subProcessors: findings.filter((f) => f.kind === "sub_processor").length,
+      links: links.length,
+      failure,
     });
 
     return {
