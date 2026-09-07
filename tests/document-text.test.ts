@@ -41,6 +41,17 @@ describe("reading an agreement", () => {
     assert.doesNotMatch(read.text, /\bT\nwo\b/);
   });
 
+  it("reads a page whose text sits behind a long run of vector graphics", () => {
+    // A chart, or a screenshot rendered as paths, puts hundreds of kilobytes
+    // of drawing commands before the first text object. The filter used to
+    // look for one only in the first 64KB, so such a page was discarded whole
+    // and a file with text on every page was reported as having none.
+    const read = textFrom(PDF, fixture("graphics-heavy.pdf"));
+    assert.ok(read.ok, read.ok ? "" : read.reason);
+    assert.match(read.text, /Amazon Web Services EMEA SARL/);
+    assert.match(read.text, /Decision 2021\/914/);
+  });
+
   it("finds the address of a sub-processor list held elsewhere", () => {
     const read = textFrom(PDF, fixture("subset-font.pdf"));
     assert.ok(read.ok);
@@ -63,6 +74,17 @@ describe("reading an agreement", () => {
 });
 
 describe("what it will not pretend to read", () => {
+  it("does not read a character map as if its hex codes were words", () => {
+    // A ToUnicode CMap is printable ASCII full of angle-bracketed hex, which
+    // is exactly what a text-showing operator looks like. The subset-font
+    // fixture carries 29 of them; if they were being scanned, its output
+    // would be salted with their code points.
+    const read = textFrom(PDF, fixture("subset-font.pdf"));
+    assert.ok(read.ok);
+    assert.doesNotMatch(read.text, /begincmap|beginbfchar|endcmap/);
+  });
+
+
   it("refuses an image, and says OCR is the missing thing", () => {
     const read = textFrom("image/png", Buffer.from("\x89PNG\r\n\x1a\n"));
     assert.equal(read.ok, false);

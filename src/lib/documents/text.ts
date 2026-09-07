@@ -275,6 +275,9 @@ function utf16be(hex: string): string {
   return out || String.fromCharCode(bytes[0] ?? 0);
 }
 
+const TEXT_OBJECT = Buffer.from("BT");
+const CMAP_KEYWORD = Buffer.from("begincmap");
+
 /**
  * Does this stream hold drawing instructions, or is it a font?
  *
@@ -283,6 +286,18 @@ function utf16be(hex: string): string {
  * thousands of parenthesised byte sequences that are not words. That noise
  * then fails the prose check and a perfectly readable agreement is refused —
  * which is exactly what happened before this filter existed.
+ *
+ * The head is checked for printability, because operators are ASCII and a font
+ * program is not. The search for a text object then covers the WHOLE stream.
+ * It used to stop at 64KB, on the assumption that text appears early — and a
+ * page whose background is a rendered image or a chart drawn as vector paths
+ * carries hundreds of kilobytes of drawing commands before its first BT. Those
+ * pages were discarded whole, so a file with text on every page was reported
+ * as having no text layer at all.
+ *
+ * A character map is also printable ASCII and also full of angle-bracketed hex,
+ * so it is excluded by name: scanning one yields its own hex codes as if they
+ * were words.
  */
 function isContentStream(stream: Buffer): boolean {
   const head = stream.subarray(0, 2048);
@@ -291,8 +306,9 @@ function isContentStream(stream: Buffer): boolean {
     if (byte === 9 || byte === 10 || byte === 13 || (byte >= 32 && byte < 127)) printable += 1;
   }
   if (head.length === 0 || printable / head.length < 0.9) return false;
+  if (stream.includes(CMAP_KEYWORD)) return false;
   // BT ... ET delimits a text object. No text object, no text.
-  return /\bBT\b/.test(stream.subarray(0, 65536).toString("latin1"));
+  return stream.includes(TEXT_OBJECT);
 }
 
 /**
