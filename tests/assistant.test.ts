@@ -368,3 +368,28 @@ describe("endpoint suggestions", () => {
     assert.ok(qwen.some((e) => e.note?.includes("jurisdiction")), "the difference should be said");
   });
 });
+
+describe("how long the model is given", () => {
+  it("uses the conversational default when no budget is named", async () => {
+    // Twenty-five seconds suits somebody watching a chat box.
+    const started = Date.now();
+    const result = await ask(
+      { kind: "anthropic", baseUrl: "http://127.0.0.1:9/never", model: "m", apiKey: "k" },
+      { system: "s", turns: [{ role: "user", content: "hello" }], timeoutMs: 300 },
+    );
+    assert.equal(result.ok, false);
+    assert.ok(Date.now() - started < 3000, "the named budget is honoured, not the default");
+  });
+
+  it("says when it ran out of time, so a caller can explain which", async () => {
+    const result = await ask(
+      { kind: "anthropic", baseUrl: "http://10.255.255.1:81/blackhole", model: "m", apiKey: "k" },
+      { system: "s", turns: [{ role: "user", content: "hello" }], timeoutMs: 250 },
+    );
+    assert.equal(result.ok, false);
+    if (!result.ok) {
+      assert.equal(result.timedOut, true);
+      assert.match(result.reason, /did not answer in time/);
+    }
+  });
+});

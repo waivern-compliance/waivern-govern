@@ -38,6 +38,18 @@ import type { Actor } from "./templates";
 
 /** Enough of the model's budget for a long list of sub-processors. */
 const MAX_TOKENS = 4096;
+
+/**
+ * How long to let the model read.
+ *
+ * Not the chat default. Two signed contracts is tens of thousands of tokens to
+ * read before the first word of a structured answer comes back, and the
+ * twenty-five seconds that suits a chat box cancelled the request and reported
+ * the model as unresponsive. Three minutes is long enough for a large
+ * agreement on a slow day, and short enough that a genuinely stuck request
+ * does not hold a page open indefinitely.
+ */
+const TIMEOUT_MS = 180_000;
 /** Beyond this the sources are costing more than they inform. */
 const MAX_SOURCE_CHARACTERS = 120_000;
 
@@ -200,14 +212,22 @@ async function persist(input: {
     system: SYSTEM,
     turns: [{ role: "user", content: buildTurn(input.sources) }],
     maxTokens: MAX_TOKENS,
+    timeoutMs: TIMEOUT_MS,
   });
 
   const found = answer.ok ? readResponse(answer.text, input.sources) : null;
+  const characters = input.sources.reduce((total, source) => total + source.text.length, 0);
   const failure = answer.ok
     ? found
       ? null
       : "The model answered, but not in a shape that could be read. Try again."
-    : answer.reason;
+    : answer.timedOut
+      ? `The model did not finish within ${TIMEOUT_MS / 1000} seconds. ` +
+        `It was given ${Math.round(characters / 1000)},000 characters across ` +
+        `${input.sources.length} file${input.sources.length === 1 ? "" : "s"}. ` +
+        `Try again, or move the files that do not bear on transfers and ` +
+        `sub-processors off this agreement so there is less to read.`
+      : answer.reason;
 
   return db.transaction(async (tx) => {
     const [run] = await tx

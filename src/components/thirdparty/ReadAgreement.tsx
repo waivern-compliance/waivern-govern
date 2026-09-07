@@ -103,7 +103,20 @@ export function ReadAgreement({
         ) : null}
       </div>
 
-      {result ? (
+      {running ? (
+        <p role="status" className="rounded border border-line bg-surface px-3 py-2 text-xs text-ink-soft">
+          Reading{readable.length > 0 ? ` ${readable.length} file${readable.length === 1 ? "" : "s"}` : ""}.
+          A long agreement takes a minute or two — the model reads all of it before
+          answering. Leave this page open.
+        </p>
+      ) : null}
+
+      {/*
+        The run itself is rendered below with its own failure, so repeating the
+        action's message would show the same sentence twice — which is what the
+        first report of the timeout looked like.
+      */}
+      {result && result.message !== latest?.run.failure ? (
         <p
           role="status"
           className={`rounded border px-3 py-2 text-xs ${

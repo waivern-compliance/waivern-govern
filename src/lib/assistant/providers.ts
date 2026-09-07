@@ -42,14 +42,24 @@ export type AskResult =
        */
       detail?: string;
       redactions: Redaction[];
+      /** So a caller can say something more useful than "it failed". */
+      timedOut?: boolean;
     };
 
-/** Beyond this the assistant has failed to be useful and should stop waiting. */
+/**
+ * How long to wait, by default.
+ *
+ * Tuned for a person watching a chat box: past twenty-five seconds they have
+ * concluded it is broken. It is a default rather than a constant because it is
+ * wrong for every non-conversational use — reading two contracts and returning
+ * a structured answer is a minute's work, and this limit cancelled it at
+ * twenty-five seconds and reported the model as unresponsive.
+ */
 const TIMEOUT_MS = 25_000;
 
 export async function ask(
   config: ProviderConfig,
-  input: { system: string; turns: Turn[]; maxTokens?: number },
+  input: { system: string; turns: Turn[]; maxTokens?: number; timeoutMs?: number },
 ): Promise<AskResult> {
   // Minimisation happens here rather than at the call sites, so no surface can
   // forget it. Only user turns are scrubbed; the system prompt is ours, and
@@ -63,7 +73,7 @@ export async function ask(
   });
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), input.timeoutMs ?? TIMEOUT_MS);
 
   try {
     const text =
@@ -81,7 +91,7 @@ export async function ask(
       !aborted && error instanceof Error && error.name === "ProviderError"
         ? error.message
         : undefined;
-    return { ok: false, reason, detail, redactions };
+    return { ok: false, reason, detail, redactions, timedOut: aborted };
   } finally {
     clearTimeout(timer);
   }
