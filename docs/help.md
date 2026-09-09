@@ -10,6 +10,7 @@ Every help topic the application carries, in the order it presents them.
 **Getting your bearings**
 
 - [What this is, and what it is not](#what-this-is-and-what-it-is-not) — A workflow tool for privacy and AI governance: it routes work, records decisions, and keeps an audit trail nobody can quietly edit.
+- [The step-by-step guide on your home page](#the-step-by-step-guide-on-your-home-page) — An ordered route through the work for anybody who has not done this before, measured against what your registers actually hold.
 - [Why your screens look different from a colleague's](#why-your-screens-look-different-from-a-colleagues) — A persona changes what you are shown first and in whose words. It never changes what you are allowed to see or do.
 - [Roles, and why you cannot see something](#roles-and-why-you-cannot-see-something) — Access is granted per role, and can be scoped to a single entity. Two powers are deliberately held apart from the rest.
 - [Tasks, and being mentioned](#tasks-and-being-mentioned) — Everything waiting on you, whether it names you directly or waits on a role you hold.
@@ -76,6 +77,46 @@ Start at Tasks. It is the only page that shows you what is actually waiting on y
 **See also:** Tasks, and being mentioned · Roles, and why you cannot see something · Why your screens look different from a colleague's
 
 <sub>Also searchable as: overview, introduction, waivern govern, purpose</sub>
+
+## The step-by-step guide on your home page
+
+*An ordered route through the work for anybody who has not done this before, measured against what your registers actually hold.*
+
+**Screen:** `/app`
+
+### What it is for
+
+The rest of this platform assumes a privacy professional — it names Article 30 and expects you to know why that matters. Plenty of the people who have to use it are a founder, an office manager, or the engineer who drew the short straw. The guide is for them.
+
+Each step says what to do in ordinary words first, why the law cares second, and how you will know it is finished third. Some carry a 'watch out' where people reliably get it wrong in a way that costs them later.
+
+### Two stages
+
+'Setting it up' is the one-off work of getting what your organisation actually does into the tool: entities, people, templates, your processing activities, your third parties, your AI, your first assessments, and the review dates that bring them back.
+
+'Keeping it current' is the work that recurs: clearing tasks, reassessing what is due, renewing agreements before they lapse, keeping the record true when something changes, and knowing what to do about a breach before you need to.
+
+You are put in a stage based on what your registers hold, and you can switch. Switching changes what is explained, never what you may reach.
+
+### Progress is measured, not remembered
+
+A step is ticked because something exists, not because somebody clicked it. Beside each step is the count it was judged on — '3 activities recorded', '2 third parties without an agreement' — so you can check the judgement rather than trust it.
+
+Three steps are never ticked: treating risks, breach readiness, and taking an export. Those are ongoing judgements rather than tasks you finish, and a tick beside them would say otherwise.
+
+### What it will not do
+
+It does not tell you whether your processing is lawful, whether you need a DPIA, or what your lawful basis is. Every step ends at a screen where a named person makes that call and attests to it. A guide that answered those questions would be doing the one thing this platform refuses to do.
+
+### Turning it off
+
+Hide it from the bottom of the panel; a single line stays on your home page to bring it back. The setting is yours alone and is held per organisation, so the same person can be finding their feet in one and running another by heart.
+
+When you bring it back, the stage is worked out from your registers again rather than from what you last chose.
+
+**See also:** What this is, and what it is not · The processing register (Article 30) · Third parties and processor agreements (Article 28) · Assessments: DPIAs, transfer risk, AI risk, screening
+
+<sub>Also searchable as: guide, onboarding, getting started, setup, first steps, new, beginner, no legal training, checklist, maturity, stages</sub>
 
 ## Why your screens look different from a colleague's
 

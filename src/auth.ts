@@ -68,6 +68,11 @@ export type SessionMembership = {
   grants: Grant[];
   /** As stated on the membership. Null means nobody has chosen one yet. */
   persona: Persona | null;
+  /**
+   * Whether this person wants the step-by-step guide, and at which stage.
+   * Null means unchosen, which is derived rather than defaulted to off.
+   */
+  guidance: "off" | "setup" | "maintain" | null;
 };
 
 /**
@@ -129,6 +134,7 @@ export async function loadMemberships(userId: string): Promise<SessionMembership
     organisationId: m.organisationId,
     organisationName: m.organisation.name,
     persona: m.persona,
+    guidance: m.guidance,
     grants: m.roles.map((r) =>
       r.scope === "entity" && r.entityId
         ? { role: r.role, scope: "entity" as const, entityId: r.entityId }

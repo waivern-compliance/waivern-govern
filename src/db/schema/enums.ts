@@ -446,3 +446,13 @@ export const extractionLinkStatus = pgEnum("extraction_link_status", [
   "declined",
   "failed",
 ]);
+
+/**
+ * How much hand-holding somebody wants on their home page.
+ *
+ * A preference, not a permission: it changes what is explained, never what may
+ * be reached. Null means "not chosen", which is derived from whether the
+ * organisation's registers have anything in them yet — so a new organisation
+ * is guided without anybody having to know the feature exists.
+ */
+export const guidanceMode = pgEnum("guidance_mode", ["off", "setup", "maintain"]);

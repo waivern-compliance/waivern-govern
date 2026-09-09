@@ -10,7 +10,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import { appRole, persona, recordType, roleScope } from "./enums";
+import { appRole, guidanceMode, persona, recordType, roleScope } from "./enums";
 
 /** A client of the platform. One organisation, one governance programme. */
 export const organisations = pgTable("organisation", {
@@ -107,6 +107,16 @@ export const memberships = pgTable(
      * an answer. Presentation only — never consulted by an access check.
      */
     persona: persona("persona"),
+
+    /**
+     * Whether to show the step-by-step guide, and which stage of it.
+     *
+     * Per membership rather than per user, because the same person can be
+     * finding their feet in one organisation and running another by heart.
+     * Null is not "off" — it means nobody has chosen, and the stage is derived
+     * from what the registers actually contain.
+     */
+    guidance: guidanceMode("guidance"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

@@ -312,6 +312,55 @@ export const HELP_TOPICS: HelpTopic[] = [
     related: ["transfers", "third-parties", "exports"],
   },
   {
+    id: "guide",
+    title: "The step-by-step guide on your home page",
+    summary:
+      "An ordered route through the work for anybody who has not done this before, measured against what your registers actually hold.",
+    path: "/app",
+    keywords: [
+      "guide", "onboarding", "getting started", "setup", "first steps", "new",
+      "beginner", "no legal training", "checklist", "maturity", "stages",
+    ],
+    sections: [
+      {
+        heading: "What it is for",
+        body: [
+          "The rest of this platform assumes a privacy professional — it names Article 30 and expects you to know why that matters. Plenty of the people who have to use it are a founder, an office manager, or the engineer who drew the short straw. The guide is for them.",
+          "Each step says what to do in ordinary words first, why the law cares second, and how you will know it is finished third. Some carry a 'watch out' where people reliably get it wrong in a way that costs them later.",
+        ],
+      },
+      {
+        heading: "Two stages",
+        body: [
+          "'Setting it up' is the one-off work of getting what your organisation actually does into the tool: entities, people, templates, your processing activities, your third parties, your AI, your first assessments, and the review dates that bring them back.",
+          "'Keeping it current' is the work that recurs: clearing tasks, reassessing what is due, renewing agreements before they lapse, keeping the record true when something changes, and knowing what to do about a breach before you need to.",
+          "You are put in a stage based on what your registers hold, and you can switch. Switching changes what is explained, never what you may reach.",
+        ],
+      },
+      {
+        heading: "Progress is measured, not remembered",
+        body: [
+          "A step is ticked because something exists, not because somebody clicked it. Beside each step is the count it was judged on — '3 activities recorded', '2 third parties without an agreement' — so you can check the judgement rather than trust it.",
+          "Three steps are never ticked: treating risks, breach readiness, and taking an export. Those are ongoing judgements rather than tasks you finish, and a tick beside them would say otherwise.",
+        ],
+      },
+      {
+        heading: "What it will not do",
+        body: [
+          "It does not tell you whether your processing is lawful, whether you need a DPIA, or what your lawful basis is. Every step ends at a screen where a named person makes that call and attests to it. A guide that answered those questions would be doing the one thing this platform refuses to do.",
+        ],
+      },
+      {
+        heading: "Turning it off",
+        body: [
+          "Hide it from the bottom of the panel; a single line stays on your home page to bring it back. The setting is yours alone and is held per organisation, so the same person can be finding their feet in one and running another by heart.",
+          "When you bring it back, the stage is worked out from your registers again rather than from what you last chose.",
+        ],
+      },
+    ],
+    related: ["getting-started", "ropa", "third-parties", "assessments"],
+  },
+  {
     id: "third-parties",
     title: "Third parties and processor agreements (Article 28)",
     summary:
@@ -861,7 +910,7 @@ export const HELP_TOPICS: HelpTopic[] = [
 export const HELP_GROUPS: Array<{ heading: string; ids: string[] }> = [
   {
     heading: "Getting your bearings",
-    ids: ["getting-started", "personas", "roles-and-access", "tasks"],
+    ids: ["getting-started", "guide", "personas", "roles-and-access", "tasks"],
   },
   {
     heading: "Doing the work",

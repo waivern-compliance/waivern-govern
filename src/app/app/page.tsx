@@ -7,9 +7,11 @@ import {
   ProductHome,
   QuickLinks,
 } from "@/components/home/homes";
+import { Guide } from "@/components/guidance/Guide";
 import { PersonaSwitcher } from "@/components/home/PersonaSwitcher";
 import { PERSONA_LABEL } from "@/lib/persona";
 import { getActiveSession } from "@/lib/session";
+import { guidanceFor } from "@/services/guidance";
 
 /**
  * One home, four arrangements.
@@ -23,6 +25,13 @@ export default async function Home() {
   if (!active) redirect("/sign-in");
 
   const { persona } = active;
+
+  // Above the persona views rather than inside one: somebody finding their
+  // feet needs the order of the work before they need their own slice of it.
+  const guidance = await guidanceFor({
+    organisationId: active.membership.organisationId,
+    chosen: active.membership.guidance ?? null,
+  });
   // No first name here. The name field holds whatever an administrator typed —
   // often a job title — and "Here is what needs you, Engineering" is worse than
   // no greeting at all. Their name is already in the heading above.
@@ -57,6 +66,8 @@ export default async function Home() {
           </button>
         </form>
       </header>
+
+      <Guide guidance={guidance} />
 
       {persona === "privacy_governance" ? <PrivacyHome active={active} /> : null}
       {persona === "ai_governance" ? <AiHome active={active} /> : null}

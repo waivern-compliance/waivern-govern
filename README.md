@@ -368,6 +368,17 @@ conditional logic rendered in English rather than as JSON, the scoring bands and
 the version history. A draft is edited as a validated definition and cannot be
 published while the validator has anything to say about it.
 
+The home page carries an optional step-by-step guide for people who are not
+privacy professionals — a founder, an office manager, the engineer who drew the
+short straw. It has two stages, setting up and keeping current, and each step
+says what to do in ordinary words first, why the law cares second, and how you
+know it is finished third. Progress is measured against the registers rather
+than remembered from clicks, and the count it was judged on sits beside each
+step so the judgement can be checked rather than trusted. Three steps are never
+ticked — treating risks, breach readiness, taking an export — because those are
+ongoing judgements, not tasks that finish. It explains and never decides:
+whether a DPIA is required, and on what basis, remains a named person's call.
+
 An in-product help system covers every screen and the reasoning behind it,
 searchable, with a short contextual version folded into each page. Settings
 carries the two administrative screens — who may sign in and as what, and the
