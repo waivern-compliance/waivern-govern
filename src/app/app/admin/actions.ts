@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { PERSONAS, type Persona } from "@/lib/persona";
 import { ROLES, type AppRole } from "@/lib/rbac";
+import { HandoverRefused, handOver } from "@/services/handover";
 import { requireCapability } from "@/lib/session";
 import {
   LastOwnerRemains,
@@ -191,5 +192,54 @@ export async function renameOrganisationAction(
       ok: false,
       message: error instanceof Error ? error.message : "That could not be saved.",
     };
+  }
+}
+
+export type HandoverResult = { ok: boolean; message: string } | null;
+
+/**
+ * Give one person's open work to another.
+ *
+ * Its own act rather than something suspension does automatically: who picks
+ * up a departing colleague's assessments is a judgement, and guessing it would
+ * quietly make somebody responsible for work they have not seen.
+ */
+export async function handOverAction(
+  fromUserId: string,
+  _prev: HandoverResult,
+  formData: FormData,
+): Promise<HandoverResult> {
+  const active = await requireCapability("member.manage");
+  const toUserId = String(formData.get("toUserId") ?? "");
+  if (!toUserId) return { ok: false, message: "Choose who is taking it on." };
+
+  try {
+    const { moved } = await handOver({
+      organisationId: active.membership.organisationId,
+      fromUserId,
+      toUserId,
+      actor: actorOf(active),
+    });
+    revalidatePath("/app/admin/people");
+    return moved.total === 0
+      ? { ok: true, message: "There was nothing open to hand over." }
+      : {
+          ok: true,
+          message:
+            `Moved ${moved.total} item${moved.total === 1 ? "" : "s"}: ` +
+            [
+              moved.openTasks && `${moved.openTasks} open task${moved.openTasks === 1 ? "" : "s"}`,
+              moved.assessments && `${moved.assessments} assessment${moved.assessments === 1 ? "" : "s"}`,
+              moved.activities && `${moved.activities} processing activit${moved.activities === 1 ? "y" : "ies"}`,
+              moved.suppliers && `${moved.suppliers} third part${moved.suppliers === 1 ? "y" : "ies"}`,
+              moved.aiSystems && `${moved.aiSystems} AI system${moved.aiSystems === 1 ? "" : "s"}`,
+              moved.breaches && `${moved.breaches} breach${moved.breaches === 1 ? "" : "es"}`,
+            ]
+              .filter(Boolean)
+              .join(", ") + ".",
+        };
+  } catch (error) {
+    if (error instanceof HandoverRefused) return { ok: false, message: error.message };
+    throw error;
   }
 }

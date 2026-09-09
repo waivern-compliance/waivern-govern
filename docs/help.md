@@ -45,6 +45,7 @@ Every help topic the application carries, in the order it presents them.
 **Setting it up**
 
 - [Assessment templates](#assessment-templates) — The question sets, versioned, so an assessment always shows the questions it was actually answered against.
+- [Who approves what, and changing it](#who-approves-what-and-changing-it) — Approvers are named by role rather than by person, so a departure is handled by moving the role — and both are managed on one screen.
 - [Connected tools](#connected-tools) — Signed endpoints that let the Compliance Portal and scanning tools push records in and pull current state out.
 - [Naming the organisation](#naming-the-organisation) — What this organisation is called wherever the platform refers to it, and what renaming does not change.
 - [Giving somebody access](#giving-somebody-access) — Grant a role, confine it to one entity, suspend or reinstate. Every change is written to the audit log.
@@ -702,6 +703,46 @@ A template carries the rules that decide which approvals an answer set triggers.
 **See also:** Assessments: DPIAs, transfer risk, AI risk, screening · Approving, returning and rejecting
 
 <sub>Also searchable as: template, version, questions, publish, routing, dpia template</sub>
+
+## Who approves what, and changing it
+
+*Approvers are named by role rather than by person, so a departure is handled by moving the role — and both are managed on one screen.*
+
+**Screen:** `/app/admin/workflows`
+
+### Where the approver is defined
+
+On the approval workflow for that kind of assessment. Each stage names a role — privacy analyst, approver, AI governance — and anyone holding that role in the assessment's entity may decide it. Owners may decide anything.
+
+Deliberately a role and not a person. Naming a person means every leaver strands a queue of assessments waiting on somebody who no longer works here, and every reorganisation becomes a data migration. Naming a role means a departure is handled by moving the role: the gates follow.
+
+That model was always right and entirely invisible — nothing showed which role decided a gate. The screen now shows the rule and the people it currently resolves to, side by side.
+
+### When nobody holds the role
+
+A gate whose role nobody holds does not fail. It waits, indefinitely and quietly. The screen shows those at the top, because a stalled approval looks identical to one somebody is still thinking about.
+
+A suspended member does not count. Withdrawing access removes their ability to decide, which is the point — but if they were the only holder, the gate now has nobody.
+
+### Changing a stage
+
+You can change what a stage is called, which role decides it, how long they have, and — for the simple rules — when it applies. Rules that combine several conditions are shown in English but not offered for editing: rebuilding one in a form is how a rule nobody fully read gets replaced.
+
+Changing the role redirects the approvals already waiting on that stage, because an assessment sitting with the wrong approver is the problem being solved. Approvals already decided keep their own record of who was entitled to decide them, so the history does not move.
+
+### When somebody leaves or moves team
+
+Approvals need nothing: revoke the role and every gate they were holding moves with it.
+
+Everything named against them individually is the problem — tasks assigned to them, and records they own. Those do not move when access is withdrawn; they simply stop happening. Worse, a record owned by a suspended person still counts as owned, so nothing reports it as a gap.
+
+People and access shows what each person is holding and offers a handover: it moves their open tasks and owned records to a named colleague, in one act, recorded in the audit trail. Finished work and decided approvals stay where they are, because they are a record of what happened.
+
+Handover is offered for everybody, not only the suspended. The case that goes wrong most often is somebody who moved teams and still owns forty records, because nobody ever suspends them and nothing prompts the question.
+
+**See also:** Approving, returning and rejecting · Giving somebody access · Roles, and why you cannot see something · Service levels and things that come round again
+
+<sub>Also searchable as: approver, approval, workflow, stage, gate, sign-off, who approves, leaver, left the company, moved teams, handover, reassign, sla</sub>
 
 ## Connected tools
 

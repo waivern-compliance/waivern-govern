@@ -2,7 +2,36 @@ import { appRole } from "@/db/schema";
 
 export type AppRole = (typeof appRole.enumValues)[number];
 
-/** Every role, in the order they are offered. */
+/**
+ * What each role is called, and what it lets somebody decide.
+ *
+ * The definitions lived only in a comment on the enum, which meant no screen
+ * could show them — including the one where an administrator picks the role
+ * that decides an approval. Choosing an approver from a list of snake_case
+ * identifiers is how the wrong person ends up holding a gate.
+ */
+export const ROLE_LABEL: Record<AppRole, string> = {
+  owner: "Owner",
+  privacy_admin: "Privacy administrator",
+  privacy_analyst: "Privacy analyst",
+  ai_governance: "AI governance",
+  approver: "Approver",
+  contributor: "Contributor",
+  auditor: "Auditor",
+};
+
+/** The same wording the people screen has always used, now shared rather than copied. */
+export const ROLE_BLURB: Record<AppRole, string> = {
+  owner: "Everything, including managing people",
+  privacy_admin: "Registers, templates and workflow configuration",
+  privacy_analyst: "Day-to-day assessment and risk work",
+  ai_governance: "The AI register and assessments over it",
+  approver: "Decides approvals and accepts risk",
+  contributor: "Answers what is asked of them",
+  auditor: "Reads everything, changes nothing, exports the log",
+};
+
+/** Every role, in the order they are offered — which is the order of the enum. */
 export const ROLES = appRole.enumValues;
 
 /**

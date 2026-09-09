@@ -171,7 +171,10 @@ describe("administration is kept apart", () => {
     // The group decides where it is filed. If an entry were grouped as admin
     // but gated on record.read, it would appear under settings for people who
     // cannot change any setting.
-    const managing = ["member.manage", "org.manage", "entity.manage"];
+    // Capabilities that change how the organisation runs, rather than what is
+    // recorded in it. workflow.configure belongs here: deciding who signs off
+    // an assessment is a setting, not a record.
+    const managing = ["member.manage", "org.manage", "entity.manage", "workflow.configure"];
     for (const item of NAV.filter((i) => i.group === "admin")) {
       assert.ok(
         item.capability && managing.includes(item.capability),

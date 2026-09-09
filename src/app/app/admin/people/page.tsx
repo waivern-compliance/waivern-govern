@@ -6,21 +6,18 @@ import { entities } from "@/db/schema";
 import { HelpLink } from "@/components/help/HelpLink";
 import { NotPermitted } from "@/components/NotPermitted";
 import { PERSONA_LABEL, PERSONAS } from "@/lib/persona";
-import { ROLES, can } from "@/lib/rbac";
+import { ROLE_BLURB, ROLES, can } from "@/lib/rbac";
 import { getActiveSession } from "@/lib/session";
 import { listMembers } from "@/services/access";
+import { candidatesFor, holdingsOf } from "@/services/handover";
+import { Handover } from "./Handover";
 import { InviteForm } from "./InviteForm";
 import { revokeRoleAction, setActiveAction, setPersonaAction } from "../actions";
 
-const ROLE_NOTE: Record<string, string> = {
-  owner: "Everything, including managing people",
-  privacy_admin: "Registers, templates and workflow configuration",
-  privacy_analyst: "Day-to-day assessment and risk work",
-  ai_governance: "The AI register and assessments over it",
-  approver: "Decides approvals and accepts risk",
-  contributor: "Answers what is asked of them",
-  auditor: "Reads everything, changes nothing, exports the log",
-};
+// Shared with the approval-workflow screen, where the same descriptions decide
+// which role a gate is handed to. Two copies would eventually disagree about
+// what a role means, in the two places it matters most.
+const ROLE_NOTE = ROLE_BLURB;
 
 export default async function PeoplePage() {
   const active = await getActiveSession();
@@ -40,6 +37,17 @@ export default async function PeoplePage() {
     listMembers(org),
     db.select().from(entities).where(eq(entities.organisationId, org)),
   ]);
+
+  // What each person is holding. Approvals are decided by role and move with
+  // it, so they are not here — but a task assigned to somebody, and a record
+  // they own, do not move when their access is withdrawn. They just stop
+  // happening, and a suspended owner still satisfies "this has an owner".
+  const holdings = new Map(
+    await Promise.all(
+      members.map(async (m) => [m.userId, await holdingsOf(org, m.userId)] as const),
+    ),
+  );
+  const candidates = await candidatesFor(org, "");
 
   const owners = members.filter(
     (m) => m.isActive && m.roles.some((r) => r.role === "owner"),
@@ -91,6 +99,21 @@ export default async function PeoplePage() {
                   {m.lastSeenAt ? ` · last seen ${m.lastSeenAt.toISOString().slice(0, 10)}` : " · never signed in"}
                 </span>
               </div>
+
+              {!m.isActive && (holdings.get(m.userId)?.total ?? 0) > 0 ? (
+                <p className="rounded border border-amber-700 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                  Suspended, but still holds open work. Withdrawing access does not move it,
+                  and a record owned by a suspended person still counts as owned — so nothing
+                  reports this as a gap. Hand it over below.
+                </p>
+              ) : null}
+
+              <Handover
+                userId={m.userId}
+                email={m.email}
+                holding={holdings.get(m.userId)!}
+                candidates={candidates.filter((c) => c.id !== m.userId)}
+              />
 
               <div className="flex flex-wrap items-center gap-1.5">
                 {m.roles.map((r) => (

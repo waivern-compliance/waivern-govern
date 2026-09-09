@@ -126,6 +126,13 @@ export const NAV: NavItem[] = [
     group: "admin",
   },
   {
+    href: "/app/admin/workflows",
+    label: "Approval workflows",
+    hint: "who signs off each kind of assessment",
+    capability: "workflow.configure",
+    group: "admin",
+  },
+  {
     href: "/app/admin/assistant",
     label: "Assistant",
     hint: "point the platform at a model you control",

@@ -144,3 +144,59 @@ export function describe(condition: RoutingCondition): string {
       return `not (${describe(condition.condition)})`;
   }
 }
+
+/**
+ * When a stage applies, in a sentence.
+ *
+ * An administrator deciding who approves a DPIA should not have to read JSON to
+ * find out whether a gate fires. Nested conditions are rendered too, because a
+ * stage whose rule cannot be shown is a stage nobody can safely change.
+ */
+export function describeRouting(condition: RoutingCondition): string {
+  switch (condition.op) {
+    case "always":
+      return "always";
+    case "scoreAtLeast":
+      return `the risk score is ${condition.value} or more`;
+    case "tierAtLeast":
+      return `the risk is ${condition.value} or worse`;
+    case "answerEquals":
+      return `the answer to “${condition.question}” is ${String(condition.value)}`;
+    case "answerIncludes":
+      return `the answer to “${condition.question}” includes ${condition.value}`;
+    case "specialCategoryData":
+      return "special-category data is involved";
+    case "transferToNonAdequate":
+      return "data goes to a country without an adequacy decision";
+    case "and":
+      return condition.all.map(describeRouting).join(", and ");
+    case "or":
+      return condition.any.map(describeRouting).join(", or ");
+    case "not":
+      return `not: ${describeRouting(condition.condition)}`;
+  }
+}
+
+/**
+ * The conditions an administrator may choose from a menu.
+ *
+ * Deliberately the flat ones. A nested and/or is legitimate and is kept and
+ * shown in English, but offering to rebuild one in a form invites somebody to
+ * replace a rule they did not fully read.
+ */
+export const SIMPLE_CONDITIONS = [
+  "always",
+  "scoreAtLeast",
+  "tierAtLeast",
+  "specialCategoryData",
+  "transferToNonAdequate",
+] as const;
+
+export type SimpleConditionOp = (typeof SIMPLE_CONDITIONS)[number];
+
+export function isSimple(condition: RoutingCondition): condition is Extract<
+  RoutingCondition,
+  { op: SimpleConditionOp }
+> {
+  return (SIMPLE_CONDITIONS as readonly string[]).includes(condition.op);
+}
