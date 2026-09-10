@@ -86,7 +86,7 @@ export async function exportRisks(organisationId: string, entityIds: string[] | 
         ? eq(risks.organisationId, organisationId)
         : and(
             eq(risks.organisationId, organisationId),
-            inArray(risks.entityId, entityIds.length ? entityIds : [""]),
+            inArray(risks.entityId, entityIds),
           ),
     )
     .orderBy(asc(risks.reference));
@@ -156,7 +156,7 @@ export async function exportAssessments(organisationId: string, entityIds: strin
         ? eq(assessments.organisationId, organisationId)
         : and(
             eq(assessments.organisationId, organisationId),
-            inArray(assessments.entityId, entityIds.length ? entityIds : [""]),
+            inArray(assessments.entityId, entityIds),
           ),
     )
     .orderBy(asc(assessments.reference));
@@ -215,7 +215,7 @@ export async function exportAiRegister(organisationId: string, entityIds: string
         ? eq(aiUseCases.organisationId, organisationId)
         : and(
             eq(aiUseCases.organisationId, organisationId),
-            inArray(aiUseCases.entityId, entityIds.length ? entityIds : [""]),
+            inArray(aiUseCases.entityId, entityIds),
           ),
     )
     .orderBy(asc(aiUseCases.reference));
@@ -283,7 +283,7 @@ export async function exportAudit(
         ? eq(auditEvents.organisationId, organisationId)
         : and(
             eq(auditEvents.organisationId, organisationId),
-            inArray(auditEvents.entityId, entityIds.length ? entityIds : [""]),
+            inArray(auditEvents.entityId, entityIds),
           ),
     )
     .orderBy(asc(auditEvents.seq));

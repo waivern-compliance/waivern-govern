@@ -68,7 +68,7 @@ export async function aiEstate(active: ActiveSession) {
     ? eq(assessments.organisationId, active.membership.organisationId)
     : and(
         eq(assessments.organisationId, active.membership.organisationId),
-        inArray(assessments.entityId, entityIds.length ? entityIds : [""]),
+        inArray(assessments.entityId, entityIds),
       );
 
   const [aiAssessments, aiRisks] = await Promise.all([
@@ -115,7 +115,7 @@ export async function unratedRisks(active: ActiveSession) {
         eq(risks.organisationId, active.membership.organisationId),
         entityIds === null
           ? undefined
-          : inArray(risks.entityId, entityIds.length ? entityIds : [""]),
+          : inArray(risks.entityId, entityIds),
         isNull(risks.residualTier),
         ne(risks.status, "closed"),
       ),

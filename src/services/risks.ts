@@ -507,7 +507,7 @@ export async function listRisks(organisationId: string, entityIds: string[] | nu
         ? eq(risks.organisationId, organisationId)
         : and(
             eq(risks.organisationId, organisationId),
-            inArray(risks.entityId, entityIds.length ? entityIds : [""]),
+            inArray(risks.entityId, entityIds),
           ),
     )
     .orderBy(desc(risks.inherentScore), desc(risks.updatedAt));

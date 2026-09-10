@@ -97,7 +97,7 @@ export async function dashboardMetrics(
   const scoped = <T extends { entityId: unknown }>(table: T) =>
     entityIds === null
       ? undefined
-      : inArray(table.entityId as never, entityIds.length ? entityIds : [""]);
+      : inArray(table.entityId as never, entityIds);
 
   const assessmentScope = and(
     eq(assessments.organisationId, organisationId),

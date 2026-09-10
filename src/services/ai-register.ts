@@ -335,7 +335,7 @@ export async function listRegister(
         ? eq(aiUseCases.organisationId, organisationId)
         : and(
             eq(aiUseCases.organisationId, organisationId),
-            inArray(aiUseCases.entityId, entityIds.length ? entityIds : [""]),
+            inArray(aiUseCases.entityId, entityIds),
           ),
     )
     .orderBy(aiUseCases.reference);

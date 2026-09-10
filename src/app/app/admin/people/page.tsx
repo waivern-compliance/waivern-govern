@@ -47,7 +47,7 @@ export default async function PeoplePage() {
       members.map(async (m) => [m.userId, await holdingsOf(org, m.userId)] as const),
     ),
   );
-  const candidates = await candidatesFor(org, "");
+  const candidates = await candidatesFor(org);
 
   const owners = members.filter(
     (m) => m.isActive && m.roles.some((r) => r.role === "owner"),

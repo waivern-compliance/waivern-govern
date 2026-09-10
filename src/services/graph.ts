@@ -114,7 +114,7 @@ export async function aiChains(
       ? eq(aiUseCases.organisationId, organisationId)
       : and(
           eq(aiUseCases.organisationId, organisationId),
-          inArray(aiUseCases.entityId, entityIds.length ? entityIds : [""]),
+          inArray(aiUseCases.entityId, entityIds),
         );
 
   // Retired systems are history, not a gap somebody should chase.

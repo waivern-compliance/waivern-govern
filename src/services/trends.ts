@@ -113,7 +113,7 @@ export async function trendFor(
   now = new Date(),
 ): Promise<{ periods: Period[]; points: TrendPoint[] }> {
   const periods = monthsEnding(now, months);
-  const inScope = entityIds === null ? null : entityIds.length ? entityIds : [""];
+  const inScope = entityIds === null ? null : entityIds;
 
   const riskScope = inScope
     ? and(eq(risks.organisationId, organisationId), inArray(risks.entityId, inScope))

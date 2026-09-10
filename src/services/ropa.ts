@@ -130,7 +130,7 @@ async function scopeOf(organisationId: string, entityIds: string[] | null) {
         eq(processingActivities.organisationId, organisationId),
         inArray(
           processingActivities.entityId,
-          entityIds.length ? entityIds : [""],
+          entityIds,
         ),
       );
 }

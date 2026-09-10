@@ -373,7 +373,7 @@ export async function breachRegister(organisationId: string, entityIds: string[]
         ? eq(breaches.organisationId, organisationId)
         : and(
             eq(breaches.organisationId, organisationId),
-            inArray(breaches.entityId, entityIds.length ? entityIds : [""]),
+            inArray(breaches.entityId, entityIds),
           ),
     )
     .orderBy(desc(breaches.discoveredAt));

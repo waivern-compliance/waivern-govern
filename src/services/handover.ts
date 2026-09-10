@@ -113,19 +113,27 @@ export async function holdingsOf(organisationId: string, userId: string): Promis
   return holding;
 }
 
-/** Everyone who could receive a handover: active members, other than the leaver. */
-export async function candidatesFor(organisationId: string, userId: string) {
+/**
+ * Everyone who could receive a handover: the active members.
+ *
+ * `exclude` is optional and omitted rather than defaulted. It used to be a
+ * required string, and the screen that lists every member passed "" to mean
+ * "nobody in particular" — which Postgres reads as an empty uuid and rejects,
+ * taking the whole page down. A parameter whose absence has a meaning should
+ * be absent, not represented by a value the column cannot hold.
+ */
+export async function candidatesFor(organisationId: string, exclude?: string) {
+  const scope = [
+    eq(memberships.organisationId, organisationId),
+    eq(memberships.isActive, true),
+    ...(exclude ? [ne(memberships.userId, exclude)] : []),
+  ];
+
   return db
     .select({ id: users.id, email: users.email })
     .from(memberships)
     .innerJoin(users, eq(users.id, memberships.userId))
-    .where(
-      and(
-        eq(memberships.organisationId, organisationId),
-        eq(memberships.isActive, true),
-        ne(memberships.userId, userId),
-      ),
-    );
+    .where(and(...scope));
 }
 
 /**

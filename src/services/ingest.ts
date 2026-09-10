@@ -682,7 +682,7 @@ export async function openFindings(organisationId: string, entityIds: string[] |
         isNull(scanFindings.convertedRiskId),
         entityIds === null
           ? undefined
-          : inArray(scanFindings.entityId, entityIds.length ? entityIds : [""]),
+          : inArray(scanFindings.entityId, entityIds),
       ),
     )
     .orderBy(scanFindings.createdAt);

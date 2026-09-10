@@ -449,7 +449,7 @@ export async function listAssessments(organisationId: string, entityIds: string[
         ? eq(assessments.organisationId, organisationId)
         : and(
             eq(assessments.organisationId, organisationId),
-            inArray(assessments.entityId, entityIds.length ? entityIds : [""]),
+            inArray(assessments.entityId, entityIds),
           ),
     )
     .orderBy(desc(assessments.updatedAt));
@@ -482,7 +482,7 @@ export async function reviewSchedule(
       : and(
           eq(assessments.organisationId, organisationId),
           eq(assessments.status, "approved"),
-          inArray(assessments.entityId, entityIds.length ? entityIds : [""]),
+          inArray(assessments.entityId, entityIds),
         );
 
   const rows = await db
