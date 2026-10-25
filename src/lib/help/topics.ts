@@ -241,6 +241,13 @@ export const HELP_TOPICS: HelpTopic[] = [
           "When it expires the risk is not quietly re-accepted. The hourly sweep raises a task, and until somebody acts the risk reads as running unaccepted, whatever its status column says.",
         ],
       },
+      {
+        heading: "Categories, and raising a risk from an assessment",
+        body: [
+          "AI risks are filed under the nine categories of DSIT's AI Risk Management Toolkit — financial, legal, transparency, fairness, accountability, contestability, robustness, security, and environment and people. Other risks can carry no category.",
+          "Raise a risk from the assessment that found it, using the form at the foot of the assessment. That ties the risk to the assessment, so the AI assurance chain can draw the line from the system to what was done about it. Where the assessment named categories that carry risk, they are offered first, and any not yet raised are listed.",
+        ],
+      },
     ],
     related: ["approvals", "findings", "ai-chain"],
   },
@@ -944,6 +951,12 @@ export const HELP_TOPICS: HelpTopic[] = [
         heading: "Routing rules",
         body: [
           "A template carries the rules that decide which approvals an answer set triggers. That is why two assessments from the same template can need different sign-off.",
+        ],
+      },
+      {
+        heading: "Templates Waivern releases later",
+        body: [
+          "When Waivern ships a new template — the AI risk identification following DSIT's toolkit, for example — the library offers to add it. Adding it publishes it as a version of its own, alongside the legal references it cites. Nothing you already hold changes, including copies you have edited.",
         ],
       },
     ],

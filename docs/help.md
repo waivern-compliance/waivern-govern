@@ -284,6 +284,12 @@ Only an approver can accept, and only after a residual rating exists — there i
 
 When it expires the risk is not quietly re-accepted. The hourly sweep raises a task, and until somebody acts the risk reads as running unaccepted, whatever its status column says.
 
+### Categories, and raising a risk from an assessment
+
+AI risks are filed under the nine categories of DSIT's AI Risk Management Toolkit — financial, legal, transparency, fairness, accountability, contestability, robustness, security, and environment and people. Other risks can carry no category.
+
+Raise a risk from the assessment that found it, using the form at the foot of the assessment. That ties the risk to the assessment, so the AI assurance chain can draw the line from the system to what was done about it. Where the assessment named categories that carry risk, they are offered first, and any not yet raised are listed.
+
 **See also:** Approving, returning and rejecting · Scan findings · The AI assurance chain
 
 <sub>Also searchable as: risk, mitigation, residual, inherent, accept, tier, likelihood, impact</sub>
@@ -707,6 +713,10 @@ Publishing a new version never alters assessments already under way. An assessme
 ### Routing rules
 
 A template carries the rules that decide which approvals an answer set triggers. That is why two assessments from the same template can need different sign-off.
+
+### Templates Waivern releases later
+
+When Waivern ships a new template — the AI risk identification following DSIT's toolkit, for example — the library offers to add it. Adding it publishes it as a version of its own, alongside the legal references it cites. Nothing you already hold changes, including copies you have edited.
 
 **See also:** Assessments: DPIAs, transfer risk, AI risk, screening · Approving, returning and rejecting
 

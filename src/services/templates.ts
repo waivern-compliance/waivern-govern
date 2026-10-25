@@ -1,8 +1,9 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db/client";
-import { templates, templateVersions } from "@/db/schema";
+import { legalReferences, templates, templateVersions } from "@/db/schema";
 import type { templateKind } from "@/db/schema";
 import { appendAuditEvent, type AuditInput } from "@/lib/audit";
+import { LEGAL_REFERENCES, SYSTEM_TEMPLATES } from "@/lib/templates/library";
 import { templateDefinition, type TemplateDefinition } from "@/lib/templates/schema";
 import { validateTemplate, type TemplateProblem } from "@/lib/templates/validate";
 
@@ -235,6 +236,68 @@ export async function publishVersion(input: {
 
     return published;
   });
+}
+
+/**
+ * Shipped templates this organisation does not have yet.
+ *
+ * Matched by name among its system templates. A client who copied one of ours
+ * and renamed the copy still has the original under its own name, so this
+ * never offers to install something they already hold.
+ */
+export async function shippedTemplatesMissing(organisationId: string) {
+  const held = await db
+    .select({ name: templates.name })
+    .from(templates)
+    .where(and(eq(templates.organisationId, organisationId), eq(templates.isSystem, true)));
+  const names = new Set(held.map((h) => h.name));
+  return SYSTEM_TEMPLATES.filter((t) => !names.has(t.name));
+}
+
+/**
+ * Bring an existing organisation up to date with what Waivern ships.
+ *
+ * System templates used to arrive only when an organisation was first seeded,
+ * so a template released afterwards — the DSIT AI risk identification, for one
+ * — never reached the clients already using the platform. This installs the
+ * missing ones, through the same create-and-publish path as everything else,
+ * so they pass the same validation.
+ *
+ * The legal references they cite go in first: the library is shared across
+ * organisations, and a template citing a code that is not there yet would show
+ * a blank where its legal basis should be. Existing references are left as
+ * they are — their review dates are claims somebody made, and re-stamping them
+ * here would make every citation look freshly checked.
+ */
+export async function installShippedTemplates(input: { organisationId: string; actor: Actor }) {
+  const now = new Date();
+  for (const ref of LEGAL_REFERENCES) {
+    await db
+      .insert(legalReferences)
+      .values({ ...ref, reviewedAt: now })
+      .onConflictDoNothing({ target: legalReferences.code });
+  }
+
+  const installed: string[] = [];
+  for (const t of await shippedTemplatesMissing(input.organisationId)) {
+    const { version } = await createTemplate({
+      organisationId: input.organisationId,
+      kind: t.kind,
+      name: t.name,
+      description: t.description,
+      jurisdiction: t.jurisdiction,
+      isSystem: true,
+      definition: t.definition,
+      actor: input.actor,
+    });
+    await publishVersion({
+      organisationId: input.organisationId,
+      versionId: version.id,
+      actor: input.actor,
+    });
+    installed.push(t.name);
+  }
+  return installed;
 }
 
 /** The version a new assessment of this kind should run against. */

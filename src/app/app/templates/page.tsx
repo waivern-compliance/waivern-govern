@@ -5,8 +5,8 @@ import { NotPermitted } from "@/components/NotPermitted";
 import { can } from "@/lib/rbac";
 import { getActiveSession } from "@/lib/session";
 import { questionsOf } from "@/lib/templates/logic";
-import { templateLibrary } from "@/services/templates";
-import { createTemplateAction } from "./actions";
+import { shippedTemplatesMissing, templateLibrary } from "@/services/templates";
+import { createTemplateAction, installShippedAction } from "./actions";
 
 const KIND_LABEL: Record<string, string> = {
   screening: "Screening",
@@ -34,8 +34,12 @@ export default async function Templates() {
 
   // The whole library, drafts included: a template whose only version is an
   // unpublished draft is exactly what somebody editing came back for.
-  const rows = await templateLibrary(active.membership.organisationId);
+  const [rows, missing] = await Promise.all([
+    templateLibrary(active.membership.organisationId),
+    shippedTemplatesMissing(active.membership.organisationId),
+  ]);
   const mayAuthor = can(active.membership.grants, "template.author");
+  const mayPublish = can(active.membership.grants, "template.publish");
 
   return (
     <main className="mx-auto max-w-3xl space-y-8 px-6 py-12">
@@ -51,6 +55,33 @@ export default async function Templates() {
       </header>
 
       <HelpLink topic="templates" />
+
+      {mayPublish && missing.length > 0 && rows.length > 0 ? (
+        <form
+          action={installShippedAction}
+          className="space-y-2 rounded border-l-2 border-brand bg-surface px-4 py-3"
+        >
+          <p className="text-sm">
+            <strong>
+              {missing.length === 1
+                ? "One template"
+                : `${missing.length} templates`}{" "}
+              released since your library was set up:
+            </strong>{" "}
+            {missing.map((t) => t.name).join(", ")}.
+          </p>
+          <p className="text-xs text-ink-soft">
+            Adding them publishes each as a version 1 of its own. Nothing you
+            already have changes.
+          </p>
+          <button
+            type="submit"
+            className="rounded border border-line bg-ground px-3 py-1.5 text-sm hover:border-brand focus-visible:outline-2 focus-visible:outline-brand"
+          >
+            Add {missing.length === 1 ? "it" : "them"}
+          </button>
+        </form>
+      ) : null}
 
       {mayAuthor ? (
         <details className="rounded border border-line bg-surface">

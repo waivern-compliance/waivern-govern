@@ -5,6 +5,7 @@ import { Discussion } from "@/components/Discussion";
 import { NotPermitted } from "@/components/NotPermitted";
 import { can } from "@/lib/rbac";
 import { IMPACT, LIKELIHOOD, labelFor } from "@/lib/risk/scale";
+import { categoryLabel } from "@/lib/risk/categories";
 import { getActiveSession } from "@/lib/session";
 import { loadRisk } from "@/services/risks";
 import { AcceptPanel } from "./accept";
@@ -47,6 +48,11 @@ export default async function RiskPage({ params }: { params: Promise<{ id: strin
           <h1 className="text-2xl font-semibold tracking-tight">{risk.title}</h1>
         </div>
         <p className="max-w-prose text-sm text-ink-soft">{risk.description}</p>
+        {risk.category ? (
+          <p className="text-xs text-ink-soft">
+            Category: <span className="text-ink">{categoryLabel(risk.category)}</span>
+          </p>
+        ) : null}
         <div className="flex flex-wrap items-center gap-2">
           <RiskTierBadge tier={risk.inherentTier} score={risk.inherentScore} prefix="inherent" />
           <RiskTierBadge tier={risk.residualTier} score={risk.residualScore} prefix="residual" />

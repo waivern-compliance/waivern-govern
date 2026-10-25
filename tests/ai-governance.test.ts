@@ -5,6 +5,8 @@ import { db, sql as pg } from "@/db/client";
 import {
   aiUseCases,
   auditEvents,
+  legalReferences,
+  templates,
   entities,
   organisations,
   tasks,
@@ -14,13 +16,18 @@ import {
 } from "@/db/schema";
 import { verifyAuditChain } from "@/lib/audit";
 import { addMonths } from "@/lib/dates";
-import { SYSTEM_TEMPLATES } from "@/lib/templates/library";
+import { LEGAL_REFERENCES, SYSTEM_TEMPLATES } from "@/lib/templates/library";
 import { DEFAULT_WORKFLOWS } from "@/lib/workflow/defaults";
 import { createUseCase, updateUseCase } from "@/services/ai-register";
 import { createAssessment, saveAnswers } from "@/services/assessments";
 import { seedSharedLibrary } from "@/services/countries";
 import { sweepOrganisation } from "@/services/sweep";
-import { createTemplate, publishVersion } from "@/services/templates";
+import {
+  createTemplate,
+  installShippedTemplates,
+  publishVersion,
+  shippedTemplatesMissing,
+} from "@/services/templates";
 import { approvalsFor, decideApproval, submitForApproval } from "@/services/workflow";
 
 const SYSTEM = { actorKind: "system" as const, actorUserId: null, actorLabel: "test" };
@@ -292,5 +299,49 @@ describe("approving an AI assessment dates the system's next review", () => {
     const expected = addMonths(new Date(), 3).getTime();
     assert.ok(row.nextReviewAt);
     assert.ok(Math.abs(row.nextReviewAt.getTime() - expected) < DAY);
+  });
+});
+
+describe("bringing an existing organisation up to date", () => {
+  it("installs only the shipped templates it does not have", async () => {
+    const w = await world("install");
+    // An organisation seeded before the DSIT template existed.
+    const older = SYSTEM_TEMPLATES.filter((t) => !t.name.includes("DSIT"));
+    for (const t of older) {
+      const { version } = await createTemplate({
+        organisationId: w.org.id,
+        kind: t.kind,
+        name: t.name,
+        isSystem: true,
+        definition: t.definition,
+        actor: SYSTEM,
+      });
+      await publishVersion({ organisationId: w.org.id, versionId: version.id, actor: SYSTEM });
+    }
+
+    assert.deepEqual(
+      (await shippedTemplatesMissing(w.org.id)).map((t) => t.name),
+      ["AI risk identification (DSIT toolkit)"],
+    );
+    const installed = await installShippedTemplates({ organisationId: w.org.id, actor: SYSTEM });
+    assert.deepEqual(installed, ["AI risk identification (DSIT toolkit)"]);
+
+    const held = await db.select().from(templates).where(eq(templates.organisationId, w.org.id));
+    assert.equal(held.length, SYSTEM_TEMPLATES.length);
+  });
+
+  it("does nothing the second time", async () => {
+    const w = await world("install-twice");
+    await installShippedTemplates({ organisationId: w.org.id, actor: SYSTEM });
+    assert.deepEqual(await installShippedTemplates({ organisationId: w.org.id, actor: SYSTEM }), []);
+  });
+
+  it("brings the references the new templates cite", async () => {
+    // A template citing a code the shared library lacks shows a blank where
+    // its legal basis should be.
+    const w = await world("refs");
+    await installShippedTemplates({ organisationId: w.org.id, actor: SYSTEM });
+    const codes = new Set((await db.select({ code: legalReferences.code }).from(legalReferences)).map((r) => r.code));
+    for (const ref of LEGAL_REFERENCES) assert.ok(codes.has(ref.code), ref.code);
   });
 });

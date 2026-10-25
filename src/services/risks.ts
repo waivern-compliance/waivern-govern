@@ -513,6 +513,15 @@ export async function listRisks(organisationId: string, entityIds: string[] | nu
     .orderBy(desc(risks.inherentScore), desc(risks.updatedAt));
 }
 
+/** Risks raised out of one assessment, most serious first. */
+export async function risksForAssessment(assessmentId: string, organisationId: string) {
+  return db
+    .select()
+    .from(risks)
+    .where(and(eq(risks.assessmentId, assessmentId), eq(risks.organisationId, organisationId)))
+    .orderBy(desc(risks.inherentScore), risks.reference);
+}
+
 export async function loadRisk(riskId: string, organisationId: string) {
   const [risk] = await db
     .select()
