@@ -323,6 +323,28 @@ export const aiProvenance = pgEnum("ai_provenance", [
   "embedded_vendor",
 ]);
 
+/**
+ * How the system is deployed, in the terms the UK government AI Playbook uses
+ * for its security guidance. Separate from provenance because it answers a
+ * different question: not who built it, but where data goes and what an
+ * attacker can reach — a third-party model run on our own hardware and the same
+ * model called over a public API carry quite different exposure.
+ */
+export const aiDeploymentPattern = pgEnum("ai_deployment_pattern", [
+  /** A public web application or chat service, used as anyone would use it. */
+  "public_web_app",
+  /** AI features switched on inside software bought for something else. */
+  "embedded",
+  /** A provider's public API, called from our own code. */
+  "public_api",
+  /** A model hosted on infrastructure we control, typically open weights. */
+  "privately_hosted",
+  /** A model running on an individual's own device. */
+  "local",
+  /** A model trained or fine-tuned here, on data we supply. */
+  "trained_here",
+]);
+
 export const aiLifecycleStage = pgEnum("ai_lifecycle_stage", [
   "proposed",
   "development",

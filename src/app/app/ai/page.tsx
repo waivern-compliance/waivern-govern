@@ -9,6 +9,7 @@ import { NotPermitted } from "@/components/NotPermitted";
 import { can } from "@/lib/rbac";
 import { getActiveSession, visibleEntityIds } from "@/lib/session";
 import {
+  DEPLOYMENT_PATTERN_LABEL,
   PROVENANCE_LABEL,
   STAGE_LABEL,
   SYSTEM_TYPE_LABEL,
@@ -129,6 +130,21 @@ export default async function AiRegisterPage() {
                 </select>
               </label>
             </div>
+            <label className="block space-y-1">
+              <span className="text-xs font-medium uppercase tracking-wider text-ink-soft">
+                How it is deployed
+              </span>
+              <select
+                name="deploymentPattern"
+                defaultValue=""
+                className="w-full rounded border border-line bg-ground px-3 py-2 text-sm"
+              >
+                <option value="">Not yet known</option>
+                {Object.entries(DEPLOYMENT_PATTERN_LABEL).map(([value, text]) => (
+                  <option key={value} value={value}>{text}</option>
+                ))}
+              </select>
+            </label>
             <label className="block space-y-1">
               <span className="text-xs font-medium uppercase tracking-wider text-ink-soft">
                 Vendor or model, if known

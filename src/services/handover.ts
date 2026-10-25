@@ -1,4 +1,4 @@
-import { and, count, eq, ne } from "drizzle-orm";
+import { and, count, eq, ne, or } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   aiUseCases,
@@ -89,7 +89,12 @@ export async function holdingsOf(organisationId: string, userId: string): Promis
       db
         .select(n)
         .from(aiUseCases)
-        .where(and(eq(aiUseCases.organisationId, organisationId), eq(aiUseCases.ownerId, userId))),
+        .where(
+          and(
+            eq(aiUseCases.organisationId, organisationId),
+            or(eq(aiUseCases.ownerId, userId), eq(aiUseCases.governanceOfficerId, userId)),
+          ),
+        ),
     ),
     first(
       db
@@ -225,6 +230,18 @@ export async function handOver(input: {
         and(
           eq(aiUseCases.organisationId, input.organisationId),
           eq(aiUseCases.ownerId, input.fromUserId),
+        ),
+      );
+    // The governance officer role goes with the rest of their work. Left
+    // behind, it points at somebody who has gone, and the register would show
+    // a system as looked after when nobody is looking.
+    await tx
+      .update(aiUseCases)
+      .set({ governanceOfficerId: input.toUserId })
+      .where(
+        and(
+          eq(aiUseCases.organisationId, input.organisationId),
+          eq(aiUseCases.governanceOfficerId, input.fromUserId),
         ),
       );
     await tx

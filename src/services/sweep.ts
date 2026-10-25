@@ -1,6 +1,7 @@
-import { and, asc, eq, inArray, isNull, lte, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, lte, ne, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
+  aiUseCases,
   approvals,
   assessments,
   entities,
@@ -55,6 +56,7 @@ export type SweepResult = {
   conversationsForgotten: number;
   breachDeadlinesRaised: number;
   lapsedReviewsRaised: number;
+  aiReviewsRaised: number;
   webhooksDelivered: number;
   webhooksFailed: number;
 };
@@ -511,6 +513,61 @@ async function raiseLapsedReviews(organisationId: string): Promise<number> {
   return raised;
 }
 
+/**
+ * AI systems whose review date has passed.
+ *
+ * The register has always shown an overdue review as a gap, and nothing ever
+ * acted on it — so the date was decoration. DSIT's toolkit treats AI risk as
+ * something reassessed through the system's life rather than signed off once,
+ * and a review date nobody is told about does not get reassessed.
+ *
+ * Retired systems are left alone: there is nothing running to look at. One
+ * task naming the count, for the same reason as lapsed assessment reviews, and
+ * keyed on the month so a neglected register nags monthly rather than hourly.
+ * It goes to AI governance rather than the privacy team, because that is who
+ * the register belongs to.
+ */
+async function raiseAiReviews(organisationId: string): Promise<number> {
+  const due = await db
+    .select()
+    .from(aiUseCases)
+    .where(
+      and(
+        eq(aiUseCases.organisationId, organisationId),
+        ne(aiUseCases.lifecycleStage, "retired"),
+        lte(aiUseCases.nextReviewAt, new Date()),
+      ),
+    )
+    .orderBy(asc(aiUseCases.nextReviewAt));
+  if (due.length === 0) return 0;
+
+  const period = new Date().toISOString().slice(0, 7);
+  const oldest = due[0];
+  let raised = 0;
+
+  await db.transaction(async (tx) => {
+    const task = await raiseTask(tx, {
+      organisationId,
+      entityId: oldest.entityId,
+      type: "reassess",
+      title:
+        due.length === 1
+          ? `${oldest.reference} ${oldest.name} is due for review`
+          : `${due.length} AI systems are past their review date`,
+      description:
+        `Oldest is ${oldest.reference}, due ${oldest.nextReviewAt!.toISOString().slice(0, 10)}. ` +
+        "Check whether the system, its data or how it is used has changed, and reassess its risks if so.",
+      subjectType: "ai_use_case",
+      subjectId: oldest.id,
+      assigneeRole: "ai_governance",
+      idempotencyKey: `ai-reviews:${period}`,
+      actor: SYSTEM,
+    });
+    if (task) raised = due.length;
+  });
+  return raised;
+}
+
 export async function sweepOrganisation(organisationId: string): Promise<SweepResult> {
   const [org] = await db.select().from(organisations).where(eq(organisations.id, organisationId));
   const result: SweepResult = {
@@ -525,6 +582,7 @@ export async function sweepOrganisation(organisationId: string): Promise<SweepRe
     conversationsForgotten: await forgetExpiredConversations(organisationId),
     breachDeadlinesRaised: await raiseBreachDeadlines(organisationId),
     lapsedReviewsRaised: await raiseLapsedReviews(organisationId),
+    aiReviewsRaised: await raiseAiReviews(organisationId),
     webhooksDelivered: 0,
     webhooksFailed: 0,
   };

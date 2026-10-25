@@ -218,6 +218,13 @@
       "when": 1788955251142,
       "tag": "0030_sloppy_chamber",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1792965789155,
+      "tag": "0031_fixed_paper_doll",
+      "breakpoints": true
     }
   ]
 }

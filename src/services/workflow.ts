@@ -1,7 +1,9 @@
 import { and, asc, eq, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { db, type Db } from "@/db/client";
 import {
+  aiUseCases,
   approvals,
+  assessmentAnswers,
   assessments,
   notifications,
   schedules,
@@ -28,6 +30,13 @@ export class NotYourDecision extends Error {}
 export class DecisionRefused extends Error {}
 
 export type TaskType = (typeof taskType.enumValues)[number];
+
+/** The answers a template's `review_interval` question may give, in months. */
+const REVIEW_INTERVAL_MONTHS: Record<string, number> = {
+  quarterly: 3,
+  biannual: 6,
+  annual: 12,
+};
 
 /** Default service levels, applied where the organisation has set none. */
 const DEFAULT_SLA_HOURS: Record<TaskType, number> = {
@@ -386,6 +395,26 @@ export async function decideApproval(input: {
         .from(templateVersions)
         .where(eq(templateVersions.id, row.assessment.templateVersionId));
       intervalMonths = version?.definition.reviewIntervalMonths ?? null;
+
+      // The AI templates ask the assessor how soon the system should be looked
+      // at again, because DSIT's toolkit is explicit that AI risk has to be
+      // reassessed as the system and its use change. The answer may bring the
+      // review forward; it may not push it past the template's own cycle,
+      // which is the organisation's policy rather than one assessor's view.
+      const [chosen] = await tx
+        .select({ value: assessmentAnswers.value })
+        .from(assessmentAnswers)
+        .where(
+          and(
+            eq(assessmentAnswers.assessmentId, row.approval.assessmentId),
+            eq(assessmentAnswers.questionKey, "review_interval"),
+          ),
+        );
+      const assessorMonths = REVIEW_INTERVAL_MONTHS[String(chosen?.value ?? "")];
+      if (assessorMonths) {
+        intervalMonths = intervalMonths ? Math.min(intervalMonths, assessorMonths) : assessorMonths;
+      }
+
       if (intervalMonths) reviewDueAt = addMonths(now, intervalMonths);
     }
 
@@ -398,6 +427,21 @@ export async function decideApproval(input: {
         ...(reviewDueAt ? { reviewDueAt, reviewIntervalMonths: intervalMonths } : {}),
       })
       .where(eq(assessments.id, row.approval.assessmentId));
+
+    // An approved assessment of an AI system dates the system's next review on
+    // the register too. Without this the register's review date is whatever
+    // somebody typed when they added the system, and nothing ever moves it.
+    if (reviewDueAt && row.assessment.subjectType === "ai_use_case" && row.assessment.subjectId) {
+      await tx
+        .update(aiUseCases)
+        .set({ nextReviewAt: reviewDueAt, updatedAt: now })
+        .where(
+          and(
+            eq(aiUseCases.id, row.assessment.subjectId),
+            eq(aiUseCases.organisationId, input.organisationId),
+          ),
+        );
+    }
 
     if (reviewDueAt && intervalMonths) {
       await tx

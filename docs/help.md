@@ -484,6 +484,14 @@ Red flags mean a system is running unexamined: never assessed, live with nothing
 
 Retired systems are history and are counted separately, so they cannot pad the number of systems you are covering.
 
+### Who answers for it, and when it comes back
+
+Each system can name two people. The senior responsible owner answers for the system. The AI governance officer runs its risk management day to day, as the DSIT AI Risk Management Toolkit describes. One person may hold both, and a leaver's handover moves both.
+
+How it is deployed — a public app, AI inside bought software, a provider's API, a model you host or train — follows the UK government AI Playbook's security guidance, because each carries different exposure.
+
+Approving an assessment of a system sets its next review from the assessment's cycle, sooner if the assessor asked for it. When that date passes, AI governance is given a task to look at it again.
+
 **See also:** The AI assurance chain · Assessments: DPIAs, transfer risk, AI risk, screening · The risk register
 
 <sub>Also searchable as: ai, model, llm, machine learning, shadow ai, lifecycle, oversight, eu ai act</sub>

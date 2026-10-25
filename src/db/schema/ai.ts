@@ -9,7 +9,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import { aiLifecycleStage, aiProvenance, aiSystemType } from "./enums";
+import { aiDeploymentPattern, aiLifecycleStage, aiProvenance, aiSystemType } from "./enums";
 import { integrationConnections } from "./integration";
 import { entities, organisations, users } from "./tenancy";
 
@@ -47,6 +47,12 @@ export const aiUseCases = pgTable(
     systemType: aiSystemType("system_type").notNull(),
     provenance: aiProvenance("provenance").notNull(),
     lifecycleStage: aiLifecycleStage("lifecycle_stage").notNull().default("proposed"),
+    /**
+     * Nullable: a system registered before anybody established how it is
+     * deployed is still worth having on the register, and "unknown" is more
+     * honest than a default somebody did not choose.
+     */
+    deploymentPattern: aiDeploymentPattern("deployment_pattern"),
 
     /** Who supplies it, and which model, where that is known. */
     vendor: text("vendor"),
@@ -58,6 +64,17 @@ export const aiUseCases = pgTable(
      * volunteers is how shadow AI stays invisible.
      */
     ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
+    /**
+     * The person who runs risk management for it day to day — the DSIT AI Risk
+     * Management Toolkit's "AI governance officer". Distinct from the owner,
+     * who answers for the system: the officer makes sure risks are found,
+     * assessed and kept under review. One person may hold both.
+     */
+    governanceOfficerId: uuid("governance_officer_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    /** The team that runs it, as the Algorithmic Transparency Recording Standard asks. */
+    responsibleTeam: text("responsible_team"),
 
     /** Systems and services it is deployed in. */
     deployedIn: jsonb("deployed_in").$type<string[]>().notNull().default([]),
@@ -67,6 +84,12 @@ export const aiUseCases = pgTable(
     dataCategories: jsonb("data_categories").$type<string[]>().notNull().default([]),
 
     nextReviewAt: timestamp("next_review_at", { withTimezone: true }),
+    /**
+     * When it first reached real people — set the first time it enters a live
+     * stage, and kept if it later leaves one. "How long has this been running"
+     * is the question an inventory gets asked, and the stage alone cannot answer it.
+     */
+    liveSince: timestamp("live_since", { withTimezone: true }),
     retiredAt: timestamp("retired_at", { withTimezone: true }),
 
     sourceConnectionId: uuid("source_connection_id").references(
@@ -95,5 +118,14 @@ export const aiUseCaseRelations = relations(aiUseCases, ({ one }) => ({
     references: [organisations.id],
   }),
   entity: one(entities, { fields: [aiUseCases.entityId], references: [entities.id] }),
-  owner: one(users, { fields: [aiUseCases.ownerId], references: [users.id] }),
+  owner: one(users, {
+    fields: [aiUseCases.ownerId],
+    references: [users.id],
+    relationName: "ai_use_case_owner",
+  }),
+  governanceOfficer: one(users, {
+    fields: [aiUseCases.governanceOfficerId],
+    references: [users.id],
+    relationName: "ai_use_case_governance_officer",
+  }),
 }));
