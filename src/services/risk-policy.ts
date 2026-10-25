@@ -66,7 +66,7 @@ export async function setRiskScale(input: {
     const existing = await riskCount(input.organisationId, tx);
     if (existing > 0) {
       throw new RiskScaleLocked(
-        `The register already holds ${existing} risk${existing === 1 ? "" : "s"} rated on the ${SCALES[org.riskScale as RiskScaleId].name.toLowerCase()} scale`,
+        `The register already holds ${existing} risk${existing === 1 ? "" : "s"} rated on the ${SCALES[org.riskScale as RiskScaleId].inSentence} scale`,
       );
     }
 

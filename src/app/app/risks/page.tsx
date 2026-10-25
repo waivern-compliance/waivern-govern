@@ -49,7 +49,7 @@ const org = active.membership.organisationId;
           </Link>
         </div>
         <p className="font-mono text-xs text-ink-soft">
-          Rated {SCALES[scale].name.toLowerCase()}
+          Rated {SCALES[scale].inSentence}
         </p>
       </header>
 

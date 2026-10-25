@@ -70,8 +70,8 @@ export function ScaleForm({
       {locked ? (
         <p className="max-w-prose rounded border-l-2 border-line px-3 py-2 text-xs text-ink-soft">
           Fixed: the register holds {riskCount} risk{riskCount === 1 ? "" : "s"} rated on
-          this scale. Changing scale would leave them beside risks rated on
-          another, and re-rating every one is a decision for people rather
+          this scale. Changing scale would leave {riskCount === 1 ? "it" : "them"} beside
+          risks rated on another, and re-rating is a decision for people rather
           than a conversion.
         </p>
       ) : null}

@@ -76,7 +76,7 @@ export default async function RiskPage({ params }: { params: Promise<{ id: strin
           {risk.residualLikelihood
             ? ` · residual ${labelFor("likelihood", risk.residualLikelihood, scale)} × ${labelFor("impact", risk.residualImpact!, scale)}`
             : ""}
-          {` · ${SCALES[scale].name.toLowerCase()}`}
+          {` · ${SCALES[scale].inSentence}`}
         </p>
         {assessment ? (
           <p className="text-xs text-ink-soft">

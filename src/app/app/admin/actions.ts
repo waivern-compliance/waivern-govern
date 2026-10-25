@@ -216,7 +216,7 @@ export async function setRiskScaleAction(
       actor: actorOf(active),
     });
     revalidatePath("/app", "layout");
-    return { ok: true, message: `The register now rates on the ${SCALES[scale].name.toLowerCase()} scale.` };
+    return { ok: true, message: `The register now rates on the ${SCALES[scale].inSentence} scale.` };
   } catch (error) {
     return {
       ok: false,

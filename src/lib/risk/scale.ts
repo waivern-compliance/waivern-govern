@@ -26,6 +26,8 @@ type Band = { max: number; tier: RiskTier; label: string };
 export type RiskScale = {
   id: RiskScaleId;
   name: string;
+  /** For the middle of a sentence: "rated on the five by five scale". */
+  inSentence: string;
   description: string;
   likelihood: readonly ScalePoint[];
   impact: readonly ScalePoint[];
@@ -45,6 +47,7 @@ export const SCALES: Record<RiskScaleId, RiskScale> = {
   "4x4": {
     id: "4x4",
     name: "Four by four",
+    inSentence: "four by four",
     description: "Likelihood and impact from 1 to 4. The default.",
     likelihood: [
       { value: 1, label: "Remote", help: "Hard to foresee a realistic path" },
@@ -63,6 +66,7 @@ export const SCALES: Record<RiskScaleId, RiskScale> = {
   "5x5": {
     id: "5x5",
     name: "Five by five (Orange Book)",
+    inSentence: "five by five",
     description:
       "Likelihood and impact from 1 to 5, with the probability ranges and impact levels of DSIT's AI Risk Management Toolkit.",
     // The toolkit's own likelihood scale, probability ranges included, so a
