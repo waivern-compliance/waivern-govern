@@ -381,6 +381,28 @@ export const aiDeploymentPattern = pgEnum("ai_deployment_pattern", [
   "trained_here",
 ]);
 
+/**
+ * Whether the Algorithmic Transparency Recording Standard applies to a system.
+ * Null on the register means nobody has worked it out yet.
+ */
+export const atrsScope = pgEnum("atrs_scope", [
+  /** A central department or in-scope arm's length body, using the tool in decisions affecting the public. */
+  "required",
+  /** Not required, but the organisation publishes a record as good practice. */
+  "voluntary",
+  "not_in_scope",
+]);
+
+export const atrsStatus = pgEnum("atrs_status", [
+  "draft",
+  /** Signed off by an approver; ready to send to DSIT. */
+  "approved",
+  /** Published in the public repository, with its address. */
+  "published",
+  /** Replaced by a later approved version. */
+  "superseded",
+]);
+
 export const aiLifecycleStage = pgEnum("ai_lifecycle_stage", [
   "proposed",
   "development",

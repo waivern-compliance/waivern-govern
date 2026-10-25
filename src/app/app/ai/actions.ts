@@ -9,14 +9,24 @@ import { requireCapability } from "@/lib/session";
 import {
   DEPLOYMENT_PATTERN_LABEL,
   STAGE_LABEL,
+  TRANSPARENCY_SCOPE_LABEL,
   createUseCase,
   updateUseCase,
   type DeploymentPattern,
   type LifecycleStage,
+  type TransparencyScope,
   type Provenance,
   type SystemType,
 } from "@/services/ai-register";
 import { candidatesFor } from "@/services/handover";
+
+/** A submitted ATRS scope, or null for "not yet decided". */
+function scopeFrom(value: FormDataEntryValue | null): TransparencyScope | null {
+  const v = String(value ?? "");
+  if (v === "") return null;
+  if (!(v in TRANSPARENCY_SCOPE_LABEL)) throw new Error("Unknown transparency scope");
+  return v as TransparencyScope;
+}
 
 /** A submitted pattern, or null for "not yet known". Anything else is refused. */
 function patternFrom(value: FormDataEntryValue | null): DeploymentPattern | null {
@@ -97,6 +107,9 @@ export async function updateUseCaseAction(useCaseId: string, formData: FormData)
       ...(governanceOfficerId !== undefined ? { governanceOfficerId } : {}),
       ...(formData.has("responsibleTeam")
         ? { responsibleTeam: String(formData.get("responsibleTeam")).trim() || null }
+        : {}),
+      ...(formData.has("transparencyScope")
+        ? { transparencyScope: scopeFrom(formData.get("transparencyScope")) }
         : {}),
       ...(formData.has("nextReviewAt")
         ? { nextReviewAt: review ? new Date(`${review}T00:00:00Z`) : null }

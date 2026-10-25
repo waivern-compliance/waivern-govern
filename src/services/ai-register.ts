@@ -11,6 +11,7 @@ import {
   users,
 } from "@/db/schema";
 import { appendAuditEvent } from "@/lib/audit";
+import { systemsWithCurrentRecord } from "./atrs";
 import type { Actor } from "./templates";
 
 /**
@@ -26,6 +27,7 @@ export type SystemType = "predictive" | "generative" | "agentic" | "hybrid";
 export type Provenance = "built_in_house" | "fine_tuned" | "third_party_api" | "embedded_vendor";
 export type LifecycleStage =
   | "proposed" | "development" | "pilot" | "production" | "retiring" | "retired";
+export type TransparencyScope = "required" | "voluntary" | "not_in_scope";
 export type DeploymentPattern =
   | "public_web_app" | "embedded" | "public_api" | "privately_hosted" | "local" | "trained_here";
 
@@ -63,6 +65,13 @@ export const DEPLOYMENT_PATTERN_LABEL: Record<DeploymentPattern, string> = {
   privately_hosted: "A model hosted on infrastructure we control",
   local: "A model running on people's own devices",
   trained_here: "A model trained or fine-tuned here",
+};
+
+/** Whether the Algorithmic Transparency Recording Standard applies. */
+export const TRANSPARENCY_SCOPE_LABEL: Record<TransparencyScope, string> = {
+  required: "Required — we must publish an ATRS record",
+  voluntary: "Not required, but we publish one",
+  not_in_scope: "Not in scope",
 };
 
 /** Stages where the system is actually touching people. */
@@ -105,7 +114,8 @@ export type Gap =
   | "live_without_monitoring"
   | "decides_without_oversight"
   | "bias_not_assessed"
-  | "review_overdue";
+  | "review_overdue"
+  | "transparency_record_missing";
 
 export const GAP_WORDS: Record<Gap, string> = {
   never_assessed: "Never assessed",
@@ -115,6 +125,7 @@ export const GAP_WORDS: Record<Gap, string> = {
   decides_without_oversight: "Decides with no human oversight",
   bias_not_assessed: "Bias never assessed",
   review_overdue: "Review overdue",
+  transparency_record_missing: "No transparency record",
 };
 
 /** Gaps that mean the system is running unexamined, rather than merely untidy. */
@@ -225,6 +236,7 @@ const TRACKED_FIELDS = [
   "modelName",
   "processesPersonalData",
   "nextReviewAt",
+  "transparencyScope",
 ] as const;
 
 export async function updateUseCase(input: {
@@ -236,6 +248,7 @@ export async function updateUseCase(input: {
     ownerId: string | null;
     governanceOfficerId: string | null;
     responsibleTeam: string | null;
+    transparencyScope: TransparencyScope | null;
     vendor: string;
     modelName: string;
     deployedIn: string[];
@@ -342,6 +355,7 @@ async function latestAssessment(useCaseId: string): Promise<AssessedFacts | null
 export function gapsFor(
   useCase: typeof aiUseCases.$inferSelect,
   assessed: AssessedFacts | null,
+  transparency: { hasCurrentRecord: boolean } | null = null,
 ): Gap[] {
   const gaps: Gap[] = [];
   const live = LIVE_STAGES.includes(useCase.lifecycleStage as LifecycleStage);
@@ -373,6 +387,18 @@ export function gapsFor(
     gaps.push("review_overdue");
   }
 
+  // Only where a record is required and the system is reaching people. A
+  // voluntary record not yet written is a choice, not a gap; one required for
+  // a system still in development is not due until it goes live.
+  if (
+    transparency &&
+    useCase.transparencyScope === "required" &&
+    live &&
+    !transparency.hasCurrentRecord
+  ) {
+    gaps.push("transparency_record_missing");
+  }
+
   return gaps;
 }
 
@@ -393,11 +419,17 @@ export async function listRegister(
           ),
     )
     .orderBy(aiUseCases.reference);
+  const recorded = await systemsWithCurrentRecord(organisationId);
 
   return Promise.all(
     rows.map(async ({ useCase, ownerEmail }) => {
       const assessed = await latestAssessment(useCase.id);
-      return { useCase, ownerEmail, assessed, gaps: gapsFor(useCase, assessed) };
+      return {
+        useCase,
+        ownerEmail,
+        assessed,
+        gaps: gapsFor(useCase, assessed, { hasCurrentRecord: recorded.has(useCase.id) }),
+      };
     }),
   );
 }
@@ -414,7 +446,7 @@ export async function loadUseCase(useCaseId: string, organisationId: string) {
     );
   if (!row) return null;
 
-  const [assessed, related] = await Promise.all([
+  const [assessed, related, recorded] = await Promise.all([
     latestAssessment(useCaseId),
     db
       .select({ assessment: assessments, kind: templates.kind })
@@ -428,6 +460,7 @@ export async function loadUseCase(useCaseId: string, organisationId: string) {
         ),
       )
       .orderBy(desc(assessments.createdAt)),
+    systemsWithCurrentRecord(organisationId),
   ]);
 
   return {
@@ -436,7 +469,7 @@ export async function loadUseCase(useCaseId: string, organisationId: string) {
     officerEmail: row.officerEmail,
     assessed,
     assessments: related,
-    gaps: gapsFor(row.useCase, assessed),
+    gaps: gapsFor(row.useCase, assessed, { hasCurrentRecord: recorded.has(useCaseId) }),
   };
 }
 

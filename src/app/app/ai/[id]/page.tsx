@@ -10,6 +10,7 @@ import {
   PROVENANCE_LABEL,
   STAGE_LABEL,
   SYSTEM_TYPE_LABEL,
+  TRANSPARENCY_SCOPE_LABEL,
   loadUseCase,
   type DeploymentPattern,
   type LifecycleStage,
@@ -17,6 +18,8 @@ import {
   type SystemType,
 } from "@/services/ai-register";
 import { candidatesFor } from "@/services/handover";
+import { recordsFor } from "@/services/atrs";
+import { startRecordAction } from "./atrs/actions";
 import { updateUseCaseAction } from "../actions";
 
 const CONSEQUENCE_WORDS: Record<string, string> = {
@@ -55,7 +58,13 @@ export default async function UseCasePage({
     );
   }
   const mayEdit = can(active.membership.grants, "record.write", useCase.entityId);
-  const members = mayEdit ? await candidatesFor(active.membership.organisationId) : [];
+  const [members, records] = await Promise.all([
+    mayEdit ? candidatesFor(active.membership.organisationId) : Promise.resolve([]),
+    recordsFor(id, active.membership.organisationId),
+  ]);
+  const draftRecord = records.find((r) => r.status === "draft") ?? null;
+  const currentRecord =
+    records.find((r) => r.status === "published" || r.status === "approved") ?? null;
 
   return (
     <main className="mx-auto max-w-3xl space-y-10 px-6 py-12">
@@ -202,6 +211,78 @@ export default async function UseCasePage({
           </ul>
         </section>
       ) : null}
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-soft">
+          Algorithmic transparency
+        </h2>
+        <div className="space-y-3 rounded border border-line bg-surface px-4 py-3.5 text-sm">
+          <p>
+            {useCase.transparencyScope
+              ? TRANSPARENCY_SCOPE_LABEL[useCase.transparencyScope as keyof typeof TRANSPARENCY_SCOPE_LABEL]
+              : "Whether an Algorithmic Transparency Recording Standard record is needed has not been decided."}
+          </p>
+          {currentRecord ? (
+            <p>
+              <Link href={`/app/ai/${id}/atrs/${currentRecord.id}`} className="text-brand hover:underline">
+                Version {currentRecord.version}
+              </Link>{" "}
+              {currentRecord.status === "published" ? (
+                <>
+                  is published
+                  {currentRecord.publicationUrl ? (
+                    <>
+                      {" "}
+                      <a href={currentRecord.publicationUrl} className="underline" target="_blank" rel="noreferrer">
+                        on GOV.UK
+                      </a>
+                    </>
+                  ) : null}
+                  .
+                </>
+              ) : (
+                "is approved and waiting to be published."
+              )}
+            </p>
+          ) : null}
+          {draftRecord ? (
+            <p>
+              <Link href={`/app/ai/${id}/atrs/${draftRecord.id}`} className="text-brand hover:underline">
+                Version {draftRecord.version}
+              </Link>{" "}
+              is a draft in progress.
+            </p>
+          ) : null}
+          {mayEdit ? (
+            <div className="flex flex-wrap items-end gap-3 border-t border-line pt-3">
+              <form action={updateUseCaseAction.bind(null, id)} className="flex flex-wrap items-end gap-2">
+                <Choice
+                  name="transparencyScope"
+                  label="Does the ATRS apply?"
+                  value={useCase.transparencyScope ?? ""}
+                  options={{ "": "Not yet decided", ...TRANSPARENCY_SCOPE_LABEL }}
+                />
+                <button
+                  type="submit"
+                  className="rounded border border-line bg-surface px-3 py-2 text-sm hover:border-brand"
+                >
+                  Save
+                </button>
+              </form>
+              {!draftRecord && useCase.transparencyScope && useCase.transparencyScope !== "not_in_scope" ? (
+                <form action={startRecordAction.bind(null, id)}>
+                  <button
+                    type="submit"
+                    className="rounded bg-brand px-3 py-2 text-sm font-medium text-white hover:opacity-90"
+                  >
+                    {currentRecord ? "Start a new version" : "Start a record"}
+                  </button>
+                </form>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      </section>
 
       {mayEdit ? (
         <section className="space-y-3">

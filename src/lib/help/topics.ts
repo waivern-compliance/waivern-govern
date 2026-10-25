@@ -963,6 +963,38 @@ export const HELP_TOPICS: HelpTopic[] = [
     related: ["assessments", "approvals"],
   },
   {
+    id: "transparency-records",
+    title: "Algorithmic transparency records",
+    summary:
+      "The public record of how an AI system is used, in the Algorithmic Transparency Recording Standard's own fields.",
+    path: "/app/ai",
+    keywords: ["atrs", "algorithmic transparency", "recording standard", "public sector", "dsit", "gov.uk", "publish"],
+    sections: [
+      {
+        heading: "When one is needed",
+        body: [
+          "Central government departments, and arm's length bodies in scope, must publish a record for algorithmic tools that significantly influence decisions affecting the public or interact with the public directly. Other public bodies are encouraged to. Each AI system on the register says whether a record is required, voluntary or not in scope.",
+          "A live system whose record is required and has none shows a gap on the register. A draft does not close it — it is not public yet.",
+        ],
+      },
+      {
+        heading: "Writing it",
+        body: [
+          "A record starts from what is already known: the register entry, the system's approved assessments, and the risks raised from them with their mitigations. Every field follows the template's own numbering. Read each one — once approved it is a public statement.",
+          "The model and development data sections may be left blank for an off-the-shelf model you did not train, tune or test, as the template allows. Everything else the template needs must be filled in before approval.",
+        ],
+      },
+      {
+        heading: "Approval and publication",
+        body: [
+          "Somebody with the approver role, other than the person who started the draft, approves it. The approved content is then frozen. Export it in the template's layout, send it to DSIT, and once it appears in the repository record where.",
+          "To change a record, start a new version. It begins from the one in force, and approving it supersedes the old version, which stays on the record.",
+        ],
+      },
+    ],
+    related: ["ai-register", "exports"],
+  },
+  {
     id: "risk-appetite",
     title: "Risk appetite",
     summary:
@@ -1022,7 +1054,7 @@ export const HELP_GROUPS: Array<{ heading: string; ids: string[] }> = [
   },
   {
     heading: "The registers",
-    ids: ["ropa", "third-parties", "breaches", "ai-register", "ai-chain", "transfers", "findings"],
+    ids: ["ropa", "third-parties", "breaches", "ai-register", "ai-chain", "transparency-records", "transfers", "findings"],
   },
   {
     heading: "Seeing where you stand",

@@ -31,6 +31,7 @@ Every help topic the application carries, in the order it presents them.
 - [Personal data breaches](#personal-data-breaches) — Record every breach, decide the two statutory questions separately, and keep the reasoning for both.
 - [The AI register](#the-ai-register) — Every AI system the organisation is accountable for, including the ones nobody has assessed.
 - [The AI assurance chain](#the-ai-assurance-chain) — Each AI system drawn through to what was done about it — and, more usefully, where that chain stops.
+- [Algorithmic transparency records](#algorithmic-transparency-records) — The public record of how an AI system is used, in the Algorithmic Transparency Recording Standard's own fields.
 - [Countries, adequacy and transfers](#countries-adequacy-and-transfers) — One shared library of destinations, with adequacy and transfer risk, and a date showing when each was last checked by a person.
 - [Scan findings](#scan-findings) — Observations pushed in by scanning tools, waiting for a person to decide whether each is a risk.
 
@@ -556,6 +557,34 @@ An untreated risk is serious when its residual rating is high or critical. An ex
 **See also:** The AI register · The risk register · Assessments: DPIAs, transfer risk, AI risk, screening
 
 <sub>Also searchable as: graph, assurance, coverage, chain, orphan, unassessed, visualisation</sub>
+
+## Algorithmic transparency records
+
+*The public record of how an AI system is used, in the Algorithmic Transparency Recording Standard's own fields.*
+
+**Screen:** `/app/ai`
+
+### When one is needed
+
+Central government departments, and arm's length bodies in scope, must publish a record for algorithmic tools that significantly influence decisions affecting the public or interact with the public directly. Other public bodies are encouraged to. Each AI system on the register says whether a record is required, voluntary or not in scope.
+
+A live system whose record is required and has none shows a gap on the register. A draft does not close it — it is not public yet.
+
+### Writing it
+
+A record starts from what is already known: the register entry, the system's approved assessments, and the risks raised from them with their mitigations. Every field follows the template's own numbering. Read each one — once approved it is a public statement.
+
+The model and development data sections may be left blank for an off-the-shelf model you did not train, tune or test, as the template allows. Everything else the template needs must be filled in before approval.
+
+### Approval and publication
+
+Somebody with the approver role, other than the person who started the draft, approves it. The approved content is then frozen. Export it in the template's layout, send it to DSIT, and once it appears in the repository record where.
+
+To change a record, start a new version. It begins from the one in force, and approving it supersedes the old version, which stays on the record.
+
+**See also:** The AI register · Exports
+
+<sub>Also searchable as: atrs, algorithmic transparency, recording standard, public sector, dsit, gov.uk, publish</sub>
 
 ## Countries, adequacy and transfers
 
