@@ -6,7 +6,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { entities } from "@/db/schema";
 import { requireCapability } from "@/lib/session";
-import { createRisk } from "@/services/risks";
+import { createRisk, riskScaleOf } from "@/services/risks";
 import { loadAssessment } from "@/services/assessments";
 import { fromTemplateScore } from "@/lib/risk/scale";
 
@@ -86,5 +86,6 @@ export async function suggestedRatingFor(assessmentId: string, organisationId: s
       { question: scoring.impactQuestion, contribution: i },
     ] },
     scoring,
+    await riskScaleOf(organisationId),
   );
 }

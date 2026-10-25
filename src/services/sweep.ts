@@ -23,6 +23,8 @@ import { forgetExpiredConversations } from "./assistant";
 import { notificationDeadline } from "@/lib/breach/statutory";
 import { breachesNeedingAttention } from "./breaches";
 import { EXPIRING_WITHIN_LABEL, dpasNeedingAttention } from "./third-party";
+import { appetitesDueForReview } from "./risk-policy";
+import { scopeLabel } from "@/lib/risk/appetite";
 
 /**
  * Everything that happens because time passed.
@@ -57,6 +59,7 @@ export type SweepResult = {
   breachDeadlinesRaised: number;
   lapsedReviewsRaised: number;
   aiReviewsRaised: number;
+  appetiteReviewsRaised: number;
   webhooksDelivered: number;
   webhooksFailed: number;
 };
@@ -568,6 +571,52 @@ async function raiseAiReviews(organisationId: string): Promise<number> {
   return raised;
 }
 
+/**
+ * Approved risk appetites whose review date has passed.
+ *
+ * An appetite is a judgement about how much risk is worth carrying for a
+ * benefit, and both sides move — particularly for AI, where what a system can
+ * do and what it costs change within a year. A statement past its review date
+ * still governs every risk in its category, so somebody is asked to confirm or
+ * replace it. Raised to the privacy administrators, who can put a fresh
+ * statement in front of whoever signs it off.
+ */
+async function raiseAppetiteReviews(organisationId: string): Promise<number> {
+  const due = await appetitesDueForReview(organisationId);
+  if (due.length === 0) return 0;
+
+  const [entity] = await db
+    .select()
+    .from(entities)
+    .where(and(eq(entities.organisationId, organisationId), eq(entities.isDefault, true)));
+  if (!entity) return 0;
+
+  const period = new Date().toISOString().slice(0, 7);
+  const oldest = due[0];
+  let raised = 0;
+  await db.transaction(async (tx) => {
+    const task = await raiseTask(tx, {
+      organisationId,
+      entityId: entity.id,
+      type: "review_acceptance",
+      title:
+        due.length === 1
+          ? `Risk appetite for ${scopeLabel(oldest.category)} is due for review`
+          : `${due.length} risk appetite statements are due for review`,
+      description:
+        `Oldest is ${scopeLabel(oldest.category)}, due ${oldest.reviewDueAt!.toISOString().slice(0, 10)}. ` +
+        "Every risk in the category is still judged against it. Confirm it or propose a replacement for sign-off.",
+      subjectType: "risk_appetite",
+      subjectId: oldest.id,
+      assigneeRole: "privacy_admin",
+      idempotencyKey: `appetite-reviews:${period}`,
+      actor: SYSTEM,
+    });
+    if (task) raised = due.length;
+  });
+  return raised;
+}
+
 export async function sweepOrganisation(organisationId: string): Promise<SweepResult> {
   const [org] = await db.select().from(organisations).where(eq(organisations.id, organisationId));
   const result: SweepResult = {
@@ -583,6 +632,7 @@ export async function sweepOrganisation(organisationId: string): Promise<SweepRe
     breachDeadlinesRaised: await raiseBreachDeadlines(organisationId),
     lapsedReviewsRaised: await raiseLapsedReviews(organisationId),
     aiReviewsRaised: await raiseAiReviews(organisationId),
+    appetiteReviewsRaised: await raiseAppetiteReviews(organisationId),
     webhooksDelivered: 0,
     webhooksFailed: 0,
   };

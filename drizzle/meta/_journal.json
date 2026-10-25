@@ -225,6 +225,20 @@
       "when": 1792965789155,
       "tag": "0031_fixed_paper_doll",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1792966494138,
+      "tag": "0032_small_ozymandias",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1792966504758,
+      "tag": "0033_risk_scale_and_appetite_guards",
+      "breakpoints": true
     }
   ]
 }

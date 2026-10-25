@@ -4,7 +4,10 @@ import { RiskTierBadge } from "@/components/RiskTierBadge";
 import { Discussion } from "@/components/Discussion";
 import { NotPermitted } from "@/components/NotPermitted";
 import { can } from "@/lib/rbac";
-import { IMPACT, LIKELIHOOD, labelFor } from "@/lib/risk/scale";
+import { SCALES, labelFor, type RiskScaleId } from "@/lib/risk/scale";
+import { judge, scopeLabel, APPETITE_LEVEL_LABEL } from "@/lib/risk/appetite";
+import { TREATMENT_HELP, TREATMENT_LABEL, type TreatmentType } from "@/lib/risk/treatment";
+import { appetiteInForce } from "@/services/risk-policy";
 import { categoryLabel } from "@/lib/risk/categories";
 import { getActiveSession } from "@/lib/session";
 import { loadRisk } from "@/services/risks";
@@ -21,6 +24,13 @@ export default async function RiskPage({ params }: { params: Promise<{ id: strin
   if (!loaded) notFound();
 
   const { risk, mitigations, acceptances, assessment } = loaded;
+  // The scale this risk was rated on, which may predate the organisation's
+  // current choice.
+  const scale = risk.scale as RiskScaleId;
+  const appetite = judge(
+    { category: risk.category, residualTier: risk.residualTier, status: risk.status },
+    await appetiteInForce(active.membership.organisationId),
+  );
   const grants = active.membership.grants;
 
   if (!can(grants, "record.read", risk.entityId)) {
@@ -61,11 +71,12 @@ export default async function RiskPage({ params }: { params: Promise<{ id: strin
           </span>
         </div>
         <p className="font-mono text-xs text-ink-soft">
-          inherent {labelFor("likelihood", risk.inherentLikelihood)} ×{" "}
-          {labelFor("impact", risk.inherentImpact)}
+          inherent {labelFor("likelihood", risk.inherentLikelihood, scale)} ×{" "}
+          {labelFor("impact", risk.inherentImpact, scale)}
           {risk.residualLikelihood
-            ? ` · residual ${labelFor("likelihood", risk.residualLikelihood)} × ${labelFor("impact", risk.residualImpact!)}`
+            ? ` · residual ${labelFor("likelihood", risk.residualLikelihood, scale)} × ${labelFor("impact", risk.residualImpact!, scale)}`
             : ""}
+          {` · ${SCALES[scale].name.toLowerCase()}`}
         </p>
         {assessment ? (
           <p className="text-xs text-ink-soft">
@@ -76,6 +87,50 @@ export default async function RiskPage({ params }: { params: Promise<{ id: strin
           </p>
         ) : null}
       </header>
+
+      {appetite.state === "closed" ? null : (
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-soft">
+            Appetite
+          </h2>
+          <div
+            className={`space-y-1 rounded border-l-2 px-4 py-3 text-sm ${
+              appetite.state === "within"
+                ? "border-emerald-700 bg-emerald-50 text-emerald-950"
+                : "border-amber-700 bg-amber-50 text-amber-950"
+            }`}
+          >
+            <p>
+              {appetite.state === "unrated" ? (
+                <strong>Not yet judged against appetite.</strong>
+              ) : appetite.state === "within" ? (
+                <strong>Within appetite.</strong>
+              ) : (
+                <strong>Outside appetite.</strong>
+              )}{" "}
+              {appetite.basis.source === "platform"
+                ? "No appetite has been signed off for this, so it is judged against the platform's assumption: residual high or critical is outside."
+                : `Judged against ${appetite.basis.source === "category" ? `the appetite for ${scopeLabel(appetite.basis.scope)}` : "the organisation's default appetite"} — ${APPETITE_LEVEL_LABEL[appetite.basis.level].toLowerCase()}, tolerating residual up to ${appetite.basis.toleratedTier}.`}
+            </p>
+            {appetite.state === "unrated" ? (
+              <p className="text-xs">
+                Rate the residual risk below. Until then it counts as not within
+                appetite — nobody has measured it.
+              </p>
+            ) : appetite.state === "outside" ? (
+              <p className="text-xs">
+                Treat it further, or put it to an approver to accept knowing it
+                is outside appetite. An acceptance records that it was.
+              </p>
+            ) : null}
+            <p className="text-xs">
+              <Link href="/app/risks/appetite" className="underline">
+                See the organisation&rsquo;s risk appetite
+              </Link>
+            </p>
+          </div>
+        </section>
+      )}
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-soft">
@@ -91,6 +146,9 @@ export default async function RiskPage({ params }: { params: Promise<{ id: strin
                   id: m.id,
                   description: m.description,
                   controlRef: m.controlRef,
+                  treatment: m.treatmentType
+                    ? TREATMENT_LABEL[m.treatmentType as TreatmentType]
+                    : null,
                   status: m.status,
                   dueAt: m.dueAt?.toISOString().slice(0, 10) ?? null,
                   evidenceRef: m.evidenceRef,
@@ -108,7 +166,7 @@ export default async function RiskPage({ params }: { params: Promise<{ id: strin
         {mayManage ? (
           <form
             action={addMitigationAction.bind(null, id)}
-            className="grid gap-3 rounded border border-line bg-surface p-4 sm:grid-cols-[1fr_auto_auto_auto] sm:items-end"
+            className="grid gap-3 rounded border border-line bg-surface p-4 sm:grid-cols-[1fr_auto_auto_auto_auto] sm:items-end"
           >
             <label className="block space-y-1">
               <span className="text-xs font-medium uppercase tracking-wider text-ink-soft">
@@ -119,6 +177,20 @@ export default async function RiskPage({ params }: { params: Promise<{ id: strin
                 required
                 className="w-full rounded border border-line bg-ground px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-brand"
               />
+            </label>
+            <label className="block space-y-1">
+              <span className="text-xs font-medium uppercase tracking-wider text-ink-soft">Treatment</span>
+              <select
+                name="treatmentType"
+                defaultValue="limitation"
+                className="rounded border border-line bg-ground px-3 py-2 text-sm"
+              >
+                {(Object.keys(TREATMENT_LABEL) as TreatmentType[]).map((t) => (
+                  <option key={t} value={t} title={TREATMENT_HELP[t]}>
+                    {TREATMENT_LABEL[t]}
+                  </option>
+                ))}
+              </select>
             </label>
             <label className="block space-y-1">
               <span className="text-xs font-medium uppercase tracking-wider text-ink-soft">Control</span>
@@ -168,7 +240,7 @@ export default async function RiskPage({ params }: { params: Promise<{ id: strin
                 defaultValue={risk.residualLikelihood ?? risk.inherentLikelihood}
                 className="rounded border border-line bg-ground px-3 py-2 text-sm"
               >
-                {LIKELIHOOD.map((l) => (
+                {SCALES[scale].likelihood.map((l) => (
                   <option key={l.value} value={l.value}>{l.value} · {l.label}</option>
                 ))}
               </select>
@@ -181,7 +253,7 @@ export default async function RiskPage({ params }: { params: Promise<{ id: strin
                 defaultValue={risk.residualImpact ?? risk.inherentImpact}
                 className="rounded border border-line bg-ground px-3 py-2 text-sm"
               >
-                {IMPACT.map((i) => (
+                {SCALES[scale].impact.map((i) => (
                   <option key={i.value} value={i.value}>{i.value} · {i.label}</option>
                 ))}
               </select>

@@ -21,6 +21,7 @@ Every help topic the application carries, in the order it presents them.
 - [Approving, returning and rejecting](#approving-returning-and-rejecting) — Gates are chosen by the assessment's own answers, and only an approver can decide one.
 - [Asking somebody without an account](#asking-somebody-without-an-account) — A single-use link that lets a named person answer specific questions without signing in or seeing anything else.
 - [The risk register](#the-risk-register) — Rate a risk, treat it, then rate what remains. Accepting one is a decision with a name and an expiry date on it.
+- [Risk appetite](#risk-appetite) — How much risk of each kind the organisation will carry, signed off, and what every risk is judged against.
 - [Discussion and mentions](#discussion-and-mentions) — Ask a question beside the record it is about, and name the person who can answer.
 
 **The registers**
@@ -293,6 +294,38 @@ Raise a risk from the assessment that found it, using the form at the foot of th
 **See also:** Approving, returning and rejecting · Scan findings · The AI assurance chain
 
 <sub>Also searchable as: risk, mitigation, residual, inherent, accept, tier, likelihood, impact</sub>
+
+## Risk appetite
+
+*How much risk of each kind the organisation will carry, signed off, and what every risk is judged against.*
+
+**Screen:** `/app/risks/appetite`
+
+### One appetite per category
+
+DSIT's AI Risk Management Toolkit asks for appetite to be set for each risk category at organisational level and signed off by the board. Each category can have its own statement, at one of four levels — averse, minimal, cautious or open — and an organisation default covers any category without one.
+
+A statement says in words what the organisation will and will not take on, and names the highest residual tier still within appetite. The tier is what the register checks; the words are what a reader holds the decision to.
+
+### Proposing and signing off
+
+Anyone with an organisation-wide role that manages risk can propose an appetite. It changes nothing until an approver with an organisation-wide role signs it off, naming where it was agreed — and the person who proposed it cannot be the one who signs it off.
+
+A signed-off statement replaces the one before it, which stays on the record. Each carries a review date; when it passes, the privacy administrators are given a task to confirm or replace it.
+
+### What "within appetite" means on the register
+
+A risk is judged against its category's appetite, else the organisation default, else the platform's own assumption that residual high or critical is outside appetite. The risk page says which it was judged against.
+
+A risk with no residual rating counts as not within appetite — nobody has measured it. A risk outside appetite can still be accepted by an approver; the acceptance records that it was outside appetite at the time.
+
+### The risk scale
+
+Risks are rated on four by four by default, or on the five by five Orange Book scale that DSIT's toolkit uses — chosen on the organisation settings page. The scale can only be changed while the register is empty, so every risk on it is rated the same way.
+
+**See also:** The risk register · Naming the organisation · The AI register
+
+<sub>Also searchable as: appetite, tolerance, orange book, dsit, board, averse, cautious, open, within appetite</sub>
 
 ## Discussion and mentions
 

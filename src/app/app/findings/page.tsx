@@ -5,6 +5,8 @@ import { can } from "@/lib/rbac";
 import { NotPermitted } from "@/components/NotPermitted";
 import { getActiveSession, visibleEntityIds } from "@/lib/session";
 import { openFindings } from "@/services/ingest";
+import { SCALES } from "@/lib/risk/scale";
+import { riskScaleOf } from "@/services/risks";
 import { FindingCard } from "./finding-card";
 
 export default async function FindingsPage() {
@@ -20,7 +22,10 @@ export default async function FindingsPage() {
     );
   }
 
-const rows = await openFindings(active.membership.organisationId, visibleEntityIds(active));
+const [rows, scale] = await Promise.all([
+    openFindings(active.membership.organisationId, visibleEntityIds(active)),
+    riskScaleOf(active.membership.organisationId),
+  ]);
   const canAct = can(active.membership.grants, "risk.manage");
 
   return (
@@ -50,6 +55,8 @@ const rows = await openFindings(active.membership.organisationId, visibleEntityI
             <FindingCard
               key={finding.id}
               canAct={canAct}
+              likelihood={SCALES[scale].likelihood}
+              impact={SCALES[scale].impact}
               finding={{
                 id: finding.id,
                 title: finding.title,

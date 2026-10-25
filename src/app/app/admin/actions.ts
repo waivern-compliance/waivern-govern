@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { SCALES, isScaleId } from "@/lib/risk/scale";
+import { setRiskScale } from "@/services/risk-policy";
 import { PERSONAS, type Persona } from "@/lib/persona";
 import { ROLES, type AppRole } from "@/lib/rbac";
 import { HandoverRefused, handOver } from "@/services/handover";
@@ -187,6 +189,34 @@ export async function renameOrganisationAction(
     });
     revalidatePath("/app", "layout");
     return { ok: true, message: `Now shown as “${updated.name}” throughout.` };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : "That could not be saved.",
+    };
+  }
+}
+
+/**
+ * Choose the risk register's scale. Refused, with the reason, once the register
+ * holds anything — see `setRiskScale`.
+ */
+export async function setRiskScaleAction(
+  _prev: AdminResult,
+  formData: FormData,
+): Promise<AdminResult> {
+  const scale = text(formData.get("scale"));
+  const active = await requireCapability("org.manage");
+  if (!isScaleId(scale)) return { ok: false, message: "Choose one of the scales offered." };
+
+  try {
+    await setRiskScale({
+      organisationId: active.membership.organisationId,
+      scale,
+      actor: actorOf(active),
+    });
+    revalidatePath("/app", "layout");
+    return { ok: true, message: `The register now rates on the ${SCALES[scale].name.toLowerCase()} scale.` };
   } catch (error) {
     return {
       ok: false,

@@ -1,4 +1,4 @@
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
   index,
   integer,
@@ -9,7 +9,16 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { assessments } from "./assessments";
-import { mitigationStatus, riskSource, riskStatus, riskTier } from "./enums";
+import {
+  appetiteLevel,
+  appetiteStatus,
+  mitigationStatus,
+  riskScale,
+  riskSource,
+  riskStatus,
+  riskTier,
+  treatmentType,
+} from "./enums";
 import { entities, organisations, users } from "./tenancy";
 
 /**
@@ -45,6 +54,12 @@ export const risks = pgTable(
     /** Named human accountable for the risk. Not the person who accepts it. */
     ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
 
+    /**
+     * The scale the ratings below are on. Fixed when the risk is raised, from
+     * the organisation's choice at the time, so the database can check every
+     * score and tier against the scale it was actually given on.
+     */
+    scale: riskScale("scale").notNull().default("4x4"),
     inherentLikelihood: integer("inherent_likelihood").notNull(),
     inherentImpact: integer("inherent_impact").notNull(),
     inherentScore: integer("inherent_score").notNull(),
@@ -86,6 +101,8 @@ export const mitigations = pgTable(
     description: text("description").notNull(),
     /** Reference into the client's own control framework, where they have one. */
     controlRef: text("control_ref"),
+    /** Null for mitigations recorded before treatment types were asked for. */
+    treatmentType: treatmentType("treatment_type"),
     ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
     dueAt: timestamp("due_at", { withTimezone: true }),
     status: mitigationStatus("status").notNull().default("planned"),
@@ -148,6 +165,75 @@ export const riskAcceptances = pgTable(
   (t) => [
     index("risk_acceptance_risk_idx").on(t.riskId),
     index("risk_acceptance_expiry_idx").on(t.expiresAt),
+  ],
+);
+
+/**
+ * How much risk of one category the organisation will carry, signed off.
+ *
+ * DSIT's toolkit asks for appetite to be set per risk category, at
+ * organisational level, and signed off by the board — and calls it the hardest
+ * part of the whole exercise. Without it "within appetite" means whatever the
+ * platform assumed; with it, a fairness risk and a financial risk can be held
+ * to different standards, as they should be.
+ *
+ * Append-only in substance. A change of appetite is a new statement that,
+ * once approved, supersedes the old one: the register shows what the appetite
+ * was when a risk was accepted, not only what it is now. Proposing and
+ * approving are separate people, as for any other decision here.
+ */
+export const riskAppetites = pgTable(
+  "risk_appetite",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organisationId: uuid("organisation_id")
+      .notNull()
+      .references(() => organisations.id, { onDelete: "restrict" }),
+
+    /**
+     * A category from `lib/risk/categories.ts`, or "default" for the statement
+     * that applies to any risk without a category-level one.
+     */
+    category: text("category").notNull(),
+    level: appetiteLevel("level").notNull(),
+    /**
+     * The highest residual tier still within appetite. The level says it in
+     * words; this says it in a form a register can check, which is the
+     * toolkit's "clearly defined and measurable".
+     */
+    toleratedTier: riskTier("tolerated_tier").notNull(),
+    statement: text("statement").notNull(),
+    status: appetiteStatus("status").notNull().default("proposed"),
+
+    proposedByUserId: uuid("proposed_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    proposedByLabel: text("proposed_by_label").notNull(),
+    proposedAt: timestamp("proposed_at", { withTimezone: true }).notNull().defaultNow(),
+
+    decidedByUserId: uuid("decided_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    decidedByLabel: text("decided_by_label"),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+    /** Where it was signed off — the board, the date, the minute. */
+    approvalReference: text("approval_reference"),
+    rejectionReason: text("rejection_reason"),
+
+    reviewDueAt: timestamp("review_due_at", { withTimezone: true }),
+    supersededAt: timestamp("superseded_at", { withTimezone: true }),
+
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // One statement in force per category, and one waiting for a decision.
+    uniqueIndex("risk_appetite_current")
+      .on(t.organisationId, t.category)
+      .where(sql`${t.status} = 'approved'`),
+    uniqueIndex("risk_appetite_pending")
+      .on(t.organisationId, t.category)
+      .where(sql`${t.status} = 'proposed'`),
+    index("risk_appetite_org_idx").on(t.organisationId, t.category),
   ],
 );
 

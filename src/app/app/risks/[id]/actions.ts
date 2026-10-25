@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireCapability } from "@/lib/session";
+import { isTreatmentType, type TreatmentType } from "@/lib/risk/treatment";
 import {
   acceptRisk,
   addMitigation,
@@ -49,6 +50,9 @@ export async function addMitigationAction(riskId: string, formData: FormData) {
     organisationId: active.membership.organisationId,
     description,
     controlRef: String(formData.get("controlRef") ?? "") || undefined,
+    treatmentType: isTreatmentType(formData.get("treatmentType"))
+      ? (formData.get("treatmentType") as TreatmentType)
+      : undefined,
     ownerId: active.userId,
     dueAt: due ? new Date(due) : undefined,
     actor: actorOf(active),

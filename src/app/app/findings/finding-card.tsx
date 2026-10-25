@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { IMPACT, LIKELIHOOD } from "@/lib/risk/scale";
+import type { ScalePoint } from "@/lib/risk/scale";
 import { dismissAction, raiseAsRiskAction } from "./actions";
 
 const SEVERITY: Record<string, string> = {
@@ -34,7 +34,18 @@ export type Finding = {
  * rating fields start empty: an inherent rating is a judgement someone is
  * accountable for, and a number that appeared by itself is one nobody chose.
  */
-export function FindingCard({ finding, canAct }: { finding: Finding; canAct: boolean }) {
+export function FindingCard({
+  finding,
+  canAct,
+  likelihood,
+  impact,
+}: {
+  finding: Finding;
+  canAct: boolean;
+  /** The organisation's scale, so a finding is rated as every other risk is. */
+  likelihood: readonly ScalePoint[];
+  impact: readonly ScalePoint[];
+}) {
   const [mode, setMode] = useState<"idle" | "raise" | "dismiss">("idle");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -134,7 +145,7 @@ export function FindingCard({ finding, canAct }: { finding: Finding; canAct: boo
                 className="w-full rounded border border-line bg-surface px-3 py-2 text-sm"
               >
                 <option value="" disabled>Choose…</option>
-                {LIKELIHOOD.map((l) => (
+                {likelihood.map((l) => (
                   <option key={l.value} value={l.value}>{l.value} · {l.label}</option>
                 ))}
               </select>
@@ -150,7 +161,7 @@ export function FindingCard({ finding, canAct }: { finding: Finding; canAct: boo
                 className="w-full rounded border border-line bg-surface px-3 py-2 text-sm"
               >
                 <option value="" disabled>Choose…</option>
-                {IMPACT.map((i) => (
+                {impact.map((i) => (
                   <option key={i.value} value={i.value}>{i.value} · {i.label}</option>
                 ))}
               </select>

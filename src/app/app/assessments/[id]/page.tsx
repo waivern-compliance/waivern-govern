@@ -11,11 +11,11 @@ import { getActiveSession } from "@/lib/session";
 import { assessmentHistory, loadAssessment } from "@/services/assessments";
 import { linksForAssessment } from "@/services/contributor-links";
 import { approvalsFor } from "@/services/workflow";
-import { risksForAssessment } from "@/services/risks";
+import { riskScaleOf, risksForAssessment } from "@/services/risks";
 import { RaiseRiskForm } from "@/components/RaiseRiskForm";
 import { RiskTierBadge } from "@/components/RiskTierBadge";
 import { categoryLabel } from "@/lib/risk/categories";
-import { IMPACT, LIKELIHOOD } from "@/lib/risk/scale";
+import { SCALES } from "@/lib/risk/scale";
 import { Approvals } from "./approvals";
 import { InviteContributor } from "./invite";
 import { saveAction, submitAction } from "./actions";
@@ -69,12 +69,13 @@ export default async function AssessmentPage({
       />
     );
   }
-  const [refs, history, links, gates, raised] = await Promise.all([
+  const [refs, history, links, gates, raised, scale] = await Promise.all([
     legalRefMap(),
     assessmentHistory(id),
     linksForAssessment(id),
     approvalsFor(id),
     risksForAssessment(id, active.membership.organisationId),
+    riskScaleOf(active.membership.organisationId),
   ]);
   const mayRaise = can(active.membership.grants, "risk.manage", assessment.entityId);
   // What the assessor said belongs on the register, offered first when raising.
@@ -211,8 +212,8 @@ export default async function AssessmentPage({
                 entities={[{ id: assessment.entityId, name: "" }]}
                 assessmentId={id}
                 suggestedCategories={unraised.length > 0 ? unraised : named}
-                likelihood={LIKELIHOOD}
-                impact={IMPACT}
+                likelihood={SCALES[scale].likelihood}
+                impact={SCALES[scale].impact}
               />
             </details>
           ) : null}

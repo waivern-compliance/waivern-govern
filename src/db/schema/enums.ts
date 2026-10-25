@@ -52,6 +52,9 @@ export const recordType = pgEnum("record_type", [
   "sla_policy",
   "workflow_stage",
   "webhook_delivery",
+  // Added with UK government AI guidance support.
+  "risk_appetite",
+  "atrs_record",
 ]);
 
 /**
@@ -185,6 +188,39 @@ export const riskStatus = pgEnum("risk_status", [
 ]);
 
 export const riskSource = pgEnum("risk_source", ["assessment", "manual", "integration"]);
+
+/** Which scale a risk was rated on. See `lib/risk/scale.ts`. */
+export const riskScale = pgEnum("risk_scale", ["4x4", "5x5"]);
+
+/**
+ * How much risk of a kind the organisation is prepared to carry, in the
+ * Orange Book's terms as DSIT's AI Risk Management Toolkit uses them.
+ */
+export const appetiteLevel = pgEnum("appetite_level", ["averse", "minimal", "cautious", "open"]);
+
+export const appetiteStatus = pgEnum("appetite_status", [
+  /** Written down, not yet signed off. Changes nothing until it is. */
+  "proposed",
+  /** Signed off, and what risks in its category are judged against. */
+  "approved",
+  "rejected",
+  /** Replaced by a later approved statement for the same category. */
+  "superseded",
+]);
+
+/**
+ * What a mitigation does to the risk, in the toolkit's terms. Acceptance — the
+ * fourth option — is not a mitigation; it is the separate, accountable record
+ * in `risk_acceptance`.
+ */
+export const treatmentType = pgEnum("treatment_type", [
+  /** Removes the exposure — by not doing the thing, or doing it differently. */
+  "avoidance",
+  /** Keeps the exposure within acceptable limits. */
+  "limitation",
+  /** Moves some of it to a party better placed to carry it, such as a supplier. */
+  "transference",
+]);
 
 export const mitigationStatus = pgEnum("mitigation_status", [
   "planned",

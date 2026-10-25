@@ -6,10 +6,10 @@ import { db } from "@/db/client";
 import { entities } from "@/db/schema";
 import { RiskTierBadge } from "@/components/RiskTierBadge";
 import { can } from "@/lib/rbac";
-import { IMPACT, LIKELIHOOD } from "@/lib/risk/scale";
+import { SCALES } from "@/lib/risk/scale";
 import { NotPermitted } from "@/components/NotPermitted";
 import { getActiveSession, visibleEntityIds } from "@/lib/session";
-import { expiredAcceptances, listRisks } from "@/services/risks";
+import { expiredAcceptances, listRisks, riskScaleOf } from "@/services/risks";
 import { RaiseRiskForm } from "@/components/RaiseRiskForm";
 import { categoryLabel } from "@/lib/risk/categories";
 
@@ -27,10 +27,11 @@ export default async function RisksPage() {
   }
 
 const org = active.membership.organisationId;
-  const [rows, orgEntities, lapsed] = await Promise.all([
+  const [rows, orgEntities, lapsed, scale] = await Promise.all([
     listRisks(org, visibleEntityIds(active)),
     db.select().from(entities).where(eq(entities.organisationId, org)),
     expiredAcceptances(org),
+    riskScaleOf(org),
   ]);
   const mayManage = can(active.membership.grants, "risk.manage");
   const lapsedIds = new Set(lapsed.map((l) => l.risk.id));
@@ -41,7 +42,15 @@ const org = active.membership.organisationId;
         <Link href="/app" className="text-xs text-ink-soft hover:text-brand">
           ← {active.membership.organisationName}
         </Link>
-        <h1 className="text-2xl font-semibold tracking-tight">Risk register</h1>
+        <div className="flex flex-wrap items-baseline justify-between gap-x-4">
+          <h1 className="text-2xl font-semibold tracking-tight">Risk register</h1>
+          <Link href="/app/risks/appetite" className="text-xs text-ink-soft hover:text-brand">
+            Risk appetite →
+          </Link>
+        </div>
+        <p className="font-mono text-xs text-ink-soft">
+          Rated {SCALES[scale].name.toLowerCase()}
+        </p>
       </header>
 
       <HelpLink topic="risks" />
@@ -66,8 +75,8 @@ const org = active.membership.organisationId;
           </summary>
           <RaiseRiskForm
             entities={orgEntities.map((e) => ({ id: e.id, name: e.name }))}
-            likelihood={LIKELIHOOD}
-            impact={IMPACT}
+            likelihood={SCALES[scale].likelihood}
+            impact={SCALES[scale].impact}
           />
         </details>
       ) : null}

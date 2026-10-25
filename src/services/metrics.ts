@@ -10,7 +10,9 @@ import {
   templateVersions,
   templates,
 } from "@/db/schema";
+import { judge, notWithinAppetite } from "@/lib/risk/appetite";
 import type { RiskTier } from "@/lib/risk/scale";
+import { appetiteInForce } from "./appetite-in-force";
 
 /**
  * Everything the dashboard shows, in one round of queries.
@@ -87,8 +89,6 @@ const KIND_LABEL: Record<string, string> = {
   custom: "Custom",
 };
 
-/** Above appetite: residual still high or critical after treatment. */
-const ABOVE_APPETITE: RiskTier[] = ["high", "critical"];
 
 export async function dashboardMetrics(
   organisationId: string,
@@ -109,6 +109,7 @@ export async function dashboardMetrics(
   const now = new Date();
   const soon = new Date(now.getTime() + 3 * 24 * 3600 * 1000);
 
+  const inForce = await appetiteInForce(organisationId);
   const [
     assessmentRows,
     riskRows,
@@ -131,6 +132,7 @@ export async function dashboardMetrics(
         inherentTier: risks.inherentTier,
         residualTier: risks.residualTier,
         status: risks.status,
+        category: risks.category,
         entityId: risks.entityId,
       })
       .from(risks)
@@ -213,11 +215,15 @@ export async function dashboardMetrics(
       // An unrated risk is not a risk within appetite — it is one nobody has
       // measured. Counting it as "fine" is how a dashboard reassures an
       // executive about exposure that has simply never been looked at.
-      notWithinAppetite: riskRows.filter(
-        (r) =>
-          r.status !== "closed" &&
-          (r.residualTier === null ||
-            ABOVE_APPETITE.includes(r.residualTier as RiskTier)),
+      // Each risk is judged against its own category's approved appetite,
+      // falling back to the organisation's default and then to ours.
+      notWithinAppetite: riskRows.filter((r) =>
+        notWithinAppetite(
+          judge(
+            { category: r.category, residualTier: r.residualTier as RiskTier | null, status: r.status },
+            inForce,
+          ),
+        ),
       ).length,
       lapsedAcceptances: Number(lapsed[0]?.n ?? 0),
     },

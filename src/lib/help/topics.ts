@@ -962,6 +962,44 @@ export const HELP_TOPICS: HelpTopic[] = [
     ],
     related: ["assessments", "approvals"],
   },
+  {
+    id: "risk-appetite",
+    title: "Risk appetite",
+    summary:
+      "How much risk of each kind the organisation will carry, signed off, and what every risk is judged against.",
+    path: "/app/risks/appetite",
+    keywords: ["appetite", "tolerance", "orange book", "dsit", "board", "averse", "cautious", "open", "within appetite"],
+    sections: [
+      {
+        heading: "One appetite per category",
+        body: [
+          "DSIT's AI Risk Management Toolkit asks for appetite to be set for each risk category at organisational level and signed off by the board. Each category can have its own statement, at one of four levels — averse, minimal, cautious or open — and an organisation default covers any category without one.",
+          "A statement says in words what the organisation will and will not take on, and names the highest residual tier still within appetite. The tier is what the register checks; the words are what a reader holds the decision to.",
+        ],
+      },
+      {
+        heading: "Proposing and signing off",
+        body: [
+          "Anyone with an organisation-wide role that manages risk can propose an appetite. It changes nothing until an approver with an organisation-wide role signs it off, naming where it was agreed — and the person who proposed it cannot be the one who signs it off.",
+          "A signed-off statement replaces the one before it, which stays on the record. Each carries a review date; when it passes, the privacy administrators are given a task to confirm or replace it.",
+        ],
+      },
+      {
+        heading: "What \"within appetite\" means on the register",
+        body: [
+          "A risk is judged against its category's appetite, else the organisation default, else the platform's own assumption that residual high or critical is outside appetite. The risk page says which it was judged against.",
+          "A risk with no residual rating counts as not within appetite — nobody has measured it. A risk outside appetite can still be accepted by an approver; the acceptance records that it was outside appetite at the time.",
+        ],
+      },
+      {
+        heading: "The risk scale",
+        body: [
+          "Risks are rated on four by four by default, or on the five by five Orange Book scale that DSIT's toolkit uses — chosen on the organisation settings page. The scale can only be changed while the register is empty, so every risk on it is rated the same way.",
+        ],
+      },
+    ],
+    related: ["risks", "organisation", "ai-register"],
+  },
 ];
 
 
@@ -980,7 +1018,7 @@ export const HELP_GROUPS: Array<{ heading: string; ids: string[] }> = [
   },
   {
     heading: "Doing the work",
-    ids: ["assessments", "approvals", "contributor-links", "risks", "discussion"],
+    ids: ["assessments", "approvals", "contributor-links", "risks", "risk-appetite", "discussion"],
   },
   {
     heading: "The registers",
