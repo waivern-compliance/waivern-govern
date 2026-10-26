@@ -6,14 +6,20 @@ import { NotPermitted } from "@/components/NotPermitted";
 import { can } from "@/lib/rbac";
 import { getActiveSession } from "@/lib/session";
 import {
+  DEPLOYMENT_PATTERN_LABEL,
   PROVENANCE_LABEL,
   STAGE_LABEL,
   SYSTEM_TYPE_LABEL,
+  TRANSPARENCY_SCOPE_LABEL,
   loadUseCase,
+  type DeploymentPattern,
   type LifecycleStage,
   type Provenance,
   type SystemType,
 } from "@/services/ai-register";
+import { candidatesFor } from "@/services/handover";
+import { recordsFor } from "@/services/atrs";
+import { startRecordAction } from "./atrs/actions";
 import { updateUseCaseAction } from "../actions";
 
 const CONSEQUENCE_WORDS: Record<string, string> = {
@@ -42,7 +48,7 @@ export default async function UseCasePage({
   const loaded = await loadUseCase(id, active.membership.organisationId);
   if (!loaded) notFound();
 
-  const { useCase, ownerEmail, assessed, assessments, gaps } = loaded;
+  const { useCase, ownerEmail, officerEmail, assessed, assessments, gaps } = loaded;
   if (!can(active.membership.grants, "record.read", useCase.entityId)) {
     return (
       <NotPermitted
@@ -52,6 +58,13 @@ export default async function UseCasePage({
     );
   }
   const mayEdit = can(active.membership.grants, "record.write", useCase.entityId);
+  const [members, records] = await Promise.all([
+    mayEdit ? candidatesFor(active.membership.organisationId) : Promise.resolve([]),
+    recordsFor(id, active.membership.organisationId),
+  ]);
+  const draftRecord = records.find((r) => r.status === "draft") ?? null;
+  const currentRecord =
+    records.find((r) => r.status === "published" || r.status === "approved") ?? null;
 
   return (
     <main className="mx-auto max-w-3xl space-y-10 px-6 py-12">
@@ -70,6 +83,11 @@ export default async function UseCasePage({
           {STAGE_LABEL[useCase.lifecycleStage as LifecycleStage]}
           {useCase.vendor ? ` · ${useCase.vendor}` : ""}
         </p>
+        <p className="text-xs text-ink-soft">
+          {useCase.deploymentPattern
+            ? DEPLOYMENT_PATTERN_LABEL[useCase.deploymentPattern as DeploymentPattern]
+            : "How it is deployed has not been recorded."}
+        </p>
         <GapChips gaps={gaps} />
       </header>
 
@@ -77,11 +95,13 @@ export default async function UseCasePage({
         <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-soft">
           Accountability
         </h2>
-        <div className="rounded border border-line bg-surface px-4 py-3 text-sm">
+        <div className="space-y-2 rounded border border-line bg-surface px-4 py-3 text-sm">
           {ownerEmail ? (
             <p>
               <span className="font-medium">{ownerEmail}</span>
-              <span className="text-ink-soft"> is accountable for this system.</span>
+              <span className="text-ink-soft">
+                {" "}is accountable for this system — its senior responsible owner.
+              </span>
             </p>
           ) : (
             <p className="text-ink-soft">
@@ -90,6 +110,33 @@ export default async function UseCasePage({
               for when it goes wrong.
             </p>
           )}
+          <p className="text-ink-soft">
+            {officerEmail ? (
+              <>
+                <span className="font-medium text-ink">{officerEmail}</span> runs its risk
+                management as AI governance officer
+              </>
+            ) : (
+              "No AI governance officer named"
+            )}
+            {useCase.responsibleTeam ? `, for ${useCase.responsibleTeam}.` : "."}
+          </p>
+          <dl className="grid gap-x-6 gap-y-1.5 border-t border-line pt-2 sm:grid-cols-[10rem_1fr]">
+            <Fact term="On the register" value={day(useCase.createdAt)} />
+            <Fact
+              term="Live since"
+              value={
+                useCase.liveSince
+                  ? day(useCase.liveSince)
+                  : // Live before this was recorded: unknown, and said so.
+                    ["proposed", "development"].includes(useCase.lifecycleStage)
+                    ? "not yet live"
+                    : null
+              }
+            />
+            <Fact term="Next review" value={useCase.nextReviewAt ? day(useCase.nextReviewAt) : null} />
+            {useCase.retiredAt ? <Fact term="Retired" value={day(useCase.retiredAt)} /> : null}
+          </dl>
         </div>
       </section>
 
@@ -165,6 +212,78 @@ export default async function UseCasePage({
         </section>
       ) : null}
 
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-soft">
+          Algorithmic transparency
+        </h2>
+        <div className="space-y-3 rounded border border-line bg-surface px-4 py-3.5 text-sm">
+          <p>
+            {useCase.transparencyScope
+              ? TRANSPARENCY_SCOPE_LABEL[useCase.transparencyScope as keyof typeof TRANSPARENCY_SCOPE_LABEL]
+              : "Whether an Algorithmic Transparency Recording Standard record is needed has not been decided."}
+          </p>
+          {currentRecord ? (
+            <p>
+              <Link href={`/app/ai/${id}/atrs/${currentRecord.id}`} className="text-brand hover:underline">
+                Version {currentRecord.version}
+              </Link>{" "}
+              {currentRecord.status === "published" ? (
+                <>
+                  is published
+                  {currentRecord.publicationUrl ? (
+                    <>
+                      {" "}
+                      <a href={currentRecord.publicationUrl} className="underline" target="_blank" rel="noreferrer">
+                        on GOV.UK
+                      </a>
+                    </>
+                  ) : null}
+                  .
+                </>
+              ) : (
+                "is approved and waiting to be published."
+              )}
+            </p>
+          ) : null}
+          {draftRecord ? (
+            <p>
+              <Link href={`/app/ai/${id}/atrs/${draftRecord.id}`} className="text-brand hover:underline">
+                Version {draftRecord.version}
+              </Link>{" "}
+              is a draft in progress.
+            </p>
+          ) : null}
+          {mayEdit ? (
+            <div className="flex flex-wrap items-end gap-3 border-t border-line pt-3">
+              <form action={updateUseCaseAction.bind(null, id)} className="flex flex-wrap items-end gap-2">
+                <Choice
+                  name="transparencyScope"
+                  label="Does the ATRS apply?"
+                  value={useCase.transparencyScope ?? ""}
+                  options={{ "": "Not yet decided", ...TRANSPARENCY_SCOPE_LABEL }}
+                />
+                <button
+                  type="submit"
+                  className="rounded border border-line bg-surface px-3 py-2 text-sm hover:border-brand"
+                >
+                  Save
+                </button>
+              </form>
+              {!draftRecord && useCase.transparencyScope && useCase.transparencyScope !== "not_in_scope" ? (
+                <form action={startRecordAction.bind(null, id)}>
+                  <button
+                    type="submit"
+                    className="rounded bg-brand px-3 py-2 text-sm font-medium text-white hover:opacity-90"
+                  >
+                    {currentRecord ? "Start a new version" : "Start a record"}
+                  </button>
+                </form>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      </section>
+
       {mayEdit ? (
         <section className="space-y-3">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-soft">
@@ -172,34 +291,65 @@ export default async function UseCasePage({
           </h2>
           <form
             action={updateUseCaseAction.bind(null, id)}
-            className="grid gap-3 rounded border border-line bg-surface p-4 sm:grid-cols-[1fr_auto] sm:items-end"
+            className="grid gap-3 rounded border border-line bg-surface p-4 sm:grid-cols-2"
           >
+            <Choice
+              name="lifecycleStage"
+              label="Stage"
+              value={useCase.lifecycleStage}
+              options={STAGE_LABEL}
+            />
+            <Choice
+              name="deploymentPattern"
+              label="How it is deployed"
+              value={useCase.deploymentPattern ?? ""}
+              options={{ "": "Not yet known", ...DEPLOYMENT_PATTERN_LABEL }}
+            />
+            <Choice
+              name="ownerId"
+              label="Senior responsible owner"
+              value={useCase.ownerId ?? ""}
+              options={{ "": "Nobody yet", ...people(members) }}
+            />
+            <Choice
+              name="governanceOfficerId"
+              label="AI governance officer"
+              value={useCase.governanceOfficerId ?? ""}
+              options={{ "": "Nobody yet", ...people(members) }}
+            />
             <label className="block space-y-1">
               <span className="text-xs font-medium uppercase tracking-wider text-ink-soft">
-                Stage
+                Team responsible
               </span>
-              <select
-                name="lifecycleStage"
-                defaultValue={useCase.lifecycleStage}
+              <input
+                name="responsibleTeam"
+                defaultValue={useCase.responsibleTeam ?? ""}
                 className="w-full rounded border border-line bg-ground px-3 py-2 text-sm"
-              >
-                {Object.entries(STAGE_LABEL).map(([value, text]) => (
-                  <option key={value} value={value}>{text}</option>
-                ))}
-              </select>
+              />
             </label>
-            <button
-              type="submit"
-              className="rounded border border-line bg-surface px-4 py-2 text-sm hover:border-brand focus-visible:outline-2 focus-visible:outline-brand"
-            >
-              Update
-            </button>
-            {!ownerEmail ? (
-              <label className="flex items-start gap-2.5 text-sm sm:col-span-2">
-                <input type="checkbox" name="claimOwnership" className="mt-1 accent-brand" />
-                <span>I am accountable for this system</span>
-              </label>
-            ) : null}
+            <label className="block space-y-1">
+              <span className="text-xs font-medium uppercase tracking-wider text-ink-soft">
+                Next review
+              </span>
+              <input
+                type="date"
+                name="nextReviewAt"
+                defaultValue={useCase.nextReviewAt ? day(useCase.nextReviewAt) : ""}
+                className="w-full rounded border border-line bg-ground px-3 py-2 text-sm"
+              />
+            </label>
+            <p className="text-xs text-ink-soft sm:col-span-2">
+              Approving an assessment of this system sets the next review for you,
+              from the assessment&apos;s own cycle.
+            </p>
+            <div className="sm:col-span-2">
+              <button
+                type="submit"
+                className="rounded border border-line bg-surface px-4 py-2 text-sm hover:border-brand focus-visible:outline-2 focus-visible:outline-brand"
+              >
+                Update
+              </button>
+            </div>
           </form>
         </section>
       ) : null}
@@ -221,4 +371,39 @@ function Fact({ term, value }: { term: string; value?: string | null }) {
       <dd className={value ? "" : "text-ink-soft"}>{value ?? "not recorded"}</dd>
     </>
   );
+}
+
+function Choice({
+  name,
+  label,
+  value,
+  options,
+}: {
+  name: string;
+  label: string;
+  value: string;
+  options: Record<string, string>;
+}) {
+  return (
+    <label className="block space-y-1">
+      <span className="text-xs font-medium uppercase tracking-wider text-ink-soft">{label}</span>
+      <select
+        name={name}
+        defaultValue={value}
+        className="w-full rounded border border-line bg-ground px-3 py-2 text-sm"
+      >
+        {Object.entries(options).map(([v, text]) => (
+          <option key={v} value={v}>{text}</option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function people(members: Array<{ id: string; email: string }>): Record<string, string> {
+  return Object.fromEntries(members.map((m) => [m.id, m.email]));
+}
+
+function day(d: Date): string {
+  return d.toISOString().slice(0, 10);
 }

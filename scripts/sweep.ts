@@ -28,6 +28,8 @@ async function main() {
       r.conversationsForgotten +
       r.breachDeadlinesRaised +
       r.lapsedReviewsRaised +
+      r.aiReviewsRaised +
+      r.appetiteReviewsRaised +
       r.webhooksDelivered +
       r.webhooksFailed;
 
@@ -48,6 +50,8 @@ async function main() {
           r.dpaReviewsRaised && `${r.dpaReviewsRaised} processor agreement(s) flagged`,
           r.breachDeadlinesRaised && `${r.breachDeadlinesRaised} breach deadline(s) flagged`,
           r.lapsedReviewsRaised && `${r.lapsedReviewsRaised} assessment(s) past review`,
+          r.aiReviewsRaised && `${r.aiReviewsRaised} AI system(s) past review`,
+          r.appetiteReviewsRaised && `${r.appetiteReviewsRaised} risk appetite statement(s) past review`,
           r.conversationsForgotten && `${r.conversationsForgotten} assistant conversation(s) forgotten`,
           r.webhooksDelivered && `${r.webhooksDelivered} webhook(s) delivered`,
           r.webhooksFailed && `${r.webhooksFailed} webhook(s) failed`,

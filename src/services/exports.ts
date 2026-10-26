@@ -1,4 +1,5 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/db/client";
 import {
   aiUseCases,
@@ -205,11 +206,18 @@ export async function exportAssessments(organisationId: string, entityIds: strin
 }
 
 export async function exportAiRegister(organisationId: string, entityIds: string[] | null) {
+  const officers = alias(users, "governance_officer");
   const rows = await db
-    .select({ useCase: aiUseCases, entity: entities.name, owner: users.email })
+    .select({
+      useCase: aiUseCases,
+      entity: entities.name,
+      owner: users.email,
+      officer: officers.email,
+    })
     .from(aiUseCases)
     .innerJoin(entities, eq(entities.id, aiUseCases.entityId))
     .leftJoin(users, eq(users.id, aiUseCases.ownerId))
+    .leftJoin(officers, eq(officers.id, aiUseCases.governanceOfficerId))
     .where(
       entityIds === null
         ? eq(aiUseCases.organisationId, organisationId)
@@ -223,20 +231,21 @@ export async function exportAiRegister(organisationId: string, entityIds: string
   return {
     columns: [
       "Reference", "Entity", "Name", "Purpose", "Type", "Provenance", "Stage",
-      "Vendor", "Model", "Owner", "Processes personal data",
-      "Outstanding", "Next review", "Retired",
+      "Deployment", "Vendor", "Model", "Owner", "AI governance officer", "Team",
+      "Processes personal data", "Outstanding", "Live since", "Next review", "Retired",
     ],
-    rows: rows.map(({ useCase, entity, owner }) => [
+    rows: rows.map(({ useCase, entity, owner, officer }) => [
       useCase.reference, entity, useCase.name, useCase.purpose,
       useCase.systemType, useCase.provenance, useCase.lifecycleStage,
-      useCase.vendor, useCase.modelName, owner,
+      useCase.deploymentPattern, useCase.vendor, useCase.modelName, owner, officer,
+      useCase.responsibleTeam,
       useCase.processesPersonalData === null
         ? null
         : useCase.processesPersonalData ? "yes" : "no",
       // Computed at export, matching what the register shows — a stored copy
       // would disagree with the screen the moment anything changed.
       gapsFor(useCase, null).join("; ") || "nothing",
-      useCase.nextReviewAt, useCase.retiredAt,
+      useCase.liveSince, useCase.nextReviewAt, useCase.retiredAt,
     ]),
   };
 }

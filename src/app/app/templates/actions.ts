@@ -8,6 +8,7 @@ import { requireCapability } from "@/lib/session";
 import {
   createDraftFrom,
   createTemplate,
+  installShippedTemplates,
   publishVersion,
   updateDraft,
   type TemplateKind,
@@ -136,5 +137,15 @@ export async function publishAction(templateId: string, versionId: string) {
     actor: { actorKind: "user", actorUserId: active.userId, actorLabel: active.email },
   });
   revalidatePath(`/app/templates/${templateId}`);
+  revalidatePath("/app/templates");
+}
+
+/** Install the shipped templates this organisation is missing. */
+export async function installShippedAction() {
+  const active = await requireCapability("template.publish");
+  await installShippedTemplates({
+    organisationId: active.membership.organisationId,
+    actor: { actorKind: "user", actorUserId: active.userId, actorLabel: active.email },
+  });
   revalidatePath("/app/templates");
 }

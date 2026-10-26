@@ -2,6 +2,7 @@ import { relations, sql } from "drizzle-orm";
 import {
   boolean,
   index,
+  integer,
   jsonb,
   pgTable,
   text,
@@ -9,7 +10,14 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import { aiLifecycleStage, aiProvenance, aiSystemType } from "./enums";
+import {
+  aiDeploymentPattern,
+  aiLifecycleStage,
+  aiProvenance,
+  aiSystemType,
+  atrsScope,
+  atrsStatus,
+} from "./enums";
 import { integrationConnections } from "./integration";
 import { entities, organisations, users } from "./tenancy";
 
@@ -47,6 +55,12 @@ export const aiUseCases = pgTable(
     systemType: aiSystemType("system_type").notNull(),
     provenance: aiProvenance("provenance").notNull(),
     lifecycleStage: aiLifecycleStage("lifecycle_stage").notNull().default("proposed"),
+    /**
+     * Nullable: a system registered before anybody established how it is
+     * deployed is still worth having on the register, and "unknown" is more
+     * honest than a default somebody did not choose.
+     */
+    deploymentPattern: aiDeploymentPattern("deployment_pattern"),
 
     /** Who supplies it, and which model, where that is known. */
     vendor: text("vendor"),
@@ -58,6 +72,24 @@ export const aiUseCases = pgTable(
      * volunteers is how shadow AI stays invisible.
      */
     ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
+    /**
+     * The person who runs risk management for it day to day — the DSIT AI Risk
+     * Management Toolkit's "AI governance officer". Distinct from the owner,
+     * who answers for the system: the officer makes sure risks are found,
+     * assessed and kept under review. One person may hold both.
+     */
+    governanceOfficerId: uuid("governance_officer_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    /** The team that runs it, as the Algorithmic Transparency Recording Standard asks. */
+    responsibleTeam: text("responsible_team"),
+
+    /**
+     * Whether a public Algorithmic Transparency Recording Standard record is
+     * required, published voluntarily, or not in scope. Null until somebody
+     * has decided — which the register treats as a question, not an answer.
+     */
+    transparencyScope: atrsScope("transparency_scope"),
 
     /** Systems and services it is deployed in. */
     deployedIn: jsonb("deployed_in").$type<string[]>().notNull().default([]),
@@ -67,6 +99,12 @@ export const aiUseCases = pgTable(
     dataCategories: jsonb("data_categories").$type<string[]>().notNull().default([]),
 
     nextReviewAt: timestamp("next_review_at", { withTimezone: true }),
+    /**
+     * When it first reached real people — set the first time it enters a live
+     * stage, and kept if it later leaves one. "How long has this been running"
+     * is the question an inventory gets asked, and the stage alone cannot answer it.
+     */
+    liveSince: timestamp("live_since", { withTimezone: true }),
     retiredAt: timestamp("retired_at", { withTimezone: true }),
 
     sourceConnectionId: uuid("source_connection_id").references(
@@ -95,5 +133,85 @@ export const aiUseCaseRelations = relations(aiUseCases, ({ one }) => ({
     references: [organisations.id],
   }),
   entity: one(entities, { fields: [aiUseCases.entityId], references: [entities.id] }),
-  owner: one(users, { fields: [aiUseCases.ownerId], references: [users.id] }),
+  owner: one(users, {
+    fields: [aiUseCases.ownerId],
+    references: [users.id],
+    relationName: "ai_use_case_owner",
+  }),
+  governanceOfficer: one(users, {
+    fields: [aiUseCases.governanceOfficerId],
+    references: [users.id],
+    relationName: "ai_use_case_governance_officer",
+  }),
+}));
+
+/**
+ * An Algorithmic Transparency Recording Standard record for one AI system.
+ *
+ * Versioned rather than edited. A draft is worked on; once an approver signs
+ * it off its content is frozen, because the version sent to DSIT and published
+ * on GOV.UK has to be the version anyone can later see here. A change is a new
+ * draft, which on approval supersedes the last. Approval is by someone other
+ * than the person who started the draft — a public statement about how a body
+ * uses an algorithm is not one person's to make alone.
+ *
+ * Govern holds the record's content; it does not lay it out as a document. The
+ * export is the template's own field-by-field layout, for pasting into DSIT's
+ * spreadsheet or for the Portal to render.
+ */
+export const atrsRecords = pgTable(
+  "atrs_record",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organisationId: uuid("organisation_id")
+      .notNull()
+      .references(() => organisations.id, { onDelete: "restrict" }),
+    entityId: uuid("entity_id")
+      .notNull()
+      .references(() => entities.id, { onDelete: "restrict" }),
+    aiUseCaseId: uuid("ai_use_case_id")
+      .notNull()
+      .references(() => aiUseCases.id, { onDelete: "restrict" }),
+
+    version: integer("version").notNull(),
+    /** The ATRS template version the fields follow. */
+    standardVersion: text("standard_version").notNull(),
+    status: atrsStatus("status").notNull().default("draft"),
+    /** Field values keyed by the template's reference, e.g. "2.1.3". */
+    fields: jsonb("fields").$type<Record<string, string>>().notNull().default({}),
+
+    createdByUserId: uuid("created_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdByLabel: text("created_by_label").notNull(),
+
+    approvedByUserId: uuid("approved_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    approvedByLabel: text("approved_by_label"),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    /** Where the public can read it. */
+    publicationUrl: text("publication_url"),
+    supersededAt: timestamp("superseded_at", { withTimezone: true }),
+
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("atrs_record_version").on(t.aiUseCaseId, t.version),
+    // One draft in progress, and one version in force, per system.
+    uniqueIndex("atrs_record_one_draft")
+      .on(t.aiUseCaseId)
+      .where(sql`${t.status} = 'draft'`),
+    uniqueIndex("atrs_record_one_current")
+      .on(t.aiUseCaseId)
+      .where(sql`${t.status} in ('approved', 'published')`),
+    index("atrs_record_org_idx").on(t.organisationId, t.status),
+  ],
+);
+
+export const atrsRecordRelations = relations(atrsRecords, ({ one }) => ({
+  useCase: one(aiUseCases, { fields: [atrsRecords.aiUseCaseId], references: [aiUseCases.id] }),
 }));

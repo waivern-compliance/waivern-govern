@@ -9,7 +9,10 @@ import { can } from "@/lib/rbac";
 import { PRODUCT_NAME } from "@/lib/product";
 import { getActiveSession } from "@/lib/session";
 import { organisationDetail } from "@/services/access";
+import { SCALES, type RiskScaleId } from "@/lib/risk/scale";
+import { riskCount, riskScaleOf } from "@/services/risk-policy";
 import { RenameForm } from "./RenameForm";
+import { ScaleForm } from "./ScaleForm";
 
 export default async function OrganisationPage() {
   const active = await getActiveSession();
@@ -27,10 +30,11 @@ export default async function OrganisationPage() {
   const org = await organisationDetail(active.membership.organisationId);
   if (!org) redirect("/app");
 
-  const legalEntities = await db
-    .select()
-    .from(entities)
-    .where(eq(entities.organisationId, org.id));
+  const [legalEntities, scale, risksHeld] = await Promise.all([
+    db.select().from(entities).where(eq(entities.organisationId, org.id)),
+    riskScaleOf(org.id),
+    riskCount(org.id),
+  ]);
 
   return (
     <main className="mx-auto max-w-3xl space-y-8 px-6 py-12">
@@ -47,6 +51,18 @@ export default async function OrganisationPage() {
       <HelpLink topic="organisation" />
 
       <RenameForm current={org.name} />
+
+      <ScaleForm
+        current={scale}
+        riskCount={risksHeld}
+        scales={(Object.keys(SCALES) as RiskScaleId[]).map((id) => ({
+          id,
+          name: SCALES[id].name,
+          description: SCALES[id].description,
+          likelihood: SCALES[id].likelihood.map((p) => `${p.value} ${p.label}`),
+          impact: SCALES[id].impact.map((p) => `${p.value} ${p.label}`),
+        }))}
+      />
 
       <section className="space-y-2 rounded border border-line bg-surface p-5">
         <h2 className="text-sm font-semibold">What is not changed here</h2>

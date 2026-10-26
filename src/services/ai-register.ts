@@ -1,4 +1,5 @@
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/db/client";
 import {
   aiUseCases,
@@ -10,6 +11,7 @@ import {
   users,
 } from "@/db/schema";
 import { appendAuditEvent } from "@/lib/audit";
+import { systemsWithCurrentRecord } from "./atrs";
 import type { Actor } from "./templates";
 
 /**
@@ -25,6 +27,9 @@ export type SystemType = "predictive" | "generative" | "agentic" | "hybrid";
 export type Provenance = "built_in_house" | "fine_tuned" | "third_party_api" | "embedded_vendor";
 export type LifecycleStage =
   | "proposed" | "development" | "pilot" | "production" | "retiring" | "retired";
+export type TransparencyScope = "required" | "voluntary" | "not_in_scope";
+export type DeploymentPattern =
+  | "public_web_app" | "embedded" | "public_api" | "privately_hosted" | "local" | "trained_here";
 
 export const SYSTEM_TYPE_LABEL: Record<SystemType, string> = {
   predictive: "Predictive / classic ML",
@@ -47,6 +52,26 @@ export const STAGE_LABEL: Record<LifecycleStage, string> = {
   production: "In production",
   retiring: "Being retired",
   retired: "Retired",
+};
+
+/**
+ * The UK government AI Playbook's deployment patterns, worded as somebody
+ * filling in the register would recognise their own system.
+ */
+export const DEPLOYMENT_PATTERN_LABEL: Record<DeploymentPattern, string> = {
+  public_web_app: "Public AI app or website, used as-is",
+  embedded: "AI features inside software we bought",
+  public_api: "A provider's public API, called from our code",
+  privately_hosted: "A model hosted on infrastructure we control",
+  local: "A model running on people's own devices",
+  trained_here: "A model trained or fine-tuned here",
+};
+
+/** Whether the Algorithmic Transparency Recording Standard applies. */
+export const TRANSPARENCY_SCOPE_LABEL: Record<TransparencyScope, string> = {
+  required: "Required — we must publish an ATRS record",
+  voluntary: "Not required, but we publish one",
+  not_in_scope: "Not in scope",
 };
 
 /** Stages where the system is actually touching people. */
@@ -89,7 +114,8 @@ export type Gap =
   | "live_without_monitoring"
   | "decides_without_oversight"
   | "bias_not_assessed"
-  | "review_overdue";
+  | "review_overdue"
+  | "transparency_record_missing";
 
 export const GAP_WORDS: Record<Gap, string> = {
   never_assessed: "Never assessed",
@@ -99,6 +125,7 @@ export const GAP_WORDS: Record<Gap, string> = {
   decides_without_oversight: "Decides with no human oversight",
   bias_not_assessed: "Bias never assessed",
   review_overdue: "Review overdue",
+  transparency_record_missing: "No transparency record",
 };
 
 /** Gaps that mean the system is running unexamined, rather than merely untidy. */
@@ -135,15 +162,19 @@ export async function createUseCase(input: {
   systemType: SystemType;
   provenance: Provenance;
   lifecycleStage?: LifecycleStage;
+  deploymentPattern?: DeploymentPattern | null;
   vendor?: string;
   modelName?: string;
   ownerId?: string | null;
+  governanceOfficerId?: string | null;
+  responsibleTeam?: string;
   deployedIn?: string[];
   processesPersonalData?: boolean;
   nextReviewAt?: Date;
   actor: Actor;
 }) {
   const reference = await nextReference(input.organisationId, new Date().getUTCFullYear());
+  const stage = input.lifecycleStage ?? "proposed";
 
   return db.transaction(async (tx) => {
     const [row] = await tx
@@ -157,13 +188,20 @@ export async function createUseCase(input: {
         description: input.description,
         systemType: input.systemType,
         provenance: input.provenance,
-        lifecycleStage: input.lifecycleStage ?? "proposed",
+        lifecycleStage: stage,
+        deploymentPattern: input.deploymentPattern ?? null,
         vendor: input.vendor,
         modelName: input.modelName,
         ownerId: input.ownerId ?? null,
+        governanceOfficerId: input.governanceOfficerId ?? null,
+        responsibleTeam: input.responsibleTeam,
         deployedIn: input.deployedIn ?? [],
         processesPersonalData: input.processesPersonalData,
         nextReviewAt: input.nextReviewAt,
+        // Registered already live is the common case for an inventory being
+        // built after the fact. The date is when it was recorded as live, not
+        // a guess at when it started — the register says what it knows.
+        liveSince: LIVE_STAGES.includes(stage) ? new Date() : null,
       })
       .returning();
 
@@ -179,6 +217,7 @@ export async function createUseCase(input: {
         name: row.name,
         systemType: row.systemType,
         lifecycleStage: row.lifecycleStage,
+        deploymentPattern: row.deploymentPattern,
       },
     });
 
@@ -186,12 +225,30 @@ export async function createUseCase(input: {
   });
 }
 
+/** The fields an update may touch, and which of them the audit record shows. */
+const TRACKED_FIELDS = [
+  "lifecycleStage",
+  "deploymentPattern",
+  "ownerId",
+  "governanceOfficerId",
+  "responsibleTeam",
+  "vendor",
+  "modelName",
+  "processesPersonalData",
+  "nextReviewAt",
+  "transparencyScope",
+] as const;
+
 export async function updateUseCase(input: {
   useCaseId: string;
   organisationId: string;
   changes: Partial<{
     lifecycleStage: LifecycleStage;
+    deploymentPattern: DeploymentPattern | null;
     ownerId: string | null;
+    governanceOfficerId: string | null;
+    responsibleTeam: string | null;
+    transparencyScope: TransparencyScope | null;
     vendor: string;
     modelName: string;
     deployedIn: string[];
@@ -212,17 +269,27 @@ export async function updateUseCase(input: {
       );
     if (!before) throw new Error("No such AI use case");
 
+    const now = new Date();
+    const stage = input.changes.lifecycleStage;
     const [after] = await tx
       .update(aiUseCases)
       .set({
         ...input.changes,
-        updatedAt: new Date(),
-        retiredAt:
-          input.changes.lifecycleStage === "retired" ? new Date() : before.retiredAt,
+        updatedAt: now,
+        retiredAt: stage === "retired" ? now : before.retiredAt,
+        // First time live only. A system that goes back into development and
+        // returns has been live since the first occasion, not the latest.
+        liveSince:
+          before.liveSince ?? (stage && LIVE_STAGES.includes(stage) ? now : null),
       })
       .where(eq(aiUseCases.id, input.useCaseId))
       .returning();
 
+    // Only what actually moved, so the log reads as a list of changes rather
+    // than a dump of the record with the change somewhere inside it.
+    const changed = TRACKED_FIELDS.filter(
+      (f) => f in input.changes && String(before[f] ?? "") !== String(after[f] ?? ""),
+    );
     await appendAuditEvent(tx, {
       ...input.actor,
       organisationId: input.organisationId,
@@ -230,8 +297,8 @@ export async function updateUseCase(input: {
       subjectType: "ai_use_case",
       subjectId: input.useCaseId,
       entityId: before.entityId,
-      before: { lifecycleStage: before.lifecycleStage, ownerId: before.ownerId },
-      after: { lifecycleStage: after.lifecycleStage, ownerId: after.ownerId },
+      before: Object.fromEntries(changed.map((f) => [f, before[f]])),
+      after: Object.fromEntries(changed.map((f) => [f, after[f]])),
     });
 
     return after;
@@ -288,6 +355,7 @@ async function latestAssessment(useCaseId: string): Promise<AssessedFacts | null
 export function gapsFor(
   useCase: typeof aiUseCases.$inferSelect,
   assessed: AssessedFacts | null,
+  transparency: { hasCurrentRecord: boolean } | null = null,
 ): Gap[] {
   const gaps: Gap[] = [];
   const live = LIVE_STAGES.includes(useCase.lifecycleStage as LifecycleStage);
@@ -319,6 +387,18 @@ export function gapsFor(
     gaps.push("review_overdue");
   }
 
+  // Only where a record is required and the system is reaching people. A
+  // voluntary record not yet written is a choice, not a gap; one required for
+  // a system still in development is not due until it goes live.
+  if (
+    transparency &&
+    useCase.transparencyScope === "required" &&
+    live &&
+    !transparency.hasCurrentRecord
+  ) {
+    gaps.push("transparency_record_missing");
+  }
+
   return gaps;
 }
 
@@ -339,26 +419,34 @@ export async function listRegister(
           ),
     )
     .orderBy(aiUseCases.reference);
+  const recorded = await systemsWithCurrentRecord(organisationId);
 
   return Promise.all(
     rows.map(async ({ useCase, ownerEmail }) => {
       const assessed = await latestAssessment(useCase.id);
-      return { useCase, ownerEmail, assessed, gaps: gapsFor(useCase, assessed) };
+      return {
+        useCase,
+        ownerEmail,
+        assessed,
+        gaps: gapsFor(useCase, assessed, { hasCurrentRecord: recorded.has(useCase.id) }),
+      };
     }),
   );
 }
 
 export async function loadUseCase(useCaseId: string, organisationId: string) {
+  const officers = alias(users, "governance_officer");
   const [row] = await db
-    .select({ useCase: aiUseCases, ownerEmail: users.email })
+    .select({ useCase: aiUseCases, ownerEmail: users.email, officerEmail: officers.email })
     .from(aiUseCases)
     .leftJoin(users, eq(users.id, aiUseCases.ownerId))
+    .leftJoin(officers, eq(officers.id, aiUseCases.governanceOfficerId))
     .where(
       and(eq(aiUseCases.id, useCaseId), eq(aiUseCases.organisationId, organisationId)),
     );
   if (!row) return null;
 
-  const [assessed, related] = await Promise.all([
+  const [assessed, related, recorded] = await Promise.all([
     latestAssessment(useCaseId),
     db
       .select({ assessment: assessments, kind: templates.kind })
@@ -372,14 +460,16 @@ export async function loadUseCase(useCaseId: string, organisationId: string) {
         ),
       )
       .orderBy(desc(assessments.createdAt)),
+    systemsWithCurrentRecord(organisationId),
   ]);
 
   return {
     useCase: row.useCase,
     ownerEmail: row.ownerEmail,
+    officerEmail: row.officerEmail,
     assessed,
     assessments: related,
-    gaps: gapsFor(row.useCase, assessed),
+    gaps: gapsFor(row.useCase, assessed, { hasCurrentRecord: recorded.has(useCaseId) }),
   };
 }
 

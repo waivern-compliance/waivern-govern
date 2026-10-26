@@ -21,6 +21,7 @@ Every help topic the application carries, in the order it presents them.
 - [Approving, returning and rejecting](#approving-returning-and-rejecting) — Gates are chosen by the assessment's own answers, and only an approver can decide one.
 - [Asking somebody without an account](#asking-somebody-without-an-account) — A single-use link that lets a named person answer specific questions without signing in or seeing anything else.
 - [The risk register](#the-risk-register) — Rate a risk, treat it, then rate what remains. Accepting one is a decision with a name and an expiry date on it.
+- [Risk appetite](#risk-appetite) — How much risk of each kind the organisation will carry, signed off, and what every risk is judged against.
 - [Discussion and mentions](#discussion-and-mentions) — Ask a question beside the record it is about, and name the person who can answer.
 
 **The registers**
@@ -30,6 +31,7 @@ Every help topic the application carries, in the order it presents them.
 - [Personal data breaches](#personal-data-breaches) — Record every breach, decide the two statutory questions separately, and keep the reasoning for both.
 - [The AI register](#the-ai-register) — Every AI system the organisation is accountable for, including the ones nobody has assessed.
 - [The AI assurance chain](#the-ai-assurance-chain) — Each AI system drawn through to what was done about it — and, more usefully, where that chain stops.
+- [Algorithmic transparency records](#algorithmic-transparency-records) — The public record of how an AI system is used, in the Algorithmic Transparency Recording Standard's own fields.
 - [Countries, adequacy and transfers](#countries-adequacy-and-transfers) — One shared library of destinations, with adequacy and transfer risk, and a date showing when each was last checked by a person.
 - [Scan findings](#scan-findings) — Observations pushed in by scanning tools, waiting for a person to decide whether each is a risk.
 
@@ -284,9 +286,47 @@ Only an approver can accept, and only after a residual rating exists — there i
 
 When it expires the risk is not quietly re-accepted. The hourly sweep raises a task, and until somebody acts the risk reads as running unaccepted, whatever its status column says.
 
+### Categories, and raising a risk from an assessment
+
+AI risks are filed under the nine categories of DSIT's AI Risk Management Toolkit — financial, legal, transparency, fairness, accountability, contestability, robustness, security, and environment and people. Other risks can carry no category.
+
+Raise a risk from the assessment that found it, using the form at the foot of the assessment. That ties the risk to the assessment, so the AI assurance chain can draw the line from the system to what was done about it. Where the assessment named categories that carry risk, they are offered first, and any not yet raised are listed.
+
 **See also:** Approving, returning and rejecting · Scan findings · The AI assurance chain
 
 <sub>Also searchable as: risk, mitigation, residual, inherent, accept, tier, likelihood, impact</sub>
+
+## Risk appetite
+
+*How much risk of each kind the organisation will carry, signed off, and what every risk is judged against.*
+
+**Screen:** `/app/risks/appetite`
+
+### One appetite per category
+
+DSIT's AI Risk Management Toolkit asks for appetite to be set for each risk category at organisational level and signed off by the board. Each category can have its own statement, at one of four levels — averse, minimal, cautious or open — and an organisation default covers any category without one.
+
+A statement says in words what the organisation will and will not take on, and names the highest residual tier still within appetite. The tier is what the register checks; the words are what a reader holds the decision to.
+
+### Proposing and signing off
+
+Anyone with an organisation-wide role that manages risk can propose an appetite. It changes nothing until an approver with an organisation-wide role signs it off, naming where it was agreed — and the person who proposed it cannot be the one who signs it off.
+
+A signed-off statement replaces the one before it, which stays on the record. Each carries a review date; when it passes, the privacy administrators are given a task to confirm or replace it.
+
+### What "within appetite" means on the register
+
+A risk is judged against its category's appetite, else the organisation default, else the platform's own assumption that residual high or critical is outside appetite. The risk page says which it was judged against.
+
+A risk with no residual rating counts as not within appetite — nobody has measured it. A risk outside appetite can still be accepted by an approver; the acceptance records that it was outside appetite at the time.
+
+### The risk scale
+
+Risks are rated on four by four by default, or on the five by five Orange Book scale that DSIT's toolkit uses — chosen on the organisation settings page. The scale can only be changed while the register is empty, so every risk on it is rated the same way.
+
+**See also:** The risk register · Naming the organisation · The AI register
+
+<sub>Also searchable as: appetite, tolerance, orange book, dsit, board, averse, cautious, open, within appetite</sub>
 
 ## Discussion and mentions
 
@@ -484,6 +524,14 @@ Red flags mean a system is running unexamined: never assessed, live with nothing
 
 Retired systems are history and are counted separately, so they cannot pad the number of systems you are covering.
 
+### Who answers for it, and when it comes back
+
+Each system can name two people. The senior responsible owner answers for the system. The AI governance officer runs its risk management day to day, as the DSIT AI Risk Management Toolkit describes. One person may hold both, and a leaver's handover moves both.
+
+How it is deployed — a public app, AI inside bought software, a provider's API, a model you host or train — follows the UK government AI Playbook's security guidance, because each carries different exposure.
+
+Approving an assessment of a system sets its next review from the assessment's cycle, sooner if the assessor asked for it. When that date passes, AI governance is given a task to look at it again.
+
 **See also:** The AI assurance chain · Assessments: DPIAs, transfer risk, AI risk, screening · The risk register
 
 <sub>Also searchable as: ai, model, llm, machine learning, shadow ai, lifecycle, oversight, eu ai act</sub>
@@ -509,6 +557,34 @@ An untreated risk is serious when its residual rating is high or critical. An ex
 **See also:** The AI register · The risk register · Assessments: DPIAs, transfer risk, AI risk, screening
 
 <sub>Also searchable as: graph, assurance, coverage, chain, orphan, unassessed, visualisation</sub>
+
+## Algorithmic transparency records
+
+*The public record of how an AI system is used, in the Algorithmic Transparency Recording Standard's own fields.*
+
+**Screen:** `/app/ai`
+
+### When one is needed
+
+Central government departments, and arm's length bodies in scope, must publish a record for algorithmic tools that significantly influence decisions affecting the public or interact with the public directly. Other public bodies are encouraged to. Each AI system on the register says whether a record is required, voluntary or not in scope.
+
+A live system whose record is required and has none shows a gap on the register. A draft does not close it — it is not public yet.
+
+### Writing it
+
+A record starts from what is already known: the register entry, the system's approved assessments, and the risks raised from them with their mitigations. Every field follows the template's own numbering. Read each one — once approved it is a public statement.
+
+The model and development data sections may be left blank for an off-the-shelf model you did not train, tune or test, as the template allows. Everything else the template needs must be filled in before approval.
+
+### Approval and publication
+
+Somebody with the approver role, other than the person who started the draft, approves it. The approved content is then frozen. Export it in the template's layout, send it to DSIT, and once it appears in the repository record where.
+
+To change a record, start a new version. It begins from the one in force, and approving it supersedes the old version, which stays on the record.
+
+**See also:** The AI register · Exports
+
+<sub>Also searchable as: atrs, algorithmic transparency, recording standard, public sector, dsit, gov.uk, publish</sub>
 
 ## Countries, adequacy and transfers
 
@@ -699,6 +775,10 @@ Publishing a new version never alters assessments already under way. An assessme
 ### Routing rules
 
 A template carries the rules that decide which approvals an answer set triggers. That is why two assessments from the same template can need different sign-off.
+
+### Templates Waivern releases later
+
+When Waivern ships a new template — the AI risk identification following DSIT's toolkit, for example — the library offers to add it. Adding it publishes it as a version of its own, alongside the legal references it cites. Nothing you already hold changes, including copies you have edited.
 
 **See also:** Assessments: DPIAs, transfer risk, AI risk, screening · Approving, returning and rejecting
 

@@ -1,6 +1,7 @@
-import { and, asc, eq, inArray, isNull, lte, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, lte, ne, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
+  aiUseCases,
   approvals,
   assessments,
   entities,
@@ -22,6 +23,8 @@ import { forgetExpiredConversations } from "./assistant";
 import { notificationDeadline } from "@/lib/breach/statutory";
 import { breachesNeedingAttention } from "./breaches";
 import { EXPIRING_WITHIN_LABEL, dpasNeedingAttention } from "./third-party";
+import { appetitesDueForReview } from "./risk-policy";
+import { scopeLabel } from "@/lib/risk/appetite";
 
 /**
  * Everything that happens because time passed.
@@ -55,6 +58,8 @@ export type SweepResult = {
   conversationsForgotten: number;
   breachDeadlinesRaised: number;
   lapsedReviewsRaised: number;
+  aiReviewsRaised: number;
+  appetiteReviewsRaised: number;
   webhooksDelivered: number;
   webhooksFailed: number;
 };
@@ -511,6 +516,107 @@ async function raiseLapsedReviews(organisationId: string): Promise<number> {
   return raised;
 }
 
+/**
+ * AI systems whose review date has passed.
+ *
+ * The register has always shown an overdue review as a gap, and nothing ever
+ * acted on it — so the date was decoration. DSIT's toolkit treats AI risk as
+ * something reassessed through the system's life rather than signed off once,
+ * and a review date nobody is told about does not get reassessed.
+ *
+ * Retired systems are left alone: there is nothing running to look at. One
+ * task naming the count, for the same reason as lapsed assessment reviews, and
+ * keyed on the month so a neglected register nags monthly rather than hourly.
+ * It goes to AI governance rather than the privacy team, because that is who
+ * the register belongs to.
+ */
+async function raiseAiReviews(organisationId: string): Promise<number> {
+  const due = await db
+    .select()
+    .from(aiUseCases)
+    .where(
+      and(
+        eq(aiUseCases.organisationId, organisationId),
+        ne(aiUseCases.lifecycleStage, "retired"),
+        lte(aiUseCases.nextReviewAt, new Date()),
+      ),
+    )
+    .orderBy(asc(aiUseCases.nextReviewAt));
+  if (due.length === 0) return 0;
+
+  const period = new Date().toISOString().slice(0, 7);
+  const oldest = due[0];
+  let raised = 0;
+
+  await db.transaction(async (tx) => {
+    const task = await raiseTask(tx, {
+      organisationId,
+      entityId: oldest.entityId,
+      type: "reassess",
+      title:
+        due.length === 1
+          ? `${oldest.reference} ${oldest.name} is due for review`
+          : `${due.length} AI systems are past their review date`,
+      description:
+        `Oldest is ${oldest.reference}, due ${oldest.nextReviewAt!.toISOString().slice(0, 10)}. ` +
+        "Check whether the system, its data or how it is used has changed, and reassess its risks if so.",
+      subjectType: "ai_use_case",
+      subjectId: oldest.id,
+      assigneeRole: "ai_governance",
+      idempotencyKey: `ai-reviews:${period}`,
+      actor: SYSTEM,
+    });
+    if (task) raised = due.length;
+  });
+  return raised;
+}
+
+/**
+ * Approved risk appetites whose review date has passed.
+ *
+ * An appetite is a judgement about how much risk is worth carrying for a
+ * benefit, and both sides move — particularly for AI, where what a system can
+ * do and what it costs change within a year. A statement past its review date
+ * still governs every risk in its category, so somebody is asked to confirm or
+ * replace it. Raised to the privacy administrators, who can put a fresh
+ * statement in front of whoever signs it off.
+ */
+async function raiseAppetiteReviews(organisationId: string): Promise<number> {
+  const due = await appetitesDueForReview(organisationId);
+  if (due.length === 0) return 0;
+
+  const [entity] = await db
+    .select()
+    .from(entities)
+    .where(and(eq(entities.organisationId, organisationId), eq(entities.isDefault, true)));
+  if (!entity) return 0;
+
+  const period = new Date().toISOString().slice(0, 7);
+  const oldest = due[0];
+  let raised = 0;
+  await db.transaction(async (tx) => {
+    const task = await raiseTask(tx, {
+      organisationId,
+      entityId: entity.id,
+      type: "review_acceptance",
+      title:
+        due.length === 1
+          ? `Risk appetite for ${scopeLabel(oldest.category)} is due for review`
+          : `${due.length} risk appetite statements are due for review`,
+      description:
+        `Oldest is ${scopeLabel(oldest.category)}, due ${oldest.reviewDueAt!.toISOString().slice(0, 10)}. ` +
+        "Every risk in the category is still judged against it. Confirm it or propose a replacement for sign-off.",
+      subjectType: "risk_appetite",
+      subjectId: oldest.id,
+      assigneeRole: "privacy_admin",
+      idempotencyKey: `appetite-reviews:${period}`,
+      actor: SYSTEM,
+    });
+    if (task) raised = due.length;
+  });
+  return raised;
+}
+
 export async function sweepOrganisation(organisationId: string): Promise<SweepResult> {
   const [org] = await db.select().from(organisations).where(eq(organisations.id, organisationId));
   const result: SweepResult = {
@@ -525,6 +631,8 @@ export async function sweepOrganisation(organisationId: string): Promise<SweepRe
     conversationsForgotten: await forgetExpiredConversations(organisationId),
     breachDeadlinesRaised: await raiseBreachDeadlines(organisationId),
     lapsedReviewsRaised: await raiseLapsedReviews(organisationId),
+    aiReviewsRaised: await raiseAiReviews(organisationId),
+    appetiteReviewsRaised: await raiseAppetiteReviews(organisationId),
     webhooksDelivered: 0,
     webhooksFailed: 0,
   };

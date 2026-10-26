@@ -3,12 +3,15 @@ import { db, type Db } from "@/db/client";
 import {
   assessments,
   mitigations,
+  organisations,
   referenceCounters,
   riskAcceptances,
   risks,
 } from "@/db/schema";
 import { appendAuditEvent } from "@/lib/audit";
-import { rate } from "@/lib/risk/scale";
+import { judge } from "@/lib/risk/appetite";
+import { DEFAULT_SCALE, rate, type RiskScaleId, type RiskTier } from "@/lib/risk/scale";
+import { appetiteInForce } from "./appetite-in-force";
 import type { Actor } from "./templates";
 import { queueEvent } from "./webhooks";
 
@@ -16,6 +19,20 @@ type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
 export class RiskNotAcceptable extends Error {}
 export class SegregationOfDuties extends Error {}
+
+/**
+ * The scale the organisation rates on. Read with a share lock inside a
+ * transaction, so the scale cannot change between reading it and writing a
+ * risk rated on it.
+ */
+export async function riskScaleOf(organisationId: string, tx: Tx | Db = db): Promise<RiskScaleId> {
+  const query = tx
+    .select({ riskScale: organisations.riskScale })
+    .from(organisations)
+    .where(eq(organisations.id, organisationId));
+  const [org] = tx === db ? await query : await query.for("share");
+  return (org?.riskScale as RiskScaleId | undefined) ?? DEFAULT_SCALE;
+}
 
 async function nextRiskReference(tx: Tx, organisationId: string, year: number) {
   const rows = await tx.execute<{ next_value: number | string }>(sql`
@@ -41,10 +58,12 @@ export async function createRisk(input: {
   source?: "assessment" | "manual" | "integration";
   actor: Actor;
 }) {
-  // Throws if either input is off the scale, before anything is written.
-  const inherent = rate(input.likelihood, input.impact);
-
   return db.transaction(async (tx) => {
+    // Throws if either input is off the organisation's scale, before anything
+    // is written.
+    const scale = await riskScaleOf(input.organisationId, tx);
+    const inherent = rate(input.likelihood, input.impact, scale);
+
     const reference = await nextRiskReference(
       tx,
       input.organisationId,
@@ -63,6 +82,7 @@ export async function createRisk(input: {
         source: input.source ?? (input.assessmentId ? "assessment" : "manual"),
         assessmentId: input.assessmentId,
         ownerId: input.ownerId,
+        scale,
         inherentLikelihood: input.likelihood,
         inherentImpact: input.impact,
         inherentScore: inherent.score,
@@ -81,7 +101,7 @@ export async function createRisk(input: {
       after: {
         reference,
         title: risk.title,
-        inherent: { likelihood: input.likelihood, impact: input.impact, score: inherent.score, tier: inherent.tier },
+        inherent: { scale, likelihood: input.likelihood, impact: input.impact, score: inherent.score, tier: inherent.tier },
       },
     });
 
@@ -104,8 +124,6 @@ export async function setResidual(input: {
   impact: number;
   actor: Actor;
 }) {
-  const residual = rate(input.likelihood, input.impact);
-
   return db.transaction(async (tx) => {
     const [existing] = await tx
       .select()
@@ -113,6 +131,8 @@ export async function setResidual(input: {
       .where(and(eq(risks.id, input.riskId), eq(risks.organisationId, input.organisationId)));
     if (!existing) throw new Error("No such risk");
     if (existing.status === "closed") throw new Error("A closed risk cannot be re-rated");
+    // On the scale the risk was raised on, whatever the organisation uses now.
+    const residual = rate(input.likelihood, input.impact, existing.scale as RiskScaleId);
 
     const [updated] = await tx
       .update(risks)
@@ -153,6 +173,7 @@ export async function addMitigation(input: {
   organisationId: string;
   description: string;
   controlRef?: string;
+  treatmentType?: "avoidance" | "limitation" | "transference";
   ownerId?: string;
   dueAt?: Date;
   actor: Actor;
@@ -170,6 +191,7 @@ export async function addMitigation(input: {
         riskId: input.riskId,
         description: input.description,
         controlRef: input.controlRef,
+        treatmentType: input.treatmentType,
         ownerId: input.ownerId,
         dueAt: input.dueAt,
       })
@@ -186,7 +208,12 @@ export async function addMitigation(input: {
       subjectType: "mitigation",
       subjectId: mitigation.id,
       entityId: risk.entityId,
-      after: { risk: risk.reference, description: input.description, dueAt: input.dueAt?.toISOString() ?? null },
+      after: {
+        risk: risk.reference,
+        description: input.description,
+        treatmentType: input.treatmentType ?? null,
+        dueAt: input.dueAt?.toISOString() ?? null,
+      },
     });
 
     return mitigation;
@@ -361,6 +388,15 @@ export async function acceptRisk(input: {
       idempotencyKey: `risk-accepted:${acceptance.id}`,
     });
 
+    // Accepting a risk outside appetite is allowed — that is what escalation to
+    // an approver is for — but it is recorded as such. Months later "was this
+    // within appetite when it was accepted?" is the first question an auditor
+    // asks, and the appetite may have changed since.
+    const appetite = judge(
+      { category: risk.category, residualTier: risk.residualTier as RiskTier, status: risk.status },
+      await appetiteInForce(input.organisationId, tx),
+    );
+
     await appendAuditEvent(tx, {
       ...input.actor,
       organisationId: input.organisationId,
@@ -373,6 +409,15 @@ export async function acceptRisk(input: {
         residual: { score: risk.residualScore, tier: risk.residualTier },
         rationale,
         expiresAt: input.expiresAt.toISOString(),
+        appetite:
+          appetite.state === "within" || appetite.state === "outside"
+            ? {
+                withinAppetite: appetite.state === "within",
+                judgedAgainst: appetite.basis.source,
+                toleratedTier: appetite.basis.toleratedTier,
+                ...(appetite.basis.source === "platform" ? {} : { statement: appetite.basis.id }),
+              }
+            : null,
       },
     });
 
@@ -511,6 +556,15 @@ export async function listRisks(organisationId: string, entityIds: string[] | nu
           ),
     )
     .orderBy(desc(risks.inherentScore), desc(risks.updatedAt));
+}
+
+/** Risks raised out of one assessment, most serious first. */
+export async function risksForAssessment(assessmentId: string, organisationId: string) {
+  return db
+    .select()
+    .from(risks)
+    .where(and(eq(risks.assessmentId, assessmentId), eq(risks.organisationId, organisationId)))
+    .orderBy(desc(risks.inherentScore), risks.reference);
 }
 
 export async function loadRisk(riskId: string, organisationId: string) {

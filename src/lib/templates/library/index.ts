@@ -4,6 +4,7 @@ import { AI_RISK } from "./ai-risk";
 import { BREACH_SEVERITY } from "./breach";
 import { CNIL_PIA } from "./cnil-pia";
 import { DPIA } from "./dpia";
+import { DSIT_AI_RISK } from "./dsit-ai-risk";
 import { LIA } from "./lia";
 import { SCREENING } from "./screening";
 import { TIA_EU, TRA_UK } from "./transfers";
@@ -80,5 +81,13 @@ export const SYSTEM_TEMPLATES: Array<{
     description:
       "Covers predictive, generative and agentic systems, with structured bias and fairness assessment.",
     definition: AI_RISK,
+  },
+  {
+    kind: "ai_risk",
+    name: "AI risk identification (DSIT toolkit)",
+    description:
+      "The nine risk categories of DSIT's AI Risk Management Toolkit, with the UK government AI Playbook's expectations on transparency, oversight and security.",
+    jurisdiction: "UK",
+    definition: DSIT_AI_RISK,
   },
 ];

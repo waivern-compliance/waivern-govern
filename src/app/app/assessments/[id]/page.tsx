@@ -11,6 +11,11 @@ import { getActiveSession } from "@/lib/session";
 import { assessmentHistory, loadAssessment } from "@/services/assessments";
 import { linksForAssessment } from "@/services/contributor-links";
 import { approvalsFor } from "@/services/workflow";
+import { riskScaleOf, risksForAssessment } from "@/services/risks";
+import { RaiseRiskForm } from "@/components/RaiseRiskForm";
+import { RiskTierBadge } from "@/components/RiskTierBadge";
+import { categoryLabel } from "@/lib/risk/categories";
+import { SCALES } from "@/lib/risk/scale";
 import { Approvals } from "./approvals";
 import { InviteContributor } from "./invite";
 import { saveAction, submitAction } from "./actions";
@@ -64,12 +69,20 @@ export default async function AssessmentPage({
       />
     );
   }
-  const [refs, history, links, gates] = await Promise.all([
+  const [refs, history, links, gates, raised, scale] = await Promise.all([
     legalRefMap(),
     assessmentHistory(id),
     linksForAssessment(id),
     approvalsFor(id),
+    risksForAssessment(id, active.membership.organisationId),
+    riskScaleOf(active.membership.organisationId),
   ]);
+  const mayRaise = can(active.membership.grants, "risk.manage", assessment.entityId);
+  // What the assessor said belongs on the register, offered first when raising.
+  const named = Array.isArray(answers.risk_categories)
+    ? (answers.risk_categories as string[]).filter((c) => c !== "none")
+    : [];
+  const unraised = named.filter((c) => !raised.some((r) => r.category === c));
 
   const editable =
     EDITABLE.includes(assessment.status) &&
@@ -152,6 +165,60 @@ export default async function AssessmentPage({
           })()
         }
       />
+
+      {raised.length > 0 || mayRaise || named.length > 0 ? (
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-soft">
+            Risks from this assessment
+          </h2>
+          {unraised.length > 0 ? (
+            <p className="rounded border-l-2 border-amber-700 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+              <strong>Not on the register yet:</strong>{" "}
+              {unraised.map((c) => categoryLabel(c)).join(", ")}. The assessment
+              says these carry risk; until each is raised, nothing scores it,
+              treats it or judges it against appetite.
+            </p>
+          ) : null}
+          {raised.length > 0 ? (
+            <ul className="divide-y divide-line overflow-hidden rounded border border-line bg-surface">
+              {raised.map((r) => (
+                <li key={r.id}>
+                  <Link
+                    href={`/app/risks/${r.id}`}
+                    className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-4 py-2.5 text-sm hover:bg-ground"
+                  >
+                    <span>
+                      <span className="font-mono text-xs text-ink-soft">{r.reference}</span>{" "}
+                      {r.title}
+                      {r.category ? (
+                        <span className="text-xs text-ink-soft"> · {categoryLabel(r.category)}</span>
+                      ) : null}
+                    </span>
+                    <span className="flex items-center gap-2">
+                      <RiskTierBadge tier={r.inherentTier} score={r.inherentScore} prefix="inherent" />
+                      <RiskTierBadge tier={r.residualTier} score={r.residualScore} prefix="residual" />
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {mayRaise ? (
+            <details className="rounded border border-line bg-surface">
+              <summary className="cursor-pointer px-4 py-3 text-sm font-medium">
+                Raise a risk from this assessment
+              </summary>
+              <RaiseRiskForm
+                entities={[{ id: assessment.entityId, name: "" }]}
+                assessmentId={id}
+                suggestedCategories={unraised.length > 0 ? unraised : named}
+                likelihood={SCALES[scale].likelihood}
+                impact={SCALES[scale].impact}
+              />
+            </details>
+          ) : null}
+        </section>
+      ) : null}
 
       {history.length > 0 ? (
         <section className="space-y-3">

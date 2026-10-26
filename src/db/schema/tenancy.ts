@@ -10,7 +10,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import { appRole, guidanceMode, persona, recordType, roleScope } from "./enums";
+import { appRole, guidanceMode, persona, recordType, riskScale, roleScope } from "./enums";
 
 /** A client of the platform. One organisation, one governance programme. */
 export const organisations = pgTable("organisation", {
@@ -18,6 +18,12 @@ export const organisations = pgTable("organisation", {
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
   settings: jsonb("settings").$type<Record<string, unknown>>().notNull().default({}),
+  /**
+   * The scale its risk register rates on. A column rather than a setting,
+   * because it governs how every risk is checked and has to be impossible to
+   * change by accident. See `lib/risk/scale.ts`.
+   */
+  riskScale: riskScale("risk_scale").notNull().default("4x4"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

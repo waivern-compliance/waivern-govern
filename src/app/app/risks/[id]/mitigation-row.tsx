@@ -15,6 +15,8 @@ export function MitigationRow({
     id: string;
     description: string;
     controlRef: string | null;
+    /** Already worded — "Limit", "Avoid" — or null where it was never recorded. */
+    treatment: string | null;
     status: string;
     dueAt: string | null;
     evidenceRef: string | null;
@@ -31,6 +33,7 @@ export function MitigationRow({
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <span className="text-sm font-medium">{mitigation.description}</span>
         <span className="font-mono text-[11px] text-ink-soft">
+          {mitigation.treatment ? `${mitigation.treatment} · ` : ""}
           {mitigation.controlRef ? `${mitigation.controlRef} · ` : ""}
           {mitigation.dueAt ? `due ${mitigation.dueAt}` : "no date"}
           {mitigation.verifiedAt ? ` · verified ${mitigation.verifiedAt}` : ""}
