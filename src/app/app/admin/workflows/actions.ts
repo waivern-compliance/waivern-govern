@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import type { AppRole } from "@/lib/rbac";
 import { requireCapability } from "@/lib/session";
-import { RoutingRefused, resetWorkflow, updateStage } from "@/services/approval-routing";
+import { RoutingRefused, addStage, resetWorkflow, updateStage } from "@/services/approval-routing";
 import type { RoutingCondition } from "@/lib/workflow/routing";
 
 export type RoutingResult = { ok: boolean; message: string } | null;
@@ -33,6 +33,12 @@ function conditionFrom(formData: FormData): RoutingCondition | undefined {
         op: "tierAtLeast",
         value: String(formData.get("conditionTier") ?? "high") as "low" | "medium" | "high" | "critical",
       };
+    case "answerAtLeast":
+      return {
+        op: "answerAtLeast",
+        question: String(formData.get("conditionQuestion") ?? "").trim(),
+        value: Number(formData.get("conditionNumber") ?? 0),
+      };
     default:
       return undefined;
   }
@@ -54,6 +60,7 @@ export async function updateStageAction(
       requiredRole: String(formData.get("requiredRole") ?? "") as AppRole,
       slaHours: sla === "" ? null : Number(sla),
       condition: conditionFrom(formData),
+      boardName: formData.has("boardName") ? String(formData.get("boardName")) : undefined,
       actor: { actorKind: "user", actorUserId: active.userId, actorLabel: active.email },
     });
     revalidatePath("/app/admin/workflows");
@@ -70,6 +77,37 @@ export async function updateStageAction(
     if (error instanceof RoutingRefused) return { ok: false, message: error.message };
     throw error;
   }
+}
+
+export async function addStageAction(
+  workflowDefinitionId: string,
+  _prev: RoutingResult,
+  formData: FormData,
+): Promise<RoutingResult> {
+  const active = await requireCapability("workflow.configure");
+  const sla = String(formData.get("slaHours") ?? "").trim();
+  const condition = conditionFrom(formData);
+  if (!condition) return { ok: false, message: "Say when the stage applies." };
+  if (condition.op === "answerAtLeast" && !condition.question) {
+    return { ok: false, message: "Name the question whose answer is compared." };
+  }
+  try {
+    await addStage({
+      organisationId: active.membership.organisationId,
+      workflowDefinitionId,
+      name: String(formData.get("name") ?? ""),
+      requiredRole: String(formData.get("requiredRole") ?? "") as AppRole,
+      condition,
+      boardName: String(formData.get("boardName") ?? ""),
+      slaHours: sla === "" ? null : Number(sla),
+      actor: { actorKind: "user", actorUserId: active.userId, actorLabel: active.email },
+    });
+  } catch (error) {
+    if (error instanceof RoutingRefused) return { ok: false, message: error.message };
+    throw error;
+  }
+  revalidatePath("/app/admin/workflows");
+  return { ok: true, message: "Added. It applies to assessments submitted from now on." };
 }
 
 export async function resetWorkflowAction(templateKind: string) {

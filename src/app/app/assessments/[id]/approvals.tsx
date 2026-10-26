@@ -13,6 +13,8 @@ type Gate = {
   decidedBy: string | null;
   decidedAt: string | null;
   rationale: string | null;
+  boardName: string | null;
+  boardReference: string | null;
 };
 
 const DOT: Record<string, string> = {
@@ -66,7 +68,9 @@ export function Approvals({
                 </span>
               </span>
               <span className="font-mono text-[11px] text-ink-soft">
-                {g.requiredRole.replace(/_/g, " ")}
+                {g.boardName
+                  ? `${g.boardName}, recorded by ${g.requiredRole.replace(/_/g, " ")}`
+                  : g.requiredRole.replace(/_/g, " ")}
               </span>
             </div>
             <p className="text-xs text-ink-soft">{g.reason}</p>
@@ -75,6 +79,7 @@ export function Approvals({
                 {g.rationale}
                 <span className="ml-2 font-mono text-[11px] text-ink-soft">
                   {g.decidedBy} · {g.decidedAt}
+                  {g.boardReference ? ` · ${g.boardReference}` : ""}
                 </span>
               </p>
             ) : null}
@@ -90,9 +95,22 @@ export function Approvals({
                 }}
                 className="space-y-2 rounded border border-line bg-ground p-3"
               >
+                {g.boardName ? (
+                  <label className="block space-y-1">
+                    <span className="text-xs font-medium uppercase tracking-wider text-ink-soft">
+                      The {g.boardName} meeting that decided
+                    </span>
+                    <input
+                      name="boardReference"
+                      required
+                      placeholder="12 November 2026, minute 5"
+                      className="w-full rounded border border-line bg-surface px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-brand"
+                    />
+                  </label>
+                ) : null}
                 <label className="block space-y-1">
                   <span className="text-xs font-medium uppercase tracking-wider text-ink-soft">
-                    Your reasoning
+                    {g.boardName ? "The board's reasoning" : "Your reasoning"}
                   </span>
                   <textarea
                     name="rationale"

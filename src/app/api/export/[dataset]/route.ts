@@ -6,6 +6,7 @@ import { getActiveSession, visibleEntityIds } from "@/lib/session";
 import {
   DATASET_LABEL,
   exportAiRegister,
+  exportAiRiskLog,
   exportAssessments,
   exportAudit,
   exportCountries,
@@ -93,6 +94,8 @@ export async function GET(
           ? await exportAssessments(org, entityIds)
           : key === "ai-register"
             ? await exportAiRegister(org, entityIds)
+            : key === "ai-risks"
+            ? await exportAiRiskLog(org, entityIds)
             : key === "ropa"
               ? await exportRopa(org, entityIds)
               : key === "third-parties"

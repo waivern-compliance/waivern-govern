@@ -55,6 +55,12 @@ const DEFAULT_SLA_HOURS: Record<TaskType, number> = {
    * raised.
    */
   breach_deadline: 72,
+  /**
+   * Two working days to decide what a report about an AI system needs. A
+   * report of harm, or a challenge to an outcome, is somebody waiting on the
+   * organisation; it should not sit in a queue for a fortnight.
+   */
+  triage_incident: 48,
 };
 
 async function slaHoursFor(tx: Tx, organisationId: string, type: TaskType) {
@@ -222,6 +228,7 @@ export async function openApprovals(input: {
           position: stage.position,
           name: stage.name,
           requiredRole: stage.requiredRole,
+          boardName: stage.boardName,
           status: applies ? "pending" : "skipped",
           reason: applies
             ? `Applies: ${describe(stage.condition)}`
@@ -279,12 +286,15 @@ export async function decideApproval(input: {
   organisationId: string;
   decision: "approved" | "rejected" | "returned";
   rationale: string;
+  /** For a board's stage: the meeting and minute that decided it. */
+  boardReference?: string;
   /** Roles the caller holds in the assessment's entity. */
   callerRoles: string[];
   actor: Actor;
 }) {
   const rationale = input.rationale.trim();
   if (!rationale) throw new DecisionRefused("A rationale is required for every decision");
+  const boardReference = input.boardReference?.trim() || null;
 
   return db.transaction(async (tx) => {
     const [row] = await tx
@@ -300,6 +310,14 @@ export async function decideApproval(input: {
     if (!row) throw new Error("No such approval");
     if (row.approval.status !== "pending") {
       throw new DecisionRefused(`This stage is already ${row.approval.status}`);
+    }
+    // A board's decision is recorded by one person but made by the meeting,
+    // and the record has to say which meeting — otherwise it reads as that
+    // person's own decision, with the board's authority borrowed.
+    if (row.approval.boardName && !boardReference) {
+      throw new DecisionRefused(
+        `This is the ${row.approval.boardName}'s decision: give the meeting and minute that made it`,
+      );
     }
     if (!input.callerRoles.includes(row.approval.requiredRole)) {
       throw new NotYourDecision(
@@ -332,6 +350,7 @@ export async function decideApproval(input: {
         decidedByLabel: input.actor.actorLabel,
         decidedAt: now,
         rationale,
+        boardReference: row.approval.boardName ? boardReference : null,
       })
       .where(eq(approvals.id, input.approvalId));
 
@@ -510,6 +529,9 @@ export async function decideApproval(input: {
         status: input.decision,
         stage: row.approval.name,
         rationale,
+        ...(row.approval.boardName
+          ? { decidedBy: row.approval.boardName, boardReference }
+          : {}),
         assessmentStatus,
       },
     });

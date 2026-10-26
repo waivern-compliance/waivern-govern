@@ -67,6 +67,12 @@ export const workflowStages = pgTable(
     requiredRole: appRole("required_role").notNull(),
     condition: jsonb("condition").$type<RoutingCondition>().notNull(),
     slaHours: integer("sla_hours"),
+    /**
+     * Set where the decision is a board's or committee's — an AI governance
+     * board, an ethics committee — rather than one person's. Somebody holding
+     * the role records it, and the record must say which meeting decided.
+     */
+    boardName: text("board_name"),
   },
   (t) => [uniqueIndex("workflow_stage_position").on(t.workflowDefinitionId, t.position)],
 );
@@ -89,6 +95,8 @@ export const approvals = pgTable(
     position: integer("position").notNull(),
     name: text("name").notNull(),
     requiredRole: appRole("required_role").notNull(),
+    /** Copied from the stage, as the role is, so a decided gate keeps its own record. */
+    boardName: text("board_name"),
     status: approvalStatus("status").notNull().default("pending"),
     /** Why this stage applied, or why it did not. */
     reason: text("reason").notNull(),
@@ -99,6 +107,8 @@ export const approvals = pgTable(
     decidedByLabel: text("decided_by_label"),
     decidedAt: timestamp("decided_at", { withTimezone: true }),
     rationale: text("rationale"),
+    /** For a board's decision: the meeting and minute that decided it. */
+    boardReference: text("board_reference"),
 
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

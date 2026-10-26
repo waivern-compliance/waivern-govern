@@ -39,6 +39,8 @@ export type StageView = {
   condition: RoutingCondition;
   appliesWhen: string;
   slaHours: number | null;
+  /** Set where the decision is a board's or committee's. */
+  boardName: string | null;
   /** Who could decide this gate today, organisation-wide. */
   eligible: Array<{ email: string; entityName: string | null }>;
   /** Gates already waiting on this stage. Changing the role redirects them. */
@@ -120,6 +122,7 @@ export async function workflowsFor(organisationId: string): Promise<WorkflowView
         condition: s.condition,
         appliesWhen: describeRouting(s.condition),
         slaHours: s.slaHours,
+        boardName: s.boardName ?? null,
         // An owner can decide anything, so they are eligible for every gate.
         eligible: holders
           .filter((h) => h.active && (h.role === s.requiredRole || h.role === "owner"))
@@ -162,9 +165,13 @@ export async function updateStage(input: {
   requiredRole: AppRole;
   slaHours: number | null;
   condition?: RoutingCondition;
+  /** Undefined leaves it as it is; empty or null makes it an individual's decision. */
+  boardName?: string | null;
   actor: Actor;
 }) {
   const { stage } = await stageIn(input.organisationId, input.stageId);
+  const boardName =
+    input.boardName === undefined ? stage.boardName : input.boardName?.trim() || null;
 
   const name = input.name.trim();
   if (!name) throw new RoutingRefused("A stage needs a name — it is what the approver sees.");
@@ -179,7 +186,13 @@ export async function updateStage(input: {
   return db.transaction(async (tx) => {
     await tx
       .update(workflowStages)
-      .set({ name, requiredRole: input.requiredRole, slaHours: input.slaHours, condition: parsed.data })
+      .set({
+        name,
+        requiredRole: input.requiredRole,
+        slaHours: input.slaHours,
+        condition: parsed.data,
+        boardName,
+      })
       .where(eq(workflowStages.id, stage.id));
 
     // Open gates follow the rule. The approval row carries its own copy of the
@@ -187,7 +200,7 @@ export async function updateStage(input: {
     // to decide it at the time — only the undecided ones are moved.
     const redirected = await tx
       .update(approvals)
-      .set({ requiredRole: input.requiredRole, name })
+      .set({ requiredRole: input.requiredRole, name, boardName })
       .where(and(eq(approvals.stageId, stage.id), eq(approvals.status, "pending")))
       .returning({ id: approvals.id });
 
@@ -202,17 +215,93 @@ export async function updateStage(input: {
         requiredRole: stage.requiredRole,
         slaHours: stage.slaHours,
         condition: stage.condition,
+        boardName: stage.boardName,
       },
       after: {
         name,
         requiredRole: input.requiredRole,
         slaHours: input.slaHours,
         condition: parsed.data,
+        boardName,
         pendingRedirected: redirected.length,
       },
     });
 
     return { redirected: redirected.length };
+  });
+}
+
+/**
+ * Add a stage at the end of a workflow.
+ *
+ * So an organisation can bring in an AI governance board or an ethics
+ * committee without resetting a workflow it has already tuned. Added last,
+ * because a new gate placed before decisions already waiting would reorder
+ * work people have started. Assessments already submitted are not affected;
+ * the stage applies from the next submission.
+ */
+export async function addStage(input: {
+  organisationId: string;
+  workflowDefinitionId: string;
+  name: string;
+  requiredRole: AppRole;
+  condition: RoutingCondition;
+  boardName?: string | null;
+  slaHours?: number | null;
+  actor: Actor;
+}) {
+  const name = input.name.trim();
+  if (!name) throw new RoutingRefused("A stage needs a name — it is what the approver sees.");
+  const parsed = routingCondition.safeParse(input.condition);
+  if (!parsed.success) throw new RoutingRefused("That condition is not one this platform understands.");
+
+  return db.transaction(async (tx) => {
+    const [definition] = await tx
+      .select()
+      .from(workflowDefinitions)
+      .where(
+        and(
+          eq(workflowDefinitions.id, input.workflowDefinitionId),
+          eq(workflowDefinitions.organisationId, input.organisationId),
+        ),
+      );
+    if (!definition) throw new RoutingRefused("That workflow does not exist.");
+
+    const existing = await tx
+      .select({ position: workflowStages.position })
+      .from(workflowStages)
+      .where(eq(workflowStages.workflowDefinitionId, definition.id));
+    const position = Math.max(0, ...existing.map((e) => e.position)) + 1;
+
+    const [stage] = await tx
+      .insert(workflowStages)
+      .values({
+        workflowDefinitionId: definition.id,
+        position,
+        name,
+        requiredRole: input.requiredRole,
+        condition: parsed.data,
+        slaHours: input.slaHours ?? null,
+        boardName: input.boardName?.trim() || null,
+      })
+      .returning();
+
+    await appendAuditEvent(tx, {
+      ...input.actor,
+      organisationId: input.organisationId,
+      action: "workflow.stage.added",
+      subjectType: "workflow_stage",
+      subjectId: stage.id,
+      after: {
+        workflow: definition.name,
+        position,
+        name,
+        requiredRole: input.requiredRole,
+        boardName: stage.boardName,
+        condition: parsed.data,
+      },
+    });
+    return stage;
   });
 }
 
@@ -256,6 +345,7 @@ export async function resetWorkflow(input: {
         requiredRole: s.requiredRole,
         condition: s.condition,
         slaHours: s.slaHours,
+        boardName: s.boardName ?? null,
       });
     }
 

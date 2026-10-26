@@ -5,6 +5,7 @@ import { SYSTEM_TEMPLATES } from "@/lib/templates/library";
 import { evaluate, questionsOf } from "@/lib/templates/logic";
 import { templateDefinition } from "@/lib/templates/schema";
 import { score } from "@/lib/templates/scoring";
+import { WELL_GOVERNED } from "./fixtures/dsit-answers";
 
 const dsit = templateDefinition.parse(
   SYSTEM_TEMPLATES.find((t) => t.name === "AI risk identification (DSIT toolkit)")!.definition,
@@ -17,61 +18,6 @@ function question(definition: typeof dsit, key: string) {
   return questionsOf(definition.schema).find(({ question: q }) => q.key === key)?.question;
 }
 
-/** A well-run internal tool: every control in place. */
-const WELL_GOVERNED = {
-  use_case_name: "Correspondence summariser",
-  purpose: "Summarises inbound letters for caseworkers",
-  lifecycle_stage: "production",
-  deployment_pattern: "privately_hosted",
-  affects_people: true,
-  consequence: "influences",
-  public_facing: false,
-  risk_team: "Led by the AI governance officer, with data, security and legal",
-  running_costs: "estimated",
-  error_costs: "Caseworker time to re-read the letter",
-  success_measures: "measured",
-  legal_frameworks: ["data_protection", "equality"],
-  legal_advice: "taken",
-  personal_data: true,
-  dpia_reference: "DPIA-2026-0004",
-  solely_automated: "no",
-  third_party_terms: "Open-weights model, licence permits public sector use",
-  legal_review: "Quarterly by the legal team",
-  people_aware: "always",
-  explainability: "explainable",
-  atrs_status: "published",
-  model_choice: "Smallest model meeting the accuracy target",
-  bias_considered: "tested",
-  bias_evidence: "Evaluation report ER-3",
-  intersectional: "intersectional",
-  sensitive_inputs: "no",
-  affected_groups: "Letters in plain English versus other languages",
-  equality_impact: "done",
-  accountable_owner: "yes",
-  governance_board: "approved",
-  roles_documented: "documented",
-  incident_plan: "tested",
-  raising_concerns: "Feedback button and the whistleblowing policy",
-  contestability: "documented_route",
-  redress_accessible: "yes",
-  performance_target: "defined_measured",
-  data_provenance: "documented",
-  stress_testing: "independent",
-  human_oversight: "in_the_loop",
-  monitoring: ["accuracy", "drift"],
-  fallback: "tested",
-  kill_switch: "Service owner, immediately",
-  caf_coverage: "covered",
-  ml_principles: "applied",
-  ai_threats: ["prompt_injection", "data_leakage"],
-  data_integrity: "yes",
-  security_testing: "both",
-  wellbeing: "no",
-  audience: ["internal_wide"],
-  environmental_cost: "weighed",
-  risk_categories: ["none"],
-  review_interval: "annual",
-};
 
 describe("DSIT AI risk identification template", () => {
   it("gives every toolkit risk category a section of its own", () => {

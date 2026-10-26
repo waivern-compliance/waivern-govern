@@ -8,7 +8,6 @@ import { entities } from "@/db/schema";
 import { requireCapability } from "@/lib/session";
 import {
   DEPLOYMENT_PATTERN_LABEL,
-  STAGE_LABEL,
   TRANSPARENCY_SCOPE_LABEL,
   createUseCase,
   updateUseCase,
@@ -77,7 +76,6 @@ export async function registerUseCase(formData: FormData) {
 export async function updateUseCaseAction(useCaseId: string, formData: FormData) {
   const active = await requireCapability("record.write");
   const organisationId = active.membership.organisationId;
-  const stage = String(formData.get("lifecycleStage") ?? "");
   const claim = formData.get("claimOwnership") === "on";
 
   // A person can only be named if they are an active member. Taking a user id
@@ -99,7 +97,6 @@ export async function updateUseCaseAction(useCaseId: string, formData: FormData)
     useCaseId,
     organisationId,
     changes: {
-      ...(stage && stage in STAGE_LABEL ? { lifecycleStage: stage as LifecycleStage } : {}),
       ...(formData.has("deploymentPattern")
         ? { deploymentPattern: patternFrom(formData.get("deploymentPattern")) }
         : {}),

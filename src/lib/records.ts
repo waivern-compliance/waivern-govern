@@ -20,6 +20,8 @@ const PATHS: Record<string, (id: string) => string> = {
   scan_finding: () => "/app/findings",
   breach: (id) => `/app/breaches/${id}`,
   breach_decision: () => "/app/breaches",
+  risk_appetite: () => "/app/risks/appetite",
+  ai_incident: (id) => `/app/ai/incidents/${id}`,
 };
 
 /**

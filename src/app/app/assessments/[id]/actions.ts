@@ -121,6 +121,7 @@ export async function decideAction(
       organisationId: session.membership.organisationId,
       decision: formData.get("decision") as "approved" | "rejected" | "returned",
       rationale: String(formData.get("rationale") ?? ""),
+      boardReference: String(formData.get("boardReference") ?? ""),
       callerRoles: rolesHere,
       actor: { actorKind: "user", actorUserId: session.userId, actorLabel: session.email },
     });

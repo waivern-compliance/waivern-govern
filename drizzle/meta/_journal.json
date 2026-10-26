@@ -253,6 +253,62 @@
       "when": 1792967152374,
       "tag": "0035_atrs_record_guards",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1793028187287,
+      "tag": "0036_overrated_solo",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1793028188666,
+      "tag": "0037_ai_change_guards",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1793028491000,
+      "tag": "0038_colossal_luke_cage",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1793028492624,
+      "tag": "0039_ai_assurance_guards",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1793028753343,
+      "tag": "0040_familiar_tinkerer",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1793028754625,
+      "tag": "0041_ai_incident_guards",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1793029379756,
+      "tag": "0042_hesitant_onslaught",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1793029381168,
+      "tag": "0043_board_decision_guard",
+      "breakpoints": true
     }
   ]
 }

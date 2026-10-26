@@ -55,6 +55,9 @@ export const recordType = pgEnum("record_type", [
   // Added with UK government AI guidance support.
   "risk_appetite",
   "atrs_record",
+  "ai_change",
+  "ai_assurance_record",
+  "ai_incident",
 ]);
 
 /**
@@ -252,6 +255,8 @@ export const taskType = pgEnum("task_type", [
    * chose, and it must not be quietly rescheduled.
    */
   "breach_deadline",
+  /** A report about an AI system that somebody has to look at and decide on. */
+  "triage_incident",
 ]);
 
 export const taskStatus = pgEnum("task_status", [
@@ -401,6 +406,83 @@ export const atrsStatus = pgEnum("atrs_status", [
   "published",
   /** Replaced by a later approved version. */
   "superseded",
+]);
+
+/**
+ * What changed about an AI system. The Playbook asks for every model update to
+ * go through change control with testing and validation; DSIT's toolkit asks
+ * for risk to be reassessed when the model, its data or its use changes.
+ */
+export const aiChangeKind = pgEnum("ai_change_kind", [
+  /** Moved through its lifecycle: proposed, development, pilot, production, retiring, retired. */
+  "stage",
+  /** A different or updated model, or a retrain. */
+  "model",
+  /** Different training, input or retrieval data. */
+  "data",
+  /** Used for something new, by someone new, or at a different scale. */
+  "scope",
+]);
+
+/** The kinds of evidence that an AI system does what it should, safely. */
+export const aiAssuranceKind = pgEnum("ai_assurance_kind", [
+  /** Accuracy and performance against agreed metrics. */
+  "evaluation",
+  /** Adversarial testing to find failure modes, ideally by people outside the team. */
+  "red_team",
+  /** Outcomes compared across groups, including in combination. */
+  "bias_test",
+  /** Vulnerability and AI-specific attack testing. */
+  "security_test",
+  /** Testing with real users: whether they understand, trust and use it as intended. */
+  "user_research",
+  /** Documentation of a model: what it is for, how it was built, its limits. */
+  "model_card",
+  /** Documentation of a dataset: where it came from, what it holds, its gaps. */
+  "data_card",
+]);
+
+export const aiAssuranceResult = pgEnum("ai_assurance_result", [
+  "passed",
+  /** Met its limits, with findings that need acting on. */
+  "passed_with_issues",
+  "failed",
+]);
+
+/**
+ * What somebody is reporting about an AI system. The Playbook asks for routes
+ * for users to report issues and prompt human review, for people affected to
+ * challenge an outcome and seek redress, and for staff to raise concerns —
+ * including confidentially.
+ */
+export const aiIncidentKind = pgEnum("ai_incident_kind", [
+  /** The system failed, or performed outside its limits. */
+  "incident",
+  /** Someone was, or may have been, harmed by it. */
+  "harm",
+  /** Someone affected is challenging an outcome, or seeking redress. */
+  "challenge",
+  /** A concern raised about the system — including whistleblowing. */
+  "concern",
+]);
+
+export const aiIncidentSource = pgEnum("ai_incident_source", [
+  "staff",
+  "public",
+  /** Raised by the system's own monitoring. */
+  "monitoring",
+  "supplier",
+  "other",
+]);
+
+export const aiHarm = pgEnum("ai_harm", ["none_known", "potential", "actual"]);
+
+export const aiIncidentStatus = pgEnum("ai_incident_status", [
+  "reported",
+  "triaged",
+  "investigating",
+  "resolved",
+  "closed",
 ]);
 
 export const aiLifecycleStage = pgEnum("ai_lifecycle_stage", [

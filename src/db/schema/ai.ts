@@ -11,14 +11,23 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import {
+  aiHarm,
+  aiIncidentKind,
+  aiIncidentSource,
+  aiIncidentStatus,
+  aiAssuranceKind,
+  aiAssuranceResult,
+  aiChangeKind,
   aiDeploymentPattern,
   aiLifecycleStage,
   aiProvenance,
   aiSystemType,
   atrsScope,
   atrsStatus,
+  riskTier,
 } from "./enums";
 import { integrationConnections } from "./integration";
+import { risks } from "./risks";
 import { entities, organisations, users } from "./tenancy";
 
 /**
@@ -215,3 +224,191 @@ export const atrsRecords = pgTable(
 export const atrsRecordRelations = relations(atrsRecords, ({ one }) => ({
   useCase: one(aiUseCases, { fields: [atrsRecords.aiUseCaseId], references: [aiUseCases.id] }),
 }));
+
+/**
+ * Something that changed about an AI system, and on what basis.
+ *
+ * Append-only: the register says what a system is now, and this says how it
+ * got there — every stage it passed through, and every change to its model,
+ * data or use — so "what was running on 3 March, and who let it go live?" has
+ * an answer. A stage change that did not meet its gate records who waived the
+ * gate and why, rather than the gate quietly not applying.
+ */
+export const aiChanges = pgTable(
+  "ai_change",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organisationId: uuid("organisation_id")
+      .notNull()
+      .references(() => organisations.id, { onDelete: "restrict" }),
+    entityId: uuid("entity_id")
+      .notNull()
+      .references(() => entities.id, { onDelete: "restrict" }),
+    aiUseCaseId: uuid("ai_use_case_id")
+      .notNull()
+      .references(() => aiUseCases.id, { onDelete: "restrict" }),
+
+    kind: aiChangeKind("kind").notNull(),
+    /** For a stage change. Null where the system was first registered. */
+    fromStage: aiLifecycleStage("from_stage"),
+    toStage: aiLifecycleStage("to_stage"),
+    summary: text("summary").notNull(),
+    /** How the change was tested and validated before release. */
+    validation: text("validation"),
+    /** How it would be withdrawn and the previous version restored. */
+    rollback: text("rollback"),
+
+    /** The gate conditions not met at the time, where a stage change went ahead anyway. */
+    gateWaived: jsonb("gate_waived").$type<string[]>(),
+    waiverReason: text("waiver_reason"),
+
+    recordedByUserId: uuid("recorded_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    recordedByLabel: text("recorded_by_label").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("ai_change_use_case_idx").on(t.aiUseCaseId, t.createdAt)],
+);
+
+/** One measured result, and the limit it was held to. */
+export type AssuranceMetric = {
+  name: string;
+  value: number;
+  /** The acceptable limit, where one was set. */
+  threshold: number | null;
+  /** Whether the value must be at least or at most the threshold. */
+  direction: "at_least" | "at_most";
+  unit?: string;
+};
+
+/**
+ * Evidence that an AI system does what it should: a test, an evaluation, or
+ * the documentation a model or dataset should carry.
+ *
+ * The toolkit asks for performance to be measured against defined acceptable
+ * limits, and for bias testing and red-teaming to be done by people independent
+ * of the project team. A result is recorded with the limits it was held to and
+ * whether the people who ran it were independent, so "it passed" can be
+ * checked rather than taken on trust.
+ *
+ * Append-only. A test that was run is a fact; a correction is another record.
+ */
+export const aiAssuranceRecords = pgTable(
+  "ai_assurance_record",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organisationId: uuid("organisation_id")
+      .notNull()
+      .references(() => organisations.id, { onDelete: "restrict" }),
+    entityId: uuid("entity_id")
+      .notNull()
+      .references(() => entities.id, { onDelete: "restrict" }),
+    aiUseCaseId: uuid("ai_use_case_id")
+      .notNull()
+      .references(() => aiUseCases.id, { onDelete: "restrict" }),
+
+    kind: aiAssuranceKind("kind").notNull(),
+    title: text("title").notNull(),
+    performedAt: timestamp("performed_at", { withTimezone: true }).notNull(),
+    /** Who carried it out — a team, a supplier, an external assessor. */
+    performedBy: text("performed_by").notNull(),
+    /** Whether they are independent of the team that built and runs the system. */
+    independent: boolean("independent").notNull(),
+    method: text("method"),
+    metrics: jsonb("metrics").$type<AssuranceMetric[]>().notNull().default([]),
+    /** Null for documentation, which describes rather than passes or fails. */
+    result: aiAssuranceResult("result"),
+    findings: text("findings"),
+    /** Where the full report or card is held. */
+    evidenceRef: text("evidence_ref"),
+    /** The change this validated, where it was run as part of change control. */
+    changeId: uuid("change_id").references(() => aiChanges.id, { onDelete: "restrict" }),
+
+    recordedByUserId: uuid("recorded_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    recordedByLabel: text("recorded_by_label").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("ai_assurance_use_case_idx").on(t.aiUseCaseId, t.performedAt)],
+);
+
+/**
+ * A report about an AI system: something went wrong, someone was harmed,
+ * someone is challenging an outcome, or someone is worried.
+ *
+ * Each has a named person deciding what happens to it, and every step is in
+ * `ai_incident_event`. A challenge to an outcome is decided by a person, as
+ * UK GDPR Article 22 and the Playbook require; the outcome is recorded here.
+ * Confidential reports keep who raised them from anyone but the person
+ * handling them and those entitled to see confidential concerns.
+ */
+export const aiIncidents = pgTable(
+  "ai_incident",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organisationId: uuid("organisation_id")
+      .notNull()
+      .references(() => organisations.id, { onDelete: "restrict" }),
+    entityId: uuid("entity_id")
+      .notNull()
+      .references(() => entities.id, { onDelete: "restrict" }),
+    /** Null where nobody yet knows which system it is about. */
+    aiUseCaseId: uuid("ai_use_case_id").references(() => aiUseCases.id, { onDelete: "restrict" }),
+    reference: text("reference").notNull(),
+
+    kind: aiIncidentKind("kind").notNull(),
+    source: aiIncidentSource("source").notNull(),
+    summary: text("summary").notNull(),
+    details: text("details"),
+    harm: aiHarm("harm").notNull().default("none_known"),
+    status: aiIncidentStatus("status").notNull().default("reported"),
+    /** Set by the person triaging it, on the organisation's risk scale's tiers. */
+    severity: riskTier("severity"),
+
+    /** Who raised it. Withheld from most viewers when confidential. */
+    reportedByLabel: text("reported_by_label").notNull(),
+    confidential: boolean("confidential").notNull().default(false),
+
+    /** The named person deciding what happens. */
+    assignedToUserId: uuid("assigned_to_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    outcome: text("outcome"),
+    linkedRiskId: uuid("linked_risk_id").references(() => risks.id, { onDelete: "set null" }),
+
+    occurredAt: timestamp("occurred_at", { withTimezone: true }),
+    reportedAt: timestamp("reported_at", { withTimezone: true }).notNull().defaultNow(),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+    recordedByUserId: uuid("recorded_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("ai_incident_reference").on(t.organisationId, t.reference),
+    index("ai_incident_use_case_idx").on(t.aiUseCaseId, t.status),
+    index("ai_incident_org_status_idx").on(t.organisationId, t.status),
+  ],
+);
+
+/** One step in handling a report. Append-only: the timeline is the record. */
+export const aiIncidentEvents = pgTable(
+  "ai_incident_event",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    incidentId: uuid("incident_id")
+      .notNull()
+      .references(() => aiIncidents.id, { onDelete: "restrict" }),
+    fromStatus: aiIncidentStatus("from_status"),
+    toStatus: aiIncidentStatus("to_status").notNull(),
+    note: text("note").notNull(),
+    byUserId: uuid("by_user_id").references(() => users.id, { onDelete: "set null" }),
+    byLabel: text("by_label").notNull(),
+    at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("ai_incident_event_incident_idx").on(t.incidentId, t.at)],
+);

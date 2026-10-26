@@ -401,6 +401,14 @@ export const HELP_TOPICS: HelpTopic[] = [
         ],
       },
       {
+        heading: "Boards and committees",
+        body: [
+          "A stage can be a board's or committee's decision — an AI governance board, an ethics committee — rather than one person's. Somebody holding the stage's role records it, and must give the meeting and minute that decided; the record says the board decided, not the person typing it in.",
+          "The shipped AI risk workflow ends with an AI governance board, as the UK government AI Playbook recommends, for anything rated critical or over the spend at which government digital spend control needs assurance: £100,000 for anything public-facing, £1 million otherwise. The DSIT AI risk identification template asks for the expected spend so the rule has a figure to read.",
+          "To bring a board or committee into a workflow you have already tuned, add a stage rather than restoring the shipped ones. It goes at the end and applies from the next submission. A stage can also apply when an answer reaches a number, such as a spend threshold.",
+        ],
+      },
+      {
         heading: "When somebody leaves or moves team",
         body: [
           "Approvals need nothing: revoke the role and every gate they were holding moves with it.",
@@ -585,6 +593,28 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Each system can name two people. The senior responsible owner answers for the system. The AI governance officer runs its risk management day to day, as the DSIT AI Risk Management Toolkit describes. One person may hold both, and a leaver's handover moves both.",
           "How it is deployed — a public app, AI inside bought software, a provider's API, a model you host or train — follows the UK government AI Playbook's security guidance, because each carries different exposure.",
           "Approving an assessment of a system sets its next review from the assessment's cycle, sooner if the assessor asked for it. When that date passes, AI governance is given a task to look at it again.",
+        ],
+      },
+      {
+        heading: "Moving it through its lifecycle",
+        body: [
+          "A system can be added at whatever stage it is really at. Moving it live afterwards — into pilot, or from pilot to production — is checked: it needs a named owner and an approved AI assessment that is not past its review and was approved after the last change to the model, data or use.",
+          "Where those are missing, somebody who decides approvals can let it go ahead with a reason. The move is recorded with what was missing and why, so the history shows a system that went live without an assessment did.",
+          "Record any change to the model, its data or its use. A model change needs how it was validated and how it would be rolled back. Every change brings the system's review forward, and it shows as changed since assessed until it is assessed again.",
+        ],
+      },
+      {
+        heading: "Risk profile and the AI risk log",
+        body: [
+          "Each system's risk profile shows every risk raised from its assessments or tied to it by an incident, grouped by DSIT's nine categories, with the worst inherent and residual rating in each, how many sit outside appetite, and what is being done about each.",
+          "The AI risk log export lists every AI risk across every system in one file — the central log DSIT's toolkit asks departments to keep and share with GDS and DSIT.",
+        ],
+      },
+      {
+        heading: "Testing and assurance",
+        body: [
+          "Record evaluations, red-team, bias and security tests, user research, and model and data cards against each system. A test lists what it measured and the limit each measure was held to; it cannot be recorded as passed while one of its own measures missed its limit.",
+          "Say whether the people who ran it were independent of the team that built the system — DSIT's toolkit asks for that for bias testing and red-teaming. Live systems never tested, systems rated high or critical with no independent test, and systems whose latest test failed all show on the register. The latest evaluation also starts the model performance section of an ATRS record.",
         ],
       },
     ],
@@ -963,6 +993,31 @@ export const HELP_TOPICS: HelpTopic[] = [
     related: ["assessments", "approvals"],
   },
   {
+    id: "ai-incidents",
+    title: "AI incidents and concerns",
+    summary:
+      "Reports about AI systems — failures, harm, challenges to outcomes and concerns — each handled by a named person.",
+    path: "/app/ai/incidents",
+    keywords: ["incident", "harm", "complaint", "challenge", "appeal", "redress", "whistleblowing", "concern", "contest"],
+    sections: [
+      {
+        heading: "Reporting",
+        body: [
+          "Anyone in the organisation can report something about an AI system, whatever their role: an incident where it failed or misbehaved, harm to someone, a challenge to an outcome from somebody affected, or a concern. If you are not sure which system it is, say so — whoever triages it will work it out.",
+          "Tick confidential to keep your name from everyone but the person handling it, the privacy administrators and the organisation's owners. The report itself is still visible, without the name, and the audit log does not name you either.",
+        ],
+      },
+      {
+        heading: "Handling",
+        body: [
+          "A report goes to the system's AI governance officer, else its owner, else to AI governance, with a task due within two days. They triage it — how serious, whether harm is actual, who handles it, and the risk it belongs to — then take it through investigation to resolution. Every step needs a note, and the timeline cannot be edited.",
+          "Resolving needs an outcome. For a challenge, that is the decision a person reached and what was put right — the human review UK GDPR Article 22 and the AI Playbook ask for. A system with actual harm reported and not yet resolved shows as a serious gap on the register.",
+        ],
+      },
+    ],
+    related: ["ai-register", "risks"],
+  },
+  {
     id: "transparency-records",
     title: "Algorithmic transparency records",
     summary:
@@ -1054,7 +1109,7 @@ export const HELP_GROUPS: Array<{ heading: string; ids: string[] }> = [
   },
   {
     heading: "The registers",
-    ids: ["ropa", "third-parties", "breaches", "ai-register", "ai-chain", "transparency-records", "transfers", "findings"],
+    ids: ["ropa", "third-parties", "breaches", "ai-register", "ai-chain", "ai-incidents", "transparency-records", "transfers", "findings"],
   },
   {
     heading: "Seeing where you stand",

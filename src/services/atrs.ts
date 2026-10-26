@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, inArray, isNull, max } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
+  aiAssuranceRecords,
   aiUseCases,
   assessmentRevisions,
   assessments,
@@ -156,6 +157,35 @@ export async function prefillFor(useCaseId: string, organisationId: string): Pro
         .where(inArray(mitigations.riskId, raised.map((r) => r.id)))
     : [];
 
+  // The most recent evaluation, for how the model's performance was judged.
+  const [evaluation] = await db
+    .select()
+    .from(aiAssuranceRecords)
+    .where(
+      and(
+        eq(aiAssuranceRecords.aiUseCaseId, useCaseId),
+        eq(aiAssuranceRecords.kind, "evaluation"),
+      ),
+    )
+    .orderBy(desc(aiAssuranceRecords.performedAt))
+    .limit(1);
+  const performance = evaluation
+    ? [
+        `Evaluated on ${evaluation.performedAt.toISOString().slice(0, 10)} by ${evaluation.performedBy}` +
+          `${evaluation.independent ? ", independently of the team" : ""}.`,
+        ...evaluation.metrics.map(
+          (m) =>
+            `${m.name}: ${m.value}${m.unit ?? ""}` +
+            (m.threshold === null
+              ? ""
+              : ` (required ${m.direction === "at_least" ? "at least" : "at most"} ${m.threshold}${m.unit ?? ""})`),
+        ),
+        evaluation.findings ?? "",
+      ]
+        .filter(Boolean)
+        .join("\n")
+    : "";
+
   const thirdParty = PROVENANCE_THIRD_PARTY.has(useCase.provenance) || Boolean(useCase.vendor);
   const model = [useCase.vendor, useCase.modelName].filter(Boolean).join(" — ");
 
@@ -179,6 +209,7 @@ export async function prefillFor(useCaseId: string, organisationId: string): Pro
       : "",
     "2.4.1.5": model,
     "2.4.2.1": model,
+    "2.4.2.7": performance,
     "2.5.1": approved
       .map(({ assessment, templateName }) =>
         [

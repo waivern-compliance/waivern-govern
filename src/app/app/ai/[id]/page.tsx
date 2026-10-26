@@ -20,6 +20,20 @@ import {
 import { candidatesFor } from "@/services/handover";
 import { recordsFor } from "@/services/atrs";
 import { startRecordAction } from "./atrs/actions";
+import { GATE_WORDS, STAGE_ORDER, unmetConditions, type Stage } from "@/lib/ai/lifecycle";
+import { gateContext, historyFor } from "@/services/ai-lifecycle";
+import { ChangeForm, StageForm } from "./lifecycle";
+import { AssuranceForm } from "./assurance";
+import { assuranceFor } from "@/services/ai-assurance";
+import { STATUS_LABEL as INCIDENT_STATUS, listIncidents, type IncidentStatus } from "@/services/ai-incidents";
+import {
+  ASSURANCE_KIND_LABEL,
+  DOCUMENTATION,
+  RESULT_LABEL,
+  meetsThreshold,
+  type AssuranceKind,
+  type AssuranceResult,
+} from "@/lib/ai/assurance";
 import { updateUseCaseAction } from "../actions";
 
 const CONSEQUENCE_WORDS: Record<string, string> = {
@@ -58,10 +72,23 @@ export default async function UseCasePage({
     );
   }
   const mayEdit = can(active.membership.grants, "record.write", useCase.entityId);
-  const [members, records] = await Promise.all([
+  const [members, records, history, gate, assurance, incidents] = await Promise.all([
     mayEdit ? candidatesFor(active.membership.organisationId) : Promise.resolve([]),
     recordsFor(id, active.membership.organisationId),
+    historyFor(id, active.membership.organisationId),
+    gateContext(id, active.membership.organisationId),
+    assuranceFor(id, active.membership.organisationId),
+    listIncidents(active.membership.organisationId, null, { useCaseId: id }),
   ]);
+  const mayWaive = can(active.membership.grants, "approval.decide", useCase.entityId);
+  // What each possible move would still need, worked out here so the form can
+  // say so before anyone tries.
+  const unmetByStage = Object.fromEntries(
+    STAGE_ORDER.map((s) => [
+      s,
+      gate ? unmetConditions(s, gate.context).map((c) => GATE_WORDS[c]) : [],
+    ]),
+  );
   const draftRecord = records.find((r) => r.status === "draft") ?? null;
   const currentRecord =
     records.find((r) => r.status === "published" || r.status === "approved") ?? null;
@@ -69,9 +96,14 @@ export default async function UseCasePage({
   return (
     <main className="mx-auto max-w-3xl space-y-10 px-6 py-12">
       <header className="space-y-3 border-b border-line pb-6">
-        <Link href="/app/ai" className="text-xs text-ink-soft hover:text-brand">
-          ← AI register
-        </Link>
+        <div className="flex flex-wrap items-baseline justify-between gap-x-4">
+          <Link href="/app/ai" className="text-xs text-ink-soft hover:text-brand">
+            ← AI register
+          </Link>
+          <Link href={`/app/ai/${id}/risk-profile`} className="text-xs text-ink-soft hover:text-brand">
+            Risk profile →
+          </Link>
+        </div>
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <span className="font-mono text-sm text-ink-soft">{useCase.reference}</span>
           <h1 className="text-2xl font-semibold tracking-tight">{useCase.name}</h1>
@@ -214,6 +246,176 @@ export default async function UseCasePage({
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-soft">
+          Lifecycle
+        </h2>
+        {mayEdit ? (
+          <StageForm
+            useCaseId={id}
+            current={useCase.lifecycleStage}
+            stages={STAGE_ORDER.map((s) => ({ value: s, label: STAGE_LABEL[s as Stage] }))}
+            unmetByStage={unmetByStage}
+            mayWaive={mayWaive}
+          />
+        ) : null}
+        {mayEdit ? (
+          <details className="rounded border border-line bg-surface">
+            <summary className="cursor-pointer px-4 py-3 text-sm font-medium">
+              Record a change to the model, its data or its use
+            </summary>
+            <ChangeForm useCaseId={id} />
+          </details>
+        ) : null}
+        <ol className="divide-y divide-line overflow-hidden rounded border border-line bg-surface text-sm">
+          {history.map((h) => (
+            <li key={h.id} className="space-y-1 px-4 py-2.5">
+              <p className="flex flex-wrap items-baseline justify-between gap-x-4">
+                <span>
+                  {h.kind === "stage" ? (
+                    <strong>
+                      {h.fromStage ? `${STAGE_LABEL[h.fromStage as Stage]} → ` : ""}
+                      {STAGE_LABEL[h.toStage as Stage]}
+                    </strong>
+                  ) : (
+                    <strong>
+                      {h.kind === "model" ? "Model changed" : h.kind === "data" ? "Data changed" : "Use changed"}
+                    </strong>
+                  )}{" "}
+                  — {h.summary}
+                </span>
+                <span className="font-mono text-[11px] text-ink-soft">
+                  {h.recordedByLabel} · {h.createdAt.toISOString().slice(0, 10)}
+                </span>
+              </p>
+              {h.validation ? <p className="text-xs text-ink-soft">Validated: {h.validation}</p> : null}
+              {h.rollback ? <p className="text-xs text-ink-soft">Rollback: {h.rollback}</p> : null}
+              {h.gateWaived && h.gateWaived.length > 0 ? (
+                <p className="rounded border-l-2 border-amber-700 bg-amber-50 px-2 py-1 text-xs text-amber-950">
+                  Went ahead without: {h.gateWaived.map((c) => GATE_WORDS[c as keyof typeof GATE_WORDS] ?? c).join("; ")}.
+                  Because: {h.waiverReason}
+                </p>
+              ) : null}
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-soft">
+          Testing and assurance
+        </h2>
+        {assurance.length > 0 ? (
+          <ul className="divide-y divide-line overflow-hidden rounded border border-line bg-surface text-sm">
+            {assurance.map((a) => (
+              <li key={a.id} className="space-y-1 px-4 py-2.5">
+                <p className="flex flex-wrap items-baseline justify-between gap-x-4">
+                  <span>
+                    <span className="text-xs text-ink-soft">{ASSURANCE_KIND_LABEL[a.kind as AssuranceKind]}</span>{" "}
+                    <strong>{a.title}</strong>
+                  </span>
+                  <span className="font-mono text-[11px] text-ink-soft">
+                    {a.performedBy}
+                    {a.independent ? " · independent" : ""} · {a.performedAt.toISOString().slice(0, 10)}
+                  </span>
+                </p>
+                {a.result ? (
+                  <p
+                    className={`text-xs font-medium ${
+                      a.result === "failed"
+                        ? "text-red-800"
+                        : a.result === "passed_with_issues"
+                          ? "text-amber-800"
+                          : "text-emerald-800"
+                    }`}
+                  >
+                    {RESULT_LABEL[a.result as AssuranceResult]}
+                  </p>
+                ) : null}
+                {a.metrics.length > 0 ? (
+                  <p className="font-mono text-[11px] text-ink-soft">
+                    {a.metrics
+                      .map((m) => {
+                        const met = meetsThreshold(m);
+                        return `${m.name} ${m.value}${m.unit ?? ""}${
+                          m.threshold === null
+                            ? ""
+                            : ` (${m.direction === "at_least" ? "≥" : "≤"} ${m.threshold}${met ? " ✓" : " ✗"})`
+                        }`;
+                      })
+                      .join(" · ")}
+                  </p>
+                ) : null}
+                {a.findings ? <p className="text-xs text-ink-soft">{a.findings}</p> : null}
+                {a.evidenceRef ? <p className="text-xs text-ink-soft">Held at: {a.evidenceRef}</p> : null}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-ink-soft">
+            No tests, evaluations or cards recorded. DSIT&rsquo;s toolkit expects
+            performance to be measured against defined limits before and after
+            release, and bias testing and red-teaming by people outside the team.
+          </p>
+        )}
+        {mayEdit ? (
+          <details className="rounded border border-line bg-surface">
+            <summary className="cursor-pointer px-4 py-3 text-sm font-medium">
+              Record a test, evaluation or card
+            </summary>
+            <AssuranceForm
+              useCaseId={id}
+              kinds={(Object.keys(ASSURANCE_KIND_LABEL) as AssuranceKind[]).map((k) => ({
+                value: k,
+                label: ASSURANCE_KIND_LABEL[k],
+                documentation: DOCUMENTATION.includes(k),
+              }))}
+              changes={history
+                .filter((h) => h.kind !== "stage")
+                .slice(0, 10)
+                .map((h) => ({
+                  id: h.id,
+                  label: `${h.createdAt.toISOString().slice(0, 10)} — ${h.summary}`,
+                }))}
+            />
+          </details>
+        ) : null}
+      </section>
+
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-4">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-soft">
+            Incidents and concerns
+          </h2>
+          <Link href={`/app/ai/incidents?system=${id}`} className="text-xs text-brand hover:underline">
+            Report something about this system
+          </Link>
+        </div>
+        {incidents.length > 0 ? (
+          <ul className="divide-y divide-line overflow-hidden rounded border border-line bg-surface text-sm">
+            {incidents.map(({ incident }) => (
+              <li key={incident.id}>
+                <Link
+                  href={`/app/ai/incidents/${incident.id}`}
+                  className="flex flex-wrap items-baseline justify-between gap-x-4 px-4 py-2.5 hover:bg-ground"
+                >
+                  <span>
+                    <span className="font-mono text-xs text-ink-soft">{incident.reference}</span>{" "}
+                    {incident.summary}
+                  </span>
+                  <span className="font-mono text-[11px] text-ink-soft">
+                    {INCIDENT_STATUS[incident.status as IncidentStatus]}
+                    {incident.harm === "actual" ? " · harm" : ""}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-ink-soft">Nothing reported.</p>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-soft">
           Algorithmic transparency
         </h2>
         <div className="space-y-3 rounded border border-line bg-surface px-4 py-3.5 text-sm">
@@ -293,12 +495,6 @@ export default async function UseCasePage({
             action={updateUseCaseAction.bind(null, id)}
             className="grid gap-3 rounded border border-line bg-surface p-4 sm:grid-cols-2"
           >
-            <Choice
-              name="lifecycleStage"
-              label="Stage"
-              value={useCase.lifecycleStage}
-              options={STAGE_LABEL}
-            />
             <Choice
               name="deploymentPattern"
               label="How it is deployed"
