@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useRefusableAction } from "@/lib/use-refusable-action";
+import { useState } from "react";
 import {
   decideAppetiteAction,
   proposeAppetiteAction,
@@ -44,17 +45,14 @@ export function ProposeAppetiteForm({
   levels: Level[];
   current: { level: string; toleratedTier: string } | null;
 }) {
-  const [result, action, pending] = useActionState<AppetiteResult, FormData>(
-    proposeAppetiteAction,
-    null,
-  );
+  const { result, pending, formProps } = useRefusableAction<AppetiteResult>(proposeAppetiteAction);
   const [level, setLevel] = useState(current?.level ?? "cautious");
   const [tier, setTier] = useState(
     current?.toleratedTier ?? levels.find((l) => l.value === level)?.suggestedTier ?? "medium",
   );
 
   return (
-    <form action={action} className="space-y-3 border-t border-line p-4">
+    <form {...formProps} className="space-y-3 border-t border-line p-4">
       <input type="hidden" name="scope" value={scope} />
       <fieldset className="space-y-2">
         <legend className="text-xs font-medium uppercase tracking-wider text-ink-soft">Level</legend>
@@ -126,14 +124,11 @@ export function ProposeAppetiteForm({
 
 /** Sign off, or decline, a proposed appetite. */
 export function DecideAppetiteForm({ appetiteId }: { appetiteId: string }) {
-  const [result, action, pending] = useActionState<AppetiteResult, FormData>(
-    decideAppetiteAction,
-    null,
-  );
+  const { result, pending, formProps } = useRefusableAction<AppetiteResult>(decideAppetiteAction);
   const [decision, setDecision] = useState<"approved" | "rejected">("approved");
 
   return (
-    <form action={action} className="space-y-3 rounded border border-line bg-ground p-3">
+    <form {...formProps} className="space-y-3 rounded border border-line bg-ground p-3">
       <input type="hidden" name="appetiteId" value={appetiteId} />
       <div className="flex gap-4 text-sm">
         {(["approved", "rejected"] as const).map((d) => (

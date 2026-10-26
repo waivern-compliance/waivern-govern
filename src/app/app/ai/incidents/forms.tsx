@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useRefusableAction } from "@/lib/use-refusable-action";
+import { useState } from "react";
 import { advanceAction, reportAction, triageAction, type IncidentResult } from "./actions";
 
 const field = "w-full rounded border border-line bg-ground px-3 py-2 text-sm";
@@ -59,11 +60,11 @@ export function ReportForm({
   defaultSystem?: string;
   viewerEmail: string;
 }) {
-  const [result, action, pending] = useActionState<IncidentResult, FormData>(reportAction, null);
+  const { result, pending, formProps } = useRefusableAction<IncidentResult>(reportAction);
   const [source, setSource] = useState("staff");
 
   return (
-    <form action={action} className="space-y-3 border-t border-line p-4">
+    <form {...formProps} className="space-y-3 border-t border-line p-4">
       <div className="grid gap-3 sm:grid-cols-2">
         <Choice
           name="useCaseId"
@@ -143,12 +144,9 @@ export function TriageForm({
   currentHarm: string;
   currentAssignee: string;
 }) {
-  const [result, action, pending] = useActionState<IncidentResult, FormData>(
-    triageAction.bind(null, incidentId),
-    null,
-  );
+  const { result, pending, formProps } = useRefusableAction<IncidentResult>(triageAction.bind(null, incidentId));
   return (
-    <form action={action} className="space-y-3 rounded border border-line bg-surface p-4">
+    <form {...formProps} className="space-y-3 rounded border border-line bg-surface p-4">
       <div className="grid gap-3 sm:grid-cols-2">
         <Choice
           name="severity"
@@ -199,13 +197,10 @@ export function AdvanceForm({
   next: Option[];
   isChallenge: boolean;
 }) {
-  const [result, action, pending] = useActionState<IncidentResult, FormData>(
-    advanceAction.bind(null, incidentId),
-    null,
-  );
+  const { result, pending, formProps } = useRefusableAction<IncidentResult>(advanceAction.bind(null, incidentId));
   const [to, setTo] = useState(next[0]?.value ?? "");
   return (
-    <form action={action} className="space-y-3 rounded border border-line bg-surface p-4">
+    <form {...formProps} className="space-y-3 rounded border border-line bg-surface p-4">
       <label className="block space-y-1">
         <span className={label}>Move to</span>
         <select name="to" value={to} onChange={(e) => setTo(e.target.value)} className={field}>

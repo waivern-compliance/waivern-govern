@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useRefusableAction } from "@/lib/use-refusable-action";
 import { ROLES, ROLE_BLURB, ROLE_LABEL } from "@/lib/rbac";
 import { isSimple } from "@/lib/workflow/routing";
 import type { StageView } from "@/services/approval-routing";
@@ -17,10 +17,7 @@ const TIERS = ["low", "medium", "high", "critical"] as const;
  * said plainly: a gate with no eligible approver does not fail, it waits.
  */
 export function StageForm({ stage }: { stage: StageView }) {
-  const [result, action, pending] = useActionState<RoutingResult, FormData>(
-    updateStageAction.bind(null, stage.id),
-    null,
-  );
+  const { result, pending, formProps } = useRefusableAction<RoutingResult>(updateStageAction.bind(null, stage.id), { resetOnSuccess: false });
   const simple = isSimple(stage.condition);
 
   return (
@@ -54,7 +51,7 @@ export function StageForm({ stage }: { stage: StageView }) {
         )}
       </p>
 
-      <form action={action} className="grid gap-3 sm:grid-cols-2">
+      <form {...formProps} className="grid gap-3 sm:grid-cols-2">
         <label className="block space-y-1">
           <span className="block text-[11px] font-medium uppercase tracking-wider text-ink-soft">
             Name
@@ -232,12 +229,9 @@ function BoardField({ value }: { value: string }) {
  * board or an ethics committee without resetting a workflow already tuned.
  */
 export function AddStageForm({ workflowId }: { workflowId: string }) {
-  const [result, action, pending] = useActionState<RoutingResult, FormData>(
-    addStageAction.bind(null, workflowId),
-    null,
-  );
+  const { result, pending, formProps } = useRefusableAction<RoutingResult>(addStageAction.bind(null, workflowId));
   return (
-    <form action={action} className="grid gap-3 border-t border-line p-4 sm:grid-cols-2">
+    <form {...formProps} className="grid gap-3 border-t border-line p-4 sm:grid-cols-2">
       <label className="block space-y-1">
         <span className="block text-[11px] font-medium uppercase tracking-wider text-ink-soft">Name</span>
         <input

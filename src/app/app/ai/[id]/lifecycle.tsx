@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useRefusableAction } from "@/lib/use-refusable-action";
+import { useState } from "react";
 import { changeStageAction, recordChangeAction, type LifecycleResult } from "./lifecycle-actions";
 
 function Outcome({ result }: { result: LifecycleResult }) {
@@ -42,15 +43,12 @@ export function StageForm({
   unmetByStage: Record<string, string[]>;
   mayWaive: boolean;
 }) {
-  const [result, action, pending] = useActionState<LifecycleResult, FormData>(
-    changeStageAction.bind(null, useCaseId),
-    null,
-  );
+  const { result, pending, formProps } = useRefusableAction<LifecycleResult>(changeStageAction.bind(null, useCaseId));
   const [to, setTo] = useState(stages.find((s) => s.value !== current)?.value ?? current);
   const unmet = unmetByStage[to] ?? [];
 
   return (
-    <form action={action} className="space-y-3 rounded border border-line bg-surface p-4">
+    <form {...formProps} className="space-y-3 rounded border border-line bg-surface p-4">
       <div className="grid gap-3 sm:grid-cols-[12rem_1fr]">
         <label className="block space-y-1">
           <span className={label}>Move to</span>
@@ -110,14 +108,11 @@ export function StageForm({
 
 /** Record a change to the model, its data or its use. */
 export function ChangeForm({ useCaseId }: { useCaseId: string }) {
-  const [result, action, pending] = useActionState<LifecycleResult, FormData>(
-    recordChangeAction.bind(null, useCaseId),
-    null,
-  );
+  const { result, pending, formProps } = useRefusableAction<LifecycleResult>(recordChangeAction.bind(null, useCaseId));
   const [kind, setKind] = useState("model");
 
   return (
-    <form action={action} className="space-y-3 border-t border-line p-4">
+    <form {...formProps} className="space-y-3 border-t border-line p-4">
       <div className="grid gap-3 sm:grid-cols-[12rem_1fr]">
         <label className="block space-y-1">
           <span className={label}>What changed</span>

@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useRefusableAction } from "@/lib/use-refusable-action";
+import { useState } from "react";
 import type { AtrsSection } from "@/lib/atrs/standard";
 import {
   approveAction,
@@ -52,15 +53,12 @@ export function RecordForm({
   values: Record<string, string>;
   missing: string[];
 }) {
-  const [result, action, pending] = useActionState<AtrsResult, FormData>(
-    saveDraftAction.bind(null, recordId),
-    null,
-  );
+  const { result, pending, formProps } = useRefusableAction<AtrsResult>(saveDraftAction.bind(null, recordId), { resetOnSuccess: false });
   const [thirdParty, setThirdParty] = useState(values["2.1.4"] === "Yes");
   const outstanding = new Set(missing);
 
   return (
-    <form action={action} className="space-y-8">
+    <form {...formProps} className="space-y-8">
       {sections.map((section, i) => {
         const firstOfTier = i === 0 || sections[i - 1].tier !== section.tier;
         return (
@@ -147,12 +145,9 @@ export function RecordForm({
 }
 
 export function ApproveButton({ recordId }: { recordId: string }) {
-  const [result, action, pending] = useActionState<AtrsResult, FormData>(
-    approveAction.bind(null, recordId),
-    null,
-  );
+  const { result, pending, formProps } = useRefusableAction<AtrsResult>(approveAction.bind(null, recordId));
   return (
-    <form action={action} className="space-y-2">
+    <form {...formProps} className="space-y-2">
       <Outcome result={result} />
       <button
         type="submit"
@@ -166,12 +161,9 @@ export function ApproveButton({ recordId }: { recordId: string }) {
 }
 
 export function PublishForm({ recordId }: { recordId: string }) {
-  const [result, action, pending] = useActionState<AtrsResult, FormData>(
-    publishAction.bind(null, recordId),
-    null,
-  );
+  const { result, pending, formProps } = useRefusableAction<AtrsResult>(publishAction.bind(null, recordId));
   return (
-    <form action={action} className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end">
+    <form {...formProps} className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end">
       <label className="block space-y-1">
         <span className="text-xs font-medium uppercase tracking-wider text-ink-soft">
           Where it is published

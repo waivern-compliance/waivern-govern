@@ -69,7 +69,11 @@ export async function reportAction(_prev: IncidentResult, formData: FormData): P
       summary: String(formData.get("summary") ?? ""),
       details: String(formData.get("details") ?? ""),
       confidential,
-      reportedByLabel: String(formData.get("reportedBy") ?? "") || active.email,
+      // A member of staff reporting for themselves is the person signed in. A
+      // report passed on from the public or a supplier is not theirs, and the
+      // record must not say it was.
+      reportedByLabel:
+        String(formData.get("reportedBy") ?? "").trim() || (source === "staff" ? active.email : "Not given"),
       occurredAt: occurred ? new Date(`${occurred}T00:00:00Z`) : undefined,
       actor: actorOf(active),
     });

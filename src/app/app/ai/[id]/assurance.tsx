@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useRefusableAction } from "@/lib/use-refusable-action";
+import { useState } from "react";
 import { recordAssuranceAction, type AssuranceActionResult } from "./assurance-actions";
 
 const field = "w-full rounded border border-line bg-ground px-3 py-2 text-sm";
@@ -22,16 +23,13 @@ export function AssuranceForm({
   /** Recent changes this might have validated. */
   changes: Array<{ id: string; label: string }>;
 }) {
-  const [result, action, pending] = useActionState<AssuranceActionResult, FormData>(
-    recordAssuranceAction.bind(null, useCaseId),
-    null,
-  );
+  const { result, pending, formProps } = useRefusableAction<AssuranceActionResult>(recordAssuranceAction.bind(null, useCaseId));
   const [kind, setKind] = useState(kinds[0].value);
   const [rows, setRows] = useState(1);
   const documentation = kinds.find((k) => k.value === kind)?.documentation ?? false;
 
   return (
-    <form action={action} className="space-y-3 border-t border-line p-4">
+    <form {...formProps} className="space-y-3 border-t border-line p-4">
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block space-y-1">
           <span className={label}>Kind</span>
