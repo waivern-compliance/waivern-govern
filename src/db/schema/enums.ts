@@ -55,6 +55,9 @@ export const recordType = pgEnum("record_type", [
   // Added with UK government AI guidance support.
   "risk_appetite",
   "atrs_record",
+  "ai_change",
+  "ai_assurance_record",
+  "ai_incident",
 ]);
 
 /**
@@ -401,6 +404,22 @@ export const atrsStatus = pgEnum("atrs_status", [
   "published",
   /** Replaced by a later approved version. */
   "superseded",
+]);
+
+/**
+ * What changed about an AI system. The Playbook asks for every model update to
+ * go through change control with testing and validation; DSIT's toolkit asks
+ * for risk to be reassessed when the model, its data or its use changes.
+ */
+export const aiChangeKind = pgEnum("ai_change_kind", [
+  /** Moved through its lifecycle: proposed, development, pilot, production, retiring, retired. */
+  "stage",
+  /** A different or updated model, or a retrain. */
+  "model",
+  /** Different training, input or retrieval data. */
+  "data",
+  /** Used for something new, by someone new, or at a different scale. */
+  "scope",
 ]);
 
 export const aiLifecycleStage = pgEnum("ai_lifecycle_stage", [

@@ -11,6 +11,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import {
+  aiChangeKind,
   aiDeploymentPattern,
   aiLifecycleStage,
   aiProvenance,
@@ -215,3 +216,49 @@ export const atrsRecords = pgTable(
 export const atrsRecordRelations = relations(atrsRecords, ({ one }) => ({
   useCase: one(aiUseCases, { fields: [atrsRecords.aiUseCaseId], references: [aiUseCases.id] }),
 }));
+
+/**
+ * Something that changed about an AI system, and on what basis.
+ *
+ * Append-only: the register says what a system is now, and this says how it
+ * got there — every stage it passed through, and every change to its model,
+ * data or use — so "what was running on 3 March, and who let it go live?" has
+ * an answer. A stage change that did not meet its gate records who waived the
+ * gate and why, rather than the gate quietly not applying.
+ */
+export const aiChanges = pgTable(
+  "ai_change",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organisationId: uuid("organisation_id")
+      .notNull()
+      .references(() => organisations.id, { onDelete: "restrict" }),
+    entityId: uuid("entity_id")
+      .notNull()
+      .references(() => entities.id, { onDelete: "restrict" }),
+    aiUseCaseId: uuid("ai_use_case_id")
+      .notNull()
+      .references(() => aiUseCases.id, { onDelete: "restrict" }),
+
+    kind: aiChangeKind("kind").notNull(),
+    /** For a stage change. Null where the system was first registered. */
+    fromStage: aiLifecycleStage("from_stage"),
+    toStage: aiLifecycleStage("to_stage"),
+    summary: text("summary").notNull(),
+    /** How the change was tested and validated before release. */
+    validation: text("validation"),
+    /** How it would be withdrawn and the previous version restored. */
+    rollback: text("rollback"),
+
+    /** The gate conditions not met at the time, where a stage change went ahead anyway. */
+    gateWaived: jsonb("gate_waived").$type<string[]>(),
+    waiverReason: text("waiver_reason"),
+
+    recordedByUserId: uuid("recorded_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    recordedByLabel: text("recorded_by_label").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("ai_change_use_case_idx").on(t.aiUseCaseId, t.createdAt)],
+);

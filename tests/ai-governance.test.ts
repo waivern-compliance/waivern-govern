@@ -19,6 +19,7 @@ import { addMonths } from "@/lib/dates";
 import { LEGAL_REFERENCES, SYSTEM_TEMPLATES } from "@/lib/templates/library";
 import { DEFAULT_WORKFLOWS } from "@/lib/workflow/defaults";
 import { createUseCase, updateUseCase } from "@/services/ai-register";
+import { changeStage } from "@/services/ai-lifecycle";
 import { createAssessment, saveAnswers } from "@/services/assessments";
 import { seedSharedLibrary } from "@/services/countries";
 import { sweepOrganisation } from "@/services/sweep";
@@ -103,25 +104,37 @@ describe("live since", () => {
     const w = await world("returns");
     const row = await register(w, { lifecycleStage: "development" });
 
-    const piloted = await updateUseCase({
+    const piloted = await changeStage({
       useCaseId: row.id,
       organisationId: w.org.id,
-      changes: { lifecycleStage: "pilot" },
+      to: "pilot",
+      summary: "Moved in a test.",
+      // The gate has its own tests; these are about what a move records.
+      waiverReason: "Test fixture",
+      mayWaive: true,
       actor: SYSTEM,
     });
     assert.ok(piloted.liveSince);
 
     // Withdrawn for rework, then back. It has been live since the first time.
-    await updateUseCase({
+    await changeStage({
       useCaseId: row.id,
       organisationId: w.org.id,
-      changes: { lifecycleStage: "development" },
+      to: "development",
+      summary: "Moved in a test.",
+      // The gate has its own tests; these are about what a move records.
+      waiverReason: "Test fixture",
+      mayWaive: true,
       actor: SYSTEM,
     });
-    const back = await updateUseCase({
+    const back = await changeStage({
       useCaseId: row.id,
       organisationId: w.org.id,
-      changes: { lifecycleStage: "production" },
+      to: "production",
+      summary: "Moved in a test.",
+      // The gate has its own tests; these are about what a move records.
+      waiverReason: "Test fixture",
+      mayWaive: true,
       actor: SYSTEM,
     });
     assert.equal(back.liveSince?.getTime(), piloted.liveSince!.getTime());
@@ -186,10 +199,14 @@ describe("the sweep and AI reviews", () => {
     // Nothing is running, so there is nothing to review.
     const w = await world("retired");
     const row = await register(w, { lifecycleStage: "production", nextReviewAt: new Date(Date.now() - DAY) });
-    await updateUseCase({
+    await changeStage({
       useCaseId: row.id,
       organisationId: w.org.id,
-      changes: { lifecycleStage: "retired" },
+      to: "retired",
+      summary: "Moved in a test.",
+      // The gate has its own tests; these are about what a move records.
+      waiverReason: "Test fixture",
+      mayWaive: true,
       actor: SYSTEM,
     });
     const result = await sweepOrganisation(w.org.id);

@@ -2,6 +2,7 @@ import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/db/client";
 import {
+  aiChanges,
   aiUseCases,
   assessmentRevisions,
   assessments,
@@ -11,6 +12,7 @@ import {
   users,
 } from "@/db/schema";
 import { appendAuditEvent } from "@/lib/audit";
+import { lastMaterialChanges } from "./ai-lifecycle";
 import { systemsWithCurrentRecord } from "./atrs";
 import type { Actor } from "./templates";
 
@@ -115,7 +117,8 @@ export type Gap =
   | "decides_without_oversight"
   | "bias_not_assessed"
   | "review_overdue"
-  | "transparency_record_missing";
+  | "transparency_record_missing"
+  | "changed_since_assessment";
 
 export const GAP_WORDS: Record<Gap, string> = {
   never_assessed: "Never assessed",
@@ -126,6 +129,7 @@ export const GAP_WORDS: Record<Gap, string> = {
   bias_not_assessed: "Bias never assessed",
   review_overdue: "Review overdue",
   transparency_record_missing: "No transparency record",
+  changed_since_assessment: "Changed since assessed",
 };
 
 /** Gaps that mean the system is running unexamined, rather than merely untidy. */
@@ -205,6 +209,19 @@ export async function createUseCase(input: {
       })
       .returning();
 
+    // The history starts with the stage it was registered at.
+    await tx.insert(aiChanges).values({
+      organisationId: input.organisationId,
+      entityId: input.entityId,
+      aiUseCaseId: row.id,
+      kind: "stage",
+      fromStage: null,
+      toStage: stage,
+      summary: "Added to the register.",
+      recordedByUserId: input.actor.actorUserId ?? null,
+      recordedByLabel: input.actor.actorLabel,
+    });
+
     await appendAuditEvent(tx, {
       ...input.actor,
       organisationId: input.organisationId,
@@ -227,7 +244,6 @@ export async function createUseCase(input: {
 
 /** The fields an update may touch, and which of them the audit record shows. */
 const TRACKED_FIELDS = [
-  "lifecycleStage",
   "deploymentPattern",
   "ownerId",
   "governanceOfficerId",
@@ -242,8 +258,8 @@ const TRACKED_FIELDS = [
 export async function updateUseCase(input: {
   useCaseId: string;
   organisationId: string;
+  /** Not the stage: that goes through `changeStage`, which checks the gate. */
   changes: Partial<{
-    lifecycleStage: LifecycleStage;
     deploymentPattern: DeploymentPattern | null;
     ownerId: string | null;
     governanceOfficerId: string | null;
@@ -269,19 +285,9 @@ export async function updateUseCase(input: {
       );
     if (!before) throw new Error("No such AI use case");
 
-    const now = new Date();
-    const stage = input.changes.lifecycleStage;
     const [after] = await tx
       .update(aiUseCases)
-      .set({
-        ...input.changes,
-        updatedAt: now,
-        retiredAt: stage === "retired" ? now : before.retiredAt,
-        // First time live only. A system that goes back into development and
-        // returns has been live since the first occasion, not the latest.
-        liveSince:
-          before.liveSince ?? (stage && LIVE_STAGES.includes(stage) ? now : null),
-      })
+      .set({ ...input.changes, updatedAt: new Date() })
       .where(eq(aiUseCases.id, input.useCaseId))
       .returning();
 
@@ -356,6 +362,7 @@ export function gapsFor(
   useCase: typeof aiUseCases.$inferSelect,
   assessed: AssessedFacts | null,
   transparency: { hasCurrentRecord: boolean } | null = null,
+  lastMaterialChangeAt: Date | null = null,
 ): Gap[] {
   const gaps: Gap[] = [];
   const live = LIVE_STAGES.includes(useCase.lifecycleStage as LifecycleStage);
@@ -385,6 +392,16 @@ export function gapsFor(
 
   if (useCase.nextReviewAt && useCase.nextReviewAt.getTime() <= Date.now()) {
     gaps.push("review_overdue");
+  }
+
+  // The model, its data or its use changed after the judgement was made, so the
+  // judgement is about a system that no longer exists in that form.
+  if (
+    lastMaterialChangeAt &&
+    assessed?.approvedAt &&
+    lastMaterialChangeAt.getTime() > assessed.approvedAt.getTime()
+  ) {
+    gaps.push("changed_since_assessment");
   }
 
   // Only where a record is required and the system is reaching people. A
@@ -419,7 +436,10 @@ export async function listRegister(
           ),
     )
     .orderBy(aiUseCases.reference);
-  const recorded = await systemsWithCurrentRecord(organisationId);
+  const [recorded, changed] = await Promise.all([
+    systemsWithCurrentRecord(organisationId),
+    lastMaterialChanges(organisationId),
+  ]);
 
   return Promise.all(
     rows.map(async ({ useCase, ownerEmail }) => {
@@ -428,7 +448,12 @@ export async function listRegister(
         useCase,
         ownerEmail,
         assessed,
-        gaps: gapsFor(useCase, assessed, { hasCurrentRecord: recorded.has(useCase.id) }),
+        gaps: gapsFor(
+          useCase,
+          assessed,
+          { hasCurrentRecord: recorded.has(useCase.id) },
+          changed.get(useCase.id) ?? null,
+        ),
       };
     }),
   );
@@ -446,7 +471,7 @@ export async function loadUseCase(useCaseId: string, organisationId: string) {
     );
   if (!row) return null;
 
-  const [assessed, related, recorded] = await Promise.all([
+  const [assessed, related, recorded, changed] = await Promise.all([
     latestAssessment(useCaseId),
     db
       .select({ assessment: assessments, kind: templates.kind })
@@ -461,6 +486,7 @@ export async function loadUseCase(useCaseId: string, organisationId: string) {
       )
       .orderBy(desc(assessments.createdAt)),
     systemsWithCurrentRecord(organisationId),
+    lastMaterialChanges(organisationId),
   ]);
 
   return {
@@ -469,7 +495,12 @@ export async function loadUseCase(useCaseId: string, organisationId: string) {
     officerEmail: row.officerEmail,
     assessed,
     assessments: related,
-    gaps: gapsFor(row.useCase, assessed, { hasCurrentRecord: recorded.has(useCaseId) }),
+    gaps: gapsFor(
+      row.useCase,
+      assessed,
+      { hasCurrentRecord: recorded.has(useCaseId) },
+      changed.get(useCaseId) ?? null,
+    ),
   };
 }
 

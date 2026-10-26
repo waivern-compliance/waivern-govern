@@ -532,6 +532,14 @@ How it is deployed — a public app, AI inside bought software, a provider's API
 
 Approving an assessment of a system sets its next review from the assessment's cycle, sooner if the assessor asked for it. When that date passes, AI governance is given a task to look at it again.
 
+### Moving it through its lifecycle
+
+A system can be added at whatever stage it is really at. Moving it live afterwards — into pilot, or from pilot to production — is checked: it needs a named owner and an approved AI assessment that is not past its review and was approved after the last change to the model, data or use.
+
+Where those are missing, somebody who decides approvals can let it go ahead with a reason. The move is recorded with what was missing and why, so the history shows a system that went live without an assessment did.
+
+Record any change to the model, its data or its use. A model change needs how it was validated and how it would be rolled back. Every change brings the system's review forward, and it shows as changed since assessed until it is assessed again.
+
 **See also:** The AI assurance chain · Assessments: DPIAs, transfer risk, AI risk, screening · The risk register
 
 <sub>Also searchable as: ai, model, llm, machine learning, shadow ai, lifecycle, oversight, eu ai act</sub>

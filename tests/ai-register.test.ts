@@ -4,13 +4,13 @@ import { eq } from "drizzle-orm";
 import { db, sql as pg } from "@/db/client";
 import { aiUseCases, entities, organisations, users } from "@/db/schema";
 import { verifyAuditChain } from "@/lib/audit";
+import { changeStage } from "@/services/ai-lifecycle";
 import {
   SERIOUS_GAPS,
   createUseCase,
   gapsFor,
   listRegister,
   registerSummary,
-  updateUseCase,
   type AssessedFacts,
 } from "@/services/ai-register";
 
@@ -194,10 +194,14 @@ describe("keeping the register", () => {
     const before = await registerSummary(w.org.id, null);
     assert.equal(before.live, 1);
 
-    const after = await updateUseCase({
+    const after = await changeStage({
       useCaseId: row.id,
       organisationId: w.org.id,
-      changes: { lifecycleStage: "retired" },
+      to: "retired",
+      summary: "Moved in a test.",
+      // The gate has its own tests; these are about what a move records.
+      waiverReason: "Test fixture",
+      mayWaive: true,
       actor: SYSTEM,
     });
     assert.notEqual(after.retiredAt, null);
