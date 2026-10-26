@@ -23,6 +23,16 @@ import { startRecordAction } from "./atrs/actions";
 import { GATE_WORDS, STAGE_ORDER, unmetConditions, type Stage } from "@/lib/ai/lifecycle";
 import { gateContext, historyFor } from "@/services/ai-lifecycle";
 import { ChangeForm, StageForm } from "./lifecycle";
+import { AssuranceForm } from "./assurance";
+import { assuranceFor } from "@/services/ai-assurance";
+import {
+  ASSURANCE_KIND_LABEL,
+  DOCUMENTATION,
+  RESULT_LABEL,
+  meetsThreshold,
+  type AssuranceKind,
+  type AssuranceResult,
+} from "@/lib/ai/assurance";
 import { updateUseCaseAction } from "../actions";
 
 const CONSEQUENCE_WORDS: Record<string, string> = {
@@ -61,11 +71,12 @@ export default async function UseCasePage({
     );
   }
   const mayEdit = can(active.membership.grants, "record.write", useCase.entityId);
-  const [members, records, history, gate] = await Promise.all([
+  const [members, records, history, gate, assurance] = await Promise.all([
     mayEdit ? candidatesFor(active.membership.organisationId) : Promise.resolve([]),
     recordsFor(id, active.membership.organisationId),
     historyFor(id, active.membership.organisationId),
     gateContext(id, active.membership.organisationId),
+    assuranceFor(id, active.membership.organisationId),
   ]);
   const mayWaive = can(active.membership.grants, "approval.decide", useCase.entityId);
   // What each possible move would still need, worked out here so the form can
@@ -279,6 +290,87 @@ export default async function UseCasePage({
             </li>
           ))}
         </ol>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-soft">
+          Testing and assurance
+        </h2>
+        {assurance.length > 0 ? (
+          <ul className="divide-y divide-line overflow-hidden rounded border border-line bg-surface text-sm">
+            {assurance.map((a) => (
+              <li key={a.id} className="space-y-1 px-4 py-2.5">
+                <p className="flex flex-wrap items-baseline justify-between gap-x-4">
+                  <span>
+                    <span className="text-xs text-ink-soft">{ASSURANCE_KIND_LABEL[a.kind as AssuranceKind]}</span>{" "}
+                    <strong>{a.title}</strong>
+                  </span>
+                  <span className="font-mono text-[11px] text-ink-soft">
+                    {a.performedBy}
+                    {a.independent ? " · independent" : ""} · {a.performedAt.toISOString().slice(0, 10)}
+                  </span>
+                </p>
+                {a.result ? (
+                  <p
+                    className={`text-xs font-medium ${
+                      a.result === "failed"
+                        ? "text-red-800"
+                        : a.result === "passed_with_issues"
+                          ? "text-amber-800"
+                          : "text-emerald-800"
+                    }`}
+                  >
+                    {RESULT_LABEL[a.result as AssuranceResult]}
+                  </p>
+                ) : null}
+                {a.metrics.length > 0 ? (
+                  <p className="font-mono text-[11px] text-ink-soft">
+                    {a.metrics
+                      .map((m) => {
+                        const met = meetsThreshold(m);
+                        return `${m.name} ${m.value}${m.unit ?? ""}${
+                          m.threshold === null
+                            ? ""
+                            : ` (${m.direction === "at_least" ? "≥" : "≤"} ${m.threshold}${met ? " ✓" : " ✗"})`
+                        }`;
+                      })
+                      .join(" · ")}
+                  </p>
+                ) : null}
+                {a.findings ? <p className="text-xs text-ink-soft">{a.findings}</p> : null}
+                {a.evidenceRef ? <p className="text-xs text-ink-soft">Held at: {a.evidenceRef}</p> : null}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-ink-soft">
+            No tests, evaluations or cards recorded. DSIT&rsquo;s toolkit expects
+            performance to be measured against defined limits before and after
+            release, and bias testing and red-teaming by people outside the team.
+          </p>
+        )}
+        {mayEdit ? (
+          <details className="rounded border border-line bg-surface">
+            <summary className="cursor-pointer px-4 py-3 text-sm font-medium">
+              Record a test, evaluation or card
+            </summary>
+            <AssuranceForm
+              useCaseId={id}
+              kinds={(Object.keys(ASSURANCE_KIND_LABEL) as AssuranceKind[]).map((k) => ({
+                value: k,
+                label: ASSURANCE_KIND_LABEL[k],
+                documentation: DOCUMENTATION.includes(k),
+              }))}
+              changes={history
+                .filter((h) => h.kind !== "stage")
+                .slice(0, 10)
+                .map((h) => ({
+                  id: h.id,
+                  label: `${h.createdAt.toISOString().slice(0, 10)} — ${h.summary}`,
+                }))}
+            />
+          </details>
+        ) : null}
       </section>
 
       <section className="space-y-3">

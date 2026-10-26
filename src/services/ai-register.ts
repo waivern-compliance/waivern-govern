@@ -12,6 +12,8 @@ import {
   users,
 } from "@/db/schema";
 import { appendAuditEvent } from "@/lib/audit";
+import type { AssuranceSummary } from "@/lib/ai/assurance";
+import { assuranceByUseCase } from "./ai-assurance";
 import { lastMaterialChanges } from "./ai-lifecycle";
 import { systemsWithCurrentRecord } from "./atrs";
 import type { Actor } from "./templates";
@@ -118,7 +120,10 @@ export type Gap =
   | "bias_not_assessed"
   | "review_overdue"
   | "transparency_record_missing"
-  | "changed_since_assessment";
+  | "changed_since_assessment"
+  | "never_tested"
+  | "not_independently_tested"
+  | "last_test_failed";
 
 export const GAP_WORDS: Record<Gap, string> = {
   never_assessed: "Never assessed",
@@ -130,6 +135,9 @@ export const GAP_WORDS: Record<Gap, string> = {
   review_overdue: "Review overdue",
   transparency_record_missing: "No transparency record",
   changed_since_assessment: "Changed since assessed",
+  never_tested: "Live, never tested",
+  not_independently_tested: "No independent testing",
+  last_test_failed: "Failed its last test",
 };
 
 /** Gaps that mean the system is running unexamined, rather than merely untidy. */
@@ -137,6 +145,7 @@ export const SERIOUS_GAPS: Gap[] = [
   "never_assessed",
   "live_without_monitoring",
   "decides_without_oversight",
+  "last_test_failed",
 ];
 
 export type RegisterEntry = {
@@ -361,9 +370,18 @@ async function latestAssessment(useCaseId: string): Promise<AssessedFacts | null
 export function gapsFor(
   useCase: typeof aiUseCases.$inferSelect,
   assessed: AssessedFacts | null,
-  transparency: { hasCurrentRecord: boolean } | null = null,
-  lastMaterialChangeAt: Date | null = null,
+  /**
+   * What else is known about the system. Each is optional, and a gap that
+   * depends on something not supplied is not reported — an export that does
+   * not load testing records should not claim nothing was tested.
+   */
+  context: {
+    transparency?: { hasCurrentRecord: boolean };
+    lastMaterialChangeAt?: Date | null;
+    assurance?: AssuranceSummary | null;
+  } = {},
 ): Gap[] {
+  const { transparency, lastMaterialChangeAt, assurance } = context;
   const gaps: Gap[] = [];
   const live = LIVE_STAGES.includes(useCase.lifecycleStage as LifecycleStage);
   const retired = useCase.lifecycleStage === "retired";
@@ -404,6 +422,18 @@ export function gapsFor(
     gaps.push("changed_since_assessment");
   }
 
+  // Testing gaps, once testing records are known. The toolkit asks for
+  // independent testing; asked of every system it would be noise, so it is
+  // asked of the ones rated high or critical.
+  if (assurance !== undefined && live) {
+    if (!assurance?.tested) gaps.push("never_tested");
+    else {
+      const serious = assessed?.tier === "high" || assessed?.tier === "critical";
+      if (serious && !assurance.independentlyTested) gaps.push("not_independently_tested");
+      if (assurance.failing.length > 0) gaps.push("last_test_failed");
+    }
+  }
+
   // Only where a record is required and the system is reaching people. A
   // voluntary record not yet written is a choice, not a gap; one required for
   // a system still in development is not due until it goes live.
@@ -436,9 +466,10 @@ export async function listRegister(
           ),
     )
     .orderBy(aiUseCases.reference);
-  const [recorded, changed] = await Promise.all([
+  const [recorded, changed, tested] = await Promise.all([
     systemsWithCurrentRecord(organisationId),
     lastMaterialChanges(organisationId),
+    assuranceByUseCase(organisationId),
   ]);
 
   return Promise.all(
@@ -448,12 +479,11 @@ export async function listRegister(
         useCase,
         ownerEmail,
         assessed,
-        gaps: gapsFor(
-          useCase,
-          assessed,
-          { hasCurrentRecord: recorded.has(useCase.id) },
-          changed.get(useCase.id) ?? null,
-        ),
+        gaps: gapsFor(useCase, assessed, {
+          transparency: { hasCurrentRecord: recorded.has(useCase.id) },
+          lastMaterialChangeAt: changed.get(useCase.id) ?? null,
+          assurance: tested.get(useCase.id) ?? null,
+        }),
       };
     }),
   );
@@ -471,7 +501,7 @@ export async function loadUseCase(useCaseId: string, organisationId: string) {
     );
   if (!row) return null;
 
-  const [assessed, related, recorded, changed] = await Promise.all([
+  const [assessed, related, recorded, changed, tested] = await Promise.all([
     latestAssessment(useCaseId),
     db
       .select({ assessment: assessments, kind: templates.kind })
@@ -487,6 +517,7 @@ export async function loadUseCase(useCaseId: string, organisationId: string) {
       .orderBy(desc(assessments.createdAt)),
     systemsWithCurrentRecord(organisationId),
     lastMaterialChanges(organisationId),
+    assuranceByUseCase(organisationId),
   ]);
 
   return {
@@ -495,12 +526,11 @@ export async function loadUseCase(useCaseId: string, organisationId: string) {
     officerEmail: row.officerEmail,
     assessed,
     assessments: related,
-    gaps: gapsFor(
-      row.useCase,
-      assessed,
-      { hasCurrentRecord: recorded.has(useCaseId) },
-      changed.get(useCaseId) ?? null,
-    ),
+    gaps: gapsFor(row.useCase, assessed, {
+      transparency: { hasCurrentRecord: recorded.has(useCaseId) },
+      lastMaterialChangeAt: changed.get(useCaseId) ?? null,
+      assurance: tested.get(useCaseId) ?? null,
+    }),
   };
 }
 

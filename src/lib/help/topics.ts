@@ -595,6 +595,13 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Record any change to the model, its data or its use. A model change needs how it was validated and how it would be rolled back. Every change brings the system's review forward, and it shows as changed since assessed until it is assessed again.",
         ],
       },
+      {
+        heading: "Testing and assurance",
+        body: [
+          "Record evaluations, red-team, bias and security tests, user research, and model and data cards against each system. A test lists what it measured and the limit each measure was held to; it cannot be recorded as passed while one of its own measures missed its limit.",
+          "Say whether the people who ran it were independent of the team that built the system — DSIT's toolkit asks for that for bias testing and red-teaming. Live systems never tested, systems rated high or critical with no independent test, and systems whose latest test failed all show on the register. The latest evaluation also starts the model performance section of an ATRS record.",
+        ],
+      },
     ],
     related: ["ai-chain", "assessments", "risks"],
   },

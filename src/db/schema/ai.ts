@@ -11,6 +11,8 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import {
+  aiAssuranceKind,
+  aiAssuranceResult,
   aiChangeKind,
   aiDeploymentPattern,
   aiLifecycleStage,
@@ -261,4 +263,67 @@ export const aiChanges = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("ai_change_use_case_idx").on(t.aiUseCaseId, t.createdAt)],
+);
+
+/** One measured result, and the limit it was held to. */
+export type AssuranceMetric = {
+  name: string;
+  value: number;
+  /** The acceptable limit, where one was set. */
+  threshold: number | null;
+  /** Whether the value must be at least or at most the threshold. */
+  direction: "at_least" | "at_most";
+  unit?: string;
+};
+
+/**
+ * Evidence that an AI system does what it should: a test, an evaluation, or
+ * the documentation a model or dataset should carry.
+ *
+ * The toolkit asks for performance to be measured against defined acceptable
+ * limits, and for bias testing and red-teaming to be done by people independent
+ * of the project team. A result is recorded with the limits it was held to and
+ * whether the people who ran it were independent, so "it passed" can be
+ * checked rather than taken on trust.
+ *
+ * Append-only. A test that was run is a fact; a correction is another record.
+ */
+export const aiAssuranceRecords = pgTable(
+  "ai_assurance_record",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organisationId: uuid("organisation_id")
+      .notNull()
+      .references(() => organisations.id, { onDelete: "restrict" }),
+    entityId: uuid("entity_id")
+      .notNull()
+      .references(() => entities.id, { onDelete: "restrict" }),
+    aiUseCaseId: uuid("ai_use_case_id")
+      .notNull()
+      .references(() => aiUseCases.id, { onDelete: "restrict" }),
+
+    kind: aiAssuranceKind("kind").notNull(),
+    title: text("title").notNull(),
+    performedAt: timestamp("performed_at", { withTimezone: true }).notNull(),
+    /** Who carried it out — a team, a supplier, an external assessor. */
+    performedBy: text("performed_by").notNull(),
+    /** Whether they are independent of the team that built and runs the system. */
+    independent: boolean("independent").notNull(),
+    method: text("method"),
+    metrics: jsonb("metrics").$type<AssuranceMetric[]>().notNull().default([]),
+    /** Null for documentation, which describes rather than passes or fails. */
+    result: aiAssuranceResult("result"),
+    findings: text("findings"),
+    /** Where the full report or card is held. */
+    evidenceRef: text("evidence_ref"),
+    /** The change this validated, where it was run as part of change control. */
+    changeId: uuid("change_id").references(() => aiChanges.id, { onDelete: "restrict" }),
+
+    recordedByUserId: uuid("recorded_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    recordedByLabel: text("recorded_by_label").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("ai_assurance_use_case_idx").on(t.aiUseCaseId, t.performedAt)],
 );

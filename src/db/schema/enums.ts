@@ -422,6 +422,31 @@ export const aiChangeKind = pgEnum("ai_change_kind", [
   "scope",
 ]);
 
+/** The kinds of evidence that an AI system does what it should, safely. */
+export const aiAssuranceKind = pgEnum("ai_assurance_kind", [
+  /** Accuracy and performance against agreed metrics. */
+  "evaluation",
+  /** Adversarial testing to find failure modes, ideally by people outside the team. */
+  "red_team",
+  /** Outcomes compared across groups, including in combination. */
+  "bias_test",
+  /** Vulnerability and AI-specific attack testing. */
+  "security_test",
+  /** Testing with real users: whether they understand, trust and use it as intended. */
+  "user_research",
+  /** Documentation of a model: what it is for, how it was built, its limits. */
+  "model_card",
+  /** Documentation of a dataset: where it came from, what it holds, its gaps. */
+  "data_card",
+]);
+
+export const aiAssuranceResult = pgEnum("ai_assurance_result", [
+  "passed",
+  /** Met its limits, with findings that need acting on. */
+  "passed_with_issues",
+  "failed",
+]);
+
 export const aiLifecycleStage = pgEnum("ai_lifecycle_stage", [
   "proposed",
   "development",
