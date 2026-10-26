@@ -96,9 +96,14 @@ export default async function UseCasePage({
   return (
     <main className="mx-auto max-w-3xl space-y-10 px-6 py-12">
       <header className="space-y-3 border-b border-line pb-6">
-        <Link href="/app/ai" className="text-xs text-ink-soft hover:text-brand">
-          ← AI register
-        </Link>
+        <div className="flex flex-wrap items-baseline justify-between gap-x-4">
+          <Link href="/app/ai" className="text-xs text-ink-soft hover:text-brand">
+            ← AI register
+          </Link>
+          <Link href={`/app/ai/${id}/risk-profile`} className="text-xs text-ink-soft hover:text-brand">
+            Risk profile →
+          </Link>
+        </div>
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <span className="font-mono text-sm text-ink-soft">{useCase.reference}</span>
           <h1 className="text-2xl font-semibold tracking-tight">{useCase.name}</h1>

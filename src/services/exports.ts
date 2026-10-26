@@ -21,6 +21,8 @@ import { legalRefMap } from "@/lib/legal-refs";
 import { questionsOf } from "@/lib/templates/logic";
 import { libraryFor } from "./countries";
 import { gapsFor } from "./ai-register";
+import { aiRiskLog, treatmentWords } from "./ai-risk-profile";
+import { categoryLabel } from "@/lib/risk/categories";
 import { GAP_WORDS, listActivities } from "./ropa";
 import { breachRegister } from "./breaches";
 import { trendFor } from "./trends";
@@ -48,6 +50,7 @@ export type Dataset =
   | "risks"
   | "assessments"
   | "ai-register"
+  | "ai-risks"
   | "ropa"
   | "third-parties"
   | "breaches"
@@ -59,6 +62,7 @@ export const DATASET_LABEL: Record<Dataset, string> = {
   risks: "Risk register",
   assessments: "Assessments",
   "ai-register": "AI register",
+  "ai-risks": "AI risk log",
   ropa: "Processing register (Article 30)",
   "third-parties": "Third parties (Article 28)",
   breaches: "Breach register (Article 33(5))",
@@ -535,5 +539,43 @@ export async function exportBreaches(organisationId: string, entityIds: string[]
         others, b.status, b.closedAt, b.closureRationale,
       ];
     }),
+  };
+}
+
+/**
+ * The central AI risk log DSIT's toolkit asks departments to keep and share
+ * with GDS and DSIT. One row per risk per system, judged against the appetite
+ * in force at export.
+ */
+export async function exportAiRiskLog(organisationId: string, entityIds: string[] | null) {
+  const rows = await aiRiskLog(organisationId, entityIds);
+  return {
+    columns: [
+      "System", "System name", "Stage", "Deployment",
+      "Risk", "Title", "Description", "Category", "Scale",
+      "Inherent likelihood", "Inherent impact", "Inherent score", "Inherent tier",
+      "Residual likelihood", "Residual impact", "Residual score", "Residual tier",
+      "Judged against", "Tolerated tier", "Within appetite",
+      "Treatments", "Accepted until", "Status", "Owner",
+    ],
+    rows: rows.map(({ system, risk, treatments, acceptance, appetite, ownerEmail }) => [
+      system.reference, system.name, system.lifecycleStage, system.deploymentPattern,
+      risk.reference, risk.title, risk.description, categoryLabel(risk.category), risk.scale,
+      risk.inherentLikelihood, risk.inherentImpact, risk.inherentScore, risk.inherentTier,
+      risk.residualLikelihood, risk.residualImpact, risk.residualScore, risk.residualTier,
+      appetite.state === "closed"
+        ? null
+        : appetite.basis.source === "platform"
+          ? "platform default (no appetite signed off)"
+          : appetite.basis.source === "category"
+            ? `appetite for ${categoryLabel(appetite.basis.scope)}`
+            : "organisation default appetite",
+      appetite.state === "closed" ? null : appetite.basis.toleratedTier,
+      appetite.state === "within" ? "yes" : appetite.state === "outside" ? "no" : appetite.state === "unrated" ? "not rated" : null,
+      treatments.map(treatmentWords).join("; ") || null,
+      acceptance?.expiresAt ?? null,
+      risk.status,
+      ownerEmail,
+    ]),
   };
 }

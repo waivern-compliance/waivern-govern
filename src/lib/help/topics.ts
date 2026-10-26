@@ -596,6 +596,13 @@ export const HELP_TOPICS: HelpTopic[] = [
         ],
       },
       {
+        heading: "Risk profile and the AI risk log",
+        body: [
+          "Each system's risk profile shows every risk raised from its assessments or tied to it by an incident, grouped by DSIT's nine categories, with the worst inherent and residual rating in each, how many sit outside appetite, and what is being done about each.",
+          "The AI risk log export lists every AI risk across every system in one file — the central log DSIT's toolkit asks departments to keep and share with GDS and DSIT.",
+        ],
+      },
+      {
         heading: "Testing and assurance",
         body: [
           "Record evaluations, red-team, bias and security tests, user research, and model and data cards against each system. A test lists what it measured and the limit each measure was held to; it cannot be recorded as passed while one of its own measures missed its limit.",

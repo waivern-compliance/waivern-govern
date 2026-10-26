@@ -541,6 +541,12 @@ Where those are missing, somebody who decides approvals can let it go ahead with
 
 Record any change to the model, its data or its use. A model change needs how it was validated and how it would be rolled back. Every change brings the system's review forward, and it shows as changed since assessed until it is assessed again.
 
+### Risk profile and the AI risk log
+
+Each system's risk profile shows every risk raised from its assessments or tied to it by an incident, grouped by DSIT's nine categories, with the worst inherent and residual rating in each, how many sit outside appetite, and what is being done about each.
+
+The AI risk log export lists every AI risk across every system in one file — the central log DSIT's toolkit asks departments to keep and share with GDS and DSIT.
+
 ### Testing and assurance
 
 Record evaluations, red-team, bias and security tests, user research, and model and data cards against each system. A test lists what it measured and the limit each measure was held to; it cannot be recorded as passed while one of its own measures missed its limit.

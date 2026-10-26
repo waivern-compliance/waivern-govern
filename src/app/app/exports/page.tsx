@@ -10,6 +10,7 @@ const BLURB: Record<Dataset, string> = {
   risks: "Every risk with its inherent and residual rating, mitigations, and the acceptance in force.",
   assessments: "Every assessment with its type, status, score and dates.",
   "ai-register": "Every AI system, its stage and owner, and what is outstanding against it.",
+  "ai-risks": "Every risk belonging to an AI system, judged against appetite, with its treatments — the central AI risk log DSIT's toolkit asks departments to keep and share with GDS and DSIT.",
   ropa: "Every processing activity in Article 30 order, with the gaps in each record named so you can see what an inspection would find.",
   "third-parties": "Every processor with the agreement in force, its expiry, and what is missing against Article 28.",
   breaches: "Every breach with both statutory decisions and the reasoning for each, including the ones judged not notifiable.",
