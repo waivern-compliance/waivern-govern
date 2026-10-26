@@ -11,6 +11,10 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import {
+  aiHarm,
+  aiIncidentKind,
+  aiIncidentSource,
+  aiIncidentStatus,
   aiAssuranceKind,
   aiAssuranceResult,
   aiChangeKind,
@@ -20,8 +24,10 @@ import {
   aiSystemType,
   atrsScope,
   atrsStatus,
+  riskTier,
 } from "./enums";
 import { integrationConnections } from "./integration";
+import { risks } from "./risks";
 import { entities, organisations, users } from "./tenancy";
 
 /**
@@ -326,4 +332,83 @@ export const aiAssuranceRecords = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("ai_assurance_use_case_idx").on(t.aiUseCaseId, t.performedAt)],
+);
+
+/**
+ * A report about an AI system: something went wrong, someone was harmed,
+ * someone is challenging an outcome, or someone is worried.
+ *
+ * Each has a named person deciding what happens to it, and every step is in
+ * `ai_incident_event`. A challenge to an outcome is decided by a person, as
+ * UK GDPR Article 22 and the Playbook require; the outcome is recorded here.
+ * Confidential reports keep who raised them from anyone but the person
+ * handling them and those entitled to see confidential concerns.
+ */
+export const aiIncidents = pgTable(
+  "ai_incident",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organisationId: uuid("organisation_id")
+      .notNull()
+      .references(() => organisations.id, { onDelete: "restrict" }),
+    entityId: uuid("entity_id")
+      .notNull()
+      .references(() => entities.id, { onDelete: "restrict" }),
+    /** Null where nobody yet knows which system it is about. */
+    aiUseCaseId: uuid("ai_use_case_id").references(() => aiUseCases.id, { onDelete: "restrict" }),
+    reference: text("reference").notNull(),
+
+    kind: aiIncidentKind("kind").notNull(),
+    source: aiIncidentSource("source").notNull(),
+    summary: text("summary").notNull(),
+    details: text("details"),
+    harm: aiHarm("harm").notNull().default("none_known"),
+    status: aiIncidentStatus("status").notNull().default("reported"),
+    /** Set by the person triaging it, on the organisation's risk scale's tiers. */
+    severity: riskTier("severity"),
+
+    /** Who raised it. Withheld from most viewers when confidential. */
+    reportedByLabel: text("reported_by_label").notNull(),
+    confidential: boolean("confidential").notNull().default(false),
+
+    /** The named person deciding what happens. */
+    assignedToUserId: uuid("assigned_to_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    outcome: text("outcome"),
+    linkedRiskId: uuid("linked_risk_id").references(() => risks.id, { onDelete: "set null" }),
+
+    occurredAt: timestamp("occurred_at", { withTimezone: true }),
+    reportedAt: timestamp("reported_at", { withTimezone: true }).notNull().defaultNow(),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+    recordedByUserId: uuid("recorded_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("ai_incident_reference").on(t.organisationId, t.reference),
+    index("ai_incident_use_case_idx").on(t.aiUseCaseId, t.status),
+    index("ai_incident_org_status_idx").on(t.organisationId, t.status),
+  ],
+);
+
+/** One step in handling a report. Append-only: the timeline is the record. */
+export const aiIncidentEvents = pgTable(
+  "ai_incident_event",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    incidentId: uuid("incident_id")
+      .notNull()
+      .references(() => aiIncidents.id, { onDelete: "restrict" }),
+    fromStatus: aiIncidentStatus("from_status"),
+    toStatus: aiIncidentStatus("to_status").notNull(),
+    note: text("note").notNull(),
+    byUserId: uuid("by_user_id").references(() => users.id, { onDelete: "set null" }),
+    byLabel: text("by_label").notNull(),
+    at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("ai_incident_event_incident_idx").on(t.incidentId, t.at)],
 );

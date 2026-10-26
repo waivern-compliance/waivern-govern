@@ -25,6 +25,7 @@ import { gateContext, historyFor } from "@/services/ai-lifecycle";
 import { ChangeForm, StageForm } from "./lifecycle";
 import { AssuranceForm } from "./assurance";
 import { assuranceFor } from "@/services/ai-assurance";
+import { STATUS_LABEL as INCIDENT_STATUS, listIncidents, type IncidentStatus } from "@/services/ai-incidents";
 import {
   ASSURANCE_KIND_LABEL,
   DOCUMENTATION,
@@ -71,12 +72,13 @@ export default async function UseCasePage({
     );
   }
   const mayEdit = can(active.membership.grants, "record.write", useCase.entityId);
-  const [members, records, history, gate, assurance] = await Promise.all([
+  const [members, records, history, gate, assurance, incidents] = await Promise.all([
     mayEdit ? candidatesFor(active.membership.organisationId) : Promise.resolve([]),
     recordsFor(id, active.membership.organisationId),
     historyFor(id, active.membership.organisationId),
     gateContext(id, active.membership.organisationId),
     assuranceFor(id, active.membership.organisationId),
+    listIncidents(active.membership.organisationId, null, { useCaseId: id }),
   ]);
   const mayWaive = can(active.membership.grants, "approval.decide", useCase.entityId);
   // What each possible move would still need, worked out here so the form can
@@ -371,6 +373,40 @@ export default async function UseCasePage({
             />
           </details>
         ) : null}
+      </section>
+
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-4">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-soft">
+            Incidents and concerns
+          </h2>
+          <Link href={`/app/ai/incidents?system=${id}`} className="text-xs text-brand hover:underline">
+            Report something about this system
+          </Link>
+        </div>
+        {incidents.length > 0 ? (
+          <ul className="divide-y divide-line overflow-hidden rounded border border-line bg-surface text-sm">
+            {incidents.map(({ incident }) => (
+              <li key={incident.id}>
+                <Link
+                  href={`/app/ai/incidents/${incident.id}`}
+                  className="flex flex-wrap items-baseline justify-between gap-x-4 px-4 py-2.5 hover:bg-ground"
+                >
+                  <span>
+                    <span className="font-mono text-xs text-ink-soft">{incident.reference}</span>{" "}
+                    {incident.summary}
+                  </span>
+                  <span className="font-mono text-[11px] text-ink-soft">
+                    {INCIDENT_STATUS[incident.status as IncidentStatus]}
+                    {incident.harm === "actual" ? " · harm" : ""}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-ink-soft">Nothing reported.</p>
+        )}
       </section>
 
       <section className="space-y-3">

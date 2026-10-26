@@ -55,6 +55,12 @@ const DEFAULT_SLA_HOURS: Record<TaskType, number> = {
    * raised.
    */
   breach_deadline: 72,
+  /**
+   * Two working days to decide what a report about an AI system needs. A
+   * report of harm, or a challenge to an outcome, is somebody waiting on the
+   * organisation; it should not sit in a queue for a fortnight.
+   */
+  triage_incident: 48,
 };
 
 async function slaHoursFor(tx: Tx, organisationId: string, type: TaskType) {

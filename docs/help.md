@@ -31,6 +31,7 @@ Every help topic the application carries, in the order it presents them.
 - [Personal data breaches](#personal-data-breaches) — Record every breach, decide the two statutory questions separately, and keep the reasoning for both.
 - [The AI register](#the-ai-register) — Every AI system the organisation is accountable for, including the ones nobody has assessed.
 - [The AI assurance chain](#the-ai-assurance-chain) — Each AI system drawn through to what was done about it — and, more usefully, where that chain stops.
+- [AI incidents and concerns](#ai-incidents-and-concerns) — Reports about AI systems — failures, harm, challenges to outcomes and concerns — each handled by a named person.
 - [Algorithmic transparency records](#algorithmic-transparency-records) — The public record of how an AI system is used, in the Algorithmic Transparency Recording Standard's own fields.
 - [Countries, adequacy and transfers](#countries-adequacy-and-transfers) — One shared library of destinations, with adequacy and transfer risk, and a date showing when each was last checked by a person.
 - [Scan findings](#scan-findings) — Observations pushed in by scanning tools, waiting for a person to decide whether each is a risk.
@@ -571,6 +572,28 @@ An untreated risk is serious when its residual rating is high or critical. An ex
 **See also:** The AI register · The risk register · Assessments: DPIAs, transfer risk, AI risk, screening
 
 <sub>Also searchable as: graph, assurance, coverage, chain, orphan, unassessed, visualisation</sub>
+
+## AI incidents and concerns
+
+*Reports about AI systems — failures, harm, challenges to outcomes and concerns — each handled by a named person.*
+
+**Screen:** `/app/ai/incidents`
+
+### Reporting
+
+Anyone in the organisation can report something about an AI system, whatever their role: an incident where it failed or misbehaved, harm to someone, a challenge to an outcome from somebody affected, or a concern. If you are not sure which system it is, say so — whoever triages it will work it out.
+
+Tick confidential to keep your name from everyone but the person handling it, the privacy administrators and the organisation's owners. The report itself is still visible, without the name, and the audit log does not name you either.
+
+### Handling
+
+A report goes to the system's AI governance officer, else its owner, else to AI governance, with a task due within two days. They triage it — how serious, whether harm is actual, who handles it, and the risk it belongs to — then take it through investigation to resolution. Every step needs a note, and the timeline cannot be edited.
+
+Resolving needs an outcome. For a challenge, that is the decision a person reached and what was put right — the human review UK GDPR Article 22 and the AI Playbook ask for. A system with actual harm reported and not yet resolved shows as a serious gap on the register.
+
+**See also:** The AI register · The risk register
+
+<sub>Also searchable as: incident, harm, complaint, challenge, appeal, redress, whistleblowing, concern, contest</sub>
 
 ## Algorithmic transparency records
 

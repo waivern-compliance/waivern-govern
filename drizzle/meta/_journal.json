@@ -281,6 +281,20 @@
       "when": 1793028492624,
       "tag": "0039_ai_assurance_guards",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1793028753343,
+      "tag": "0040_familiar_tinkerer",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1793028754625,
+      "tag": "0041_ai_incident_guards",
+      "breakpoints": true
     }
   ]
 }

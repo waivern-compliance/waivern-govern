@@ -14,6 +14,7 @@ import {
 import { appendAuditEvent } from "@/lib/audit";
 import type { AssuranceSummary } from "@/lib/ai/assurance";
 import { assuranceByUseCase } from "./ai-assurance";
+import { systemsWithUnresolvedHarm } from "./ai-incidents";
 import { lastMaterialChanges } from "./ai-lifecycle";
 import { systemsWithCurrentRecord } from "./atrs";
 import type { Actor } from "./templates";
@@ -123,7 +124,8 @@ export type Gap =
   | "changed_since_assessment"
   | "never_tested"
   | "not_independently_tested"
-  | "last_test_failed";
+  | "last_test_failed"
+  | "unresolved_harm";
 
 export const GAP_WORDS: Record<Gap, string> = {
   never_assessed: "Never assessed",
@@ -138,6 +140,7 @@ export const GAP_WORDS: Record<Gap, string> = {
   never_tested: "Live, never tested",
   not_independently_tested: "No independent testing",
   last_test_failed: "Failed its last test",
+  unresolved_harm: "Reported harm unresolved",
 };
 
 /** Gaps that mean the system is running unexamined, rather than merely untidy. */
@@ -146,6 +149,7 @@ export const SERIOUS_GAPS: Gap[] = [
   "live_without_monitoring",
   "decides_without_oversight",
   "last_test_failed",
+  "unresolved_harm",
 ];
 
 export type RegisterEntry = {
@@ -379,9 +383,10 @@ export function gapsFor(
     transparency?: { hasCurrentRecord: boolean };
     lastMaterialChangeAt?: Date | null;
     assurance?: AssuranceSummary | null;
+    unresolvedHarm?: boolean;
   } = {},
 ): Gap[] {
-  const { transparency, lastMaterialChangeAt, assurance } = context;
+  const { transparency, lastMaterialChangeAt, assurance, unresolvedHarm } = context;
   const gaps: Gap[] = [];
   const live = LIVE_STAGES.includes(useCase.lifecycleStage as LifecycleStage);
   const retired = useCase.lifecycleStage === "retired";
@@ -434,6 +439,9 @@ export function gapsFor(
     }
   }
 
+  // Somebody reported actual harm and nobody has said how it was put right.
+  if (unresolvedHarm) gaps.push("unresolved_harm");
+
   // Only where a record is required and the system is reaching people. A
   // voluntary record not yet written is a choice, not a gap; one required for
   // a system still in development is not due until it goes live.
@@ -466,10 +474,11 @@ export async function listRegister(
           ),
     )
     .orderBy(aiUseCases.reference);
-  const [recorded, changed, tested] = await Promise.all([
+  const [recorded, changed, tested, harmed] = await Promise.all([
     systemsWithCurrentRecord(organisationId),
     lastMaterialChanges(organisationId),
     assuranceByUseCase(organisationId),
+    systemsWithUnresolvedHarm(organisationId),
   ]);
 
   return Promise.all(
@@ -483,6 +492,7 @@ export async function listRegister(
           transparency: { hasCurrentRecord: recorded.has(useCase.id) },
           lastMaterialChangeAt: changed.get(useCase.id) ?? null,
           assurance: tested.get(useCase.id) ?? null,
+          unresolvedHarm: harmed.has(useCase.id),
         }),
       };
     }),
@@ -501,7 +511,7 @@ export async function loadUseCase(useCaseId: string, organisationId: string) {
     );
   if (!row) return null;
 
-  const [assessed, related, recorded, changed, tested] = await Promise.all([
+  const [assessed, related, recorded, changed, tested, harmed] = await Promise.all([
     latestAssessment(useCaseId),
     db
       .select({ assessment: assessments, kind: templates.kind })
@@ -518,6 +528,7 @@ export async function loadUseCase(useCaseId: string, organisationId: string) {
     systemsWithCurrentRecord(organisationId),
     lastMaterialChanges(organisationId),
     assuranceByUseCase(organisationId),
+    systemsWithUnresolvedHarm(organisationId),
   ]);
 
   return {
@@ -530,6 +541,7 @@ export async function loadUseCase(useCaseId: string, organisationId: string) {
       transparency: { hasCurrentRecord: recorded.has(useCaseId) },
       lastMaterialChangeAt: changed.get(useCaseId) ?? null,
       assurance: tested.get(useCaseId) ?? null,
+      unresolvedHarm: harmed.has(useCaseId),
     }),
   };
 }

@@ -58,6 +58,8 @@ export const CAPABILITIES = [
   "schedule.manage",
   "audit.read",
   "audit.export",
+  /** See who raised a confidential concern. Whistleblowing depends on few people holding this. */
+  "concern.confidential",
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -80,6 +82,7 @@ const ROLE_CAPABILITIES: Record<AppRole, readonly Capability[]> = {
     "schedule.manage",
     "audit.read",
     "audit.export",
+    "concern.confidential",
   ],
   privacy_analyst: [
     "record.read",

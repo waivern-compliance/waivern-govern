@@ -157,4 +157,5 @@ export const DEFAULT_SLA: Array<{ taskType: string; targetHours: number; escalat
   { taskType: "verify_mitigation", targetHours: 24 * 7, escalateToRole: "privacy_admin" },
   { taskType: "reassess", targetHours: 24 * 14, escalateToRole: "privacy_admin" },
   { taskType: "review_acceptance", targetHours: 24 * 14, escalateToRole: "approver" },
+  { taskType: "triage_incident", targetHours: 48, escalateToRole: "ai_governance" },
 ];

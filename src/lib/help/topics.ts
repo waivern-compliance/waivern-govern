@@ -978,6 +978,31 @@ export const HELP_TOPICS: HelpTopic[] = [
     related: ["assessments", "approvals"],
   },
   {
+    id: "ai-incidents",
+    title: "AI incidents and concerns",
+    summary:
+      "Reports about AI systems — failures, harm, challenges to outcomes and concerns — each handled by a named person.",
+    path: "/app/ai/incidents",
+    keywords: ["incident", "harm", "complaint", "challenge", "appeal", "redress", "whistleblowing", "concern", "contest"],
+    sections: [
+      {
+        heading: "Reporting",
+        body: [
+          "Anyone in the organisation can report something about an AI system, whatever their role: an incident where it failed or misbehaved, harm to someone, a challenge to an outcome from somebody affected, or a concern. If you are not sure which system it is, say so — whoever triages it will work it out.",
+          "Tick confidential to keep your name from everyone but the person handling it, the privacy administrators and the organisation's owners. The report itself is still visible, without the name, and the audit log does not name you either.",
+        ],
+      },
+      {
+        heading: "Handling",
+        body: [
+          "A report goes to the system's AI governance officer, else its owner, else to AI governance, with a task due within two days. They triage it — how serious, whether harm is actual, who handles it, and the risk it belongs to — then take it through investigation to resolution. Every step needs a note, and the timeline cannot be edited.",
+          "Resolving needs an outcome. For a challenge, that is the decision a person reached and what was put right — the human review UK GDPR Article 22 and the AI Playbook ask for. A system with actual harm reported and not yet resolved shows as a serious gap on the register.",
+        ],
+      },
+    ],
+    related: ["ai-register", "risks"],
+  },
+  {
     id: "transparency-records",
     title: "Algorithmic transparency records",
     summary:
@@ -1069,7 +1094,7 @@ export const HELP_GROUPS: Array<{ heading: string; ids: string[] }> = [
   },
   {
     heading: "The registers",
-    ids: ["ropa", "third-parties", "breaches", "ai-register", "ai-chain", "transparency-records", "transfers", "findings"],
+    ids: ["ropa", "third-parties", "breaches", "ai-register", "ai-chain", "ai-incidents", "transparency-records", "transfers", "findings"],
   },
   {
     heading: "Seeing where you stand",
