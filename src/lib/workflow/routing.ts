@@ -19,6 +19,8 @@ export type RoutingCondition =
   | { op: "tierAtLeast"; value: RiskTier }
   | { op: "answerEquals"; question: string; value: string | number | boolean }
   | { op: "answerIncludes"; question: string; value: string }
+  /** A numeric answer at or above a figure — a spend threshold, a volume. */
+  | { op: "answerAtLeast"; question: string; value: number }
   | { op: "specialCategoryData" }
   | { op: "transferToNonAdequate" }
   | { op: "and"; all: RoutingCondition[] }
@@ -39,6 +41,7 @@ export const routingCondition: z.ZodType<RoutingCondition> = z.lazy(() =>
       value: z.union([z.string(), z.number(), z.boolean()]),
     }),
     z.object({ op: z.literal("answerIncludes"), question: z.string(), value: z.string() }),
+    z.object({ op: z.literal("answerAtLeast"), question: z.string(), value: z.number() }),
     z.object({ op: z.literal("specialCategoryData") }),
     z.object({ op: z.literal("transferToNonAdequate") }),
     z.object({ op: z.literal("and"), all: z.array(routingCondition).min(1) }),
@@ -95,6 +98,14 @@ export function matches(condition: RoutingCondition, ctx: RoutingContext): boole
       return Array.isArray(v) && v.includes(condition.value);
     }
 
+    case "answerAtLeast": {
+      // An unanswered figure does not clear a threshold, as an unscored
+      // assessment does not clear a score. A stage that must catch large
+      // spend should make the question required.
+      const v = ctx.answers[condition.question];
+      return typeof v === "number" && Number.isFinite(v) && v >= condition.value;
+    }
+
     case "specialCategoryData":
       return valuesOf(ctx.answers).some((v) => SPECIAL_CATEGORY_VALUES.has(v));
 
@@ -132,6 +143,8 @@ export function describe(condition: RoutingCondition): string {
       return `${condition.question} is ${String(condition.value)}`;
     case "answerIncludes":
       return `${condition.question} includes ${condition.value}`;
+    case "answerAtLeast":
+      return `${condition.question} is ${condition.value.toLocaleString("en-GB")} or more`;
     case "specialCategoryData":
       return "special category data is involved";
     case "transferToNonAdequate":
@@ -164,6 +177,8 @@ export function describeRouting(condition: RoutingCondition): string {
       return `the answer to “${condition.question}” is ${String(condition.value)}`;
     case "answerIncludes":
       return `the answer to “${condition.question}” includes ${condition.value}`;
+    case "answerAtLeast":
+      return `the answer to “${condition.question}” is ${condition.value.toLocaleString("en-GB")} or more`;
     case "specialCategoryData":
       return "special-category data is involved";
     case "transferToNonAdequate":
@@ -188,6 +203,7 @@ export const SIMPLE_CONDITIONS = [
   "always",
   "scoreAtLeast",
   "tierAtLeast",
+  "answerAtLeast",
   "specialCategoryData",
   "transferToNonAdequate",
 ] as const;

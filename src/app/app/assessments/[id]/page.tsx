@@ -150,6 +150,8 @@ export default async function AssessmentPage({
           decidedBy: g.decidedByLabel,
           decidedAt: g.decidedAt?.toISOString().slice(0, 10) ?? null,
           rationale: g.rationale,
+          boardName: g.boardName,
+          boardReference: g.boardReference,
         }))}
         decidableId={
           // The first pending gate, and only if this viewer holds its role in

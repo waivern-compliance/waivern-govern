@@ -5,7 +5,7 @@ import { NotPermitted } from "@/components/NotPermitted";
 import { can } from "@/lib/rbac";
 import { getActiveSession } from "@/lib/session";
 import { workflowsFor } from "@/services/approval-routing";
-import { StageForm } from "./StageForm";
+import { AddStageForm, StageForm } from "./StageForm";
 import { resetWorkflowAction } from "./actions";
 
 const KIND_LABEL: Record<string, string> = {
@@ -117,6 +117,12 @@ export default async function WorkflowsPage() {
               ))}
             </ul>
           )}
+          <details className="rounded border border-line bg-surface">
+            <summary className="cursor-pointer px-4 py-2.5 text-xs font-medium">
+              Add a stage — for example a governance board or an ethics committee
+            </summary>
+            <AddStageForm workflowId={workflow.id} />
+          </details>
         </section>
       ))}
 

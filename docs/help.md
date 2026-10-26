@@ -853,6 +853,14 @@ You can change what a stage is called, which role decides it, how long they have
 
 Changing the role redirects the approvals already waiting on that stage, because an assessment sitting with the wrong approver is the problem being solved. Approvals already decided keep their own record of who was entitled to decide them, so the history does not move.
 
+### Boards and committees
+
+A stage can be a board's or committee's decision — an AI governance board, an ethics committee — rather than one person's. Somebody holding the stage's role records it, and must give the meeting and minute that decided; the record says the board decided, not the person typing it in.
+
+The shipped AI risk workflow ends with an AI governance board, as the UK government AI Playbook recommends, for anything rated critical or over the spend at which government digital spend control needs assurance: £100,000 for anything public-facing, £1 million otherwise. The DSIT AI risk identification template asks for the expected spend so the rule has a figure to read.
+
+To bring a board or committee into a workflow you have already tuned, add a stage rather than restoring the shipped ones. It goes at the end and applies from the next submission. A stage can also apply when an answer reaches a number, such as a spend threshold.
+
 ### When somebody leaves or moves team
 
 Approvals need nothing: revoke the role and every gate they were holding moves with it.

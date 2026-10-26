@@ -224,6 +224,7 @@ async function main() {
         requiredRole: s.requiredRole,
         condition: s.condition,
         slaHours: s.slaHours,
+        boardName: s.boardName ?? null,
       });
     }
   }

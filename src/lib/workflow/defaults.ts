@@ -15,6 +15,8 @@ export type StageSpec = {
   requiredRole: AppRole;
   condition: RoutingCondition;
   slaHours?: number;
+  /** Decided by a named board or committee, recorded by someone holding the role. */
+  boardName?: string;
 };
 
 export const DEFAULT_WORKFLOWS: Array<{
@@ -139,6 +141,30 @@ export const DEFAULT_WORKFLOWS: Array<{
               all: [
                 { op: "answerEquals", question: "consequence", value: "decides" },
                 { op: "answerEquals", question: "human_oversight", value: "none" },
+              ],
+            },
+          ],
+        },
+      },
+      {
+        position: 4,
+        name: "AI governance board",
+        requiredRole: "ai_governance",
+        boardName: "AI governance board",
+        // The Playbook asks for an AI governance board to review and authorise
+        // uses of AI. Not every use: the ones rated critical, and the ones over
+        // the spend at which government digital spend control requires
+        // assurance — £100,000 for anything public-facing, £1 million otherwise.
+        condition: {
+          op: "or",
+          any: [
+            { op: "tierAtLeast", value: "critical" },
+            { op: "answerAtLeast", question: "expected_spend_gbp", value: 1_000_000 },
+            {
+              op: "and",
+              all: [
+                { op: "answerEquals", question: "public_facing", value: true },
+                { op: "answerAtLeast", question: "expected_spend_gbp", value: 100_000 },
               ],
             },
           ],

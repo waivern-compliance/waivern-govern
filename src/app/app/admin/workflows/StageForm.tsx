@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { ROLES, ROLE_BLURB, ROLE_LABEL } from "@/lib/rbac";
 import { isSimple } from "@/lib/workflow/routing";
 import type { StageView } from "@/services/approval-routing";
-import { updateStageAction, type RoutingResult } from "./actions";
+import { addStageAction, updateStageAction, type RoutingResult } from "./actions";
 
 const TIERS = ["low", "medium", "high", "critical"] as const;
 
@@ -84,6 +84,8 @@ export function StageForm({ stage }: { stage: StageView }) {
           </select>
         </label>
 
+        <BoardField value={stage.boardName ?? ""} />
+
         <label className="block space-y-1">
           <span className="block text-[11px] font-medium uppercase tracking-wider text-ink-soft">
             Time allowed (hours)
@@ -114,6 +116,7 @@ export function StageForm({ stage }: { stage: StageView }) {
                 <option value="always">Always</option>
                 <option value="scoreAtLeast">The risk score reaches a number</option>
                 <option value="tierAtLeast">The risk reaches a tier</option>
+                <option value="answerAtLeast">An answer reaches a number</option>
                 <option value="specialCategoryData">Special-category data is involved</option>
                 <option value="transferToNonAdequate">
                   Data goes somewhere without adequacy
@@ -139,6 +142,21 @@ export function StageForm({ stage }: { stage: StageView }) {
                     </option>
                   ))}
                 </select>
+              </div>
+              <div className="flex gap-2">
+                <input
+                  name="conditionQuestion"
+                  placeholder="question key, e.g. expected_spend_gbp"
+                  defaultValue={stage.condition.op === "answerAtLeast" ? stage.condition.question : ""}
+                  className="min-w-0 flex-1 rounded border border-line bg-ground px-2 py-1 font-mono text-xs"
+                />
+                <input
+                  name="conditionNumber"
+                  type="number"
+                  placeholder="at least"
+                  defaultValue={stage.condition.op === "answerAtLeast" ? stage.condition.value : ""}
+                  className="w-32 rounded border border-line bg-ground px-2 py-1 text-xs"
+                />
               </div>
             </>
           ) : (
@@ -185,5 +203,135 @@ export function StageForm({ stage }: { stage: StageView }) {
         </div>
       </form>
     </li>
+  );
+}
+
+/** Whether a board or committee decides this stage, and which. */
+function BoardField({ value }: { value: string }) {
+  return (
+    <label className="block space-y-1">
+      <span className="block text-[11px] font-medium uppercase tracking-wider text-ink-soft">
+        Decided by a board or committee
+        <span className="block font-normal normal-case tracking-normal">
+          Its name — the role above records the decision, citing the meeting. Empty for one
+          person&rsquo;s decision.
+        </span>
+      </span>
+      <input
+        name="boardName"
+        defaultValue={value}
+        placeholder="AI governance board, Ethics committee"
+        className="w-full rounded border border-line bg-ground px-3 py-1.5 text-xs"
+      />
+    </label>
+  );
+}
+
+/**
+ * Add a stage at the end of a workflow — the way to bring in an AI governance
+ * board or an ethics committee without resetting a workflow already tuned.
+ */
+export function AddStageForm({ workflowId }: { workflowId: string }) {
+  const [result, action, pending] = useActionState<RoutingResult, FormData>(
+    addStageAction.bind(null, workflowId),
+    null,
+  );
+  return (
+    <form action={action} className="grid gap-3 border-t border-line p-4 sm:grid-cols-2">
+      <label className="block space-y-1">
+        <span className="block text-[11px] font-medium uppercase tracking-wider text-ink-soft">Name</span>
+        <input
+          name="name"
+          required
+          placeholder="Ethics committee"
+          className="w-full rounded border border-line bg-ground px-3 py-1.5 text-xs"
+        />
+      </label>
+      <label className="block space-y-1">
+        <span className="block text-[11px] font-medium uppercase tracking-wider text-ink-soft">
+          Recorded by
+        </span>
+        <select
+          name="requiredRole"
+          defaultValue="ai_governance"
+          className="w-full rounded border border-line bg-ground px-3 py-1.5 text-xs"
+        >
+          {ROLES.map((role) => (
+            <option key={role} value={role}>
+              {ROLE_LABEL[role]}
+            </option>
+          ))}
+        </select>
+      </label>
+      <BoardField value="" />
+      <div className="space-y-1">
+        <span className="block text-[11px] font-medium uppercase tracking-wider text-ink-soft">
+          Applies when
+        </span>
+        <select
+          name="conditionOp"
+          defaultValue="tierAtLeast"
+          className="w-full rounded border border-line bg-ground px-3 py-1.5 text-xs"
+        >
+          <option value="always">Always</option>
+          <option value="tierAtLeast">The risk reaches a tier</option>
+          <option value="scoreAtLeast">The risk score reaches a number</option>
+          <option value="answerAtLeast">An answer reaches a number</option>
+          <option value="specialCategoryData">Special-category data is involved</option>
+        </select>
+        <div className="flex gap-2">
+          <select
+            name="conditionTier"
+            defaultValue="high"
+            className="w-28 rounded border border-line bg-ground px-2 py-1 text-xs"
+          >
+            {TIERS.map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+          <input
+            name="conditionScore"
+            type="number"
+            min={0}
+            placeholder="score"
+            className="w-20 rounded border border-line bg-ground px-2 py-1 text-xs"
+          />
+        </div>
+        <div className="flex gap-2">
+          <input
+            name="conditionQuestion"
+            placeholder="question key"
+            className="min-w-0 flex-1 rounded border border-line bg-ground px-2 py-1 font-mono text-xs"
+          />
+          <input
+            name="conditionNumber"
+            type="number"
+            placeholder="at least"
+            className="w-28 rounded border border-line bg-ground px-2 py-1 text-xs"
+          />
+        </div>
+      </div>
+      <div className="space-y-2 sm:col-span-2">
+        {result ? (
+          <p
+            role="status"
+            className={`rounded border px-3 py-2 text-xs ${
+              result.ok
+                ? "border-emerald-700 bg-emerald-50 text-emerald-900"
+                : "border-amber-700 bg-amber-50 text-amber-900"
+            }`}
+          >
+            {result.message}
+          </p>
+        ) : null}
+        <button
+          type="submit"
+          disabled={pending}
+          className="rounded border border-line bg-surface px-3 py-1.5 text-xs font-medium hover:bg-ground disabled:opacity-60"
+        >
+          {pending ? "Adding…" : "Add the stage"}
+        </button>
+      </div>
+    </form>
   );
 }

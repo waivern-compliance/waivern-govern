@@ -401,6 +401,14 @@ export const HELP_TOPICS: HelpTopic[] = [
         ],
       },
       {
+        heading: "Boards and committees",
+        body: [
+          "A stage can be a board's or committee's decision — an AI governance board, an ethics committee — rather than one person's. Somebody holding the stage's role records it, and must give the meeting and minute that decided; the record says the board decided, not the person typing it in.",
+          "The shipped AI risk workflow ends with an AI governance board, as the UK government AI Playbook recommends, for anything rated critical or over the spend at which government digital spend control needs assurance: £100,000 for anything public-facing, £1 million otherwise. The DSIT AI risk identification template asks for the expected spend so the rule has a figure to read.",
+          "To bring a board or committee into a workflow you have already tuned, add a stage rather than restoring the shipped ones. It goes at the end and applies from the next submission. A stage can also apply when an answer reaches a number, such as a spend threshold.",
+        ],
+      },
+      {
         heading: "When somebody leaves or moves team",
         body: [
           "Approvals need nothing: revoke the role and every gate they were holding moves with it.",
