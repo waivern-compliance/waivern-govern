@@ -132,6 +132,38 @@ export const memberships = pgTable(
 );
 
 /**
+ * An email domain an organisation has claimed.
+ *
+ * Once verified — by a DNS record only the domain's owner can publish — anyone
+ * who signs in with an address at it, verified by their identity provider,
+ * joins this organisation as a contributor without an invitation. A verified
+ * domain belongs to one organisation only; an unverified claim is just a
+ * request, and several can exist for the same domain until one is proved.
+ */
+export const organisationDomains = pgTable(
+  "organisation_domain",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organisationId: uuid("organisation_id")
+      .notNull()
+      .references(() => organisations.id, { onDelete: "cascade" }),
+    domain: text("domain").notNull(),
+    /** Published as govern-verification=<token> at _govern-verification.<domain>. */
+    token: text("token").notNull(),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    verifiedBy: uuid("verified_by").references(() => users.id, { onDelete: "set null" }),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("organisation_domain_org_domain_key").on(t.organisationId, t.domain),
+    uniqueIndex("organisation_domain_verified_key")
+      .on(t.domain)
+      .where(sql`${t.verifiedAt} is not null`),
+  ],
+);
+
+/**
  * One role, at one scope. A person holds several rows: an analyst across the
  * organisation plus approver on a single entity is a normal shape. Scoping the
  * grant to an entity is what turns "entity-specific access control" into

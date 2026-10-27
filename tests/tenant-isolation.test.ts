@@ -66,6 +66,7 @@ import * as metrics from "@/services/metrics";
 import * as sweep from "@/services/sweep";
 import * as trends from "@/services/trends";
 import * as webhooks from "@/services/webhooks";
+import * as domains from "@/services/domains";
 
 const SYSTEM = { actorKind: "system" as const, actorUserId: null, actorLabel: "isolation test" };
 const DAY = 86_400_000;
@@ -236,6 +237,9 @@ async function populated() {
   const [finding] = await ingest.openFindings(id, null);
   const [task] = await workflow.openTasks(id, { entityIds: null });
   const draft = await templatesSvc.createDraftFrom({ organisationId: id, templateId: template, actor: SYSTEM });
+  const domainClaim = await domains.claimDomain({
+    organisationId: id, domain: `b-${crypto.randomUUID().slice(0, 8)}.example.gov.uk`, actor: SYSTEM,
+  });
   const [conversation] = await db
     .insert(aiConversations)
     .values({
@@ -248,7 +252,7 @@ async function populated() {
     ...o, template, dpiaVersion, workflow: workflows[0], stage, risk, mitigation, acceptance, appetite,
     supplier, dpa, activity, breach, useCase, change, assurance, incident, atrsRecord, request,
     trainingRecord, assessment, approval, link, comment, document, scanner, finding: finding.finding,
-    conversation, task, draft,
+    conversation, task, draft, domainClaim,
   };
 }
 
@@ -471,6 +475,8 @@ describe("changing another organisation's records", () => {
     ["completeTask", () => workflow.completeTask({ taskId: B.task.id, organisationId: A.org.id, actor: as() })],
     ["updateDraft", () => templatesSvc.updateDraft({ organisationId: A.org.id, versionId: B.draft.id, definition: B.draft.definition, actor: as() })],
     ["resetWorkflow (A's own kind only)", () => routing.resetWorkflow({ organisationId: A.org.id, templateKind: "dpia", actor: as() })],
+    ["verifyDomain", () => domains.verifyDomain({ organisationId: A.org.id, claimId: B.domainClaim.id, actor: as(), lookup: async () => [[`govern-verification=${B.domainClaim.token}`]] })],
+    ["removeDomain", () => domains.removeDomain({ organisationId: A.org.id, claimId: B.domainClaim.id, actor: as() })],
     ["handOver (from B's person)", () => handover.handOver({ organisationId: A.org.id, fromUserId: B.owner.user.id, toUserId: A.owner.user.id, actor: as() })],
   ];
 
@@ -592,6 +598,7 @@ describe("lists", () => {
       ["trends.trendFor", trends.trendFor(o, null)] as const,
       ["webhooks.pendingDeliveries", webhooks.pendingDeliveries(o)] as const,
       ["workflow.tasksDueSoon", workflow.tasksDueSoon(o, 24 * 365)] as const,
+      ["domains.domainsFor", domains.domainsFor(o)] as const,
     ].map(async ([n, r]) => [n, await r] as [string, unknown]));
     const text = (v: unknown) =>
       JSON.stringify(v, (_k, x) => (x instanceof Map ? [...x] : x instanceof Set ? [...x] : x)) ?? "";
@@ -599,6 +606,7 @@ describe("lists", () => {
       B.org.id, B.entity.id, B.owner.user.id, B.approver.user.id, B.risk.id, B.supplier.id, B.dpa.id,
       B.activity.id, B.breach.id, B.useCase.id, B.incident.id, B.request.id, B.assessment.id,
       B.template, B.dpiaVersion, B.workflow.id, B.scanner.id, B.finding.id, B.appetite.id,
+      B.domainClaim.id, B.domainClaim.domain,
     ];
     const leaks = results.flatMap(([name, r]) => bIds.filter((id) => text(r).includes(id)).map((id) => `${name}: ${id}`));
     assert.deepEqual(leaks, [], "lists showed A something of B's");
@@ -670,6 +678,8 @@ const NOT_TENANT_SCOPED: Record<string, string> = {
   "risks.riskScaleOf": "reads the caller's own organisation",
   "templates.createTemplate": "creates a template in the caller's own organisation",
   "templates.updateShippedTemplates": "updates the caller's own system templates",
+  "domains.claimDomain": "claims a domain for the caller's own organisation",
+  "domains.joinByVerifiedDomain": "sign-in, before anyone acts for an organisation: joins only the one that verified the domain",
 };
 
 describe("coverage", () => {

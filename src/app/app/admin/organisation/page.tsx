@@ -13,6 +13,8 @@ import { SCALES, type RiskScaleId } from "@/lib/risk/scale";
 import { riskCount, riskScaleOf } from "@/services/risk-policy";
 import { RenameForm } from "./RenameForm";
 import { ScaleForm } from "./ScaleForm";
+import { DomainsPanel } from "./DomainsPanel";
+import { domainsFor } from "@/services/domains";
 
 export default async function OrganisationPage() {
   const active = await getActiveSession();
@@ -30,10 +32,11 @@ export default async function OrganisationPage() {
   const org = await organisationDetail(active.membership.organisationId);
   if (!org) redirect("/app");
 
-  const [legalEntities, scale, risksHeld] = await Promise.all([
+  const [legalEntities, scale, risksHeld, domains] = await Promise.all([
     scoped(org.id, () => db.select().from(entities).where(eq(entities.organisationId, org.id))),
     riskScaleOf(org.id),
     riskCount(org.id),
+    domainsFor(org.id),
   ]);
 
   return (
@@ -61,6 +64,16 @@ export default async function OrganisationPage() {
           description: SCALES[id].description,
           likelihood: SCALES[id].likelihood.map((p) => `${p.value} ${p.label}`),
           impact: SCALES[id].impact.map((p) => `${p.value} ${p.label}`),
+        }))}
+      />
+
+      <DomainsPanel
+        claims={domains.map((d) => ({
+          id: d.id,
+          domain: d.domain,
+          verifiedAt: d.verifiedAt ? d.verifiedAt.toISOString().slice(0, 10) : null,
+          recordName: d.recordName,
+          recordValue: d.recordValue,
         }))}
       />
 

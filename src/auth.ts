@@ -7,6 +7,8 @@ import { db } from "@/db/client";
 import { memberships, roleAssignments, users } from "@/db/schema";
 import type { Grant } from "@/lib/rbac";
 import type { Persona } from "@/lib/persona";
+import { mayJoinByDomain, unverifiedEmail } from "@/lib/auth/domains";
+import { joinByVerifiedDomain } from "@/services/domains";
 
 /**
  * Only providers with credentials configured are offered, so a deployment can
@@ -148,8 +150,28 @@ export const authConfig: NextAuthConfig = {
   session: { strategy: "jwt", maxAge: 12 * 60 * 60 },
   pages: { signIn: "/sign-in", error: "/sign-in" },
   callbacks: {
-    async signIn({ user, account }) {
+    async signIn({ user, account, profile }) {
       if (!user.email || !account) return false;
+
+      // Membership is matched by email, so an address the provider has not
+      // verified could sign somebody in as whoever was invited at it.
+      if (unverifiedEmail(account.provider, profile as Record<string, unknown> | undefined)) {
+        console.warn(`[auth] refused sign-in: ${account.provider} has not verified ${user.email}`);
+        return false;
+      }
+
+      // Somebody whose verified address is at a domain an organisation has
+      // verified joins it, unless they have been a member before. Failing here
+      // must not lock out somebody who is already a member somewhere, so it is
+      // logged and sign-in carries on to the ordinary check.
+      if (mayJoinByDomain(account.provider, profile as Record<string, unknown> | undefined)) {
+        try {
+          const joined = await joinByVerifiedDomain(user.email, user.name ?? null);
+          if (joined) console.info(`[auth] ${user.email} joined organisation ${joined} through its verified domain`);
+        } catch (cause) {
+          console.error(`[auth] could not join ${user.email} by domain:`, cause);
+        }
+      }
 
       /**
        * A failed lookup is not a refusal.
