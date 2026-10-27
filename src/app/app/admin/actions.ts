@@ -25,6 +25,7 @@ import {
 import { unresolvedPlaceholder } from "@/lib/assistant/models";
 import type { ProviderKind } from "@/lib/assistant/providers";
 import { refusable, type EditResult } from "@/lib/edit-result";
+import { DomainRefused, claimDomain, removeDomain, verifyDomain } from "@/services/domains";
 
 const text = (v: FormDataEntryValue | null) => String(v ?? "").trim();
 
@@ -279,4 +280,55 @@ export async function handOverAction(
     if (error instanceof HandoverRefused) return { ok: false, message: error.message };
     throw error;
   }
+}
+
+/**
+ * Email domains. The owner's alone: a verified domain decides who may come in
+ * without an invitation, which is the organisation's front door.
+ */
+async function domainResult(work: () => Promise<string>): Promise<AdminResult> {
+  try {
+    const message = await work();
+    revalidatePath("/app/admin/organisation");
+    return { ok: true, message };
+  } catch (error) {
+    if (error instanceof DomainRefused) return { ok: false, message: error.message };
+    throw error;
+  }
+}
+
+export async function claimDomainAction(_prev: AdminResult, formData: FormData): Promise<AdminResult> {
+  const active = await requireCapability("org.manage");
+  return domainResult(async () => {
+    const claim = await claimDomain({
+      organisationId: active.membership.organisationId,
+      domain: text(formData.get("domain")),
+      actor: actorOf(active),
+    });
+    return `Claimed ${claim.domain}. Publish the record below, then check it.`;
+  });
+}
+
+export async function verifyDomainAction(claimId: string, _prev: AdminResult): Promise<AdminResult> {
+  const active = await requireCapability("org.manage");
+  return domainResult(async () => {
+    const claim = await verifyDomain({
+      organisationId: active.membership.organisationId,
+      claimId,
+      actor: actorOf(active),
+    });
+    return `${claim.domain} is verified.`;
+  });
+}
+
+export async function removeDomainAction(claimId: string, _prev: AdminResult): Promise<AdminResult> {
+  const active = await requireCapability("org.manage");
+  return domainResult(async () => {
+    const removed = await removeDomain({
+      organisationId: active.membership.organisationId,
+      claimId,
+      actor: actorOf(active),
+    });
+    return removed ? `${removed.domain} removed. Nobody already in has lost access.` : "Already gone.";
+  });
 }

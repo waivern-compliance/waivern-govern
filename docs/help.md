@@ -1010,6 +1010,16 @@ The short reference — the slug — stays as it is. The `grant` script uses it,
 
 Legal entities are named separately. They scope access and reporting, and are set when the organisation is created.
 
+### Email domains
+
+An owner can claim the organisation's email domain, such as example.gov.uk. Once it is verified, anyone who signs in with Google using an address at it joins as a contributor without being invited; you can give them more from People.
+
+To verify, publish the TXT record Settings shows you, at _govern-verification. followed by the domain, then press Check now. Only whoever runs the domain's DNS can publish it, which is the proof. A verified domain belongs to one organisation only, and public email domains such as gmail.com cannot be claimed.
+
+Somebody you have removed is never let back in by their address. Removing a domain stops new people joining through it; nobody already in loses access.
+
+Google must have verified the address itself, or the sign-in is refused. Joining by domain works only through Google: other sign-in providers do not prove that a person controls the mailbox.
+
 **See also:** Giving somebody access · Exports · The audit trail
 
 <sub>Also searchable as: organisation, company, client, rename, name, branding, tenant</sub>
