@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
 import { mitigationStatusAction } from "./actions";
+import { useRefusableAction } from "@/lib/use-refusable-action";
+import { savedKey } from "@/lib/saved-key";
 
 const STATUSES = ["planned", "in_progress", "implemented", "verified", "abandoned"] as const;
 
@@ -27,8 +28,13 @@ export function MitigationRow({
   };
   editable: boolean;
 }) {
-  const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  // Through a transition, so a refused update keeps the evidence reference typed.
+  const { result, pending, formProps } = useRefusableAction<
+    { ok: true } | { ok: false; message: string } | null
+  >((_previous, formData) => mitigationStatusAction(riskId, mitigation.id, formData), {
+    resetOnSuccess: false,
+  });
+  const error = result && !result.ok ? result.message : null;
 
   return (
     <li className="space-y-2 px-4 py-3">
@@ -45,13 +51,8 @@ export function MitigationRow({
 
       {editable ? (
         <form
-          action={(formData) => {
-            startTransition(async () => {
-              setError(null);
-              const result = await mitigationStatusAction(riskId, mitigation.id, formData);
-              if (!result.ok) setError(result.message);
-            });
-          }}
+          key={savedKey(mitigation.status, mitigation.evidenceRef)}
+          {...formProps}
           className="flex flex-wrap items-center gap-2"
         >
           <select

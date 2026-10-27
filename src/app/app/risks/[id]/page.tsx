@@ -16,6 +16,8 @@ import { AcceptPanel } from "./accept";
 import { MitigationForm } from "./mitigation-form";
 import { MitigationRow } from "./mitigation-row";
 import { addMitigationAction, closeAction, rateResidualAction } from "./actions";
+import { savedKey } from "@/lib/saved-key";
+import { EditForm } from "@/components/EditForm";
 
 export default async function RiskPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -185,7 +187,8 @@ export default async function RiskPage({ params }: { params: Promise<{ id: strin
             derives this from them — whether a control actually reduces exposure
             is a call someone has to make and be accountable for.
           </p>
-          <form
+          <EditForm
+            key={savedKey(risk.residualLikelihood, risk.residualImpact)}
             action={rateResidualAction.bind(null, id)}
             className="grid gap-3 rounded border border-line bg-surface p-4 sm:grid-cols-[auto_auto_auto] sm:items-end"
           >
@@ -221,7 +224,7 @@ export default async function RiskPage({ params }: { params: Promise<{ id: strin
             >
               Record
             </button>
-          </form>
+          </EditForm>
         </section>
       ) : null}
 

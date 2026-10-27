@@ -38,5 +38,12 @@ export function useRefusableAction<R extends { ok: boolean } | null>(
     startTransition(() => dispatch(data));
   }
 
-  return { result, pending: acting || transitioning, formProps: { ref, onSubmit } };
+  // POST, so a submit that lands before the page is interactive — when no
+  // handler is attached yet — never puts what was typed into the address bar,
+  // the browser history or a server log, as a GET of the fields would.
+  return {
+    result,
+    pending: acting || transitioning,
+    formProps: { ref, onSubmit, method: "post" as const },
+  };
 }

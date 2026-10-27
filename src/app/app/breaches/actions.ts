@@ -18,6 +18,7 @@ import {
 } from "@/services/breaches";
 import type { BreachDecision } from "@/services/breaches";
 import type { ControllerRole } from "@/lib/breach/statutory";
+import { refusable, type EditResult } from "@/lib/edit-result";
 
 const text = (v: FormDataEntryValue | null) => String(v ?? "").trim();
 const lines = (v: FormDataEntryValue | null) =>
@@ -81,35 +82,41 @@ export async function recordBreachAction(_prev: BreachResult, formData: FormData
   redirect(`/app/breaches/${breach.id}`);
 }
 
-export async function updateBreachAction(breachId: string, formData: FormData) {
-  const active = await requireCapability("record.write");
-  const owner = formData.get("ownerId");
+export async function updateBreachAction(
+  breachId: string,
+  _previous: EditResult,
+  formData: FormData,
+): Promise<EditResult> {
+  return refusable(async () => {
+    const active = await requireCapability("record.write");
+    const owner = formData.get("ownerId");
 
-  await updateBreach({
-    breachId,
-    organisationId: active.membership.organisationId,
-    changes: {
-      title: text(formData.get("title")),
-      description: text(formData.get("description")),
-      controllerRole: text(formData.get("controllerRole")),
-      occurredAt: when(formData.get("occurredAt")),
-      containedAt: when(formData.get("containedAt")),
-      categories: formData.getAll("categories").map(String),
-      subjectCategories: lines(formData.get("subjectCategories")),
-      dataCategories: lines(formData.get("dataCategories")),
-      subjectsAffected: num(formData.get("subjectsAffected")),
-      recordsAffected: num(formData.get("recordsAffected")),
-      specialCategory: tri(formData.get("specialCategory")),
-      likelyConsequences: text(formData.get("likelyConsequences")),
-      measuresTaken: text(formData.get("measuresTaken")),
-      dataUnintelligible: tri(formData.get("dataUnintelligible")),
-      ...(owner !== null ? { ownerId: text(owner) || null } : {}),
-    },
-    actor: { actorKind: "user", actorUserId: active.userId, actorLabel: active.email },
+    await updateBreach({
+      breachId,
+      organisationId: active.membership.organisationId,
+      changes: {
+        title: text(formData.get("title")),
+        description: text(formData.get("description")),
+        controllerRole: text(formData.get("controllerRole")),
+        occurredAt: when(formData.get("occurredAt")),
+        containedAt: when(formData.get("containedAt")),
+        categories: formData.getAll("categories").map(String),
+        subjectCategories: lines(formData.get("subjectCategories")),
+        dataCategories: lines(formData.get("dataCategories")),
+        subjectsAffected: num(formData.get("subjectsAffected")),
+        recordsAffected: num(formData.get("recordsAffected")),
+        specialCategory: tri(formData.get("specialCategory")),
+        likelyConsequences: text(formData.get("likelyConsequences")),
+        measuresTaken: text(formData.get("measuresTaken")),
+        dataUnintelligible: tri(formData.get("dataUnintelligible")),
+        ...(owner !== null ? { ownerId: text(owner) || null } : {}),
+      },
+      actor: { actorKind: "user", actorUserId: active.userId, actorLabel: active.email },
+    });
+
+    revalidatePath(`/app/breaches/${breachId}`);
+    revalidatePath("/app/breaches");
   });
-
-  revalidatePath(`/app/breaches/${breachId}`);
-  revalidatePath("/app/breaches");
 }
 
 export async function recordDecisionAction(

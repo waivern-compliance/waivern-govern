@@ -16,6 +16,8 @@ import {
   startSeverityAssessmentAction,
   updateBreachAction,
 } from "../actions";
+import { savedKey } from "@/lib/saved-key";
+import { EditForm } from "@/components/EditForm";
 
 const stamp = (d: Date | null) =>
   d ? d.toISOString().slice(0, 16).replace("T", " ") + " UTC" : null;
@@ -221,7 +223,8 @@ export default async function BreachPage({
       {mayEdit ? <DecisionForm breachId={breach.id} /> : null}
 
       {mayEdit ? (
-        <form
+        <EditForm
+          key={savedKey(breach)}
           action={updateBreachAction.bind(null, breach.id)}
           className="space-y-4 rounded border border-line bg-surface p-5"
         >
@@ -313,7 +316,7 @@ export default async function BreachPage({
             className="rounded bg-brand px-4 py-2 text-sm font-medium text-white hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
             Save the record
           </button>
-        </form>
+        </EditForm>
       ) : null}
 
       {breach.closedAt ? (

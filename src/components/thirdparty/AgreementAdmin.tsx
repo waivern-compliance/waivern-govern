@@ -7,6 +7,8 @@ import {
   updateDpaAction,
   type ArchiveResult,
 } from "@/app/app/third-parties/actions";
+import { savedKey } from "@/lib/saved-key";
+import { EditForm } from "@/components/EditForm";
 
 const day = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : "");
 
@@ -64,7 +66,8 @@ export function AgreementAdmin({
         <summary className="cursor-pointer px-3 py-2 text-xs font-medium">
           Edit this agreement
         </summary>
-        <form
+        <EditForm
+          key={savedKey(dpa)}
           action={updateDpaAction.bind(null, supplierId, dpa.id)}
           className="space-y-3 border-t border-line p-3"
         >
@@ -111,7 +114,7 @@ export function AgreementAdmin({
           >
             Save changes
           </button>
-        </form>
+        </EditForm>
       </details>
 
       <details className="w-full rounded border border-line bg-ground">

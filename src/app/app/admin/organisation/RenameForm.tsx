@@ -1,16 +1,17 @@
 "use client";
 
-import { useActionState } from "react";
+import { useRefusableAction } from "@/lib/use-refusable-action";
 import { renameOrganisationAction, type AdminResult } from "../actions";
+import { savedKey } from "@/lib/saved-key";
 
 export function RenameForm({ current }: { current: string }) {
-  const [result, action, pending] = useActionState<AdminResult, FormData>(
-    renameOrganisationAction,
-    null,
-  );
+  // Through a transition, so a refused name stays in the box to be corrected.
+  const { result, pending, formProps } = useRefusableAction<AdminResult>(renameOrganisationAction, {
+    resetOnSuccess: false,
+  });
 
   return (
-    <form action={action} className="space-y-3 rounded border border-line bg-surface p-5">
+    <form key={savedKey(current)} {...formProps} className="space-y-3 rounded border border-line bg-surface p-5">
       <label className="block space-y-1">
         <span className="block text-xs font-medium uppercase tracking-wider text-ink-soft">
           Organisation name

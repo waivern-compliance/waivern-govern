@@ -24,6 +24,7 @@ import {
 } from "@/services/assistant";
 import { unresolvedPlaceholder } from "@/lib/assistant/models";
 import type { ProviderKind } from "@/lib/assistant/providers";
+import { refusable, type EditResult } from "@/lib/edit-result";
 
 const text = (v: FormDataEntryValue | null) => String(v ?? "").trim();
 
@@ -93,16 +94,22 @@ export async function setActiveAction(membershipId: string, isActive: boolean) {
   revalidatePath("/app/admin/people");
 }
 
-export async function setPersonaAction(membershipId: string, formData: FormData) {
-  const active = await requireCapability("member.manage");
-  const chosen = text(formData.get("persona"));
-  await setPersona({
-    organisationId: active.membership.organisationId,
-    membershipId,
-    persona: PERSONAS.includes(chosen as Persona) ? (chosen as Persona) : null,
-    actor: actorOf(active),
+export async function setPersonaAction(
+  membershipId: string,
+  _previous: EditResult,
+  formData: FormData,
+): Promise<EditResult> {
+  return refusable(async () => {
+    const active = await requireCapability("member.manage");
+    const chosen = text(formData.get("persona"));
+    await setPersona({
+      organisationId: active.membership.organisationId,
+      membershipId,
+      persona: PERSONAS.includes(chosen as Persona) ? (chosen as Persona) : null,
+      actor: actorOf(active),
+    });
+    revalidatePath("/app/admin/people");
   });
-  revalidatePath("/app/admin/people");
 }
 
 export async function saveProviderAction(

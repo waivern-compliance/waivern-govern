@@ -7,6 +7,7 @@ import { db } from "@/db/client";
 import { entities } from "@/db/schema";
 import { requireCapability } from "@/lib/session";
 import { createActivity, updateActivity } from "@/services/ropa";
+import { refusable, type EditResult } from "@/lib/edit-result";
 
 /** "GB", "US: SCCs", "us — scc" — all three are what people actually type. */
 function parseTransfers(raw: string) {
@@ -68,32 +69,38 @@ export async function recordActivity(formData: FormData) {
   redirect(`/app/ropa/${activity.id}`);
 }
 
-export async function updateActivityAction(activityId: string, formData: FormData) {
-  const active = await requireCapability("record.write");
-  const owner = formData.get("ownerId");
+export async function updateActivityAction(
+  activityId: string,
+  _previous: EditResult,
+  formData: FormData,
+): Promise<EditResult> {
+  return refusable(async () => {
+    const active = await requireCapability("record.write");
+    const owner = formData.get("ownerId");
 
-  await updateActivity({
-    activityId,
-    organisationId: active.membership.organisationId,
-    changes: {
-      name: text(formData.get("name")),
-      description: text(formData.get("description")),
-      purposes: lines(formData.get("purposes")),
-      lawfulBasis: text(formData.get("lawfulBasis")),
-      dataCategories: lines(formData.get("dataCategories")),
-      subjectCategories: lines(formData.get("subjectCategories")),
-      recipients: lines(formData.get("recipients")),
-      systems: lines(formData.get("systems")),
-      transfers: parseTransfers(String(formData.get("transfers") ?? "")),
-      retention: text(formData.get("retention")),
-      securityMeasures: text(formData.get("securityMeasures")),
-      controllerRole: text(formData.get("controllerRole")),
-      controllerName: text(formData.get("controllerName")),
-      ...(owner !== null ? { ownerId: text(owner) || null } : {}),
-    },
-    actor: { actorKind: "user", actorUserId: active.userId, actorLabel: active.email },
+    await updateActivity({
+      activityId,
+      organisationId: active.membership.organisationId,
+      changes: {
+        name: text(formData.get("name")),
+        description: text(formData.get("description")),
+        purposes: lines(formData.get("purposes")),
+        lawfulBasis: text(formData.get("lawfulBasis")),
+        dataCategories: lines(formData.get("dataCategories")),
+        subjectCategories: lines(formData.get("subjectCategories")),
+        recipients: lines(formData.get("recipients")),
+        systems: lines(formData.get("systems")),
+        transfers: parseTransfers(String(formData.get("transfers") ?? "")),
+        retention: text(formData.get("retention")),
+        securityMeasures: text(formData.get("securityMeasures")),
+        controllerRole: text(formData.get("controllerRole")),
+        controllerName: text(formData.get("controllerName")),
+        ...(owner !== null ? { ownerId: text(owner) || null } : {}),
+      },
+      actor: { actorKind: "user", actorUserId: active.userId, actorLabel: active.email },
+    });
+
+    revalidatePath(`/app/ropa/${activityId}`);
+    revalidatePath("/app/ropa");
   });
-
-  revalidatePath(`/app/ropa/${activityId}`);
-  revalidatePath("/app/ropa");
 }

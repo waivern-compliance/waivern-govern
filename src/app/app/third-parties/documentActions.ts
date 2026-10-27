@@ -9,6 +9,7 @@ import {
   removeDocument,
 } from "@/services/documents";
 import type { StoredDocument } from "@/services/documents";
+import { refusable, type EditResult } from "@/lib/edit-result";
 
 export type UploadResult = { ok: boolean; message: string } | null;
 
@@ -98,18 +99,26 @@ export async function removeDocumentAction(id: string, revalidate: string) {
  * The target arrives as "type:id" from a select whose options the page built,
  * so the only values offered are the supplier and its own agreements.
  */
-export async function moveDocumentAction(id: string, revalidate: string, formData: FormData) {
-  const active = await requireCapability("record.write");
-  const [subjectType, subjectId] = String(formData.get("target") ?? "").split(":");
-  if (subjectType !== "dpa" && subjectType !== "supplier") return;
-  if (!subjectId) return;
+export async function moveDocumentAction(
+  id: string,
+  revalidate: string,
+  _previous: EditResult,
+  formData: FormData,
+): Promise<EditResult> {
+  return refusable(async () => {
+    const active = await requireCapability("record.write");
+    const [subjectType, subjectId] = String(formData.get("target") ?? "").split(":");
+    if ((subjectType !== "dpa" && subjectType !== "supplier") || !subjectId) {
+      throw new Error("Choose where the document belongs.");
+    }
 
-  await moveDocument({
-    id,
-    organisationId: active.membership.organisationId,
-    subjectType,
-    subjectId,
-    actor: { actorKind: "user", actorUserId: active.userId, actorLabel: active.email },
+    await moveDocument({
+      id,
+      organisationId: active.membership.organisationId,
+      subjectType,
+      subjectId,
+      actor: { actorKind: "user", actorUserId: active.userId, actorLabel: active.email },
+    });
+    revalidatePath(revalidate);
   });
-  revalidatePath(revalidate);
 }
