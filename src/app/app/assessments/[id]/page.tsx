@@ -5,7 +5,7 @@ import { legalRefMap } from "@/lib/legal-refs";
 import { Chat } from "@/components/assistant/Chat";
 import { Discussion } from "@/components/Discussion";
 import { NotPermitted } from "@/components/NotPermitted";
-import { can } from "@/lib/rbac";
+import { ROLE_LABEL, can, mayDecideStage, rolesOn, type AppRole } from "@/lib/rbac";
 import { providerFor } from "@/services/assistant";
 import { getActiveSession } from "@/lib/session";
 import { assessmentHistory, loadAssessment } from "@/services/assessments";
@@ -84,6 +84,13 @@ export default async function AssessmentPage({
     : [];
   const unraised = named.filter((c) => !raised.some((r) => r.category === c));
 
+  // The first pending gate is the only one that can be decided now, and only
+  // by somebody holding its role in this assessment's entity, or an owner.
+  const nextGate = gates.find((g) => g.status === "pending") ?? null;
+  const mayDecideHere =
+    nextGate !== null &&
+    mayDecideStage(rolesOn(active.membership.grants, assessment.entityId), nextGate.requiredRole);
+
   const editable =
     EDITABLE.includes(assessment.status) &&
     can(active.membership.grants, "assessment.answer", assessment.entityId);
@@ -153,18 +160,18 @@ export default async function AssessmentPage({
           boardName: g.boardName,
           boardReference: g.boardReference,
         }))}
-        decidableId={
-          // The first pending gate, and only if this viewer holds its role in
-          // this assessment's entity. Anything else is a button that exists to
-          // be refused.
-          (() => {
-            const next = gates.find((g) => g.status === "pending");
-            if (!next) return null;
-            const rolesHere = active.membership.grants
-              .filter((g) => g.scope === "organisation" || g.entityId === assessment.entityId)
-              .map((g) => g.role);
-            return rolesHere.includes(next.requiredRole) ? next.id : null;
-          })()
+        decidableId={nextGate && mayDecideHere ? nextGate.id : null}
+        notYours={
+          // The stage waiting now, when this viewer cannot decide it. Without
+          // this the form simply does not appear, and an owner who expected to
+          // act reads the missing buttons as the platform being broken.
+          nextGate && !mayDecideHere
+            ? {
+                gateId: nextGate.id,
+                roleLabel: ROLE_LABEL[nextGate.requiredRole as AppRole] ?? nextGate.requiredRole,
+                mayGrant: can(active.membership.grants, "member.manage"),
+              }
+            : null
         }
       />
 

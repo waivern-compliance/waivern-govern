@@ -274,6 +274,24 @@ describe("deciding", () => {
     );
   });
 
+  it("lets an owner decide a stage named for another role", async () => {
+    const w = await world("ownerdecides");
+    const result = await submitted(w, { ...BASE_DPIA, likelihood: "remote", impact: "minimal" });
+    const [gate] = await approvalsFor(result.assessment.id);
+    assert.notEqual(gate.requiredRole, "owner");
+
+    await decideApproval({
+      approvalId: gate.id,
+      organisationId: w.org.id,
+      decision: "approved",
+      rationale: "Decided as owner.",
+      callerRoles: ["owner"],
+      actor: actor("owner@example.com"),
+    });
+    const [after] = await approvalsFor(result.assessment.id);
+    assert.equal(after.status, "approved");
+  });
+
   it("requires a rationale even to approve", async () => {
     const w = await world("norationale");
     const result = await submitted(w, { ...BASE_DPIA, likelihood: "remote", impact: "minimal" });

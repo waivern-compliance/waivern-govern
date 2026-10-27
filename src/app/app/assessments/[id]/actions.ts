@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import type { AnswerValue } from "@/lib/templates/logic";
+import { rolesOn } from "@/lib/rbac";
 import { requireCapability } from "@/lib/session";
 import { loadAssessment, returnAssessment, saveAnswers } from "@/services/assessments";
 import { decideApproval, submitForApproval } from "@/services/workflow";
@@ -112,9 +113,7 @@ export async function decideAction(
     const loaded = await loadAssessment(assessmentId, session.membership.organisationId);
     if (!loaded) throw new Error("No such assessment");
 
-    const rolesHere = session.membership.grants
-      .filter((g) => g.scope === "organisation" || g.entityId === loaded.assessment.entityId)
-      .map((g) => g.role);
+    const rolesHere = rolesOn(session.membership.grants, loaded.assessment.entityId);
 
     await decideApproval({
       approvalId,

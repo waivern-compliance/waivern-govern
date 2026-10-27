@@ -11,7 +11,7 @@ import {
   workflowStages,
 } from "@/db/schema";
 import { appendAuditEvent } from "@/lib/audit";
-import { ROLE_LABEL, type AppRole } from "@/lib/rbac";
+import { ROLE_LABEL, mayDecideStage, type AppRole } from "@/lib/rbac";
 import { DEFAULT_WORKFLOWS } from "@/lib/workflow/defaults";
 import { describeRouting, routingCondition, type RoutingCondition } from "@/lib/workflow/routing";
 import type { Actor } from "./templates";
@@ -125,7 +125,7 @@ export async function workflowsFor(organisationId: string): Promise<WorkflowView
         boardName: s.boardName ?? null,
         // An owner can decide anything, so they are eligible for every gate.
         eligible: holders
-          .filter((h) => h.active && (h.role === s.requiredRole || h.role === "owner"))
+          .filter((h) => h.active && mayDecideStage([h.role], s.requiredRole))
           .map((h) => ({ email: h.email, entityName: h.entityName })),
         pending: pendingByStage.get(s.id) ?? 0,
       })),

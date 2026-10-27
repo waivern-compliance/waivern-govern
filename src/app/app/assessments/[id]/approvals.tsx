@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { decideAction } from "./actions";
 
@@ -37,10 +38,13 @@ export function Approvals({
   assessmentId,
   gates,
   decidableId,
+  notYours,
 }: {
   assessmentId: string;
   gates: Gate[];
   decidableId: string | null;
+  /** The stage waiting now, when this viewer may not decide it. */
+  notYours: { gateId: string; roleLabel: string; mayGrant: boolean } | null;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -81,6 +85,24 @@ export function Approvals({
                   {g.decidedBy} · {g.decidedAt}
                   {g.boardReference ? ` · ${g.boardReference}` : ""}
                 </span>
+              </p>
+            ) : null}
+
+            {notYours?.gateId === g.id ? (
+              <p className="rounded border border-line bg-ground px-3 py-2 text-sm text-ink-soft">
+                Waiting for somebody with the <strong className="text-ink">{notYours.roleLabel}</strong> role
+                here, or an owner, to decide. You hold neither, so you cannot decide this stage.{" "}
+                {notYours.mayGrant ? (
+                  <>
+                    You can grant the role on the{" "}
+                    <Link href="/app/admin/people" className="text-brand underline">
+                      People page
+                    </Link>
+                    .
+                  </>
+                ) : (
+                  "An owner can grant you the role on the People page."
+                )}
               </p>
             ) : null}
 

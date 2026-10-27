@@ -136,6 +136,25 @@ export function can(
   });
 }
 
+/**
+ * May somebody holding `roles` decide an approval stage that names `requiredRole`?
+ *
+ * The stage's own role, or an owner. Owners hold every capability, and the
+ * workflows screen and the help have always counted them as eligible for every
+ * gate; the decision itself checked only the named role, so an owner was shown
+ * as an approver and then refused.
+ */
+export function mayDecideStage(roles: readonly string[], requiredRole: string): boolean {
+  return roles.includes(requiredRole) || roles.includes("owner");
+}
+
+/** Roles held on one entity: its own grants and the organisation-wide ones. */
+export function rolesOn(grants: readonly Grant[], entityId: string | null): AppRole[] {
+  return grants
+    .filter((g) => g.scope === "organisation" || g.entityId === entityId)
+    .map((g) => g.role);
+}
+
 /** Entities the grants reach for a capability; `null` means every entity. */
 export function scopedEntityIds(
   grants: readonly Grant[],
