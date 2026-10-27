@@ -490,6 +490,16 @@ Then assess it from the supplier's page with the AI supplier assessment, which f
 
 A supplier named by a system on the AI register is asked about even if nobody has said it uses AI.
 
+### Privacy and AI standings
+
+Every supplier shows two standings, side by side and never combined, because they are judged by different people against different rules and a supplier can pass one and fail the other.
+
+Privacy comes from Article 28: not met when there is no agreement or it is unsigned or expired, met with gaps when something else is missing, met otherwise. There is no privacy sign-off of a supplier as such; the contract either governs the processing or it does not.
+
+AI comes from the AI supplier assessment: not assessed, in progress, or — once approved — its recommendation: proceed, proceed with conditions, or do not proceed. The conditions are shown on the supplier's page. A do-not-proceed is also flagged on every AI system that supplier supplies.
+
+Only an AI supplier assessment counts for the AI standing. It is recognised by the questions it asks, so your own copy of the template counts, and a privacy or security assessment of the same supplier does not.
+
 **See also:** The processing register (Article 30) · Countries, adequacy and transfers · Scan findings · The AI register
 
 <sub>Also searchable as: supplier, vendor, dpa, article 28, processor, sub-processor, contract, expiry, extract, read the agreement, transfer mechanism, provenance, sub-processor list</sub>
