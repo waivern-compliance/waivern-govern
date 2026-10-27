@@ -214,6 +214,10 @@ export async function createUseCase(input: {
   deployedIn?: string[];
   processesPersonalData?: boolean;
   nextReviewAt?: Date;
+  dataCategories?: string[];
+  supplierId?: string | null;
+  /** Where it came from, when an integration recorded it. */
+  source?: { connectionId: string; externalRef: string };
   actor: Actor;
 }, executor: Executor = db) {
   const reference = await nextReference(input.organisationId, new Date().getUTCFullYear(), executor);
@@ -242,6 +246,10 @@ export async function createUseCase(input: {
         responsibleTeam: input.responsibleTeam,
         deployedIn: input.deployedIn ?? [],
         processesPersonalData: input.processesPersonalData,
+        dataCategories: input.dataCategories ?? [],
+        supplierId: input.supplierId ?? null,
+        sourceConnectionId: input.source?.connectionId ?? null,
+        externalRef: input.source?.externalRef ?? null,
         nextReviewAt: input.nextReviewAt,
         // Registered already live is the common case for an inventory being
         // built after the fact. The date is when it was recorded as live, not

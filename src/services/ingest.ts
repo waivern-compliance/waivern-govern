@@ -1,6 +1,7 @@
 import { and, eq, inArray, isNull, or } from "drizzle-orm";
 import { db, type Db } from "@/db/client";
 import {
+  aiUseCases,
   assessments,
   dpas,
   entities,
@@ -16,6 +17,7 @@ import {
 import { appendAuditEvent } from "@/lib/audit";
 import type { AuthedConnection } from "@/lib/integration/auth";
 import type {
+  AiUseCaseIn,
   DpaIn,
   EvidenceIn,
   IngestOutcome,
@@ -25,6 +27,8 @@ import type {
 } from "@/lib/integration/contracts";
 import { sql } from "drizzle-orm";
 import type { Actor } from "./templates";
+import { createUseCase } from "./ai-register";
+import { canonicalise as canonicaliseByHand } from "./third-party";
 
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
@@ -235,6 +239,117 @@ export async function ingestVendors(
         subjectId: row.id,
         after: { name: r.name, canonicalKey: key },
       });
+    });
+  }
+  return outcome;
+}
+
+/**
+ * AI systems the Portal has found or been told about.
+ *
+ * Matched by `externalRef` per connection. A new one is registered at the stage
+ * the Portal gives, or "proposed"; a known one has its description refreshed
+ * and nothing else — ownership, transparency scope, review date and stage are
+ * decisions people take here, and a push that could overwrite them would undo
+ * governance every time it ran. A supplier is linked by name where one is on
+ * the register; an unknown name is recorded as the vendor rather than creating
+ * a supplier nobody has looked at.
+ */
+export async function ingestAiUseCases(
+  connection: AuthedConnection,
+  records: AiUseCaseIn[],
+): Promise<IngestOutcome> {
+  const outcome: IngestOutcome = { received: records.length, created: 0, updated: 0, skipped: [] };
+  const actor = actorFor(connection);
+
+  for (const r of records) {
+    const entity = await resolveEntity(connection.organisationId, connection, r.entity);
+    if (!entity.ok) {
+      outcome.skipped.push({ externalRef: r.externalRef, reason: entity.reason });
+      continue;
+    }
+
+    // Suppliers recorded by hand and suppliers pushed in are keyed differently,
+    // so either spelling of the key finds the supplier.
+    let supplierId: string | null = null;
+    if (r.supplierName) {
+      const [match] = await db
+        .select({ id: suppliers.id })
+        .from(suppliers)
+        .where(
+          and(
+            eq(suppliers.organisationId, connection.organisationId),
+            inArray(suppliers.canonicalKey, [canonicalise(r.supplierName), canonicaliseByHand(r.supplierName)]),
+          ),
+        )
+        .limit(1);
+      supplierId = match?.id ?? null;
+    }
+
+    await db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select()
+        .from(aiUseCases)
+        .where(
+          and(
+            eq(aiUseCases.organisationId, connection.organisationId),
+            eq(aiUseCases.sourceConnectionId, connection.id),
+            eq(aiUseCases.externalRef, r.externalRef),
+          ),
+        );
+
+      const described = {
+        name: r.name,
+        purpose: r.purpose,
+        description: r.description,
+        systemType: r.systemType,
+        provenance: r.provenance,
+        deploymentPattern: r.deploymentPattern,
+        vendor: r.vendor ?? (supplierId ? undefined : r.supplierName),
+        modelName: r.modelName,
+        deployedIn: r.deployedIn,
+        processesPersonalData: r.processesPersonalData,
+        dataCategories: r.dataCategories,
+      };
+
+      if (existing) {
+        await tx
+          .update(aiUseCases)
+          .set({
+            ...described,
+            // A link somebody made here is kept; the push only fills an empty one.
+            supplierId: existing.supplierId ?? supplierId,
+            updatedAt: new Date(),
+          })
+          .where(eq(aiUseCases.id, existing.id));
+        outcome.updated += 1;
+        await appendAuditEvent(tx, {
+          ...actor,
+          organisationId: connection.organisationId,
+          action: "ai_use_case.updated",
+          subjectType: "ai_use_case",
+          subjectId: existing.id,
+          entityId: existing.entityId,
+          before: { name: existing.name, purpose: existing.purpose },
+          after: { name: r.name, purpose: r.purpose, externalRef: r.externalRef },
+        });
+        return;
+      }
+
+      await createUseCase(
+        {
+          organisationId: connection.organisationId,
+          entityId: entity.entityId,
+          ...described,
+          deploymentPattern: r.deploymentPattern ?? null,
+          lifecycleStage: r.lifecycleStage ?? "proposed",
+          supplierId,
+          source: { connectionId: connection.id, externalRef: r.externalRef },
+          actor,
+        },
+        tx,
+      );
+      outcome.created += 1;
     });
   }
   return outcome;

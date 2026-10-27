@@ -16,7 +16,10 @@ import {
   suppliers,
   templateVersions,
   templates,
+  atrsRecords,
+  users,
 } from "@/db/schema";
+import { listRegister } from "./ai-register";
 
 /**
  * What this platform hands back.
@@ -31,7 +34,11 @@ import {
  * claim into a document that reads as settled.
  */
 
-export const CONTEXT_VERSION = "1.0";
+/**
+ * 1.1 adds `aiSystems`. Additive: a reader of 1.0 that ignores unknown keys
+ * reads 1.1 unchanged.
+ */
+export const CONTEXT_VERSION = "1.1";
 
 export type ExportScope = {
   organisationId: string;
@@ -54,7 +61,44 @@ export type GovernanceContext = {
   risks: ContextRisk[];
   suppliers: ContextSupplier[];
   evidence: ContextEvidence[];
+  aiSystems: ContextAiSystem[];
   counts: Record<string, number>;
+};
+
+/**
+ * One AI system on the register.
+ *
+ * The register entry is inventory, so it is exported as it stands; what has
+ * been judged about it comes only from an approved assessment, as everywhere
+ * else in this document. `gaps` is the register's own list, so a generated
+ * document can say plainly what is not yet in place rather than imply it is.
+ */
+export type ContextAiSystem = {
+  reference: string;
+  /** The Portal's own identifier, where the Portal recorded it. */
+  externalRef: string | null;
+  entity: string;
+  name: string;
+  purpose: string;
+  systemType: string;
+  provenance: string;
+  deploymentPattern: string | null;
+  lifecycleStage: string;
+  liveSince: string | null;
+  owner: string | null;
+  governanceOfficer: string | null;
+  responsibleTeam: string | null;
+  supplier: string | null;
+  vendor: string | null;
+  modelName: string | null;
+  processesPersonalData: boolean | null;
+  dataCategories: string[];
+  transparency: { scope: string | null; publishedAt: string | null };
+  /** The latest approved assessment, or null where none is approved. */
+  assessment: { reference: string; tier: string | null; band: string | null; approvedAt: string | null } | null;
+  nextReviewAt: string | null;
+  gaps: string[];
+  updatedAt: string;
 };
 
 export type ContextActivity = {
@@ -402,6 +446,8 @@ export async function governanceContext(scope: ExportScope): Promise<GovernanceC
     ...riskRows.map((r) => [r.id, r.reference] as const),
   ]);
 
+  const aiRows = await aiSystemsFor(scope.organisationId, inScope, nameOf, scope.since, limit);
+
   return {
     contextVersion: CONTEXT_VERSION,
     generatedAt: new Date().toISOString(),
@@ -445,6 +491,7 @@ export async function governanceContext(scope: ExportScope): Promise<GovernanceC
           subProcessors: d.subProcessors,
         })),
     })),
+    aiSystems: aiRows,
     evidence: evidenceRows.map((e) => ({
       title: e.title,
       kind: e.kind,
@@ -463,6 +510,78 @@ export async function governanceContext(scope: ExportScope): Promise<GovernanceC
       risks: contextRisks.length,
       suppliers: supplierRows.length,
       evidence: evidenceRows.length,
+      aiSystems: aiRows.length,
     },
   };
+}
+
+async function aiSystemsFor(
+  organisationId: string,
+  entityIds: string[],
+  nameOf: Map<string, string>,
+  since: Date | undefined,
+  limit: number,
+): Promise<ContextAiSystem[]> {
+  const entries = (await listRegister(organisationId, entityIds))
+    .filter((e) => !since || e.useCase.updatedAt > since)
+    .slice(0, limit);
+  if (entries.length === 0) return [];
+
+  const ids = entries.map((e) => e.useCase.id);
+  const officerIds = entries.map((e) => e.useCase.governanceOfficerId).filter((x): x is string => Boolean(x));
+  const supplierIds = entries.map((e) => e.useCase.supplierId).filter((x): x is string => Boolean(x));
+  const [officers, supplierNames, published] = await Promise.all([
+    officerIds.length
+      ? db.select({ id: users.id, email: users.email }).from(users).where(inArray(users.id, officerIds))
+      : [],
+    supplierIds.length
+      ? db.select({ id: suppliers.id, name: suppliers.name }).from(suppliers).where(inArray(suppliers.id, supplierIds))
+      : [],
+    db
+      .select({ id: atrsRecords.aiUseCaseId, at: atrsRecords.publishedAt })
+      .from(atrsRecords)
+      .where(and(inArray(atrsRecords.aiUseCaseId, ids), eq(atrsRecords.status, "published"))),
+  ]);
+  const officerOf = new Map(officers.map((o) => [o.id, o.email]));
+  const supplierOf = new Map(supplierNames.map((x) => [x.id, x.name]));
+  const publishedOf = new Map(published.map((p) => [p.id, p.at]));
+
+  return entries.map(({ useCase: u, ownerEmail, assessed, gaps }) => ({
+    reference: u.reference,
+    externalRef: u.externalRef,
+    entity: nameOf.get(u.entityId) ?? "",
+    name: u.name,
+    purpose: u.purpose,
+    systemType: u.systemType,
+    provenance: u.provenance,
+    deploymentPattern: u.deploymentPattern,
+    lifecycleStage: u.lifecycleStage,
+    liveSince: u.liveSince?.toISOString() ?? null,
+    owner: ownerEmail,
+    governanceOfficer: u.governanceOfficerId ? (officerOf.get(u.governanceOfficerId) ?? null) : null,
+    responsibleTeam: u.responsibleTeam,
+    supplier: u.supplierId ? (supplierOf.get(u.supplierId) ?? null) : null,
+    vendor: u.vendor,
+    modelName: u.modelName,
+    processesPersonalData: u.processesPersonalData,
+    dataCategories: u.dataCategories,
+    transparency: {
+      scope: u.transparencyScope,
+      publishedAt: publishedOf.get(u.id)?.toISOString() ?? null,
+    },
+    // Only an approved assessment's conclusions: `assessed` carries a tier only
+    // when the latest assessment is approved, and that is what is exported.
+    assessment:
+      assessed && assessed.approvedAt
+        ? {
+            reference: assessed.reference,
+            tier: assessed.tier,
+            band: assessed.band,
+            approvedAt: assessed.approvedAt.toISOString(),
+          }
+        : null,
+    nextReviewAt: u.nextReviewAt?.toISOString() ?? null,
+    gaps,
+    updatedAt: u.updatedAt.toISOString(),
+  }));
 }

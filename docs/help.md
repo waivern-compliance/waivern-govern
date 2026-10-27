@@ -959,7 +959,7 @@ When a new kind of assessment ships with its own workflow, organisations created
 
 ### Both directions
 
-Tools push processing activities, vendors, processor agreements, evidence and scan runs. The Portal pulls current state back out, incrementally, to generate documents from facts rather than from events it may have missed.
+Tools push processing activities, vendors, processor agreements, evidence, AI systems and scan runs. The Portal pulls current state back out, incrementally, to generate documents from facts rather than from events it may have missed.
 
 Every request is signed and every connection is limited to the endpoints its kind needs. A scanner may push vendors, because a tracker on a page is a third party; it may not push assessments.
 
@@ -967,7 +967,13 @@ Every request is signed and every connection is limited to the endpoints its kin
 
 They are marked as such throughout. A scanner can see what data moves; it cannot see why, so purposes and lawful basis still need a person. Processing activities that arrived from a connection are counted separately on the register for that reason.
 
-**See also:** Scan findings · Third parties and processor agreements (Article 28) · The processing register (Article 30)
+### AI systems from the Portal
+
+The Portal can record AI systems on the AI register and refresh what they are — name, purpose, type, deployment, model and data. It sets a system's stage only when first recording it. Who owns a system, its governance officer, its transparency scope, its review date and its stage are decisions taken here, and a later push never changes them.
+
+The Portal reads the register back, with each system's gaps and its latest approved assessment, so documents it generates say what is and is not in place.
+
+**See also:** Scan findings · Third parties and processor agreements (Article 28) · The processing register (Article 30) · The AI register
 
 <sub>Also searchable as: api, integration, portal, har analyser, webhook, sync, connection</sub>
 
