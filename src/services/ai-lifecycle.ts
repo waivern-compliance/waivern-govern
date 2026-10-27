@@ -1,6 +1,13 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db/client";
-import { aiChanges, aiUseCases, assessments, templateVersions, templates } from "@/db/schema";
+import {
+  aiChanges,
+  aiUseCases,
+  assessmentRevisions,
+  assessments,
+  templateVersions,
+  templates,
+} from "@/db/schema";
 import { appendAuditEvent } from "@/lib/audit";
 import { GATE_WORDS, LIVE, unmetConditions, type GateCondition, type Stage } from "@/lib/ai/lifecycle";
 import type { Actor } from "./templates";
@@ -39,6 +46,42 @@ async function latestApprovedAiAssessment(useCaseId: string) {
   return row ?? null;
 }
 
+/**
+ * Whether the system's latest approved DPIA leaves high residual risk without
+ * the ICO's advice on record.
+ *
+ * Read from the answers as approved. A DPIA approved before the template asked
+ * where consultation had got to says nothing either way; where it records high
+ * residual risk, that counts as outstanding, because nothing shows the ICO was
+ * consulted.
+ */
+export async function icoConsultationOutstanding(useCaseId: string): Promise<boolean> {
+  const [dpia] = await db
+    .select({ id: assessments.id })
+    .from(assessments)
+    .innerJoin(templateVersions, eq(templateVersions.id, assessments.templateVersionId))
+    .innerJoin(templates, eq(templates.id, templateVersions.templateId))
+    .where(
+      and(
+        eq(assessments.subjectType, "ai_use_case"),
+        eq(assessments.subjectId, useCaseId),
+        eq(assessments.status, "approved"),
+        eq(templates.kind, "dpia"),
+      ),
+    )
+    .orderBy(desc(assessments.completedAt))
+    .limit(1);
+  if (!dpia) return false;
+  const [snapshot] = await db
+    .select({ answers: assessmentRevisions.answers })
+    .from(assessmentRevisions)
+    .where(eq(assessmentRevisions.assessmentId, dpia.id))
+    .orderBy(desc(assessmentRevisions.revision))
+    .limit(1);
+  const answers = (snapshot?.answers ?? {}) as Record<string, unknown>;
+  return answers.residual_accepted === true && answers.ico_consultation !== "advice_received";
+}
+
 /** When the model, its data or its use last changed, per system. */
 export async function lastMaterialChanges(organisationId: string): Promise<Map<string, Date>> {
   const rows = await db
@@ -65,9 +108,10 @@ export async function gateContext(useCaseId: string, organisationId: string) {
     .from(aiUseCases)
     .where(and(eq(aiUseCases.id, useCaseId), eq(aiUseCases.organisationId, organisationId)));
   if (!useCase) return null;
-  const [assessed, changes] = await Promise.all([
+  const [assessed, changes, icoOutstanding] = await Promise.all([
     latestApprovedAiAssessment(useCaseId),
     lastMaterialChanges(organisationId),
+    icoConsultationOutstanding(useCaseId),
   ]);
   return {
     useCase,
@@ -77,6 +121,7 @@ export async function gateContext(useCaseId: string, organisationId: string) {
       assessedAt: assessed?.completedAt ?? null,
       assessmentReviewDue: assessed?.reviewDueAt ?? null,
       lastMaterialChangeAt: changes.get(useCaseId) ?? null,
+      icoConsultationOutstanding: icoOutstanding,
     },
   };
 }

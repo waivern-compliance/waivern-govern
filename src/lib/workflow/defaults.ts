@@ -20,7 +20,7 @@ export type StageSpec = {
 };
 
 export const DEFAULT_WORKFLOWS: Array<{
-  templateKind: "dpia" | "tra" | "tia" | "ai_risk" | "screening" | "supplier_record";
+  templateKind: "dpia" | "tra" | "tia" | "ai_risk" | "screening" | "supplier_record" | "eia";
   name: string;
   stages: StageSpec[];
 }> = [
@@ -201,6 +201,21 @@ export const DEFAULT_WORKFLOWS: Array<{
         name: "Accountable approver",
         requiredRole: "approver",
         condition: { op: "tierAtLeast", value: "high" },
+      },
+    ],
+  },
+  {
+    // Signed off by somebody accountable, not by a reviewer in a specialist
+    // team: the duty is the body's, and due regard has to be had by whoever
+    // takes the decision.
+    templateKind: "eia",
+    name: "Equality impact approval",
+    stages: [
+      {
+        position: 1,
+        name: "Accountable approver",
+        requiredRole: "approver",
+        condition: { op: "always" },
       },
     ],
   },

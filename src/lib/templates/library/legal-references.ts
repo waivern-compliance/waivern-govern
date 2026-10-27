@@ -75,5 +75,6 @@ export const LEGAL_REFERENCES = [
   { code: "ukgdpr.art16", regime: "UK GDPR", citation: "Article 16", title: "Right to rectification", url: "https://www.legislation.gov.uk/eur/2016/679/article/16", jurisdiction: "UK" },
   { code: "uk.equality2010", regime: "Equality Act 2010", citation: "Equality Act 2010", title: "Protected characteristics and unlawful discrimination", url: "https://www.legislation.gov.uk/ukpga/2010/15/contents", jurisdiction: "UK" },
   { code: "uk.equality2010.s149", regime: "Equality Act 2010", citation: "Section 149", title: "Public sector equality duty", url: "https://www.legislation.gov.uk/ukpga/2010/15/section/149", jurisdiction: "UK" },
+  { code: "ehrc.psed", regime: "EHRC", citation: "Public sector equality duty guidance", title: "Technical guidance on meeting the public sector equality duty", url: "https://www.equalityhumanrights.com/guidance/public-sector-equality-duty-psed", jurisdiction: "UK" },
   { code: "uk.hra1998", regime: "Human Rights Act 1998", citation: "Human Rights Act 1998", title: "Convention rights public authorities must act compatibly with", url: "https://www.legislation.gov.uk/ukpga/1998/42/contents", jurisdiction: "UK" },
 ] as const;

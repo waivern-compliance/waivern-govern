@@ -620,6 +620,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         heading: "Moving it through its lifecycle",
         body: [
           "A system can be added at whatever stage it is really at. Moving it live afterwards — into pilot, or from pilot to production — is checked: it needs a named owner and an approved AI assessment that is not past its review and was approved after the last change to the model, data or use.",
+          "If the system's approved DPIA says high risk remains after mitigation, it also needs the ICO's advice recorded on that DPIA: Article 36 requires prior consultation before the processing starts.",
           "Where those are missing, somebody who decides approvals can let it go ahead with a reason. The move is recorded with what was missing and why, so the history shows a system that went live without an assessment did.",
           "Record any change to the model, its data or its use. A model change needs how it was validated and how it would be rolled back. Every change brings the system's review forward, and it shows as changed since assessed until it is assessed again.",
         ],
@@ -997,7 +998,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     summary:
       "The question sets, versioned, so an assessment always shows the questions it was actually answered against.",
     path: "/app/templates",
-    keywords: ["template", "version", "questions", "publish", "routing", "dpia template"],
+    keywords: ["template", "version", "questions", "publish", "routing", "dpia template", "equality", "eia", "psed", "update"],
     sections: [
       {
         heading: "Versions matter",
@@ -1015,6 +1016,13 @@ export const HELP_TOPICS: HelpTopic[] = [
         heading: "Templates Waivern releases later",
         body: [
           "When Waivern ships a new template — the AI risk identification following DSIT's toolkit, for example — the library offers to add it. Adding it publishes it as a version of its own, alongside the legal references it cites. Nothing you already hold changes, including copies you have edited.",
+          "When Waivern updates a template you already have, the library says which, and offers to publish the update as its next version. Assessments already started keep the version they ran against. A template with an open draft is left until the draft is published or abandoned.",
+        ],
+      },
+      {
+        heading: "Equality impact assessments",
+        body: [
+          "The equality impact assessment follows the public sector equality duty: impact on each of the nine protected characteristics in turn, then the duty's three aims, then a decision. An impact nobody has looked into scores almost as badly as an adverse one. Where AI is involved it asks whether performance was measured across groups, as the AI Playbook suggests. Start one from an AI system's page to tie it to the system.",
         ],
       },
     ],

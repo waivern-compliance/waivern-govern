@@ -135,6 +135,14 @@ export const templateKind = pgEnum("template_kind", [
   /** A completed third-party assessment recorded with its evidence. */
   "supplier_record",
   "breach",
+  /**
+   * Equality impact assessment: how a policy, service or system affects people
+   * with each protected characteristic, as the public sector equality duty
+   * requires a public body to consider. A kind of its own because it is owned
+   * and signed off apart from a DPIA, and asked of things that touch no
+   * personal data at all.
+   */
+  "eia",
   "custom",
 ]);
 

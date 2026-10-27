@@ -109,6 +109,10 @@ const BASE_DPIA = {
   alternatives: "Editorial-only ranking rejected.",
   transparency: "Privacy notice.",
   rights_support: "Self-service controls.",
+  controller_role: "controller",
+  sources_and_flows: "Viewing events from the player, held in the UK.",
+  views_sought: "Audience panel consulted; they expect it.",
+  uses_ai: false,
   transfers_abroad: false,
   risk_description: "Inference of interests.",
   measures: "Exclude sensitive topics.",
@@ -572,7 +576,7 @@ describe("the sweep", () => {
 describe("default workflows", () => {
   it("configures one workflow per assessment kind", () => {
     const kinds = DEFAULT_WORKFLOWS.map((w) => w.templateKind).sort();
-    assert.deepEqual(kinds, ["ai_risk", "dpia", "screening", "supplier_record", "tia", "tra"]);
+    assert.deepEqual(kinds, ["ai_risk", "dpia", "eia", "screening", "supplier_record", "tia", "tra"]);
   });
 
   it("starts every workflow with an unconditional stage", () => {

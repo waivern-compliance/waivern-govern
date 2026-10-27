@@ -33,6 +33,7 @@ const REFERENCE_PREFIX: Record<string, string> = {
   ai_risk: "AIRA",
   screening: "SCR",
   supplier_record: "TPR",
+  eia: "EIA",
   breach: "BR",
   custom: "ASMT",
 };

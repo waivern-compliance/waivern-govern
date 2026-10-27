@@ -16,6 +16,7 @@ const KIND_LABEL: Record<string, string> = {
   tia: "Transfer impact assessment",
   ai_risk: "AI risk assessment",
   supplier_record: "Supplier assessment",
+  eia: "Equality impact assessment",
 };
 
 /**

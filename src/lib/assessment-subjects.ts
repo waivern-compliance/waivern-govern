@@ -11,6 +11,6 @@ export type AssessableSubject = "ai_use_case" | "supplier";
  * report nonsense.
  */
 export const KINDS_FOR: Record<AssessableSubject, readonly TemplateKind[]> = {
-  ai_use_case: ["ai_risk", "screening", "dpia"],
+  ai_use_case: ["ai_risk", "screening", "dpia", "eia"],
   supplier: ["supplier_record"],
 };
