@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { HelpLink } from "@/components/help/HelpLink";
 import { redirect } from "next/navigation";
+import { ROLE_LABEL, can, mayDecideStage, rolesOn, type AppRole } from "@/lib/rbac";
 import { pathFor } from "@/lib/records";
 import { getActiveSession, visibleEntityIds } from "@/lib/session";
 import { mentionsFor } from "@/services/collaboration";
@@ -33,6 +34,24 @@ export default async function TasksPage() {
     (t) => t.assigneeUserId === active.userId || (t.assigneeRole && rolesHeld.has(t.assigneeRole)),
   );
   const others = all.filter((t) => !mine.includes(t));
+
+  // An approval stage this viewer can see but not decide. Opening it shows no
+  // decision form, so say here, before they click, whose decision it is and
+  // how that role is given.
+  const mayGrant = can(active.membership.grants, "member.manage");
+  const notYours = new Map<string, string>();
+  for (const t of all) {
+    if (t.type !== "approve_stage" || !t.assigneeRole) continue;
+    if (mayDecideStage(rolesOn(active.membership.grants, t.entityId), t.assigneeRole)) continue;
+    const role = ROLE_LABEL[t.assigneeRole as AppRole] ?? t.assigneeRole;
+    notYours.set(
+      t.id,
+      `Decided by somebody with the ${role} role, or an owner; you hold neither. ` +
+        (mayGrant
+          ? "You can grant the role on the People page."
+          : "An owner can grant you the role on the People page."),
+    );
+  }
 
   return (
     <main className="mx-auto max-w-4xl space-y-8 px-6 py-12">
@@ -80,9 +99,9 @@ export default async function TasksPage() {
         </section>
       ) : null}
 
-      <TaskList title="Waiting on you" tasks={mine} empty="Nothing is waiting on you." />
+      <TaskList title="Waiting on you" tasks={mine} notYours={notYours} empty="Nothing is waiting on you." />
       {others.length > 0 ? (
-        <TaskList title="Elsewhere in the organisation" tasks={others} empty="" />
+        <TaskList title="Elsewhere in the organisation" tasks={others} notYours={notYours} empty="" />
       ) : null}
     </main>
   );
@@ -91,6 +110,7 @@ export default async function TasksPage() {
 function TaskList({
   title,
   tasks,
+  notYours,
   empty,
 }: {
   title: string;
@@ -105,6 +125,8 @@ function TaskList({
     breachedAt: Date | null;
     assigneeRole: string | null;
   }>;
+  /** Why the viewer cannot decide a task, by task id. */
+  notYours: Map<string, string>;
   empty: string;
 }) {
   return (
@@ -145,6 +167,9 @@ function TaskList({
                     {t.type.replace(/_/g, " ")}
                     {t.assigneeRole ? ` · ${t.assigneeRole.replace(/_/g, " ")}` : ""}
                   </p>
+                  {notYours.has(t.id) ? (
+                    <p className="text-xs text-amber-900">{notYours.get(t.id)}</p>
+                  ) : null}
                 </Link>
               </li>
             );

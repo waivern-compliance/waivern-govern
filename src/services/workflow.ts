@@ -16,6 +16,7 @@ import {
   workflowStages,
 } from "@/db/schema";
 import { appendAuditEvent } from "@/lib/audit";
+import { mayDecideStage } from "@/lib/rbac";
 import { addMonths } from "@/lib/dates";
 import type { RiskTier } from "@/lib/risk/scale";
 import { describe, matches, type RoutingContext } from "@/lib/workflow/routing";
@@ -319,7 +320,7 @@ export async function decideApproval(input: {
         `This is the ${row.approval.boardName}'s decision: give the meeting and minute that made it`,
       );
     }
-    if (!input.callerRoles.includes(row.approval.requiredRole)) {
+    if (!mayDecideStage(input.callerRoles, row.approval.requiredRole)) {
       throw new NotYourDecision(
         `This stage is decided by ${row.approval.requiredRole.replace(/_/g, " ")}`,
       );
