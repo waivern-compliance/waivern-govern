@@ -11,6 +11,7 @@ import {
 import { appendAuditEvent } from "@/lib/audit";
 import { judge } from "@/lib/risk/appetite";
 import { DEFAULT_SCALE, rate, type RiskScaleId, type RiskTier } from "@/lib/risk/scale";
+import { suggestionByKey } from "@/lib/risk/treatment-library";
 import { appetiteInForce } from "./appetite-in-force";
 import type { Actor } from "./templates";
 import { queueEvent } from "./webhooks";
@@ -174,10 +175,15 @@ export async function addMitigation(input: {
   description: string;
   controlRef?: string;
   treatmentType?: "avoidance" | "limitation" | "transference";
+  /** A key from the toolkit's treatment library, where the person started from one. */
+  suggestionKey?: string;
   ownerId?: string;
   dueAt?: Date;
   actor: Actor;
 }) {
+  if (input.suggestionKey !== undefined && !suggestionByKey(input.suggestionKey)) {
+    throw new Error("No such treatment suggestion");
+  }
   return db.transaction(async (tx) => {
     const [risk] = await tx
       .select()
@@ -192,6 +198,7 @@ export async function addMitigation(input: {
         description: input.description,
         controlRef: input.controlRef,
         treatmentType: input.treatmentType,
+        suggestionKey: input.suggestionKey,
         ownerId: input.ownerId,
         dueAt: input.dueAt,
       })
@@ -212,6 +219,7 @@ export async function addMitigation(input: {
         risk: risk.reference,
         description: input.description,
         treatmentType: input.treatmentType ?? null,
+        suggestionKey: input.suggestionKey ?? null,
         dueAt: input.dueAt?.toISOString() ?? null,
       },
     });

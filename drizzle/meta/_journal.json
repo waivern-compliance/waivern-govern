@@ -309,6 +309,13 @@
       "when": 1793029381168,
       "tag": "0043_board_decision_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1793089765287,
+      "tag": "0044_exotic_the_hood",
+      "breakpoints": true
     }
   ]
 }

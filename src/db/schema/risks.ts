@@ -103,6 +103,12 @@ export const mitigations = pgTable(
     controlRef: text("control_ref"),
     /** Null for mitigations recorded before treatment types were asked for. */
     treatmentType: treatmentType("treatment_type"),
+    /**
+     * The toolkit suggestion this started from, if any. Kept even when the
+     * wording was then changed: it records where the idea came from, not that
+     * the text is the toolkit's.
+     */
+    suggestionKey: text("suggestion_key"),
     ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
     dueAt: timestamp("due_at", { withTimezone: true }),
     status: mitigationStatus("status").notNull().default("planned"),

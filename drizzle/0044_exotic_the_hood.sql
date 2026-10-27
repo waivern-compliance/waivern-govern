@@ -1,0 +1,1 @@
+ALTER TABLE "mitigation" ADD COLUMN "suggestion_key" text;

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireCapability } from "@/lib/session";
 import { isTreatmentType, type TreatmentType } from "@/lib/risk/treatment";
+import { suggestionByKey } from "@/lib/risk/treatment-library";
 import {
   acceptRisk,
   addMitigation,
@@ -53,6 +54,7 @@ export async function addMitigationAction(riskId: string, formData: FormData) {
     treatmentType: isTreatmentType(formData.get("treatmentType"))
       ? (formData.get("treatmentType") as TreatmentType)
       : undefined,
+    suggestionKey: suggestionByKey(formData.get("suggestionKey"))?.key,
     ownerId: active.userId,
     dueAt: due ? new Date(due) : undefined,
     actor: actorOf(active),

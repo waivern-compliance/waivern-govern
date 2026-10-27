@@ -281,6 +281,12 @@ Residual is a judgement somebody makes, never a calculation the platform perform
 
 Work that has not started reduces nothing. A mitigation counts once it is in progress, implemented or verified — the registers and the AI assurance chain all take that view, so a risk covered only by plans still reads as untreated.
 
+### Suggested treatments
+
+Under the mitigation form, the treatments DSIT's AI Risk Management Toolkit suggests in its Appendix 4 are listed, those for the risk's category first. Use this copies one into the form; nothing is added until you press Add, and you should reword it to what you will actually do.
+
+A mitigation that started from a suggestion is marked as coming from the toolkit, even after rewording, so you can see later where the idea came from.
+
 ### Accepting a risk
 
 Only an approver can accept, and only after a residual rating exists — there is nothing to accept until somebody has judged what remains. An acceptance carries a rationale and an expiry date.
@@ -295,7 +301,7 @@ Raise a risk from the assessment that found it, using the form at the foot of th
 
 **See also:** Approving, returning and rejecting · Scan findings · The AI assurance chain
 
-<sub>Also searchable as: risk, mitigation, residual, inherent, accept, tier, likelihood, impact</sub>
+<sub>Also searchable as: risk, mitigation, residual, inherent, accept, tier, likelihood, impact, treatment, suggestion</sub>
 
 ## Risk appetite
 
