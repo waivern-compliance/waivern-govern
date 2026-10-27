@@ -46,7 +46,7 @@ export const DPIA: TemplateDefinition = {
               { value: "contract", label: "Contract" },
               { value: "legal_obligation", label: "Legal obligation" },
               { value: "vital_interests", label: "Vital interests" },
-              { value: "public_task", label: "Public task" },
+              { value: "public_task", label: "Public task (Task carried out in the public interest or in the exercise of official authority)" },
               { value: "legitimate_interests", label: "Legitimate interests" },
             ] },
           { key: "lia_reference", label: "Where is the legitimate interests assessment recorded?", type: "short_text", required: false,
