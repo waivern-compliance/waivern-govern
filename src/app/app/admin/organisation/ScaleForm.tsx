@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useRefusableAction } from "@/lib/use-refusable-action";
 import { setRiskScaleAction, type AdminResult } from "../actions";
 import { savedKey } from "@/lib/saved-key";
 
@@ -25,14 +25,13 @@ export function ScaleForm({
   scales: ScaleOption[];
   riskCount: number;
 }) {
-  const [result, action, pending] = useActionState<AdminResult, FormData>(
-    setRiskScaleAction,
-    null,
-  );
+  const { result, pending, formProps } = useRefusableAction<AdminResult>(setRiskScaleAction, {
+    resetOnSuccess: false,
+  });
   const locked = riskCount > 0;
 
   return (
-    <form key={savedKey(current)} action={action} className="space-y-3 rounded border border-line bg-surface p-5">
+    <form key={savedKey(current)} {...formProps} className="space-y-3 rounded border border-line bg-surface p-5">
       <div className="space-y-1">
         <h2 className="text-sm font-semibold">Risk scale</h2>
         <p className="max-w-prose text-sm text-ink-soft">

@@ -11,6 +11,7 @@ import { getActiveSession } from "@/lib/session";
 import { GAP_WORDS, HARD_GAPS, loadActivity } from "@/services/ropa";
 import { updateActivityAction } from "../actions";
 import { savedKey } from "@/lib/saved-key";
+import { EditForm } from "@/components/EditForm";
 
 const ROLE_WORDS: Record<string, string> = {
   controller: "Controller — you decide why and how",
@@ -99,7 +100,7 @@ export default async function ActivityPage({
       ) : null}
 
       {mayEdit ? (
-        <form
+        <EditForm
           key={savedKey(activity)}
           action={updateActivityAction.bind(null, activity.id)}
           className="space-y-5 rounded border border-line bg-surface p-5"
@@ -206,7 +207,7 @@ export default async function ActivityPage({
           >
             Save the record
           </button>
-        </form>
+        </EditForm>
       ) : (
         <section className="space-y-4 rounded border border-line bg-surface p-5 text-sm">
           <h2 className="text-sm font-semibold">The record</h2>

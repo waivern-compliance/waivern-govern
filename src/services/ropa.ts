@@ -303,6 +303,9 @@ export async function updateActivity(input: {
   }>;
   actor: Actor;
 }) {
+  if (input.changes.name !== undefined && !input.changes.name.trim()) {
+    throw new Error("A processing activity needs a name.");
+  }
   return db.transaction(async (tx) => {
     const [before] = await tx
       .select()

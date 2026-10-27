@@ -13,6 +13,7 @@ import {
   setResidual,
   updateMitigation,
 } from "@/services/risks";
+import { refusable, type EditResult } from "@/lib/edit-result";
 
 export type ActionResult = { ok: true } | { ok: false; message: string };
 
@@ -29,16 +30,22 @@ function actorOf(a: { userId: string; email: string }) {
   return { actorKind: "user" as const, actorUserId: a.userId, actorLabel: a.email };
 }
 
-export async function rateResidualAction(riskId: string, formData: FormData) {
-  const { active } = await forRisk(riskId, "risk.manage");
-  await setResidual({
-    riskId,
-    organisationId: active.membership.organisationId,
-    likelihood: Number(formData.get("likelihood")),
-    impact: Number(formData.get("impact")),
-    actor: actorOf(active),
+export async function rateResidualAction(
+  riskId: string,
+  _previous: EditResult,
+  formData: FormData,
+): Promise<EditResult> {
+  return refusable(async () => {
+    const { active } = await forRisk(riskId, "risk.manage");
+    await setResidual({
+      riskId,
+      organisationId: active.membership.organisationId,
+      likelihood: Number(formData.get("likelihood")),
+      impact: Number(formData.get("impact")),
+      actor: actorOf(active),
+    });
+    revalidatePath(`/app/risks/${riskId}`);
   });
-  revalidatePath(`/app/risks/${riskId}`);
 }
 
 export async function addMitigationAction(riskId: string, formData: FormData) {

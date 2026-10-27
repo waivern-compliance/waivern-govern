@@ -397,6 +397,10 @@ export async function updateSupplier(input: {
   confirmBy?: string;
   actor: Actor;
 }) {
+  // A cleared name field arrives as an empty string, and was saved as one.
+  if (input.changes.name !== undefined && !input.changes.name.trim()) {
+    throw new Error("A third party needs a name.");
+  }
   return db.transaction(async (tx) => {
     const [before] = await tx
       .select()

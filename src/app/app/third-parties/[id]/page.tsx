@@ -33,6 +33,7 @@ import {
   updateSupplierAction,
 } from "../actions";
 import { savedKey } from "@/lib/saved-key";
+import { EditForm } from "@/components/EditForm";
 
 const day = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
 
@@ -171,7 +172,7 @@ export default async function SupplierPage({
       <section className="space-y-3">
         <h2 className="text-sm font-semibold">AI</h2>
         {mayEdit ? (
-          <form
+          <EditForm
             key={savedKey(supplier.aiInvolvement)}
             action={setAiInvolvementAction.bind(null, supplier.id)}
             className="flex flex-wrap items-end gap-2"
@@ -197,7 +198,7 @@ export default async function SupplierPage({
             >
               Save
             </button>
-          </form>
+          </EditForm>
         ) : (
           <p className="text-sm">
             {supplier.aiInvolvement
@@ -384,7 +385,7 @@ export default async function SupplierPage({
             </form>
           </details>
 
-          <form
+          <EditForm
             key={savedKey(supplier)}
             action={updateSupplierAction.bind(null, supplier.id)}
             className="space-y-4 rounded border border-line bg-surface p-5"
@@ -426,7 +427,7 @@ export default async function SupplierPage({
             >
               Save
             </button>
-          </form>
+          </EditForm>
         </>
       ) : null}
 

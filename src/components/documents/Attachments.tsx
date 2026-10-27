@@ -10,6 +10,7 @@ import {
   type UploadResult,
 } from "@/app/app/third-parties/documentActions";
 import { savedKey } from "@/lib/saved-key";
+import { EditForm } from "@/components/EditForm";
 
 /** Somewhere else on this third party a file could belong instead. */
 export type MoveTarget = { value: string; label: string; current: boolean };
@@ -80,7 +81,7 @@ export function Attachments({
               {mayEdit ? (
                 <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
                   {moveTargets.length > 1 ? (
-                    <form
+                    <EditForm
                       key={savedKey(moveTargets.find((t) => t.current)?.value)}
                       action={moveDocumentAction.bind(null, d.id, revalidate)}
                       className="flex items-center gap-1.5"
@@ -102,7 +103,7 @@ export function Attachments({
                       <button type="submit" className="text-[11px] text-brand underline">
                         Move
                       </button>
-                    </form>
+                    </EditForm>
                   ) : null}
                   <form action={removeDocumentAction.bind(null, d.id, revalidate)}>
                     <button

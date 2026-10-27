@@ -14,6 +14,7 @@ import { Handover } from "./Handover";
 import { InviteForm } from "./InviteForm";
 import { revokeRoleAction, setActiveAction, setPersonaAction } from "../actions";
 import { savedKey } from "@/lib/saved-key";
+import { EditForm } from "@/components/EditForm";
 
 // Shared with the approval-workflow screen, where the same descriptions decide
 // which role a gate is handed to. Two copies would eventually disagree about
@@ -138,7 +139,7 @@ export default async function PeoplePage() {
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
-                <form
+                <EditForm
                   key={savedKey(m.persona)}
                   action={setPersonaAction.bind(null, m.membershipId)}
                   className="flex items-center gap-2"
@@ -162,7 +163,7 @@ export default async function PeoplePage() {
                   >
                     Set
                   </button>
-                </form>
+                </EditForm>
 
                 <form action={setActiveAction.bind(null, m.membershipId, !m.isActive)}>
                   <button

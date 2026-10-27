@@ -40,6 +40,7 @@ import { asc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { aiUseCaseRequests, suppliers } from "@/db/schema";
 import { savedKey } from "@/lib/saved-key";
+import { EditForm } from "@/components/EditForm";
 
 const CONSEQUENCE_WORDS: Record<string, string> = {
   informational: "Informational only — no decision follows",
@@ -498,7 +499,7 @@ export default async function UseCasePage({
           ) : null}
           {mayEdit ? (
             <div className="flex flex-wrap items-end gap-3 border-t border-line pt-3">
-              <form
+              <EditForm
                 key={savedKey(useCase.transparencyScope)}
                 action={updateUseCaseAction.bind(null, id)}
                 className="flex flex-wrap items-end gap-2"
@@ -515,7 +516,7 @@ export default async function UseCasePage({
                 >
                   Save
                 </button>
-              </form>
+              </EditForm>
               {!draftRecord && useCase.transparencyScope && useCase.transparencyScope !== "not_in_scope" ? (
                 <form action={startRecordAction.bind(null, id)}>
                   <button
@@ -536,7 +537,7 @@ export default async function UseCasePage({
           <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-soft">
             Keep it current
           </h2>
-          <form
+          <EditForm
             key={savedKey(useCase)}
             action={updateUseCaseAction.bind(null, id)}
             className="grid gap-3 rounded border border-line bg-surface p-4 sm:grid-cols-2"
@@ -601,7 +602,7 @@ export default async function UseCasePage({
                 Update
               </button>
             </div>
-          </form>
+          </EditForm>
         </section>
       ) : null}
 

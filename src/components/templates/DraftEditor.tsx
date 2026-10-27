@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useRefusableAction } from "@/lib/use-refusable-action";
 import { saveDraftAction, type DraftResult } from "@/app/app/templates/actions";
 import { savedKey } from "@/lib/saved-key";
 
@@ -22,13 +22,15 @@ export function DraftEditor({
   versionId: string;
   definition: unknown;
 }) {
-  const [result, action, pending] = useActionState<DraftResult | null, FormData>(
+  // A definition that does not parse is not saved, and must stay in the box
+  // to be fixed — losing an hour's JSON to one stray comma is the failure here.
+  const { result, pending, formProps } = useRefusableAction<DraftResult | null>(
     saveDraftAction.bind(null, templateId, versionId),
-    null,
+    { resetOnSuccess: false },
   );
 
   return (
-    <form key={savedKey(definition)} action={action} className="space-y-3">
+    <form key={savedKey(definition)} {...formProps} className="space-y-3">
       <label className="block space-y-1">
         <span className="block text-xs font-medium uppercase tracking-wider text-ink-soft">
           Draft definition

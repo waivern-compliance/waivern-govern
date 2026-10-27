@@ -178,6 +178,9 @@ export async function updateBreach(input: {
   }>;
   actor: Actor;
 }) {
+  if (input.changes.title !== undefined && !input.changes.title.trim()) {
+    throw new Error("Say what happened: a breach needs a title.");
+  }
   return db.transaction(async (tx) => {
     const [before] = await tx
       .select()
