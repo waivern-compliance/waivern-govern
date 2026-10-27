@@ -11,6 +11,7 @@ import { appendAuditEvent } from "@/lib/audit";
 import type { AppRole } from "@/lib/rbac";
 import type { Persona } from "@/lib/persona";
 import type { Actor } from "./templates";
+import { assertEntityIn } from "./tenancy-guards";
 
 /**
  * Who may use this, and as what.
@@ -122,6 +123,7 @@ export async function inviteMember(input: {
   actor: Actor;
 }) {
   const email = input.email.toLowerCase().trim();
+  if (input.entityId) await assertEntityIn(input.organisationId, input.entityId);
 
   return db.transaction(async (tx) => {
     const [existing] = await tx.select().from(users).where(eq(users.email, email));

@@ -12,6 +12,7 @@ import {
 import { appendAuditEvent } from "@/lib/audit";
 import { needingSafeguards } from "./countries";
 import type { Actor } from "./templates";
+import { assertEntityIn, assertMemberOf } from "./tenancy-guards";
 
 /**
  * Records of processing activities — the Article 30 register.
@@ -240,6 +241,8 @@ export async function createActivity(input: {
   reviewDueAt?: Date;
   actor: Actor;
 }) {
+  await assertEntityIn(input.organisationId, input.entityId);
+  if (input.ownerId) await assertMemberOf(input.organisationId, input.ownerId);
   const reference = await nextReference(input.organisationId, new Date().getUTCFullYear());
 
   return db.transaction(async (tx) => {
@@ -306,6 +309,7 @@ export async function updateActivity(input: {
   if (input.changes.name !== undefined && !input.changes.name.trim()) {
     throw new Error("A processing activity needs a name.");
   }
+  if (input.changes.ownerId) await assertMemberOf(input.organisationId, input.changes.ownerId);
   return db.transaction(async (tx) => {
     const [before] = await tx
       .select()

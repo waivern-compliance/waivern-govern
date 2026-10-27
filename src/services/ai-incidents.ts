@@ -15,6 +15,7 @@ import { appendAuditEvent } from "@/lib/audit";
 import type { RiskTier } from "@/lib/risk/scale";
 import type { Actor } from "./templates";
 import { raiseTask } from "./workflow";
+import { assertMemberOf } from "./tenancy-guards";
 
 /**
  * Reports about AI systems, and what was done about each.
@@ -242,6 +243,7 @@ export async function triageIncident(input: {
       .where(and(eq(risks.id, input.linkedRiskId), eq(risks.organisationId, input.organisationId)));
     if (!risk) throw new IncidentRefused("No such risk");
   }
+  if (input.assignedToUserId) await assertMemberOf(input.organisationId, input.assignedToUserId);
 
   return db.transaction(async (tx) => {
     const now = new Date();

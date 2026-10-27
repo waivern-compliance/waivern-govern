@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, describe, it } from "node:test";
 import { and, eq } from "drizzle-orm";
 import { db, sql as pg } from "@/db/client";
-import { aiUseCases, entities, organisations, users } from "@/db/schema";
+import { aiUseCases, entities, memberships, organisations, users } from "@/db/schema";
 import type { AuthedConnection } from "@/lib/integration/auth";
 import { aiUseCaseBatch } from "@/lib/integration/contracts";
 import { updateUseCase } from "@/services/ai-register";
@@ -77,6 +77,7 @@ describe("AI systems from the Portal", () => {
     await ingestAiUseCases(w.portal, record());
     const [row] = await db.select().from(aiUseCases).where(and(eq(aiUseCases.organisationId, w.org.id), eq(aiUseCases.externalRef, "portal-sys-41")));
     const [owner] = await db.insert(users).values({ email: `o-${crypto.randomUUID().slice(0, 8)}@example.com` }).returning();
+    await db.insert(memberships).values({ organisationId: w.org.id, userId: owner.id });
     await updateUseCase({
       useCaseId: row.id,
       organisationId: w.org.id,

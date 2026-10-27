@@ -15,6 +15,7 @@ import { suggestionByKey } from "@/lib/risk/treatment-library";
 import { appetiteInForce } from "./appetite-in-force";
 import type { Actor } from "./templates";
 import { queueEvent } from "./webhooks";
+import { assertEntityIn, assertMemberOf, assertRecordIn } from "./tenancy-guards";
 
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
@@ -64,6 +65,9 @@ export async function createRisk(input: {
     // is written.
     const scale = await riskScaleOf(input.organisationId, tx);
     const inherent = rate(input.likelihood, input.impact, scale);
+    await assertEntityIn(input.organisationId, input.entityId, tx);
+    if (input.ownerId) await assertMemberOf(input.organisationId, input.ownerId, tx);
+    if (input.assessmentId) await assertRecordIn(input.organisationId, "assessment", input.assessmentId, tx);
 
     const reference = await nextRiskReference(
       tx,
@@ -190,6 +194,7 @@ export async function addMitigation(input: {
       .from(risks)
       .where(and(eq(risks.id, input.riskId), eq(risks.organisationId, input.organisationId)));
     if (!risk) throw new Error("No such risk");
+    if (input.ownerId) await assertMemberOf(input.organisationId, input.ownerId, tx);
 
     const [mitigation] = await tx
       .insert(mitigations)

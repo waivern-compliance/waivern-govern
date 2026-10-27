@@ -20,6 +20,7 @@ import {
 import { evaluate, questionsOf, type AnswerValue, type Answers } from "@/lib/templates/logic";
 import { score } from "@/lib/templates/scoring";
 import type { Actor } from "./templates";
+import { assertEntityIn, assertMemberOf, assertRecordIn } from "./tenancy-guards";
 
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
@@ -110,6 +111,12 @@ export async function createAssessment(input: {
     if (version.template.organisationId !== input.organisationId) {
       throw new Error("That template belongs to a different organisation");
     }
+    await assertEntityIn(input.organisationId, input.entityId, tx);
+    if (input.subjectType && input.subjectId) {
+      await assertRecordIn(input.organisationId, input.subjectType, input.subjectId, tx);
+    }
+    if (input.ownerId) await assertMemberOf(input.organisationId, input.ownerId, tx);
+    if (input.supersedesId) await assertRecordIn(input.organisationId, "assessment", input.supersedesId, tx);
 
     const reference = await nextReference(
       tx,

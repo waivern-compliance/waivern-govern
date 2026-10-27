@@ -13,6 +13,7 @@ import { ask, type ProviderConfig, type ProviderKind, type Turn } from "@/lib/as
 import { unresolvedPlaceholder } from "@/lib/assistant/models";
 import { summariseRedactions } from "@/lib/assistant/redact";
 import type { Actor } from "./templates";
+import { NotInOrganisation, assertRecordIn } from "./tenancy-guards";
 
 /**
  * The assistant, such as it is permitted to be.
@@ -266,6 +267,20 @@ export async function acceptSuggestion(input: {
   model: string;
   actor: Actor;
 }) {
+  // Both must be this organisation's: the suggestion is recorded against them.
+  if (input.conversationId) {
+    const [own] = await db
+      .select({ id: aiConversations.id })
+      .from(aiConversations)
+      .where(
+        and(
+          eq(aiConversations.id, input.conversationId),
+          eq(aiConversations.organisationId, input.organisationId),
+        ),
+      );
+    if (!own) throw new NotInOrganisation("No such conversation in this organisation.");
+  }
+  await assertRecordIn(input.organisationId, input.subjectType, input.subjectId);
   return db.transaction(async (tx) => {
     const [row] = await tx
       .insert(aiSuggestions)

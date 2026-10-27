@@ -24,6 +24,7 @@ import { systemsWithCurrentRecord } from "./atrs";
 import { aiSupplierAssessments } from "./third-party";
 import { trainedOwners as ownersWithTraining } from "./training";
 import type { Actor } from "./templates";
+import { assertEntityIn, assertMemberOf, assertRecordIn } from "./tenancy-guards";
 
 /**
  * The AI register.
@@ -228,6 +229,10 @@ export async function createUseCase(input: {
   // Nested inside a caller's transaction where one is passed, so registering
   // a system and recording why stand or fall together.
   return executor.transaction(async (tx) => {
+    await assertEntityIn(input.organisationId, input.entityId, tx);
+    if (input.ownerId) await assertMemberOf(input.organisationId, input.ownerId, tx);
+    if (input.governanceOfficerId) await assertMemberOf(input.organisationId, input.governanceOfficerId, tx);
+    if (input.supplierId) await assertRecordIn(input.organisationId, "supplier", input.supplierId, tx);
     const [row] = await tx
       .insert(aiUseCases)
       .values({
@@ -348,6 +353,10 @@ export async function updateUseCase(input: {
         ),
       );
     if (!before) throw new Error("No such AI use case");
+    if (input.changes.ownerId) await assertMemberOf(input.organisationId, input.changes.ownerId, tx);
+    if (input.changes.governanceOfficerId) {
+      await assertMemberOf(input.organisationId, input.changes.governanceOfficerId, tx);
+    }
 
     // Another organisation's supplier would be a link nobody here can follow,
     // and a leak of its name into this register.

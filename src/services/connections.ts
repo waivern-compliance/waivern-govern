@@ -1,9 +1,10 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { integrationConnections } from "@/db/schema";
 import { appendAuditEvent } from "@/lib/audit";
 import { newSecret, sealSecret } from "@/lib/integration/crypto";
 import type { Actor } from "./templates";
+import { assertEntityIn } from "./tenancy-guards";
 
 export type ProvisionedConnection = {
   id: string;
@@ -21,6 +22,7 @@ export async function createConnection(input: {
 }): Promise<ProvisionedConnection> {
   const secret = newSecret();
   const sealed = sealSecret(secret);
+  if (input.defaultEntityId) await assertEntityIn(input.organisationId, input.defaultEntityId);
 
   return db.transaction(async (tx) => {
     const [row] = await tx
@@ -67,7 +69,15 @@ export async function rotateSecret(input: {
         secretIv: sealed.iv,
         secretTag: sealed.tag,
       })
-      .where(eq(integrationConnections.id, input.connectionId))
+      // Its own organisation's only. Without this, anyone who could rotate
+      // their own secret could rotate another organisation's by id — and be
+      // handed the new one.
+      .where(
+        and(
+          eq(integrationConnections.id, input.connectionId),
+          eq(integrationConnections.organisationId, input.organisationId),
+        ),
+      )
       .returning();
     if (!row) throw new Error("No such connection");
 

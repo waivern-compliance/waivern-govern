@@ -5,6 +5,7 @@ import { appendAuditEvent } from "@/lib/audit";
 import { pathFor } from "@/lib/records";
 import { queueNotification } from "./workflow";
 import type { Actor } from "./templates";
+import { assertEntityIn, assertRecordIn } from "./tenancy-guards";
 
 /**
  * Discussion beside a record.
@@ -118,6 +119,9 @@ export async function postComment(input: {
 }) {
   const body = input.body.trim();
   if (!body) throw new Error("A comment needs something in it");
+  // A comment on another organisation's record would surface in its discussion.
+  await assertRecordIn(input.organisationId, input.subjectType, input.subjectId);
+  if (input.entityId) await assertEntityIn(input.organisationId, input.entityId);
 
   const members = await organisationMembers(input.organisationId);
   const { userIds } = findMentions(body, members);

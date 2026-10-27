@@ -178,6 +178,7 @@ export async function completeContributorLink(input: {
       .where(
         and(
           eq(contributorLinks.id, input.linkId),
+          eq(contributorLinks.organisationId, input.organisationId),
           isNull(contributorLinks.completedAt),
           isNull(contributorLinks.revokedAt),
         ),

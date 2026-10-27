@@ -17,6 +17,7 @@ import {
   type RiskLevel,
 } from "@/lib/breach/statutory";
 import type { Actor } from "./templates";
+import { assertEntityIn, assertMemberOf, assertRecordIn } from "./tenancy-guards";
 
 /**
  * The breach register, and the decisions taken about each entry.
@@ -119,6 +120,8 @@ export async function recordBreach(input: {
   ownerId?: string | null;
   actor: Actor;
 }) {
+  await assertEntityIn(input.organisationId, input.entityId);
+  if (input.ownerId) await assertMemberOf(input.organisationId, input.ownerId);
   const reference = await nextReference(input.organisationId, new Date().getUTCFullYear());
 
   return db.transaction(async (tx) => {
@@ -181,6 +184,7 @@ export async function updateBreach(input: {
   if (input.changes.title !== undefined && !input.changes.title.trim()) {
     throw new Error("Say what happened: a breach needs a title.");
   }
+  if (input.changes.ownerId) await assertMemberOf(input.organisationId, input.changes.ownerId);
   return db.transaction(async (tx) => {
     const [before] = await tx
       .select()
@@ -482,6 +486,7 @@ export async function linkAssessment(input: {
         and(eq(breaches.id, input.breachId), eq(breaches.organisationId, input.organisationId)),
       );
     if (!breach) throw new Error("No such breach");
+    if (input.assessmentId) await assertRecordIn(input.organisationId, "assessment", input.assessmentId, tx);
 
     await tx
       .update(breaches)

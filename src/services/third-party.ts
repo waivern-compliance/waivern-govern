@@ -22,6 +22,7 @@ import {
   type AiSupplierGap,
 } from "@/lib/thirdparty/ai-procurement";
 import type { Actor } from "./templates";
+import { assertMemberOf } from "./tenancy-guards";
 
 /**
  * Third parties, and whether Article 28 is actually satisfied for each.
@@ -355,6 +356,7 @@ export async function createSupplier(input: {
   ownerId?: string | null;
   actor: Actor;
 }) {
+  if (input.ownerId) await assertMemberOf(input.organisationId, input.ownerId);
   return db.transaction(async (tx) => {
     const [row] = await tx
       .insert(suppliers)
@@ -401,6 +403,7 @@ export async function updateSupplier(input: {
   if (input.changes.name !== undefined && !input.changes.name.trim()) {
     throw new Error("A third party needs a name.");
   }
+  if (input.changes.ownerId) await assertMemberOf(input.organisationId, input.changes.ownerId);
   return db.transaction(async (tx) => {
     const [before] = await tx
       .select()

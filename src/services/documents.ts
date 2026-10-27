@@ -5,6 +5,7 @@ import { documents, users } from "@/db/schema";
 import { appendAuditEvent } from "@/lib/audit";
 import { ACCEPTED, MAX_BYTES } from "@/lib/documents/limits";
 import type { Actor } from "./templates";
+import { assertEntityIn, assertRecordIn } from "./tenancy-guards";
 
 /**
  * Files attached to a record.
@@ -54,6 +55,10 @@ export async function attachDocument(input: {
   }
 
   const sha256 = createHash("sha256").update(input.content).digest("hex");
+  // The record it is filed against must be this organisation's: a document
+  // filed against another's supplier would appear on that supplier's page.
+  await assertRecordIn(input.organisationId, input.subjectType, input.subjectId);
+  if (input.entityId) await assertEntityIn(input.organisationId, input.entityId);
 
   return db.transaction(async (tx) => {
     const [row] = await tx
@@ -242,6 +247,7 @@ export async function moveDocument(input: {
       .where(and(eq(documents.id, input.id), eq(documents.organisationId, input.organisationId)));
     if (!row) return null;
     if (row.subjectType === input.subjectType && row.subjectId === input.subjectId) return row;
+    await assertRecordIn(input.organisationId, input.subjectType, input.subjectId, tx);
 
     await tx
       .update(documents)

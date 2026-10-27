@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import { after, describe, it } from "node:test";
 import { eq } from "drizzle-orm";
 import { db, sql as pg } from "@/db/client";
 import { auditEvents, documents, entities, organisations } from "@/db/schema";
+import { createSupplier, recordDpa } from "@/services/third-party";
 import {
   ACCEPTED,
   ContentAltered,
@@ -33,7 +34,11 @@ async function scratch() {
     .insert(entities)
     .values({ organisationId: org.id, name: "Main", isDefault: true })
     .returning();
-  return { org, entity, subjectId: entity.id };
+  // Real records to file against: a document may only be filed against
+  // something that is this organisation's.
+  const supplier = await createSupplier({ organisationId: org.id, name: "Acme", actor: ACTOR });
+  const dpa = await recordDpa({ organisationId: org.id, supplierId: supplier.id, title: "Schedule 2", actor: ACTOR });
+  return { org, entity, subjectId: dpa.id, supplierId: supplier.id, dpaId: dpa.id };
 }
 
 describe("attaching a file", () => {
@@ -192,9 +197,7 @@ describe("removing one", () => {
 
 describe("reattaching a file to the right record", () => {
   it("moves it without touching the bytes or the hash", async () => {
-    const { org } = await scratch();
-    const supplierId = randomUUID();
-    const dpaId = randomUUID();
+    const { org, supplierId, dpaId } = await scratch();
     await attachDocument({
       organisationId: org.id, entityId: null, subjectType: "supplier", subjectId: supplierId,
       filename: "signed-dpa.pdf", contentType: "application/pdf", content: PDF, actor: ACTOR,
@@ -214,9 +217,7 @@ describe("reattaching a file to the right record", () => {
   });
 
   it("still hands back the same bytes afterwards", async () => {
-    const { org } = await scratch();
-    const from = randomUUID();
-    const to = randomUUID();
+    const { org, supplierId: from, dpaId: to } = await scratch();
     await attachDocument({
       organisationId: org.id, entityId: null, subjectType: "supplier", subjectId: from,
       filename: "schedule.pdf", contentType: "application/pdf", content: PDF, actor: ACTOR,
@@ -231,9 +232,7 @@ describe("reattaching a file to the right record", () => {
 
   it("records the move against both records", async () => {
     // The record it left must not simply show a file disappearing.
-    const { org } = await scratch();
-    const from = randomUUID();
-    const to = randomUUID();
+    const { org, supplierId: from, dpaId: to } = await scratch();
     await attachDocument({
       organisationId: org.id, entityId: null, subjectType: "supplier", subjectId: from,
       filename: "annexe.pdf", contentType: "application/pdf", content: PDF, actor: ACTOR,
@@ -252,8 +251,7 @@ describe("reattaching a file to the right record", () => {
   });
 
   it("moving it where it already is changes nothing", async () => {
-    const { org } = await scratch();
-    const where = randomUUID();
+    const { org, dpaId: where } = await scratch();
     await attachDocument({
       organisationId: org.id, entityId: null, subjectType: "dpa", subjectId: where,
       filename: "same.pdf", contentType: "application/pdf", content: PDF, actor: ACTOR,
@@ -269,9 +267,8 @@ describe("reattaching a file to the right record", () => {
   });
 
   it("cannot be moved from another organisation", async () => {
-    const { org } = await scratch();
+    const { org, supplierId: where } = await scratch();
     const other = await scratch();
-    const where = randomUUID();
     await attachDocument({
       organisationId: org.id, entityId: null, subjectType: "supplier", subjectId: where,
       filename: "theirs.pdf", contentType: "application/pdf", content: PDF, actor: ACTOR,
@@ -280,7 +277,7 @@ describe("reattaching a file to the right record", () => {
 
     const moved = await moveDocument({
       id: doc.id, organisationId: other.org.id,
-      subjectType: "dpa", subjectId: randomUUID(), actor: ACTOR,
+      subjectType: "dpa", subjectId: other.dpaId, actor: ACTOR,
     });
     assert.equal(moved, null);
     assert.equal((await documentsFor(org.id, "supplier", where)).length, 1, "it stayed put");
