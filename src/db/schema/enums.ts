@@ -653,3 +653,10 @@ export const extractionLinkStatus = pgEnum("extraction_link_status", [
  * is guided without anybody having to know the feature exists.
  */
 export const guidanceMode = pgEnum("guidance_mode", ["off", "setup", "maintain"]);
+
+/** Where somebody's request for a new organisation has got to. */
+export const organisationRequestStatus = pgEnum("organisation_request_status", [
+  "pending",
+  "approved",
+  "declined",
+]);

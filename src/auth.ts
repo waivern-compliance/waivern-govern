@@ -7,7 +7,8 @@ import { db } from "@/db/client";
 import { memberships, roleAssignments, users } from "@/db/schema";
 import type { Grant } from "@/lib/rbac";
 import type { Persona } from "@/lib/persona";
-import { mayJoinByDomain, unverifiedEmail } from "@/lib/auth/domains";
+import { mayJoinByDomain, mayRequestOrganisation, unverifiedEmail } from "@/lib/auth/domains";
+import { requestsOpen } from "@/lib/platform";
 import { joinByVerifiedDomain } from "@/services/domains";
 
 /**
@@ -82,7 +83,9 @@ export type SessionMembership = {
  *
  * Sign-in is not membership: a valid Entra ID token proves who someone is, not
  * that they belong to a client organisation. Someone with no active membership
- * is refused rather than admitted to an empty account.
+ * is refused rather than admitted to an empty account — unless requests for new
+ * organisations are open and their address is verified, in which case they may
+ * sign in to ask for one, and see nothing else until it is approved.
  *
  * The result is used to decide whether sign-in may proceed. It is deliberately
  * NOT cached into the session token — see `loadMemberships`.
@@ -93,10 +96,24 @@ export class IdentityLookupFailed extends Error {
   }
 }
 
-async function loadIdentity(email: string, ssoSubject: string, name?: string | null) {
-  const existing = await db.query.users.findFirst({
+async function loadIdentity(
+  email: string,
+  ssoSubject: string,
+  name?: string | null,
+  options: { createIfMissing?: boolean } = {},
+) {
+  let existing = await db.query.users.findFirst({
     where: eq(users.email, email.toLowerCase()),
   });
+  if (!existing && options.createIfMissing) {
+    // Somebody new, who may ask for an organisation of their own.
+    [existing] = await db
+      .insert(users)
+      .values({ email: email.toLowerCase(), name: name ?? null })
+      .onConflictDoNothing({ target: users.email })
+      .returning();
+    existing ??= await db.query.users.findFirst({ where: eq(users.email, email.toLowerCase()) });
+  }
   if (!existing) return null;
 
   await db
@@ -113,7 +130,7 @@ async function loadIdentity(email: string, ssoSubject: string, name?: string | n
     .where(and(eq(memberships.userId, existing.id), eq(memberships.isActive, true)))
     .limit(1);
 
-  return membership ? { userId: existing.id } : null;
+  return { userId: existing.id, member: Boolean(membership) };
 }
 
 /**
@@ -183,12 +200,19 @@ export const authConfig: NextAuthConfig = {
        * Let it throw instead, so it surfaces as a configuration error and the
        * cause is in the log.
        */
+      // Somebody who belongs nowhere may still sign in to ask for an
+      // organisation — if their address is verified, and there is a Waivern
+      // operator to ask. Otherwise they are refused, as they always were.
+      const mayRequest =
+        requestsOpen() && mayRequestOrganisation(account.provider, profile as Record<string, unknown> | undefined);
+
       let identity: Awaited<ReturnType<typeof loadIdentity>>;
       try {
         identity = await loadIdentity(
           user.email,
           `${account.provider}:${account.providerAccountId}`,
           user.name,
+          { createIfMissing: mayRequest },
         );
       } catch (cause) {
         console.error(
@@ -198,7 +222,7 @@ export const authConfig: NextAuthConfig = {
         );
         throw new IdentityLookupFailed(cause);
       }
-      if (!identity) {
+      if (!identity?.member && !(identity && mayRequest)) {
         // Logged, not shown and not put in the URL. An administrator needs to
         // know which address was refused — it is often a different account from
         // the one they granted — but an email in a query string ends up in
@@ -220,6 +244,8 @@ export const authConfig: NextAuthConfig = {
           `${account.provider}:${account.providerAccountId}`,
           user.name,
         );
+        // A member, or somebody who may ask for an organisation; anyone else
+        // was refused at sign-in and never reaches here.
         if (identity) token.userId = identity.userId;
       }
       return token;

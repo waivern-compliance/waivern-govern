@@ -16,6 +16,7 @@ import { installShippedTemplates } from "@/services/templates";
 import { seedSharedLibrary } from "@/services/countries";
 import { DEFAULT_SLA, DEFAULT_WORKFLOWS } from "@/lib/workflow/defaults";
 import { slaPolicies, workflowDefinitions, workflowStages } from "@/db/schema";
+import { RETENTION_DEFAULTS } from "@/lib/organisation/defaults";
 
 /**
  * A demonstration tenant shaped like the buyer described in the RFI: a single
@@ -57,12 +58,7 @@ const PEOPLE: Array<{
 ];
 
 /** Retention varies by record type and follows the client's own schedule. */
-const RETENTION: Array<{ subjectType: "assessment" | "audit_event" | "processing_activity" | "risk"; months: number; basis: string }> = [
-  { subjectType: "assessment", months: 84, basis: "Corporate retention schedule — governance records" },
-  { subjectType: "processing_activity", months: 84, basis: "Retained while processing continues, plus 7 years" },
-  { subjectType: "risk", months: 84, basis: "Corporate retention schedule — risk records" },
-  { subjectType: "audit_event", months: 120, basis: "Audit evidence, retained beyond the records it describes" },
-];
+const RETENTION = RETENTION_DEFAULTS;
 
 async function main() {
   let organisationId: string | undefined;

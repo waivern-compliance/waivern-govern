@@ -119,6 +119,13 @@ Then:
 | `INTEGRATION_KEY` | `openssl rand -base64 32` |
 | `CRON_SECRET` | `openssl rand -base64 32` |
 | `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | from step 4 |
+| `PLATFORM_ADMINS` | optional: Waivern operators' emails, comma-separated |
+
+`PLATFORM_ADMINS` names who may approve requests for new organisations, at
+`/platform`. While it is set, anybody who signs in with a Google-verified
+address and belongs to no organisation can ask for one; nothing is created
+until an operator approves it. Leave it unset and sign-in stays invitation
+only, as it always was.
 
 **Do not set `ALLOW_DEV_SIGN_IN`.** The build fails if it is present in
 production, deliberately: a no-password bypass that can reach production is
