@@ -9,6 +9,7 @@ import {
   uploadDocumentsAction,
   type UploadResult,
 } from "@/app/app/third-parties/documentActions";
+import { savedKey } from "@/lib/saved-key";
 
 /** Somewhere else on this third party a file could belong instead. */
 export type MoveTarget = { value: string; label: string; current: boolean };
@@ -80,6 +81,7 @@ export function Attachments({
                 <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
                   {moveTargets.length > 1 ? (
                     <form
+                      key={savedKey(moveTargets.find((t) => t.current)?.value)}
                       action={moveDocumentAction.bind(null, d.id, revalidate)}
                       className="flex items-center gap-1.5"
                     >

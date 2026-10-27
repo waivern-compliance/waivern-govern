@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { setRiskScaleAction, type AdminResult } from "../actions";
+import { savedKey } from "@/lib/saved-key";
 
 type ScaleOption = {
   id: string;
@@ -31,7 +32,7 @@ export function ScaleForm({
   const locked = riskCount > 0;
 
   return (
-    <form action={action} className="space-y-3 rounded border border-line bg-surface p-5">
+    <form key={savedKey(current)} action={action} className="space-y-3 rounded border border-line bg-surface p-5">
       <div className="space-y-1">
         <h2 className="text-sm font-semibold">Risk scale</h2>
         <p className="max-w-prose text-sm text-ink-soft">

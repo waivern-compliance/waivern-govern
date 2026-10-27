@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { mitigationStatusAction } from "./actions";
+import { savedKey } from "@/lib/saved-key";
 
 const STATUSES = ["planned", "in_progress", "implemented", "verified", "abandoned"] as const;
 
@@ -45,9 +46,7 @@ export function MitigationRow({
 
       {editable ? (
         <form
-          // Rebuilt from the saved status and evidence after each update; see
-          // the residual rating form on the risk page for why.
-          key={`${mitigation.status}|${mitigation.evidenceRef ?? ""}`}
+          key={savedKey(mitigation.status, mitigation.evidenceRef)}
           action={(formData) => {
             startTransition(async () => {
               setError(null);

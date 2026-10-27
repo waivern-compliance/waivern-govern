@@ -8,6 +8,7 @@ import {
 } from "@/lib/assistant/models";
 import type { ProviderKind } from "@/lib/assistant/providers";
 import { saveProviderAction, testProviderAction, type AdminResult } from "../actions";
+import { savedKey } from "@/lib/saved-key";
 
 const SURFACES: Array<{ id: string; label: string; note: string }> = [
   {
@@ -62,7 +63,7 @@ export function ProviderForm({
 
   return (
     <div className="space-y-5">
-      <form action={save} className="space-y-4 rounded border border-line bg-surface p-5">
+      <form key={savedKey(existing)} action={save} className="space-y-4 rounded border border-line bg-surface p-5">
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block space-y-1">
             <span className="text-xs font-medium uppercase tracking-wider text-ink-soft">

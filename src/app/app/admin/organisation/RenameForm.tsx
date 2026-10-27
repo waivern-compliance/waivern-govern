@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { renameOrganisationAction, type AdminResult } from "../actions";
+import { savedKey } from "@/lib/saved-key";
 
 export function RenameForm({ current }: { current: string }) {
   const [result, action, pending] = useActionState<AdminResult, FormData>(
@@ -10,7 +11,7 @@ export function RenameForm({ current }: { current: string }) {
   );
 
   return (
-    <form action={action} className="space-y-3 rounded border border-line bg-surface p-5">
+    <form key={savedKey(current)} action={action} className="space-y-3 rounded border border-line bg-surface p-5">
       <label className="block space-y-1">
         <span className="block text-xs font-medium uppercase tracking-wider text-ink-soft">
           Organisation name

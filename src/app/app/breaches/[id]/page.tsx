@@ -16,6 +16,7 @@ import {
   startSeverityAssessmentAction,
   updateBreachAction,
 } from "../actions";
+import { savedKey } from "@/lib/saved-key";
 
 const stamp = (d: Date | null) =>
   d ? d.toISOString().slice(0, 16).replace("T", " ") + " UTC" : null;
@@ -222,6 +223,7 @@ export default async function BreachPage({
 
       {mayEdit ? (
         <form
+          key={savedKey(breach)}
           action={updateBreachAction.bind(null, breach.id)}
           className="space-y-4 rounded border border-line bg-surface p-5"
         >

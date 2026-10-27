@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { saveDraftAction, type DraftResult } from "@/app/app/templates/actions";
+import { savedKey } from "@/lib/saved-key";
 
 /**
  * The draft schema, as JSON, with the validator's findings shown against it.
@@ -27,7 +28,7 @@ export function DraftEditor({
   );
 
   return (
-    <form action={action} className="space-y-3">
+    <form key={savedKey(definition)} action={action} className="space-y-3">
       <label className="block space-y-1">
         <span className="block text-xs font-medium uppercase tracking-wider text-ink-soft">
           Draft definition

@@ -32,6 +32,7 @@ import {
   setAiInvolvementAction,
   updateSupplierAction,
 } from "../actions";
+import { savedKey } from "@/lib/saved-key";
 
 const day = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
 
@@ -171,6 +172,7 @@ export default async function SupplierPage({
         <h2 className="text-sm font-semibold">AI</h2>
         {mayEdit ? (
           <form
+            key={savedKey(supplier.aiInvolvement)}
             action={setAiInvolvementAction.bind(null, supplier.id)}
             className="flex flex-wrap items-end gap-2"
           >
@@ -383,6 +385,7 @@ export default async function SupplierPage({
           </details>
 
           <form
+            key={savedKey(supplier)}
             action={updateSupplierAction.bind(null, supplier.id)}
             className="space-y-4 rounded border border-line bg-surface p-5"
           >

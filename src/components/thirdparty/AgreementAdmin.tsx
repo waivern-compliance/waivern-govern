@@ -7,6 +7,7 @@ import {
   updateDpaAction,
   type ArchiveResult,
 } from "@/app/app/third-parties/actions";
+import { savedKey } from "@/lib/saved-key";
 
 const day = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : "");
 
@@ -65,6 +66,7 @@ export function AgreementAdmin({
           Edit this agreement
         </summary>
         <form
+          key={savedKey(dpa)}
           action={updateDpaAction.bind(null, supplierId, dpa.id)}
           className="space-y-3 border-t border-line p-3"
         >
