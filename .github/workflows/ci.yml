@@ -1,0 +1,87 @@
+# Every pull request, and every push to main, is checked before it can merge.
+#
+# The tests run against a real Postgres with every migration applied, because
+# much of what they prove lives in the database: the append-only triggers, and
+# row-level security keeping each organisation's rows its own. The tenant
+# isolation suite is part of the run, so a change that lets one organisation
+# reach another's records fails here rather than in production.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Typecheck, lint, test and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    services:
+      postgres:
+        # The same major version the app runs on locally (docker-compose.yml).
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: govern
+          POSTGRES_PASSWORD: govern
+          POSTGRES_DB: govern_test
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U govern -d govern_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      DATABASE_URL: postgresql://govern:govern@localhost:55432/govern_test
+      # Next reads these at build time; nothing here signs anybody in.
+      AUTH_SECRET: ci-build-only-not-a-secret
+      AUTH_URL: http://localhost:3000
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Seals integration secrets in the tests. Fresh each run, and thrown away
+      # with the runner: it never protects anything real.
+      - name: Generate a throwaway integration key
+        run: echo "INTEGRATION_KEY=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
+
+      - run: pnpm typecheck
+
+      - run: pnpm lint
+
+      - name: Help page matches its source
+        run: |
+          pnpm help:md
+          git diff --exit-code docs/help.md || {
+            echo "::error::docs/help.md is out of date. Run pnpm help:md and commit the result."
+            exit 1
+          }
+
+      - name: Migrate the test database
+        run: pnpm db:migrate
+
+      # The same command as `pnpm test`, without its pretest step, which
+      # creates the database through the local Docker container.
+      - name: Test
+        run: pnpm exec tsx --test 'tests/**/*.test.ts'
+
+      - run: pnpm build

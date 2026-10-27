@@ -409,7 +409,7 @@ async function main() {
     if (spec.advance === "submitted") continue;
 
     // Walk the gates. Each is decided by somebody who holds its role.
-    let gates = submitted.approvals.filter((g) => g.status === "pending");
+    const gates = submitted.approvals.filter((g) => g.status === "pending");
     if (spec.advance === "returned") {
       if (gates[0]) {
         await decideApproval({

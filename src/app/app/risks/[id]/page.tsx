@@ -48,7 +48,7 @@ export default async function RiskPage({ params }: { params: Promise<{ id: strin
   const mayManage = can(grants, "risk.manage", risk.entityId) && risk.status !== "closed";
   const mayAccept = can(grants, "risk.accept", risk.entityId);
   const live = acceptances.find((a) => !a.supersededAt && !a.revokedAt) ?? null;
-  const lapsed = live ? live.expiresAt.getTime() <= Date.now() : false;
+  const lapsed = live ? hasPassed(live.expiresAt) : false;
   const ownsIt = risk.ownerId !== null && risk.ownerId === active.userId;
 
   return (
@@ -292,4 +292,9 @@ export default async function RiskPage({ params }: { params: Promise<{ id: strin
       />
     </main>
   );
+}
+
+/** Whether a date is already behind us, at the moment the page is drawn. */
+function hasPassed(when: Date): boolean {
+  return when.getTime() <= Date.now();
 }
