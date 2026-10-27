@@ -2,7 +2,7 @@ import Link from "next/link";
 import { RiskTierBadge } from "@/components/RiskTierBadge";
 import { navFor } from "@/lib/nav";
 import { statusWords, type Persona } from "@/lib/persona";
-import { can } from "@/lib/rbac";
+import { actingAs, can } from "@/lib/rbac";
 import type { ActiveSession } from "@/lib/session";
 import { visibleEntityIds } from "@/lib/session";
 import { dashboardMetrics } from "@/services/metrics";
@@ -44,7 +44,7 @@ async function TaskPanel({
   const mine = tasks.filter(
     (t) =>
       t.assigneeUserId === active.userId ||
-      (t.assigneeRole && active.membership.grants.some((g) => g.role === t.assigneeRole)),
+      (t.assigneeRole && actingAs(active.membership.grants.map((g) => g.role)).includes(t.assigneeRole)),
   );
   const shown = mine.length > 0 ? mine : tasks;
 

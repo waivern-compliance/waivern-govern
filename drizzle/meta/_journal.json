@@ -358,6 +358,13 @@
       "when": 1793091585934,
       "tag": "0050_training_guards",
       "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1793112173397,
+      "tag": "0051_ai_governance_lead",
+      "breakpoints": true
     }
   ]
 }

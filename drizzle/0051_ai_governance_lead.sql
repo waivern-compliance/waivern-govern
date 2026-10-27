@@ -1,0 +1,1 @@
+ALTER TYPE "public"."app_role" ADD VALUE 'ai_governance_lead' BEFORE 'approver';

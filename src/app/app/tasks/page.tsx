@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { HelpLink } from "@/components/help/HelpLink";
 import { redirect } from "next/navigation";
-import { ROLE_LABEL, can, mayDecideStage, rolesOn, type AppRole } from "@/lib/rbac";
+import { ROLE_LABEL, actingAs, can, mayDecideStage, rolesOn, type AppRole } from "@/lib/rbac";
 import { pathFor } from "@/lib/records";
 import { getActiveSession, visibleEntityIds } from "@/lib/session";
 import { mentionsFor } from "@/services/collaboration";
@@ -27,7 +27,7 @@ export default async function TasksPage() {
     }),
     mentionsFor(active.membership.organisationId, active.userId),
   ]);
-  const rolesHeld = new Set(active.membership.grants.map((g) => g.role));
+  const rolesHeld = new Set(actingAs(active.membership.grants.map((g) => g.role)));
 
   // Yours first: assigned to you by name, or waiting on a role you hold.
   const mine = all.filter(

@@ -76,6 +76,10 @@ export const appRole = pgEnum("app_role", [
   "privacy_analyst",
   // Specialist reviewer for AI use cases and AI risk assessments.
   "ai_governance",
+  // An AI governance reviewer who also configures the AI kinds of template and
+  // their approval workflows, without the organisation-wide administration a
+  // privacy administrator holds.
+  "ai_governance_lead",
   // May take an approval decision or accept a risk, within scope.
   "approver",
   // Answers assigned questions only. The account-holding equivalent of a

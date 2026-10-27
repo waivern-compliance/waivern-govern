@@ -124,12 +124,28 @@ export async function workflowsFor(organisationId: string): Promise<WorkflowView
         slaHours: s.slaHours,
         boardName: s.boardName ?? null,
         // An owner can decide anything, so they are eligible for every gate.
-        eligible: holders
-          .filter((h) => h.active && mayDecideStage([h.role], s.requiredRole))
-          .map((h) => ({ email: h.email, entityName: h.entityName })),
+        // Once per person and place: somebody holding two roles that both
+        // qualify — AI governance and its lead — is still one approver.
+        eligible: [
+          ...new Map(
+            holders
+              .filter((h) => h.active && mayDecideStage([h.role], s.requiredRole))
+              .map((h) => [`${h.email}|${h.entityName ?? ""}`, { email: h.email, entityName: h.entityName }]),
+          ).values(),
+        ],
         pending: pendingByStage.get(s.id) ?? 0,
       })),
   }));
+}
+
+/**
+ * Refuse a change to the workflow of a kind the caller may not configure.
+ * `kinds` comes from `kindsFor`; null or absent means every kind.
+ */
+function reachKind(kind: string, kinds: readonly string[] | null | undefined) {
+  if (kinds && !kinds.includes(kind)) {
+    throw new RoutingRefused(`Your role does not configure the ${kind.replace(/_/g, " ")} workflow.`);
+  }
 }
 
 async function stageIn(organisationId: string, stageId: string) {
@@ -167,9 +183,11 @@ export async function updateStage(input: {
   condition?: RoutingCondition;
   /** Undefined leaves it as it is; empty or null makes it an individual's decision. */
   boardName?: string | null;
+  kinds?: readonly string[] | null;
   actor: Actor;
 }) {
-  const { stage } = await stageIn(input.organisationId, input.stageId);
+  const { stage, definition } = await stageIn(input.organisationId, input.stageId);
+  reachKind(definition.templateKind, input.kinds);
   const boardName =
     input.boardName === undefined ? stage.boardName : input.boardName?.trim() || null;
 
@@ -248,6 +266,7 @@ export async function addStage(input: {
   condition: RoutingCondition;
   boardName?: string | null;
   slaHours?: number | null;
+  kinds?: readonly string[] | null;
   actor: Actor;
 }) {
   const name = input.name.trim();
@@ -266,6 +285,7 @@ export async function addStage(input: {
         ),
       );
     if (!definition) throw new RoutingRefused("That workflow does not exist.");
+    reachKind(definition.templateKind, input.kinds);
 
     const existing = await tx
       .select({ position: workflowStages.position })
@@ -321,9 +341,15 @@ export async function shippedWorkflowsMissing(organisationId: string) {
 }
 
 /** Install the shipped workflows an organisation is missing. Never touches one it has. */
-export async function installShippedWorkflows(input: { organisationId: string; actor: Actor }) {
+export async function installShippedWorkflows(input: {
+  organisationId: string;
+  /** Install only these kinds: what a role limited to some kinds may add. */
+  kinds?: readonly string[] | null;
+  actor: Actor;
+}) {
   const installed: string[] = [];
   for (const spec of await shippedWorkflowsMissing(input.organisationId)) {
+    if (input.kinds && !input.kinds.includes(spec.templateKind)) continue;
     await db.transaction(async (tx) => {
       const [definition] = await tx
         .insert(workflowDefinitions)
@@ -365,8 +391,10 @@ export async function installShippedWorkflows(input: { organisationId: string; a
 export async function resetWorkflow(input: {
   organisationId: string;
   templateKind: string;
+  kinds?: readonly string[] | null;
   actor: Actor;
 }) {
+  reachKind(input.templateKind, input.kinds);
   const spec = DEFAULT_WORKFLOWS.find((w) => w.templateKind === input.templateKind);
   if (!spec) throw new RoutingRefused("There is no shipped workflow for that kind of assessment.");
 

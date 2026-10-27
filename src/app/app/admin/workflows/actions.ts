@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import type { AppRole } from "@/lib/rbac";
+import { kindsFor, type AppRole } from "@/lib/rbac";
 import { requireCapability } from "@/lib/session";
 import {
   RoutingRefused,
@@ -61,6 +61,7 @@ export async function updateStageAction(
   try {
     const { redirected } = await updateStage({
       organisationId: active.membership.organisationId,
+      kinds: kindsFor(active.membership.grants, "workflow.configure"),
       stageId,
       name: String(formData.get("name") ?? ""),
       requiredRole: String(formData.get("requiredRole") ?? "") as AppRole,
@@ -100,6 +101,7 @@ export async function addStageAction(
   try {
     await addStage({
       organisationId: active.membership.organisationId,
+      kinds: kindsFor(active.membership.grants, "workflow.configure"),
       workflowDefinitionId,
       name: String(formData.get("name") ?? ""),
       requiredRole: String(formData.get("requiredRole") ?? "") as AppRole,
@@ -120,6 +122,7 @@ export async function resetWorkflowAction(templateKind: string) {
   const active = await requireCapability("workflow.configure");
   await resetWorkflow({
     organisationId: active.membership.organisationId,
+    kinds: kindsFor(active.membership.grants, "workflow.configure"),
     templateKind,
     actor: { actorKind: "user", actorUserId: active.userId, actorLabel: active.email },
   });
@@ -130,6 +133,7 @@ export async function installWorkflowsAction() {
   const active = await requireCapability("workflow.configure");
   await installShippedWorkflows({
     organisationId: active.membership.organisationId,
+    kinds: kindsFor(active.membership.grants, "workflow.configure"),
     actor: { actorKind: "user", actorUserId: active.userId, actorLabel: active.email },
   });
   revalidatePath("/app/admin/workflows");

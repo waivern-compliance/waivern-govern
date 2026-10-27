@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { kindsFor } from "@/lib/rbac";
 import { requireCapability } from "@/lib/session";
 import { reviewCountry, type AdequacyStatus, type RiskLevel } from "@/services/countries";
 
@@ -11,7 +12,12 @@ export async function reviewAction(code: string, formData: FormData): Promise<Ac
     // Reviewing country information is maintaining a reference the whole
     // organisation relies on, so it needs the same standing as changing a
     // template — not merely the ability to answer a question.
+    // A template author limited to some kinds (the AI governance lead) does
+    // not have that standing: country facts feed every transfer assessment.
     const active = await requireCapability("template.author");
+    if (kindsFor(active.membership.grants, "template.author") !== null) {
+      return { ok: false, message: "Only a template author for every kind may review country information." };
+    }
     await reviewCountry({
       organisationId: active.membership.organisationId,
       code,
