@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { signOut } from "@/auth";
 import {
@@ -10,7 +11,7 @@ import {
 import { Guide } from "@/components/guidance/Guide";
 import { PersonaSwitcher } from "@/components/home/PersonaSwitcher";
 import { PERSONA_LABEL } from "@/lib/persona";
-import { getActiveSession } from "@/lib/session";
+import { ORGANISATION_COOKIE, getActiveSession } from "@/lib/session";
 import { guidanceFor } from "@/services/guidance";
 
 /**
@@ -55,6 +56,8 @@ export default async function Home() {
         <form
           action={async () => {
             "use server";
+            // The next person to sign in on this browser starts from their own default.
+            (await cookies()).delete(ORGANISATION_COOKIE);
             await signOut({ redirectTo: "/sign-in" });
           }}
         >

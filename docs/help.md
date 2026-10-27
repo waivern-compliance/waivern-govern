@@ -145,6 +145,12 @@ This distinction matters enough that the codebase enforces it with tests. Your p
 
 So if a colleague can see something you cannot, that is a roles question, not a persona one.
 
+### More than one organisation
+
+If you belong to more than one organisation, the header shows which one you are working in and lets you switch. Everything you see and do is in that organisation alone: its records, its people, your roles there, and your persona there.
+
+Switching takes you to the home page, because whatever you had open belongs to the organisation you left. Your choice is remembered on this browser until you switch again or sign out; without one, you start in the first of your organisations by name.
+
 **See also:** Roles, and why you cannot see something · What this is, and what it is not
 
 <sub>Also searchable as: persona, home, privacy, ai governance, engineering, product manager</sub>

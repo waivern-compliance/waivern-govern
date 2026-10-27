@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Wordmark } from "@/components/Wordmark";
 import { can } from "@/lib/rbac";
 import { getActiveSession } from "@/lib/session";
+import { switchOrganisationAction } from "./actions";
 
 /**
  * The masthead every signed-in page carries.
@@ -31,7 +32,34 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <Wordmark />
           </Link>
           <div className="flex items-center gap-5">
-            {active ? (
+            {active && active.organisations.length > 1 ? (
+              // Waivern staff and anyone else in several organisations choose
+              // which one they are working in. A plain form, so it works before
+              // the page has finished loading.
+              <form action={switchOrganisationAction} className="flex items-center gap-1.5">
+                <label htmlFor="organisation-switcher" className="sr-only">
+                  Organisation
+                </label>
+                <select
+                  id="organisation-switcher"
+                  name="organisationId"
+                  defaultValue={active.membership.organisationId}
+                  className="rounded border border-white/25 bg-navy px-2 py-1 font-mono text-[11px] text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                >
+                  {active.organisations.map((o) => (
+                    <option key={o.organisationId} value={o.organisationId}>
+                      {o.organisationName}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="submit"
+                  className="rounded border border-white/25 px-2 py-1 text-[11px] text-white hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                >
+                  Switch
+                </button>
+              </form>
+            ) : active ? (
               <span className="font-mono text-[11px] text-white/70">
                 {active.membership.organisationName}
               </span>
