@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { auth, loadMemberships, type SessionMembership } from "@/auth";
 import { can, scopedEntityIds, type Capability } from "./rbac";
 import { resolvePersona, type Persona } from "./persona";
@@ -28,14 +29,48 @@ export type ActiveSession = {
    * authorisation decision goes through `can`, which never sees this.
    */
   persona: Persona;
+  /** Every organisation this person may act in, for the switcher. */
+  organisations: Array<{ organisationId: string; organisationName: string }>;
 };
+
+/**
+ * The cookie holding which organisation somebody last chose to work in.
+ *
+ * A preference, never an authority: every request still finds the person's
+ * active membership of that organisation, and a cookie naming one they do not
+ * belong to — stale, or edited — is ignored.
+ */
+export const ORGANISATION_COOKIE = "govern-organisation";
+
+/**
+ * Which membership a request acts through: the one preferred, if the person
+ * still has it, otherwise the first by name — so the default is the same every
+ * time, not whichever row the database happened to return first.
+ */
+export function chooseMembership<M extends { organisationId: string; organisationName: string }>(
+  memberships: readonly M[],
+  preferred?: string | null,
+): M | null {
+  const ordered = [...memberships].sort((a, b) => a.organisationName.localeCompare(b.organisationName));
+  return (preferred ? ordered.find((m) => m.organisationId === preferred) : undefined) ?? ordered[0] ?? null;
+}
+
+async function preferredOrganisation(): Promise<string | null> {
+  try {
+    return (await cookies()).get(ORGANISATION_COOKIE)?.value ?? null;
+  } catch {
+    // Outside a request — a script or a test — there is no preference to read.
+    return null;
+  }
+}
 
 /**
  * Resolve the caller and the organisation they are acting in.
  *
  * Most people belong to exactly one organisation; Waivern staff belong to
- * several, so the organisation is chosen explicitly rather than inferred from
- * whichever membership happens to come first.
+ * several. A caller that names an organisation gets exactly that one or
+ * nothing. Otherwise it is the one the person last switched to, else the
+ * first by name.
  */
 export async function getActiveSession(
   organisationId?: string,
@@ -50,7 +85,7 @@ export async function getActiveSession(
   const memberships = await loadMemberships(session.user.id);
   const membership = organisationId
     ? memberships.find((m) => m.organisationId === organisationId)
-    : memberships[0];
+    : chooseMembership(memberships, await preferredOrganisation());
   if (!membership) return null;
 
   return {
@@ -59,6 +94,7 @@ export async function getActiveSession(
     name: session.user.name ?? null,
     membership,
     persona: resolvePersona(membership.persona, membership.grants),
+    organisations: chooseMembershipOrder(memberships),
   };
 }
 
@@ -92,4 +128,10 @@ export function visibleEntityIds(
   capability: Capability = "record.read",
 ): string[] | null {
   return scopedEntityIds(active.membership.grants, capability);
+}
+
+function chooseMembershipOrder(memberships: readonly SessionMembership[]) {
+  return [...memberships]
+    .sort((a, b) => a.organisationName.localeCompare(b.organisationName))
+    .map(({ organisationId, organisationName }) => ({ organisationId, organisationName }));
 }

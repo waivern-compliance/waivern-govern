@@ -67,6 +67,13 @@ export const HELP_TOPICS: HelpTopic[] = [
           "So if a colleague can see something you cannot, that is a roles question, not a persona one.",
         ],
       },
+      {
+        heading: "More than one organisation",
+        body: [
+          "If you belong to more than one organisation, the header shows which one you are working in and lets you switch. Everything you see and do is in that organisation alone: its records, its people, your roles there, and your persona there.",
+          "Switching takes you to the home page, because whatever you had open belongs to the organisation you left. Your choice is remembered on this browser until you switch again or sign out; without one, you start in the first of your organisations by name.",
+        ],
+      },
     ],
     related: ["roles-and-access", "getting-started"],
   },
