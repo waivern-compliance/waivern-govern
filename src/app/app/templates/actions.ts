@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { templateDefinition } from "@/lib/templates/schema";
 import { validateTemplate } from "@/lib/templates/validate";
+import { kindsFor } from "@/lib/rbac";
 import { requireCapability } from "@/lib/session";
 import {
   createDraftFrom,
@@ -12,6 +13,7 @@ import {
   updateShippedTemplates,
   publishVersion,
   updateDraft,
+  OutsideYourKinds,
   type TemplateKind,
 } from "@/services/templates";
 
@@ -46,6 +48,7 @@ export async function createTemplateAction(formData: FormData) {
   const active = await requireCapability("template.author");
   const created = await createTemplate({
     organisationId: active.membership.organisationId,
+    kinds: kindsFor(active.membership.grants, "template.author"),
     kind,
     name,
     description: String(formData.get("description") ?? "").trim() || undefined,
@@ -97,13 +100,29 @@ export async function saveDraftAction(
   }
 
   const problems = validateTemplate(shape.data);
+  try {
+    return await saveDraft(active, templateId, versionId, shape.data, problems);
+  } catch (error) {
+    if (error instanceof OutsideYourKinds) return { ok: false, problems: [error.message] };
+    throw error;
+  }
+}
+
+async function saveDraft(
+  active: Awaited<ReturnType<typeof requireCapability>>,
+  templateId: string,
+  versionId: string,
+  definition: ReturnType<typeof templateDefinition.parse>,
+  problems: ReturnType<typeof validateTemplate>,
+): Promise<DraftResult> {
   if (problems.length > 0) {
     // Saved anyway: a draft is working material, and refusing to store
     // half-finished logic means losing it. Publication is where this blocks.
     await updateDraft({
       organisationId: active.membership.organisationId,
+      kinds: kindsFor(active.membership.grants, "template.author"),
       versionId,
-      definition: shape.data,
+      definition,
       actor: { actorKind: "user", actorUserId: active.userId, actorLabel: active.email },
     });
     revalidatePath(`/app/templates/${templateId}`);
@@ -112,8 +131,9 @@ export async function saveDraftAction(
 
   await updateDraft({
     organisationId: active.membership.organisationId,
+    kinds: kindsFor(active.membership.grants, "template.author"),
     versionId,
-    definition: shape.data,
+    definition,
     actor: { actorKind: "user", actorUserId: active.userId, actorLabel: active.email },
   });
   revalidatePath(`/app/templates/${templateId}`);
@@ -124,6 +144,7 @@ export async function startDraftAction(templateId: string) {
   const active = await requireCapability("template.author");
   await createDraftFrom({
     organisationId: active.membership.organisationId,
+    kinds: kindsFor(active.membership.grants, "template.author"),
     templateId,
     actor: { actorKind: "user", actorUserId: active.userId, actorLabel: active.email },
   });
@@ -134,6 +155,7 @@ export async function publishAction(templateId: string, versionId: string) {
   const active = await requireCapability("template.publish");
   await publishVersion({
     organisationId: active.membership.organisationId,
+    kinds: kindsFor(active.membership.grants, "template.publish"),
     versionId,
     actor: { actorKind: "user", actorUserId: active.userId, actorLabel: active.email },
   });
@@ -146,6 +168,7 @@ export async function installShippedAction() {
   const active = await requireCapability("template.publish");
   await installShippedTemplates({
     organisationId: active.membership.organisationId,
+    kinds: kindsFor(active.membership.grants, "template.publish"),
     actor: { actorKind: "user", actorUserId: active.userId, actorLabel: active.email },
   });
   revalidatePath("/app/templates");
@@ -155,6 +178,7 @@ export async function updateShippedAction() {
   const active = await requireCapability("template.publish");
   await updateShippedTemplates({
     organisationId: active.membership.organisationId,
+    kinds: kindsFor(active.membership.grants, "template.publish"),
     actor: { actorKind: "user", actorUserId: active.userId, actorLabel: active.email },
   });
   revalidatePath("/app/templates");

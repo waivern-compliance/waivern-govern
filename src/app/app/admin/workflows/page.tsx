@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { HelpLink } from "@/components/help/HelpLink";
 import { NotPermitted } from "@/components/NotPermitted";
-import { can } from "@/lib/rbac";
+import { can, kindsFor } from "@/lib/rbac";
 import { getActiveSession } from "@/lib/session";
 import { shippedWorkflowsMissing, workflowsFor } from "@/services/approval-routing";
 import { AddStageForm, StageForm } from "./StageForm";
@@ -41,10 +41,17 @@ export default async function WorkflowsPage() {
     );
   }
 
-  const [workflows, missing] = await Promise.all([
+  // A role limited to some kinds sees and changes only those workflows. The
+  // rest are not shown at all, rather than shown with their controls hidden,
+  // because a stage one cannot touch reads as one somebody forgot to set up.
+  const kinds = kindsFor(active.membership.grants, "workflow.configure");
+  const reaches = (kind: string) => kinds === null || kinds.includes(kind);
+  const [allWorkflows, allMissing] = await Promise.all([
     workflowsFor(active.membership.organisationId),
     shippedWorkflowsMissing(active.membership.organisationId),
   ]);
+  const workflows = allWorkflows.filter((w) => reaches(w.templateKind));
+  const missing = allMissing.filter((m) => reaches(m.templateKind));
   const stranded = workflows.flatMap((w) =>
     w.stages.filter((s) => s.eligible.length === 0).map((s) => ({ kind: w.templateKind, stage: s })),
   );
@@ -65,6 +72,14 @@ export default async function WorkflowsPage() {
       </header>
 
       <HelpLink topic="approval-workflows" />
+
+      {kinds !== null ? (
+        <p className="text-sm text-ink-soft">
+          Your role configures the workflows for{" "}
+          {kinds.map((k) => KIND_LABEL[k] ?? k).join(", ")}. A privacy administrator or an
+          owner configures the rest.
+        </p>
+      ) : null}
 
       {missing.length > 0 ? (
         <section className="space-y-2 rounded border border-amber-700 bg-amber-50 p-4">

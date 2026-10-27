@@ -16,7 +16,7 @@ import {
   workflowStages,
 } from "@/db/schema";
 import { appendAuditEvent } from "@/lib/audit";
-import { mayDecideStage } from "@/lib/rbac";
+import { actingGrants, mayDecideStage, type Grant } from "@/lib/rbac";
 import { addMonths } from "@/lib/dates";
 import type { RiskTier } from "@/lib/risk/scale";
 import { describe, matches, type RoutingContext } from "@/lib/workflow/routing";
@@ -617,7 +617,7 @@ export async function openTasks(organisationId: string, viewer: TaskViewer) {
     reach.push(eq(tasks.assigneeUserId, viewer.userId));
   }
 
-  for (const g of viewer.grants ?? []) {
+  for (const g of actingGrants((viewer.grants ?? []) as readonly Grant[])) {
     reach.push(
       g.scope === "organisation"
         ? eq(tasks.assigneeRole, g.role as never)

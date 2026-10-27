@@ -39,6 +39,8 @@ const BY_ROLE: Partial<Record<AppRole, CourseKey[]>> = {
   owner: ["ai_leadership"],
   approver: ["ai_leadership", "ai_risk"],
   ai_governance: ["ai_ethics", "ai_risk", "data_protection_ai"],
+  // Sets how AI work is assessed and approved, so also the decision makers' course.
+  ai_governance_lead: ["ai_leadership", "ai_ethics", "ai_risk", "data_protection_ai"],
   privacy_admin: ["ai_ethics", "data_protection_ai"],
   privacy_analyst: ["data_protection_ai"],
 };

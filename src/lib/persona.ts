@@ -37,6 +37,8 @@ export function resolvePersona(
   grants: readonly Grant[],
 ): Persona {
   if (stated) return stated;
+  // A lead's template rights would otherwise read as privacy administration.
+  if (grants.some((g) => g.role === "ai_governance_lead")) return "ai_governance";
   if (can(grants, "template.author") || can(grants, "audit.read")) {
     return "privacy_governance";
   }

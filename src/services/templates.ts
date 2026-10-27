@@ -22,6 +22,45 @@ export class TemplateNotPublishable extends Error {
   }
 }
 
+/** Raised when somebody configures a kind of template their role does not reach. */
+export class OutsideYourKinds extends Error {}
+
+/**
+ * The kinds the caller may configure: `null` or absent for every kind. Passed
+ * by the screens from `kindsFor`, so a role limited to some kinds — the AI
+ * governance lead — is held to them here and not only by hidden buttons.
+ */
+type KindLimit = readonly string[] | null | undefined;
+
+function reach(kind: string, kinds: KindLimit) {
+  if (kinds && !kinds.includes(kind)) {
+    throw new OutsideYourKinds(
+      `Your role does not configure ${kind.replace(/_/g, " ")} templates or workflows.`,
+    );
+  }
+}
+
+/** A template's kind, found within the organisation, or an error if it is not there. */
+async function kindOfTemplate(executor: Pick<typeof db, "select">, organisationId: string, templateId: string) {
+  const [row] = await executor
+    .select({ kind: templates.kind })
+    .from(templates)
+    .where(and(eq(templates.id, templateId), eq(templates.organisationId, organisationId)));
+  if (!row) throw new Error("No such template");
+  return row.kind;
+}
+
+/** The same, from one of the template's versions. */
+async function kindOfVersion(executor: Pick<typeof db, "select">, organisationId: string, versionId: string) {
+  const [row] = await executor
+    .select({ kind: templates.kind })
+    .from(templateVersions)
+    .innerJoin(templates, eq(templates.id, templateVersions.templateId))
+    .where(and(eq(templateVersions.id, versionId), eq(templates.organisationId, organisationId)));
+  if (!row) throw new Error("No such template version");
+  return row.kind;
+}
+
 export async function createTemplate(input: {
   organisationId: string;
   kind: TemplateKind;
@@ -30,8 +69,10 @@ export async function createTemplate(input: {
   jurisdiction?: string;
   isSystem?: boolean;
   definition: TemplateDefinition;
+  kinds?: KindLimit;
   actor: Actor;
 }) {
+  reach(input.kind, input.kinds);
   const definition = templateDefinition.parse(input.definition);
 
   return db.transaction(async (tx) => {
@@ -83,9 +124,11 @@ export async function createDraftFrom(input: {
   templateId: string;
   definition?: TemplateDefinition;
   notes?: string;
+  kinds?: KindLimit;
   actor: Actor;
 }) {
   return db.transaction(async (tx) => {
+    reach(await kindOfTemplate(tx, input.organisationId, input.templateId), input.kinds);
     const latest = await tx
       .select()
       .from(templateVersions)
@@ -136,11 +179,13 @@ export async function updateDraft(input: {
   versionId: string;
   definition: TemplateDefinition;
   notes?: string;
+  kinds?: KindLimit;
   actor: Actor;
 }) {
   const definition = templateDefinition.parse(input.definition);
 
   return db.transaction(async (tx) => {
+    reach(await kindOfVersion(tx, input.organisationId, input.versionId), input.kinds);
     const [existing] = await tx
       .select()
       .from(templateVersions)
@@ -180,9 +225,11 @@ export async function updateDraft(input: {
 export async function publishVersion(input: {
   organisationId: string;
   versionId: string;
+  kinds?: KindLimit;
   actor: Actor;
 }) {
   return db.transaction(async (tx) => {
+    reach(await kindOfVersion(tx, input.organisationId, input.versionId), input.kinds);
     const [draft] = await tx
       .select()
       .from(templateVersions)
@@ -281,11 +328,17 @@ async function ensureLegalReferences() {
  * they are — their review dates are claims somebody made, and re-stamping them
  * here would make every citation look freshly checked.
  */
-export async function installShippedTemplates(input: { organisationId: string; actor: Actor }) {
+export async function installShippedTemplates(input: {
+  organisationId: string;
+  /** Install only these kinds: what a role limited to some kinds may add. */
+  kinds?: KindLimit;
+  actor: Actor;
+}) {
   await ensureLegalReferences();
 
   const installed: string[] = [];
   for (const t of await shippedTemplatesMissing(input.organisationId)) {
+    if (input.kinds && !input.kinds.includes(t.kind)) continue;
     const { version } = await createTemplate({
       organisationId: input.organisationId,
       kind: t.kind,
@@ -334,7 +387,13 @@ export async function shippedTemplatesOutdated(organisationId: string) {
     ).map((d) => d.templateId),
   );
 
-  const outdated: Array<{ templateId: string; name: string; version: number; blockedByDraft: boolean }> = [];
+  const outdated: Array<{
+    templateId: string;
+    kind: TemplateKind;
+    name: string;
+    version: number;
+    blockedByDraft: boolean;
+  }> = [];
   for (const { template, version } of rows) {
     const shipped = SYSTEM_TEMPLATES.find((t) => t.name === template.name);
     if (!shipped) continue;
@@ -342,6 +401,7 @@ export async function shippedTemplatesOutdated(organisationId: string) {
     if (canonicalise(version.definition) === current) continue;
     outdated.push({
       templateId: template.id,
+      kind: template.kind,
       name: template.name,
       version: version.version,
       blockedByDraft: drafts.has(template.id),
@@ -356,11 +416,16 @@ export async function shippedTemplatesOutdated(organisationId: string) {
  * A new version, never an edit: assessments already run keep the questions
  * they answered, and new ones get the current set.
  */
-export async function updateShippedTemplates(input: { organisationId: string; actor: Actor }) {
+export async function updateShippedTemplates(input: {
+  organisationId: string;
+  kinds?: KindLimit;
+  actor: Actor;
+}) {
   await ensureLegalReferences();
   const updated: string[] = [];
   for (const t of await shippedTemplatesOutdated(input.organisationId)) {
     if (t.blockedByDraft) continue;
+    if (input.kinds && !input.kinds.includes(t.kind)) continue;
     const shipped = SYSTEM_TEMPLATES.find((s) => s.name === t.name)!;
     const draft = await createDraftFrom({
       organisationId: input.organisationId,

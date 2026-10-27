@@ -161,6 +161,7 @@ Each role carries a set of capabilities. They add up: holding two roles gives yo
 - Privacy admin — the registers, templates and workflow configuration.
 - Privacy analyst — day-to-day assessment and risk work.
 - AI governance — the AI register and assessments over it.
+- AI governance lead — everything AI governance does, and also authors, publishes and routes the AI risk, supplier and equality impact templates. Organisation-wide settings, people and the other kinds stay with privacy administrators and owners. A lead counts as AI governance wherever a stage or task names that role.
 - Approver — decides approval gates and accepts risk.
 - Contributor — answers what is asked of them.
 - Auditor — reads everything, changes nothing, exports the audit log.
@@ -369,7 +370,7 @@ You can withdraw your own comment. The fact of it remains, so the thread still r
 
 ### Who needs what
 
-The AI Playbook asks that everybody working with AI has the skills it needs. Everyone here needs the fundamentals. Approvers and owners need AI for decision makers; approvers and AI governance need AI risk management; AI governance and the privacy roles need data protection and AI; AI governance and privacy administrators need ethics.
+The AI Playbook asks that everybody working with AI has the skills it needs. Everyone here needs the fundamentals. Approvers, owners and AI governance leads need AI for decision makers; approvers and both AI governance roles need AI risk management; both AI governance roles and the privacy roles need data protection and AI; both AI governance roles and privacy administrators need ethics.
 
 Owning a system on the AI register adds AI for decision makers and AI risk management, because the Playbook names senior responsible owners as people who must understand AI's risks. A system whose owner's learning is not current shows that on the register.
 
@@ -909,7 +910,7 @@ The equality impact assessment follows the public sector equality duty: impact o
 
 ### Where the approver is defined
 
-On the approval workflow for that kind of assessment. Each stage names a role — privacy analyst, approver, AI governance — and anyone holding that role in the assessment's entity may decide it. Owners may decide anything.
+On the approval workflow for that kind of assessment. Each stage names a role — privacy analyst, approver, AI governance — and anyone holding that role in the assessment's entity may decide it. Owners may decide anything, and an AI governance lead may decide what AI governance may.
 
 Deliberately a role and not a person. Naming a person means every leaver strands a queue of assessments waiting on somebody who no longer works here, and every reorganisation becomes a data migration. Naming a role means a departure is handled by moving the role: the gates follow.
 

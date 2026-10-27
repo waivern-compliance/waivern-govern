@@ -4,7 +4,7 @@ import { DraftEditor } from "@/components/templates/DraftEditor";
 import { NotPermitted } from "@/components/NotPermitted";
 import { legalRefMap } from "@/lib/legal-refs";
 import { describeCondition, describeType, questionLabels } from "@/lib/templates/describe";
-import { can } from "@/lib/rbac";
+import { can, canForKind } from "@/lib/rbac";
 import { getActiveSession } from "@/lib/session";
 import { validateTemplate } from "@/lib/templates/validate";
 import type { ResolvedRef } from "@/lib/legal-refs";
@@ -38,8 +38,8 @@ export default async function TemplatePage({
   if (!loaded) notFound();
 
   const { template, versions, published, draft } = loaded;
-  const mayAuthor = can(active.membership.grants, "template.author");
-  const mayPublish = can(active.membership.grants, "template.publish");
+  const mayAuthor = canForKind(active.membership.grants, "template.author", template.kind);
+  const mayPublish = canForKind(active.membership.grants, "template.publish", template.kind);
 
   // Review the published version if there is one, since that is what
   // assessments actually run against. A draft is shown below it, not instead.

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { HelpLink } from "@/components/help/HelpLink";
 import { NotPermitted } from "@/components/NotPermitted";
-import { can } from "@/lib/rbac";
+import { can, kindsFor } from "@/lib/rbac";
 import { getActiveSession } from "@/lib/session";
 import { questionsOf } from "@/lib/templates/logic";
 import {
@@ -39,15 +39,23 @@ export default async function Templates() {
 
   // The whole library, drafts included: a template whose only version is an
   // unpublished draft is exactly what somebody editing came back for.
-  const [rows, missing, outdated] = await Promise.all([
+  const [rows, allMissing, allOutdated] = await Promise.all([
     templateLibrary(active.membership.organisationId),
     shippedTemplatesMissing(active.membership.organisationId),
     shippedTemplatesOutdated(active.membership.organisationId),
   ]);
-  const updatable = outdated.filter((t) => !t.blockedByDraft);
-  const blocked = outdated.filter((t) => t.blockedByDraft);
   const mayAuthor = can(active.membership.grants, "template.author");
   const mayPublish = can(active.membership.grants, "template.publish");
+  // A role limited to some kinds is offered only those: the shipped templates
+  // it may add or update, and the kinds it may start a template of.
+  const authorKinds = kindsFor(active.membership.grants, "template.author");
+  const publishKinds = kindsFor(active.membership.grants, "template.publish");
+  const reaches = (kinds: string[] | null, kind: string) => kinds === null || kinds.includes(kind);
+  const missing = allMissing.filter((t) => reaches(publishKinds, t.kind));
+  const outdated = allOutdated.filter((t) => reaches(publishKinds, t.kind));
+  const updatable = outdated.filter((t) => !t.blockedByDraft);
+  const blocked = outdated.filter((t) => t.blockedByDraft);
+  const startable = Object.entries(KIND_LABEL).filter(([kind]) => reaches(authorKinds, kind));
 
   return (
     <main className="mx-auto max-w-3xl space-y-8 px-6 py-12">
@@ -145,10 +153,10 @@ export default async function Templates() {
                 <select
                   name="kind"
                   required
-                  defaultValue="custom"
+                  defaultValue={authorKinds === null ? "custom" : startable[0]?.[0]}
                   className="w-full rounded border border-line bg-ground px-3 py-2 text-sm"
                 >
-                  {Object.entries(KIND_LABEL).map(([value, label]) => (
+                  {startable.map(([value, label]) => (
                     <option key={value} value={value}>{label}</option>
                   ))}
                 </select>

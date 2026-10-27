@@ -2,7 +2,7 @@ import Link from "next/link";
 import { HelpLink } from "@/components/help/HelpLink";
 import { redirect } from "next/navigation";
 import { NotPermitted } from "@/components/NotPermitted";
-import { can } from "@/lib/rbac";
+import { can, kindsFor } from "@/lib/rbac";
 import { getActiveSession } from "@/lib/session";
 import {
   ADEQUACY_WORDS,
@@ -40,7 +40,7 @@ export default async function CountriesPage({
   const { filter } = await searchParams;
   const org = active.membership.organisationId;
   const [library, health] = await Promise.all([libraryFor(org), libraryHealth(org)]);
-  const mayReview = can(active.membership.grants, "template.author");
+  const mayReview = kindsFor(active.membership.grants, "template.author") === null;
 
   const shown =
     filter === "stale" ? library.filter((c) => c.stale)
