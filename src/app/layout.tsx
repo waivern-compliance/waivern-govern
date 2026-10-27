@@ -7,7 +7,6 @@ export const metadata: Metadata = {
   // browser tabs is readable rather than nine identical ones.
   title: { default: PRODUCT_NAME, template: `%s · ${PRODUCT_NAME}` },
   description: PRODUCT_DESCRIPTION,
-  icons: { icon: "/waivern-mark.svg" },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="6 6 88 88">
+  <!--
+    The Waivern mark for a browser tab: the same nodes and connections as
+    public/waivern-mark.svg, cropped closer and drawn bolder, because at
+    sixteen pixels the full mark's hairlines vanish. Navy on a light tab bar,
+    white on a dark one.
+  -->
+  <style>
+    g { stroke: #0a2540; }
+    @media (prefers-color-scheme: dark) { g { stroke: #ffffff; } }
+  </style>
+  <g fill="none" stroke-width="6.5" stroke-linecap="round">
+    <path d="M20 30 V40" />
+    <path d="M27 57 L43 73" />
+    <path d="M60 80 H70" />
+    <path d="M57 43 L73 27" />
+    <circle cx="20" cy="20" r="8" />
+    <circle cx="50" cy="20" r="8" />
+    <circle cx="80" cy="20" r="8" />
+    <circle cx="20" cy="50" r="8" />
+    <circle cx="50" cy="50" r="8" />
+    <circle cx="80" cy="50" r="8" />
+    <circle cx="20" cy="80" r="8" />
+    <circle cx="50" cy="80" r="8" />
+    <circle cx="80" cy="80" r="8" />
+  </g>
+</svg>
