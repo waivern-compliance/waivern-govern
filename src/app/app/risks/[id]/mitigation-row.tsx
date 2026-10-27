@@ -45,6 +45,9 @@ export function MitigationRow({
 
       {editable ? (
         <form
+          // Rebuilt from the saved status and evidence after each update; see
+          // the residual rating form on the risk page for why.
+          key={`${mitigation.status}|${mitigation.evidenceRef ?? ""}`}
           action={(formData) => {
             startTransition(async () => {
               setError(null);

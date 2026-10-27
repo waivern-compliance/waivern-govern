@@ -186,6 +186,11 @@ export default async function RiskPage({ params }: { params: Promise<{ id: strin
             is a call someone has to make and be accountable for.
           </p>
           <form
+            // Keyed on the saved rating so the form is rebuilt from it. React
+            // resets a form to its first defaults after an action runs, and
+            // without the key those were the values the page loaded with: the
+            // inherent likelihood, say, shown as if it were the residual.
+            key={`${risk.residualLikelihood}x${risk.residualImpact}`}
             action={rateResidualAction.bind(null, id)}
             className="grid gap-3 rounded border border-line bg-surface p-4 sm:grid-cols-[auto_auto_auto] sm:items-end"
           >
