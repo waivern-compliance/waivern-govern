@@ -8,6 +8,17 @@ import type { TemplateDefinition } from "../schema";
  * Scoring is likelihood x impact, which is the method most organisations
  * already use in their wider risk register — a DPIA that scores on its own
  * private scale cannot be compared with anything else the board sees.
+ *
+ * It also covers the ten things the UK government AI Playbook says a DPIA of
+ * AI should do: where the data comes from and goes, whether we are controller
+ * or processor and who processes for us, the views of the people affected,
+ * and — for AI and automated decisions — where they affect people, where a
+ * person is involved, and the detriment bias or inaccuracy could cause.
+ *
+ * `residual_accepted` and `ico_consultation` are read by the AI register's
+ * lifecycle gate: a system whose DPIA leaves high risk cannot go live until
+ * the ICO has been consulted, because Article 36 requires consultation before
+ * processing starts.
  */
 export const DPIA: TemplateDefinition = {
   schema: {
@@ -20,6 +31,15 @@ export const DPIA: TemplateDefinition = {
           { key: "activity_name", label: "Name of the processing activity", type: "short_text", required: true, legalRefs: ["ukgdpr.art30"], evidence: "none" },
           { key: "nature", label: "What will you do with the personal data?", type: "long_text", required: true, help: "How it is collected, used, stored, shared and deleted.", legalRefs: ["ukgdpr.art35.7"], evidence: "none" },
           { key: "purpose", label: "What are you trying to achieve?", type: "long_text", required: true, legalRefs: ["ukgdpr.art5"], evidence: "none" },
+          { key: "controller_role", label: "What is our role in this processing?", type: "single_select", required: true, legalRefs: ["ukgdpr.art28"], evidence: "none",
+            options: [
+              { value: "controller", label: "Controller" },
+              { value: "joint_controller", label: "Joint controller, with another organisation" },
+              { value: "processor", label: "Processor, acting for another controller" },
+            ] },
+          { key: "processors", label: "Which processors act for us here, and under what agreement?", type: "long_text", required: false,
+            help: "Name them as they appear on the third-party register, so the agreements can be checked.",
+            legalRefs: ["ukgdpr.art28"], evidence: "none" },
           { key: "lawful_basis", label: "Lawful basis", type: "single_select", required: true, legalRefs: ["ukgdpr.art6"], evidence: "none",
             options: [
               { value: "consent", label: "Consent" },
@@ -45,6 +65,9 @@ export const DPIA: TemplateDefinition = {
             showWhen: { op: "equals", question: "special_category", value: true },
             requireWhen: { op: "equals", question: "special_category", value: true },
             legalRefs: ["ukgdpr.art9"], evidence: "none" },
+          { key: "sources_and_flows", label: "Where does the data come from, where does it go, and where is each part processed?", type: "long_text", required: true,
+            help: "Map it through each stage — collection, preparation, training, testing, use, monitoring. Processing outside the UK may need a transfer assessment.",
+            legalRefs: ["ukgdpr.art35.7", "gds.aiplaybook"], evidence: "optional" },
           { key: "subject_groups", label: "Whose data is it?", type: "long_text", required: true, help: "Audiences, staff, contributors, contractors, children, and so on.", legalRefs: [], evidence: "none" },
           { key: "volume", label: "Roughly how many people are affected?", type: "number", required: true, legalRefs: [], evidence: "none" },
           { key: "retention", label: "How long will the data be kept, and why?", type: "long_text", required: true, legalRefs: ["ukgdpr.art5"], evidence: "none" },
@@ -58,6 +81,9 @@ export const DPIA: TemplateDefinition = {
           { key: "alternatives", label: "What less intrusive options did you consider, and why were they rejected?", type: "long_text", required: true, legalRefs: ["ukgdpr.art25"], evidence: "none" },
           { key: "transparency", label: "How will people be told about this?", type: "long_text", required: true, legalRefs: ["ukgdpr.art5"], evidence: "none" },
           { key: "rights_support", label: "How will you support access, erasure, objection and the other rights?", type: "long_text", required: true, legalRefs: [], evidence: "none" },
+          { key: "views_sought", label: "Whose views did you seek about this processing, and what did they say?", type: "long_text", required: true,
+            help: "Including whether the people concerned know it is happening. Where seeking views was not appropriate, say why.",
+            legalRefs: ["ukgdpr.art35", "gds.aiplaybook"], evidence: "optional" },
         ],
       },
       {
@@ -73,6 +99,25 @@ export const DPIA: TemplateDefinition = {
             showWhen: { op: "equals", question: "transfers_abroad", value: true },
             help: "A separate TRA is required unless the destination is covered by adequacy regulations.",
             legalRefs: ["ico.tra"], evidence: "none" },
+        ],
+      },
+      {
+        key: "automated",
+        title: "AI and automated decisions",
+        questions: [
+          { key: "uses_ai", label: "Does the processing use AI or make automated decisions about people?", type: "boolean", required: true, legalRefs: ["ukgdpr.art22", "ico.ai"], evidence: "none" },
+          { key: "ai_impact_stages", label: "At which stages does AI or automated decision-making affect individuals?", type: "long_text", required: false,
+            showWhen: { op: "equals", question: "uses_ai", value: true },
+            requireWhen: { op: "equals", question: "uses_ai", value: true },
+            legalRefs: ["ukgdpr.art22", "gds.aiplaybook"], evidence: "none" },
+          { key: "human_involvement", label: "At which stages is a person involved in the decision, and can they change the outcome?", type: "long_text", required: false,
+            showWhen: { op: "equals", question: "uses_ai", value: true },
+            requireWhen: { op: "equals", question: "uses_ai", value: true },
+            legalRefs: ["ukgdpr.art22"], evidence: "none" },
+          { key: "bias_inaccuracy", label: "What detriment could people suffer from bias or inaccuracy, and how has that been tested?", type: "long_text", required: false,
+            showWhen: { op: "equals", question: "uses_ai", value: true },
+            requireWhen: { op: "equals", question: "uses_ai", value: true },
+            legalRefs: ["ico.ai", "uk.equality2010"], evidence: "optional" },
         ],
       },
       {
@@ -101,6 +146,16 @@ export const DPIA: TemplateDefinition = {
             showWhen: { op: "equals", question: "residual_accepted", value: true },
             requireWhen: { op: "equals", question: "residual_accepted", value: true },
             legalRefs: ["ukgdpr.art36"], evidence: "none" },
+          { key: "ico_consultation", label: "Where has prior consultation with the ICO got to?", type: "single_select", required: false,
+            help: "Article 36 requires consultation before the processing starts. The ICO has eight weeks to give written advice, which it can extend by six.",
+            showWhen: { op: "equals", question: "residual_accepted", value: true },
+            requireWhen: { op: "equals", question: "residual_accepted", value: true },
+            legalRefs: ["ukgdpr.art36"], evidence: "optional",
+            options: [
+              { value: "not_started", label: "Not yet consulted" },
+              { value: "submitted", label: "Submitted, awaiting the ICO's advice" },
+              { value: "advice_received", label: "The ICO's advice has been received" },
+            ] },
         ],
       },
     ],

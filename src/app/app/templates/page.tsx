@@ -5,8 +5,12 @@ import { NotPermitted } from "@/components/NotPermitted";
 import { can } from "@/lib/rbac";
 import { getActiveSession } from "@/lib/session";
 import { questionsOf } from "@/lib/templates/logic";
-import { shippedTemplatesMissing, templateLibrary } from "@/services/templates";
-import { createTemplateAction, installShippedAction } from "./actions";
+import {
+  shippedTemplatesMissing,
+  shippedTemplatesOutdated,
+  templateLibrary,
+} from "@/services/templates";
+import { createTemplateAction, installShippedAction, updateShippedAction } from "./actions";
 
 const KIND_LABEL: Record<string, string> = {
   screening: "Screening",
@@ -15,6 +19,7 @@ const KIND_LABEL: Record<string, string> = {
   tia: "Transfer impact",
   ai_risk: "AI risk",
   supplier_record: "Supplier record",
+  eia: "Equality impact",
   breach: "Breach",
   custom: "Custom",
 };
@@ -34,10 +39,13 @@ export default async function Templates() {
 
   // The whole library, drafts included: a template whose only version is an
   // unpublished draft is exactly what somebody editing came back for.
-  const [rows, missing] = await Promise.all([
+  const [rows, missing, outdated] = await Promise.all([
     templateLibrary(active.membership.organisationId),
     shippedTemplatesMissing(active.membership.organisationId),
+    shippedTemplatesOutdated(active.membership.organisationId),
   ]);
+  const updatable = outdated.filter((t) => !t.blockedByDraft);
+  const blocked = outdated.filter((t) => t.blockedByDraft);
   const mayAuthor = can(active.membership.grants, "template.author");
   const mayPublish = can(active.membership.grants, "template.publish");
 
@@ -80,6 +88,36 @@ export default async function Templates() {
           >
             Add {missing.length === 1 ? "it" : "them"}
           </button>
+        </form>
+      ) : null}
+
+      {mayPublish && outdated.length > 0 ? (
+        <form
+          action={updateShippedAction}
+          className="space-y-2 rounded border-l-2 border-brand bg-surface px-4 py-3"
+        >
+          <p className="text-sm">
+            <strong>
+              Waivern has updated {outdated.length === 1 ? "a template" : `${outdated.length} templates`} you
+              use:
+            </strong>{" "}
+            {outdated.map((t) => `${t.name} (you have version ${t.version})`).join(", ")}.
+          </p>
+          <p className="text-xs text-ink-soft">
+            Updating publishes the new questions as the next version. Assessments
+            already started keep the version they ran against.
+            {blocked.length > 0
+              ? ` ${blocked.map((t) => t.name).join(", ")} ${blocked.length === 1 ? "has" : "have"} an open draft, which has to be published or abandoned first.`
+              : ""}
+          </p>
+          {updatable.length > 0 ? (
+            <button
+              type="submit"
+              className="rounded border border-line bg-ground px-3 py-1.5 text-sm hover:border-brand focus-visible:outline-2 focus-visible:outline-brand"
+            >
+              Update {updatable.length === 1 ? "it" : "them"}
+            </button>
+          ) : null}
         </form>
       ) : null}
 

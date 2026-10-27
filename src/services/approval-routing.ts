@@ -305,6 +305,62 @@ export async function addStage(input: {
   });
 }
 
+/**
+ * Shipped workflows the organisation does not have, by kind.
+ *
+ * An organisation created before a workflow shipped never received it, and an
+ * assessment of that kind then has no route to approval at all.
+ */
+export async function shippedWorkflowsMissing(organisationId: string) {
+  const held = await db
+    .select({ kind: workflowDefinitions.templateKind })
+    .from(workflowDefinitions)
+    .where(eq(workflowDefinitions.organisationId, organisationId));
+  const kinds = new Set(held.map((h) => h.kind));
+  return DEFAULT_WORKFLOWS.filter((w) => !kinds.has(w.templateKind));
+}
+
+/** Install the shipped workflows an organisation is missing. Never touches one it has. */
+export async function installShippedWorkflows(input: { organisationId: string; actor: Actor }) {
+  const installed: string[] = [];
+  for (const spec of await shippedWorkflowsMissing(input.organisationId)) {
+    await db.transaction(async (tx) => {
+      const [definition] = await tx
+        .insert(workflowDefinitions)
+        .values({
+          organisationId: input.organisationId,
+          templateKind: spec.templateKind,
+          name: spec.name,
+        })
+        .returning();
+      for (const s of spec.stages) {
+        await tx.insert(workflowStages).values({
+          workflowDefinitionId: definition.id,
+          position: s.position,
+          name: s.name,
+          requiredRole: s.requiredRole,
+          condition: s.condition,
+          slaHours: s.slaHours,
+          boardName: s.boardName ?? null,
+        });
+      }
+      await appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        action: "workflow.installed",
+        subjectType: "workflow_definition",
+        subjectId: definition.id,
+        after: {
+          templateKind: spec.templateKind,
+          stages: spec.stages.map((s) => ({ name: s.name, requiredRole: s.requiredRole })),
+        },
+      });
+    });
+    installed.push(spec.name);
+  }
+  return installed;
+}
+
 /** Restore the shipped workflow for one kind, when somebody has edited it into a corner. */
 export async function resetWorkflow(input: {
   organisationId: string;

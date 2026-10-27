@@ -9,6 +9,7 @@ import {
   createDraftFrom,
   createTemplate,
   installShippedTemplates,
+  updateShippedTemplates,
   publishVersion,
   updateDraft,
   type TemplateKind,
@@ -144,6 +145,15 @@ export async function publishAction(templateId: string, versionId: string) {
 export async function installShippedAction() {
   const active = await requireCapability("template.publish");
   await installShippedTemplates({
+    organisationId: active.membership.organisationId,
+    actor: { actorKind: "user", actorUserId: active.userId, actorLabel: active.email },
+  });
+  revalidatePath("/app/templates");
+}
+
+export async function updateShippedAction() {
+  const active = await requireCapability("template.publish");
+  await updateShippedTemplates({
     organisationId: active.membership.organisationId,
     actor: { actorKind: "user", actorUserId: active.userId, actorLabel: active.email },
   });

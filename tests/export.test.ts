@@ -33,6 +33,10 @@ const ANSWERS = {
   alternatives: "Editorial-only ranking rejected.",
   transparency: "Privacy notice.",
   rights_support: "Self-service controls.",
+  controller_role: "controller",
+  sources_and_flows: "Viewing events from the player, held in the UK.",
+  views_sought: "Audience panel consulted; they expect it.",
+  uses_ai: false,
   transfers_abroad: false,
   risk_description: "Inference of interests.",
   likelihood: "unlikely",
@@ -371,7 +375,7 @@ describe("the governance context", () => {
   it("is versioned, so the Portal can tell what shape it received", async () => {
     const w = await world("version");
     const context = await governanceContext({ organisationId: w.org.id });
-    assert.equal(context.contextVersion, "1.0");
+    assert.equal(context.contextVersion, "1.1");
     assert.ok(context.generatedAt);
     assert.equal(context.organisation.name, w.org.name);
   });

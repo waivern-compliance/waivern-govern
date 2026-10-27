@@ -4,9 +4,9 @@ import { HelpLink } from "@/components/help/HelpLink";
 import { NotPermitted } from "@/components/NotPermitted";
 import { can } from "@/lib/rbac";
 import { getActiveSession } from "@/lib/session";
-import { workflowsFor } from "@/services/approval-routing";
+import { shippedWorkflowsMissing, workflowsFor } from "@/services/approval-routing";
 import { AddStageForm, StageForm } from "./StageForm";
-import { resetWorkflowAction } from "./actions";
+import { installWorkflowsAction, resetWorkflowAction } from "./actions";
 
 const KIND_LABEL: Record<string, string> = {
   screening: "Screening",
@@ -15,6 +15,8 @@ const KIND_LABEL: Record<string, string> = {
   tra: "Transfer risk assessment",
   tia: "Transfer impact assessment",
   ai_risk: "AI risk assessment",
+  supplier_record: "Supplier assessment",
+  eia: "Equality impact assessment",
 };
 
 /**
@@ -39,7 +41,10 @@ export default async function WorkflowsPage() {
     );
   }
 
-  const workflows = await workflowsFor(active.membership.organisationId);
+  const [workflows, missing] = await Promise.all([
+    workflowsFor(active.membership.organisationId),
+    shippedWorkflowsMissing(active.membership.organisationId),
+  ]);
   const stranded = workflows.flatMap((w) =>
     w.stages.filter((s) => s.eligible.length === 0).map((s) => ({ kind: w.templateKind, stage: s })),
   );
@@ -60,6 +65,28 @@ export default async function WorkflowsPage() {
       </header>
 
       <HelpLink topic="approval-workflows" />
+
+      {missing.length > 0 ? (
+        <section className="space-y-2 rounded border border-amber-700 bg-amber-50 p-4">
+          <h2 className="text-sm font-semibold text-amber-900">
+            {missing.length === 1 ? "A shipped workflow is" : `${missing.length} shipped workflows are`} not
+            installed
+          </h2>
+          <p className="max-w-prose text-xs text-amber-900">
+            Until it is, these can be submitted but never approved:{" "}
+            {missing.map((m) => KIND_LABEL[m.templateKind] ?? m.templateKind).join(", ")}.
+            Installing adds the shipped stages; nothing you already have changes.
+          </p>
+          <form action={installWorkflowsAction}>
+            <button
+              type="submit"
+              className="rounded bg-amber-800 px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
+            >
+              Install
+            </button>
+          </form>
+        </section>
+      ) : null}
 
       {stranded.length > 0 ? (
         <section className="space-y-2 rounded border border-amber-700 bg-amber-50 p-4">

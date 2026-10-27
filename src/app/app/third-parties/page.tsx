@@ -2,6 +2,7 @@ import Link from "next/link";
 import { HelpLink } from "@/components/help/HelpLink";
 import { redirect } from "next/navigation";
 import { GapChips } from "@/components/GapChips";
+import { AI_GAP_WORDS, SERIOUS_AI_GAPS } from "@/lib/thirdparty/ai-procurement";
 import { NotPermitted } from "@/components/NotPermitted";
 import { can } from "@/lib/rbac";
 import { getActiveSession } from "@/lib/session";
@@ -129,14 +130,21 @@ export default async function ThirdPartiesPage() {
       ) : null}
 
       <ul className="divide-y divide-line overflow-hidden rounded border border-line bg-surface">
-        {health.rows.map(({ supplier, current, ownerEmail, gaps }) => (
+        {health.rows.map(({ supplier, current, ownerEmail, gaps, ai }) => (
           <li key={supplier.id}>
             <Link
               href={`/app/third-parties/${supplier.id}`}
               className="block space-y-2 px-4 py-3.5 hover:bg-ground focus-visible:outline-2 focus-visible:outline-brand"
             >
               <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                <span className="font-medium">{supplier.name}</span>
+                <span className="font-medium">
+                  {supplier.name}
+                  {supplier.aiInvolvement && supplier.aiInvolvement !== "none" ? (
+                    <span className="ml-2 rounded border border-line px-1.5 py-0.5 font-mono text-[10px] text-ink-soft">
+                      AI
+                    </span>
+                  ) : null}
+                </span>
                 <span className="font-mono text-[11px] text-ink-soft">
                   {supplier.sourceConnectionId ? "found by a tool" : "recorded by a person"}
                 </span>
@@ -158,6 +166,9 @@ export default async function ThirdPartiesPage() {
                 serious={HARD_GAPS}
                 clear="Article 28 satisfied"
               />
+              {ai.gaps.length > 0 ? (
+                <GapChips gaps={ai.gaps} words={AI_GAP_WORDS} serious={SERIOUS_AI_GAPS} />
+              ) : null}
             </Link>
           </li>
         ))}

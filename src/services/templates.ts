@@ -3,6 +3,7 @@ import { db } from "@/db/client";
 import { legalReferences, templates, templateVersions } from "@/db/schema";
 import type { templateKind } from "@/db/schema";
 import { appendAuditEvent, type AuditInput } from "@/lib/audit";
+import { canonicalise } from "@/lib/canonical";
 import { LEGAL_REFERENCES, SYSTEM_TEMPLATES } from "@/lib/templates/library";
 import { templateDefinition, type TemplateDefinition } from "@/lib/templates/schema";
 import { validateTemplate, type TemplateProblem } from "@/lib/templates/validate";
@@ -254,6 +255,17 @@ export async function shippedTemplatesMissing(organisationId: string) {
   return SYSTEM_TEMPLATES.filter((t) => !names.has(t.name));
 }
 
+/** Add any reference the shipped templates cite that the shared library lacks. */
+async function ensureLegalReferences() {
+  const now = new Date();
+  for (const ref of LEGAL_REFERENCES) {
+    await db
+      .insert(legalReferences)
+      .values({ ...ref, reviewedAt: now })
+      .onConflictDoNothing({ target: legalReferences.code });
+  }
+}
+
 /**
  * Bring an existing organisation up to date with what Waivern ships.
  *
@@ -270,13 +282,7 @@ export async function shippedTemplatesMissing(organisationId: string) {
  * here would make every citation look freshly checked.
  */
 export async function installShippedTemplates(input: { organisationId: string; actor: Actor }) {
-  const now = new Date();
-  for (const ref of LEGAL_REFERENCES) {
-    await db
-      .insert(legalReferences)
-      .values({ ...ref, reviewedAt: now })
-      .onConflictDoNothing({ target: legalReferences.code });
-  }
+  await ensureLegalReferences();
 
   const installed: string[] = [];
   for (const t of await shippedTemplatesMissing(input.organisationId)) {
@@ -298,6 +304,75 @@ export async function installShippedTemplates(input: { organisationId: string; a
     installed.push(t.name);
   }
   return installed;
+}
+
+/**
+ * Shipped templates whose published version is behind what Waivern now ships.
+ *
+ * Compared on the whole definition, canonically, so a change to one question's
+ * help text counts — the point is that the client is running what we ship. A
+ * template with an open draft is reported but cannot be updated until the
+ * draft is published or abandoned, because two drafts of one template would
+ * leave nobody sure which was meant.
+ */
+export async function shippedTemplatesOutdated(organisationId: string) {
+  const rows = await db
+    .select({ template: templates, version: templateVersions })
+    .from(templates)
+    .innerJoin(
+      templateVersions,
+      and(eq(templateVersions.templateId, templates.id), eq(templateVersions.status, "published")),
+    )
+    .where(and(eq(templates.organisationId, organisationId), eq(templates.isSystem, true)));
+  const drafts = new Set(
+    (
+      await db
+        .select({ templateId: templateVersions.templateId })
+        .from(templateVersions)
+        .innerJoin(templates, eq(templates.id, templateVersions.templateId))
+        .where(and(eq(templates.organisationId, organisationId), eq(templateVersions.status, "draft")))
+    ).map((d) => d.templateId),
+  );
+
+  const outdated: Array<{ templateId: string; name: string; version: number; blockedByDraft: boolean }> = [];
+  for (const { template, version } of rows) {
+    const shipped = SYSTEM_TEMPLATES.find((t) => t.name === template.name);
+    if (!shipped) continue;
+    const current = canonicalise(templateDefinition.parse(shipped.definition));
+    if (canonicalise(version.definition) === current) continue;
+    outdated.push({
+      templateId: template.id,
+      name: template.name,
+      version: version.version,
+      blockedByDraft: drafts.has(template.id),
+    });
+  }
+  return outdated;
+}
+
+/**
+ * Publish what Waivern now ships as the next version of each outdated template.
+ *
+ * A new version, never an edit: assessments already run keep the questions
+ * they answered, and new ones get the current set.
+ */
+export async function updateShippedTemplates(input: { organisationId: string; actor: Actor }) {
+  await ensureLegalReferences();
+  const updated: string[] = [];
+  for (const t of await shippedTemplatesOutdated(input.organisationId)) {
+    if (t.blockedByDraft) continue;
+    const shipped = SYSTEM_TEMPLATES.find((s) => s.name === t.name)!;
+    const draft = await createDraftFrom({
+      organisationId: input.organisationId,
+      templateId: t.templateId,
+      definition: shipped.definition,
+      notes: "Updated to the version Waivern ships.",
+      actor: input.actor,
+    });
+    await publishVersion({ organisationId: input.organisationId, versionId: draft.id, actor: input.actor });
+    updated.push(t.name);
+  }
+  return updated;
 }
 
 /** The version a new assessment of this kind should run against. */

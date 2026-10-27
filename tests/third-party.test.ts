@@ -18,7 +18,7 @@ function supplier(over: Partial<Supplier> = {}): Supplier {
   return {
     id: "s", organisationId: "o", name: "Acme Analytics",
     canonicalKey: "acme-analytics", description: null, categories: ["analytics"],
-    ownerId: "u", reviewedAt: NOW, reviewedBy: "u",
+    ownerId: "u", reviewedAt: NOW, reviewedBy: "u", aiInvolvement: null,
     sourceConnectionId: null, externalRef: null,
     createdAt: NOW, updatedAt: NOW,
     ...over,

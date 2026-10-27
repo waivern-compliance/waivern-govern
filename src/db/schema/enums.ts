@@ -58,6 +58,8 @@ export const recordType = pgEnum("record_type", [
   "ai_change",
   "ai_assurance_record",
   "ai_incident",
+  "ai_use_case_request",
+  "training_record",
 ]);
 
 /**
@@ -135,6 +137,14 @@ export const templateKind = pgEnum("template_kind", [
   /** A completed third-party assessment recorded with its evidence. */
   "supplier_record",
   "breach",
+  /**
+   * Equality impact assessment: how a policy, service or system affects people
+   * with each protected characteristic, as the public sector equality duty
+   * requires a public body to consider. A kind of its own because it is owned
+   * and signed off apart from a DPIA, and asked of things that touch no
+   * personal data at all.
+   */
+  "eia",
   "custom",
 ]);
 
@@ -387,6 +397,16 @@ export const aiDeploymentPattern = pgEnum("ai_deployment_pattern", [
 ]);
 
 /**
+ * Whether a supplier uses AI, in PPN 02/24's terms: in delivering the service,
+ * or as the thing supplied. Null on a supplier means nobody has asked.
+ */
+export const supplierAiInvolvement = pgEnum("supplier_ai_involvement", [
+  "none",
+  "in_delivery",
+  "ai_product",
+]);
+
+/**
  * Whether the Algorithmic Transparency Recording Standard applies to a system.
  * Null on the register means nobody has worked it out yet.
  */
@@ -476,6 +496,17 @@ export const aiIncidentSource = pgEnum("ai_incident_source", [
 ]);
 
 export const aiHarm = pgEnum("ai_harm", ["none_known", "potential", "actual"]);
+
+/**
+ * Where a proposal to use AI has got to. Submitted until somebody decides;
+ * deferred can be decided again later, accepted and declined cannot.
+ */
+export const aiRequestStatus = pgEnum("ai_request_status", [
+  "submitted",
+  "accepted",
+  "declined",
+  "deferred",
+]);
 
 export const aiIncidentStatus = pgEnum("ai_incident_status", [
   "reported",

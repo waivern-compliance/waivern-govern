@@ -219,7 +219,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     summary:
       "Rate a risk, treat it, then rate what remains. Accepting one is a decision with a name and an expiry date on it.",
     path: "/app/risks",
-    keywords: ["risk", "mitigation", "residual", "inherent", "accept", "tier", "likelihood", "impact"],
+    keywords: ["risk", "mitigation", "residual", "inherent", "accept", "tier", "likelihood", "impact", "treatment", "suggestion"],
     sections: [
       {
         heading: "Inherent, then residual",
@@ -232,6 +232,13 @@ export const HELP_TOPICS: HelpTopic[] = [
         heading: "A planned mitigation is not treatment",
         body: [
           "Work that has not started reduces nothing. A mitigation counts once it is in progress, implemented or verified — the registers and the AI assurance chain all take that view, so a risk covered only by plans still reads as untreated.",
+        ],
+      },
+      {
+        heading: "Suggested treatments",
+        body: [
+          "Under the mitigation form, the treatments DSIT's AI Risk Management Toolkit suggests in its Appendix 4 are listed, those for the risk's category first. Use this copies one into the form; nothing is added until you press Add, and you should reword it to what you will actually do.",
+          "A mitigation that started from a suggestion is marked as coming from the toolkit, even after rewording, so you can see later where the idea came from.",
         ],
       },
       {
@@ -417,6 +424,12 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Handover is offered for everybody, not only the suspended. The case that goes wrong most often is somebody who moved teams and still owns forty records, because nobody ever suspends them and nothing prompts the question.",
         ],
       },
+      {
+        heading: "Workflows added after your organisation was set up",
+        body: [
+          "When a new kind of assessment ships with its own workflow, organisations created earlier do not have it, and assessments of that kind can be submitted but never approved. This page says so and offers to install it. Installing adds only what is missing; workflows you have already changed are left alone.",
+        ],
+      },
     ],
     related: ["approvals", "managing-people", "roles-and-access", "service-levels"],
   },
@@ -500,8 +513,16 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Anything within six months of lapsing raises a monthly task. Six months because that is renewal lead time — a warning at ninety days arrives after the window to renegotiate has closed.",
         ],
       },
+      {
+        heading: "Suppliers that use or supply AI",
+        body: [
+          "Say on the supplier whether it uses AI in delivering the service or supplies an AI product — the distinction PPN 02/24 draws. Using AI is not a reason to exclude a supplier; it is a reason to ask more.",
+          "Then assess it from the supplier's page with the AI supplier assessment, which follows PPN 02/24, the Crown Commercial Service's data ethics requirements and the AI Playbook's advice on buying AI. Once it is approved, the register reads back whether the supplier trains on your data and which of the expected contract terms are missing — use disclosure, no training without agreement, notice of model changes, incident reporting, and return or deletion of data at the end.",
+          "A supplier named by a system on the AI register is asked about even if nobody has said it uses AI.",
+        ],
+      },
     ],
-    related: ["ropa", "transfers", "findings"],
+    related: ["ropa", "transfers", "findings", "ai-register"],
   },
   {
     id: "breaches",
@@ -599,6 +620,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         heading: "Moving it through its lifecycle",
         body: [
           "A system can be added at whatever stage it is really at. Moving it live afterwards — into pilot, or from pilot to production — is checked: it needs a named owner and an approved AI assessment that is not past its review and was approved after the last change to the model, data or use.",
+          "If the system's approved DPIA says high risk remains after mitigation, it also needs the ICO's advice recorded on that DPIA: Article 36 requires prior consultation before the processing starts.",
           "Where those are missing, somebody who decides approvals can let it go ahead with a reason. The move is recorded with what was missing and why, so the history shows a system that went live without an assessment did.",
           "Record any change to the model, its data or its use. A model change needs how it was validated and how it would be rolled back. Every change brings the system's review forward, and it shows as changed since assessed until it is assessed again.",
         ],
@@ -617,8 +639,15 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Say whether the people who ran it were independent of the team that built the system — DSIT's toolkit asks for that for bias testing and red-teaming. Live systems never tested, systems rated high or critical with no independent test, and systems whose latest test failed all show on the register. The latest evaluation also starts the model performance section of an ATRS record.",
         ],
       },
+      {
+        heading: "Bought-in systems and their suppliers",
+        body: [
+          "A system called over a provider's API, used as their web app, or switched on inside their product is only as well governed as its supplier. Name the supplier from the third-party register; until you do, the system shows as bought in with no supplier recorded, and once you do, it shows until the supplier's AI supply has an approved assessment.",
+          "Start assessments from the system's own page, so they are tied to it and the register reads what they conclude.",
+        ],
+      },
     ],
-    related: ["ai-chain", "assessments", "risks"],
+    related: ["ai-chain", "assessments", "risks", "third-parties"],
   },
   {
     id: "ai-chain",
@@ -856,7 +885,7 @@ export const HELP_TOPICS: HelpTopic[] = [
       {
         heading: "Both directions",
         body: [
-          "Tools push processing activities, vendors, processor agreements, evidence and scan runs. The Portal pulls current state back out, incrementally, to generate documents from facts rather than from events it may have missed.",
+          "Tools push processing activities, vendors, processor agreements, evidence, AI systems and scan runs. The Portal pulls current state back out, incrementally, to generate documents from facts rather than from events it may have missed.",
           "Every request is signed and every connection is limited to the endpoints its kind needs. A scanner may push vendors, because a tracker on a page is a third party; it may not push assessments.",
         ],
       },
@@ -866,8 +895,15 @@ export const HELP_TOPICS: HelpTopic[] = [
           "They are marked as such throughout. A scanner can see what data moves; it cannot see why, so purposes and lawful basis still need a person. Processing activities that arrived from a connection are counted separately on the register for that reason.",
         ],
       },
+      {
+        heading: "AI systems from the Portal",
+        body: [
+          "The Portal can record AI systems on the AI register and refresh what they are — name, purpose, type, deployment, model and data. It sets a system's stage only when first recording it. Who owns a system, its governance officer, its transparency scope, its review date and its stage are decisions taken here, and a later push never changes them.",
+          "The Portal reads the register back, with each system's gaps and its latest approved assessment, so documents it generates say what is and is not in place.",
+        ],
+      },
     ],
-    related: ["findings", "third-parties", "ropa"],
+    related: ["findings", "third-parties", "ropa", "ai-register"],
   },
   {
     id: "managing-people",
@@ -969,7 +1005,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     summary:
       "The question sets, versioned, so an assessment always shows the questions it was actually answered against.",
     path: "/app/templates",
-    keywords: ["template", "version", "questions", "publish", "routing", "dpia template"],
+    keywords: ["template", "version", "questions", "publish", "routing", "dpia template", "equality", "eia", "psed", "update"],
     sections: [
       {
         heading: "Versions matter",
@@ -987,6 +1023,13 @@ export const HELP_TOPICS: HelpTopic[] = [
         heading: "Templates Waivern releases later",
         body: [
           "When Waivern ships a new template — the AI risk identification following DSIT's toolkit, for example — the library offers to add it. Adding it publishes it as a version of its own, alongside the legal references it cites. Nothing you already hold changes, including copies you have edited.",
+          "When Waivern updates a template you already have, the library says which, and offers to publish the update as its next version. Assessments already started keep the version they ran against. A template with an open draft is left until the draft is published or abandoned.",
+        ],
+      },
+      {
+        heading: "Equality impact assessments",
+        body: [
+          "The equality impact assessment follows the public sector equality duty: impact on each of the nine protected characteristics in turn, then the duty's three aims, then a decision. An impact nobody has looked into scores almost as badly as an adverse one. Where AI is involved it asks whether performance was measured across groups, as the AI Playbook suggests. Start one from an AI system's page to tie it to the system.",
         ],
       },
     ],
@@ -1016,6 +1059,56 @@ export const HELP_TOPICS: HelpTopic[] = [
       },
     ],
     related: ["ai-register", "risks"],
+  },
+  {
+    id: "ai-intake",
+    title: "Proposals to use AI",
+    summary:
+      "Ideas for using AI, captured before anything is built or bought, scored on value and feasibility, and decided with a reason.",
+    path: "/app/ai/intake",
+    keywords: ["intake", "proposal", "idea", "use case", "business case", "prioritise", "value", "feasibility", "environmental", "pipeline"],
+    sections: [
+      {
+        heading: "Proposing",
+        body: [
+          "Anyone in the organisation can propose a use of AI. Four things are required, because the AI Playbook says they decide whether AI is the right tool at all: the need it meets, why AI rather than something simpler, what it should achieve, and its environmental impact. User research, data, skills and a stakeholder plan can be added as they become known.",
+          "Say if members of the public would use it, if it would inform decisions about people's health, safety, rights or entitlements, and roughly what it would cost. Those raise cautions for whoever decides: the Playbook's advice against AI making significant decisions on its own, and the spend control thresholds — £100,000 for anything public-facing, £1 million otherwise.",
+        ],
+      },
+      {
+        heading: "Scoring and deciding",
+        body: [
+          "Whoever manages the register scores value and feasibility from 1 to 5. Four or more on both is pursue now; high value but hard is worth investing in; easy but modest is just that; neither is not now. The list puts unscored proposals first, then the rest by priority.",
+          "Accepting needs a score and a reason, and puts the system on the AI register at the proposed stage, carrying the need and benefits with it. Declining and deferring need a reason too. A deferred proposal can be decided again; accepted and declined are final, and what was proposed is never rewritten.",
+        ],
+      },
+    ],
+    related: ["ai-register", "ai-incidents"],
+  },
+  {
+    id: "training",
+    title: "AI learning",
+    summary:
+      "What each person needs to know about AI for what they do, recorded as they complete it, and when it is due again.",
+    path: "/app/training",
+    keywords: ["training", "learning", "skills", "course", "competence", "civil service learning", "attestation"],
+    sections: [
+      {
+        heading: "Who needs what",
+        body: [
+          "The AI Playbook asks that everybody working with AI has the skills it needs. Everyone here needs the fundamentals. Approvers and owners need AI for decision makers; approvers and AI governance need AI risk management; AI governance and the privacy roles need data protection and AI; AI governance and privacy administrators need ethics.",
+          "Owning a system on the AI register adds AI for decision makers and AI risk management, because the Playbook names senior responsible owners as people who must understand AI's risks. A system whose owner's learning is not current shows that on the register.",
+        ],
+      },
+      {
+        heading: "Recording it",
+        body: [
+          "Record what you completed, with the date and, if you have one, a link to the certificate. Somebody who manages people can record it for others. Records are kept as written: a mistake is corrected by recording again, not by editing.",
+          "Learning goes stale. Most courses count for two years; using generative AI tools counts for one, because the tools change fastest. Anything else you have done can be recorded too, though it does not count towards a requirement.",
+        ],
+      },
+    ],
+    related: ["ai-register", "managing-people"],
   },
   {
     id: "transparency-records",
@@ -1105,11 +1198,11 @@ export const HELP_GROUPS: Array<{ heading: string; ids: string[] }> = [
   },
   {
     heading: "Doing the work",
-    ids: ["assessments", "approvals", "contributor-links", "risks", "risk-appetite", "discussion"],
+    ids: ["assessments", "approvals", "contributor-links", "risks", "risk-appetite", "discussion", "training"],
   },
   {
     heading: "The registers",
-    ids: ["ropa", "third-parties", "breaches", "ai-register", "ai-chain", "ai-incidents", "transparency-records", "transfers", "findings"],
+    ids: ["ropa", "third-parties", "breaches", "ai-register", "ai-intake", "ai-chain", "ai-incidents", "transparency-records", "transfers", "findings"],
   },
   {
     heading: "Seeing where you stand",

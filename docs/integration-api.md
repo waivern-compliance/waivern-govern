@@ -83,6 +83,7 @@ or which part of the signature was wrong. Each of those is a probe.
 | `POST /api/v1/ingest/dpas` | ● | | Article 28 terms |
 | `POST /api/v1/ingest/evidence` | ● | ● | Documents, attestations, links |
 | `POST /api/v1/ingest/scans` | | ● | A scan run and its findings |
+| `POST /api/v1/ingest/ai-use-cases` | ● | | AI systems for the AI register |
 
 A connection may only use the endpoints for its kind; anything else is `403`.
 The scanner may push vendors because a tracker seen on a page is a third party
@@ -125,9 +126,13 @@ what shape it received:
   "risks": [ ... ],
   "suppliers": [ ... ],
   "evidence": [ ... ],
-  "counts": { "assessments": 4, "risks": 10, "evidence": 1 }
+  "aiSystems": [ ... ],
+  "counts": { "assessments": 4, "risks": 10, "evidence": 1, "aiSystems": 3 }
 }
 ```
+
+Version 1.1 added `aiSystems`. The change is additive: a reader written for 1.0
+that ignores keys it does not know reads 1.1 unchanged.
 
 **Only settled facts are exported.** An assessment appears once it is approved,
 never while it is in draft or in review — generating a compliance document from
@@ -180,6 +185,26 @@ internal ids that mean nothing over there:
   "supports": ["ROPA-2026-0001", "RISK-2026-0010"] }
 ```
 
+AI systems are exported from the register as they stand, with the register's
+own gaps, so a generated document can say what is not yet in place. What has
+been judged comes only from an approved assessment; `assessment` is null until
+one is. `externalRef` is the Portal's own identifier where the Portal recorded
+the system, so it can match its records to ours:
+
+```json
+{
+  "reference": "AI-2026-0002", "externalRef": "portal-sys-41",
+  "entity": "BBC Public Service", "name": "Summarise licence fee complaints",
+  "systemType": "generative", "provenance": "third_party_api",
+  "deploymentPattern": "public_api", "lifecycleStage": "pilot",
+  "owner": "programme.lead@example.bbc.co.uk", "supplier": "OpenModel Ltd",
+  "transparency": { "scope": "required", "publishedAt": null },
+  "assessment": { "reference": "AIRA-2026-0003", "tier": "medium",
+                  "band": "Limited", "approvedAt": "2026-10-20T10:02:11.000Z" },
+  "gaps": ["transparency_record_missing", "supplier_not_assessed"]
+}
+```
+
 Exports are `cache-control: no-store`. Governance state changes when people
 decide things, and a cached export could hand back a decision that has since
 been withdrawn.
@@ -192,6 +217,36 @@ without silting up the register, and what makes a retry after a network failure
 safe.
 
 Batches are capped at 500 records, bodies at 2 MB.
+
+## AI systems
+
+`POST /api/v1/ingest/ai-use-cases` records AI systems the Portal has found or
+been told about:
+
+```json
+{ "records": [{
+  "externalRef": "portal-sys-41",
+  "name": "Summarise licence fee complaints",
+  "purpose": "Finds themes in complaint letters for the complaints team.",
+  "systemType": "generative", "provenance": "third_party_api",
+  "deploymentPattern": "public_api", "lifecycleStage": "pilot",
+  "supplierName": "OpenModel Ltd", "modelName": "om-large-2",
+  "deployedIn": ["Complaints workbench"],
+  "processesPersonalData": true, "dataCategories": ["contact", "correspondence"]
+}] }
+```
+
+The Portal describes a system; people here govern it. A push sets what the
+system is — name, purpose, type, provenance, deployment, model, data — and on
+first recording its stage (`proposed` if not given). It never changes, on a
+later push, who owns the system, its AI governance officer, its transparency
+scope, its review date or its lifecycle stage: moving a system live is a
+decision with a gate, and an integration does not take it.
+
+`supplierName` links the system to a supplier on the third-party register where
+one matches by name. An unknown name is kept as the vendor rather than creating
+a supplier nobody has looked at, and a link somebody made here is never
+replaced.
 
 ## Entities
 

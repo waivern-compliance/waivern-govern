@@ -23,6 +23,7 @@ Every help topic the application carries, in the order it presents them.
 - [The risk register](#the-risk-register) — Rate a risk, treat it, then rate what remains. Accepting one is a decision with a name and an expiry date on it.
 - [Risk appetite](#risk-appetite) — How much risk of each kind the organisation will carry, signed off, and what every risk is judged against.
 - [Discussion and mentions](#discussion-and-mentions) — Ask a question beside the record it is about, and name the person who can answer.
+- [AI learning](#ai-learning) — What each person needs to know about AI for what they do, recorded as they complete it, and when it is due again.
 
 **The registers**
 
@@ -30,6 +31,7 @@ Every help topic the application carries, in the order it presents them.
 - [Third parties and processor agreements (Article 28)](#third-parties-and-processor-agreements-article-28) — Every processor you rely on, whether or not anybody procured it, and whether a contract actually covers them.
 - [Personal data breaches](#personal-data-breaches) — Record every breach, decide the two statutory questions separately, and keep the reasoning for both.
 - [The AI register](#the-ai-register) — Every AI system the organisation is accountable for, including the ones nobody has assessed.
+- [Proposals to use AI](#proposals-to-use-ai) — Ideas for using AI, captured before anything is built or bought, scored on value and feasibility, and decided with a reason.
 - [The AI assurance chain](#the-ai-assurance-chain) — Each AI system drawn through to what was done about it — and, more usefully, where that chain stops.
 - [AI incidents and concerns](#ai-incidents-and-concerns) — Reports about AI systems — failures, harm, challenges to outcomes and concerns — each handled by a named person.
 - [Algorithmic transparency records](#algorithmic-transparency-records) — The public record of how an AI system is used, in the Algorithmic Transparency Recording Standard's own fields.
@@ -281,6 +283,12 @@ Residual is a judgement somebody makes, never a calculation the platform perform
 
 Work that has not started reduces nothing. A mitigation counts once it is in progress, implemented or verified — the registers and the AI assurance chain all take that view, so a risk covered only by plans still reads as untreated.
 
+### Suggested treatments
+
+Under the mitigation form, the treatments DSIT's AI Risk Management Toolkit suggests in its Appendix 4 are listed, those for the risk's category first. Use this copies one into the form; nothing is added until you press Add, and you should reword it to what you will actually do.
+
+A mitigation that started from a suggestion is marked as coming from the toolkit, even after rewording, so you can see later where the idea came from.
+
 ### Accepting a risk
 
 Only an approver can accept, and only after a residual rating exists — there is nothing to accept until somebody has judged what remains. An acceptance carries a rationale and an expiry date.
@@ -295,7 +303,7 @@ Raise a risk from the assessment that found it, using the form at the foot of th
 
 **See also:** Approving, returning and rejecting · Scan findings · The AI assurance chain
 
-<sub>Also searchable as: risk, mitigation, residual, inherent, accept, tier, likelihood, impact</sub>
+<sub>Also searchable as: risk, mitigation, residual, inherent, accept, tier, likelihood, impact, treatment, suggestion</sub>
 
 ## Risk appetite
 
@@ -352,6 +360,28 @@ You can withdraw your own comment. The fact of it remains, so the thread still r
 **See also:** Tasks, and being mentioned · The audit trail
 
 <sub>Also searchable as: comment, mention, @, question, collaborate, thread, reply</sub>
+
+## AI learning
+
+*What each person needs to know about AI for what they do, recorded as they complete it, and when it is due again.*
+
+**Screen:** `/app/training`
+
+### Who needs what
+
+The AI Playbook asks that everybody working with AI has the skills it needs. Everyone here needs the fundamentals. Approvers and owners need AI for decision makers; approvers and AI governance need AI risk management; AI governance and the privacy roles need data protection and AI; AI governance and privacy administrators need ethics.
+
+Owning a system on the AI register adds AI for decision makers and AI risk management, because the Playbook names senior responsible owners as people who must understand AI's risks. A system whose owner's learning is not current shows that on the register.
+
+### Recording it
+
+Record what you completed, with the date and, if you have one, a link to the certificate. Somebody who manages people can record it for others. Records are kept as written: a mistake is corrected by recording again, not by editing.
+
+Learning goes stale. Most courses count for two years; using generative AI tools counts for one, because the tools change fastest. Anything else you have done can be recorded too, though it does not count towards a requirement.
+
+**See also:** The AI register · Giving somebody access
+
+<sub>Also searchable as: training, learning, skills, course, competence, civil service learning, attestation</sub>
 
 ---
 
@@ -451,7 +481,15 @@ The agreement in force is the unexpired one, and among those the most recently s
 
 Anything within six months of lapsing raises a monthly task. Six months because that is renewal lead time — a warning at ninety days arrives after the window to renegotiate has closed.
 
-**See also:** The processing register (Article 30) · Countries, adequacy and transfers · Scan findings
+### Suppliers that use or supply AI
+
+Say on the supplier whether it uses AI in delivering the service or supplies an AI product — the distinction PPN 02/24 draws. Using AI is not a reason to exclude a supplier; it is a reason to ask more.
+
+Then assess it from the supplier's page with the AI supplier assessment, which follows PPN 02/24, the Crown Commercial Service's data ethics requirements and the AI Playbook's advice on buying AI. Once it is approved, the register reads back whether the supplier trains on your data and which of the expected contract terms are missing — use disclosure, no training without agreement, notice of model changes, incident reporting, and return or deletion of data at the end.
+
+A supplier named by a system on the AI register is asked about even if nobody has said it uses AI.
+
+**See also:** The processing register (Article 30) · Countries, adequacy and transfers · Scan findings · The AI register
 
 <sub>Also searchable as: supplier, vendor, dpa, article 28, processor, sub-processor, contract, expiry, extract, read the agreement, transfer mechanism, provenance, sub-processor list</sub>
 
@@ -537,6 +575,8 @@ Approving an assessment of a system sets its next review from the assessment's c
 
 A system can be added at whatever stage it is really at. Moving it live afterwards — into pilot, or from pilot to production — is checked: it needs a named owner and an approved AI assessment that is not past its review and was approved after the last change to the model, data or use.
 
+If the system's approved DPIA says high risk remains after mitigation, it also needs the ICO's advice recorded on that DPIA: Article 36 requires prior consultation before the processing starts.
+
 Where those are missing, somebody who decides approvals can let it go ahead with a reason. The move is recorded with what was missing and why, so the history shows a system that went live without an assessment did.
 
 Record any change to the model, its data or its use. A model change needs how it was validated and how it would be rolled back. Every change brings the system's review forward, and it shows as changed since assessed until it is assessed again.
@@ -553,9 +593,37 @@ Record evaluations, red-team, bias and security tests, user research, and model 
 
 Say whether the people who ran it were independent of the team that built the system — DSIT's toolkit asks for that for bias testing and red-teaming. Live systems never tested, systems rated high or critical with no independent test, and systems whose latest test failed all show on the register. The latest evaluation also starts the model performance section of an ATRS record.
 
-**See also:** The AI assurance chain · Assessments: DPIAs, transfer risk, AI risk, screening · The risk register
+### Bought-in systems and their suppliers
+
+A system called over a provider's API, used as their web app, or switched on inside their product is only as well governed as its supplier. Name the supplier from the third-party register; until you do, the system shows as bought in with no supplier recorded, and once you do, it shows until the supplier's AI supply has an approved assessment.
+
+Start assessments from the system's own page, so they are tied to it and the register reads what they conclude.
+
+**See also:** The AI assurance chain · Assessments: DPIAs, transfer risk, AI risk, screening · The risk register · Third parties and processor agreements (Article 28)
 
 <sub>Also searchable as: ai, model, llm, machine learning, shadow ai, lifecycle, oversight, eu ai act</sub>
+
+## Proposals to use AI
+
+*Ideas for using AI, captured before anything is built or bought, scored on value and feasibility, and decided with a reason.*
+
+**Screen:** `/app/ai/intake`
+
+### Proposing
+
+Anyone in the organisation can propose a use of AI. Four things are required, because the AI Playbook says they decide whether AI is the right tool at all: the need it meets, why AI rather than something simpler, what it should achieve, and its environmental impact. User research, data, skills and a stakeholder plan can be added as they become known.
+
+Say if members of the public would use it, if it would inform decisions about people's health, safety, rights or entitlements, and roughly what it would cost. Those raise cautions for whoever decides: the Playbook's advice against AI making significant decisions on its own, and the spend control thresholds — £100,000 for anything public-facing, £1 million otherwise.
+
+### Scoring and deciding
+
+Whoever manages the register scores value and feasibility from 1 to 5. Four or more on both is pursue now; high value but hard is worth investing in; easy but modest is just that; neither is not now. The list puts unscored proposals first, then the rest by priority.
+
+Accepting needs a score and a reason, and puts the system on the AI register at the proposed stage, carrying the need and benefits with it. Declining and deferring need a reason too. A deferred proposal can be decided again; accepted and declined are final, and what was proposed is never rewritten.
+
+**See also:** The AI register · AI incidents and concerns
+
+<sub>Also searchable as: intake, proposal, idea, use case, business case, prioritise, value, feasibility, environmental, pipeline</sub>
 
 ## The AI assurance chain
 
@@ -823,9 +891,15 @@ A template carries the rules that decide which approvals an answer set triggers.
 
 When Waivern ships a new template — the AI risk identification following DSIT's toolkit, for example — the library offers to add it. Adding it publishes it as a version of its own, alongside the legal references it cites. Nothing you already hold changes, including copies you have edited.
 
+When Waivern updates a template you already have, the library says which, and offers to publish the update as its next version. Assessments already started keep the version they ran against. A template with an open draft is left until the draft is published or abandoned.
+
+### Equality impact assessments
+
+The equality impact assessment follows the public sector equality duty: impact on each of the nine protected characteristics in turn, then the duty's three aims, then a decision. An impact nobody has looked into scores almost as badly as an adverse one. Where AI is involved it asks whether performance was measured across groups, as the AI Playbook suggests. Start one from an AI system's page to tie it to the system.
+
 **See also:** Assessments: DPIAs, transfer risk, AI risk, screening · Approving, returning and rejecting
 
-<sub>Also searchable as: template, version, questions, publish, routing, dpia template</sub>
+<sub>Also searchable as: template, version, questions, publish, routing, dpia template, equality, eia, psed, update</sub>
 
 ## Who approves what, and changing it
 
@@ -871,6 +945,10 @@ People and access shows what each person is holding and offers a handover: it mo
 
 Handover is offered for everybody, not only the suspended. The case that goes wrong most often is somebody who moved teams and still owns forty records, because nobody ever suspends them and nothing prompts the question.
 
+### Workflows added after your organisation was set up
+
+When a new kind of assessment ships with its own workflow, organisations created earlier do not have it, and assessments of that kind can be submitted but never approved. This page says so and offers to install it. Installing adds only what is missing; workflows you have already changed are left alone.
+
 **See also:** Approving, returning and rejecting · Giving somebody access · Roles, and why you cannot see something · Service levels and things that come round again
 
 <sub>Also searchable as: approver, approval, workflow, stage, gate, sign-off, who approves, leaver, left the company, moved teams, handover, reassign, sla</sub>
@@ -881,7 +959,7 @@ Handover is offered for everybody, not only the suspended. The case that goes wr
 
 ### Both directions
 
-Tools push processing activities, vendors, processor agreements, evidence and scan runs. The Portal pulls current state back out, incrementally, to generate documents from facts rather than from events it may have missed.
+Tools push processing activities, vendors, processor agreements, evidence, AI systems and scan runs. The Portal pulls current state back out, incrementally, to generate documents from facts rather than from events it may have missed.
 
 Every request is signed and every connection is limited to the endpoints its kind needs. A scanner may push vendors, because a tracker on a page is a third party; it may not push assessments.
 
@@ -889,7 +967,13 @@ Every request is signed and every connection is limited to the endpoints its kin
 
 They are marked as such throughout. A scanner can see what data moves; it cannot see why, so purposes and lawful basis still need a person. Processing activities that arrived from a connection are counted separately on the register for that reason.
 
-**See also:** Scan findings · Third parties and processor agreements (Article 28) · The processing register (Article 30)
+### AI systems from the Portal
+
+The Portal can record AI systems on the AI register and refresh what they are — name, purpose, type, deployment, model and data. It sets a system's stage only when first recording it. Who owns a system, its governance officer, its transparency scope, its review date and its stage are decisions taken here, and a later push never changes them.
+
+The Portal reads the register back, with each system's gaps and its latest approved assessment, so documents it generates say what is and is not in place.
+
+**See also:** Scan findings · Third parties and processor agreements (Article 28) · The processing register (Article 30) · The AI register
 
 <sub>Also searchable as: api, integration, portal, har analyser, webhook, sync, connection</sub>
 

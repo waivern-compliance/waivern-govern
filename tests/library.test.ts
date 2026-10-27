@@ -59,7 +59,7 @@ describe("shipped template library", () => {
     // the UK Article 35(7) DPIA and the CNIL PIA are both DPIAs, and offering
     // both is the point. What this guards is the set of kinds shipping at all.
     const kinds = [...new Set(SYSTEM_TEMPLATES.map((t) => t.kind))].sort();
-    assert.deepEqual(kinds, ["ai_risk", "breach", "dpia", "lia", "screening", "tia", "tra"]);
+    assert.deepEqual(kinds, ["ai_risk", "breach", "dpia", "eia", "lia", "screening", "supplier_record", "tia", "tra"]);
   });
 
   it("gives templates sharing a kind distinct names", () => {

@@ -1,6 +1,7 @@
 import { relations, sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   index,
   integer,
   jsonb,
@@ -21,12 +22,13 @@ import {
   aiDeploymentPattern,
   aiLifecycleStage,
   aiProvenance,
+  aiRequestStatus,
   aiSystemType,
   atrsScope,
   atrsStatus,
   riskTier,
 } from "./enums";
-import { integrationConnections } from "./integration";
+import { integrationConnections, suppliers } from "./integration";
 import { risks } from "./risks";
 import { entities, organisations, users } from "./tenancy";
 
@@ -73,6 +75,12 @@ export const aiUseCases = pgTable(
 
     /** Who supplies it, and which model, where that is known. */
     vendor: text("vendor"),
+    /**
+     * The supplier on the third-party register, where it is one. `vendor` is
+     * what somebody typed; this is the record whose AI supply was assessed and
+     * whose contract can be checked.
+     */
+    supplierId: uuid("supplier_id").references(() => suppliers.id, { onDelete: "set null" }),
     modelName: text("model_name"),
 
     /**
@@ -411,4 +419,117 @@ export const aiIncidentEvents = pgTable(
     at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("ai_incident_event_incident_idx").on(t.incidentId, t.at)],
+);
+
+/**
+ * A proposal to use AI for something, before anything is built or bought.
+ *
+ * The Playbook asks for a register of use cases, prioritised by feasibility
+ * and business value, and for the questions that decide whether AI is the
+ * right tool to be asked first: what the need is, why AI rather than
+ * something simpler, what it will cost the environment, who has been asked.
+ * Anybody can propose; somebody who manages the register scores and decides.
+ * Accepting one puts the system on the AI register at "proposed", so the
+ * register starts with the reasons it was wanted.
+ *
+ * What was proposed is never rewritten — a decision is judged against what it
+ * was asked to decide — and nothing is deleted.
+ */
+export const aiUseCaseRequests = pgTable(
+  "ai_use_case_request",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organisationId: uuid("organisation_id")
+      .notNull()
+      .references(() => organisations.id, { onDelete: "restrict" }),
+    entityId: uuid("entity_id")
+      .notNull()
+      .references(() => entities.id, { onDelete: "restrict" }),
+    reference: text("reference").notNull(),
+    title: text("title").notNull(),
+
+    /** The user need or pain point, not the technology. */
+    problem: text("problem").notNull(),
+    /** Why AI, rather than a simpler tool, and what else was considered. */
+    whyAi: text("why_ai").notNull(),
+    /** What it should improve, and how anyone will know it did. */
+    benefits: text("benefits").notNull(),
+    userResearch: text("user_research"),
+    /** The data it needs, and whether we hold it. */
+    dataNeeded: text("data_needed"),
+    /** Skills and infrastructure: build, buy or partner. */
+    capability: text("capability"),
+    stakeholderPlan: text("stakeholder_plan"),
+    environmentalImpact: text("environmental_impact").notNull(),
+    /** Whole pounds; ties the request to spend control thresholds. */
+    expectedSpendGbp: integer("expected_spend_gbp"),
+    publicFacing: boolean("public_facing").notNull().default(false),
+    /** Decisions about health, safety, rights or entitlements — the Playbook's use cases to approach with most care. */
+    significantDecisions: boolean("significant_decisions").notNull().default(false),
+
+    requestedByUserId: uuid("requested_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    requestedByLabel: text("requested_by_label").notNull(),
+
+    status: aiRequestStatus("status").notNull().default("submitted"),
+    /** 1–5. Scored by whoever manages the register, not by the proposer. */
+    valueScore: integer("value_score"),
+    feasibilityScore: integer("feasibility_score"),
+    scoringNote: text("scoring_note"),
+    scoredByUserId: uuid("scored_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    scoredAt: timestamp("scored_at", { withTimezone: true }),
+
+    decisionReason: text("decision_reason"),
+    decidedByUserId: uuid("decided_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+    /** The register entry an accepted request became. */
+    aiUseCaseId: uuid("ai_use_case_id").references(() => aiUseCases.id, { onDelete: "restrict" }),
+
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("ai_use_case_request_reference").on(t.organisationId, t.reference),
+    index("ai_use_case_request_status_idx").on(t.organisationId, t.status),
+    check(
+      "ai_use_case_request_scores",
+      sql`(${t.valueScore} is null or ${t.valueScore} between 1 and 5) and (${t.feasibilityScore} is null or ${t.feasibilityScore} between 1 and 5)`,
+    ),
+  ],
+);
+
+/**
+ * That somebody completed some AI learning.
+ *
+ * An attestation, not a certificate store: the person says they did it, or
+ * somebody who manages people records it for them, with where the evidence is.
+ * Append-only — a mistaken entry is corrected by a later one, and the record of
+ * what was claimed when stays — and never deleted.
+ */
+export const trainingRecords = pgTable(
+  "training_record",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organisationId: uuid("organisation_id")
+      .notNull()
+      .references(() => organisations.id, { onDelete: "restrict" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    /** A key from the shipped course list, or null for learning outside it. */
+    courseKey: text("course_key"),
+    /** What it was called where it was taken, which may not be our name for it. */
+    title: text("title").notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true }).notNull(),
+    evidenceRef: text("evidence_ref"),
+    /** True when the person recorded their own completion. */
+    selfAttested: boolean("self_attested").notNull(),
+    recordedByUserId: uuid("recorded_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    recordedByLabel: text("recorded_by_label").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("training_record_user_idx").on(t.organisationId, t.userId, t.courseKey)],
 );

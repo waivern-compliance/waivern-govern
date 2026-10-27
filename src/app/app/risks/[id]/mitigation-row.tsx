@@ -21,6 +21,8 @@ export function MitigationRow({
     dueAt: string | null;
     evidenceRef: string | null;
     verifiedAt: string | null;
+    /** The toolkit heading it started from, where it did. */
+    fromToolkit: string | null;
     ownedByViewer: boolean;
   };
   editable: boolean;
@@ -37,6 +39,7 @@ export function MitigationRow({
           {mitigation.controlRef ? `${mitigation.controlRef} · ` : ""}
           {mitigation.dueAt ? `due ${mitigation.dueAt}` : "no date"}
           {mitigation.verifiedAt ? ` · verified ${mitigation.verifiedAt}` : ""}
+          {mitigation.fromToolkit ? " · from DSIT toolkit" : ""}
         </span>
       </div>
 

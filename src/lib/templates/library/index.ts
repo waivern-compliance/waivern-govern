@@ -1,10 +1,12 @@
 import type { TemplateKind } from "@/services/templates";
 import type { TemplateDefinition } from "../schema";
 import { AI_RISK } from "./ai-risk";
+import { AI_SUPPLIER } from "./ai-supplier";
 import { BREACH_SEVERITY } from "./breach";
 import { CNIL_PIA } from "./cnil-pia";
 import { DPIA } from "./dpia";
 import { DSIT_AI_RISK } from "./dsit-ai-risk";
+import { EIA } from "./eia";
 import { LIA } from "./lia";
 import { SCREENING } from "./screening";
 import { TIA_EU, TRA_UK } from "./transfers";
@@ -89,5 +91,21 @@ export const SYSTEM_TEMPLATES: Array<{
       "The nine risk categories of DSIT's AI Risk Management Toolkit, with the UK government AI Playbook's expectations on transparency, oversight and security.",
     jurisdiction: "UK",
     definition: DSIT_AI_RISK,
+  },
+  {
+    kind: "supplier_record",
+    name: "AI supplier assessment",
+    description:
+      "What a supplier's AI does with our data, how it was tested, and what the contract holds them to — following PPN 02/24 and the Crown Commercial Service's data ethics requirements.",
+    jurisdiction: "UK",
+    definition: AI_SUPPLIER,
+  },
+  {
+    kind: "eia",
+    name: "Equality impact assessment",
+    description:
+      "The public sector equality duty's three aims, and the impact on each protected characteristic — including how an AI system performs across them.",
+    jurisdiction: "UK",
+    definition: EIA,
   },
 ];

@@ -1,7 +1,23 @@
-import { and, asc, desc, eq, inArray, isNull, lte, or } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, lte, ne, or, sql } from "drizzle-orm";
 import { db } from "@/db/client";
-import { dpas, suppliers, users } from "@/db/schema";
+import {
+  aiUseCases,
+  assessmentRevisions,
+  assessments,
+  dpas,
+  suppliers,
+  templateVersions,
+  templates,
+  users,
+} from "@/db/schema";
 import { appendAuditEvent } from "@/lib/audit";
+import {
+  aiSupplierGaps,
+  type AiContractTerm,
+  type AiInvolvement,
+  type AiSupplierAssessed,
+  type AiSupplierGap,
+} from "@/lib/thirdparty/ai-procurement";
 import type { Actor } from "./templates";
 
 /**
@@ -128,7 +144,99 @@ export type SupplierRow = {
   ownerEmail: string | null;
   gaps: Article28Gap[];
   hardGaps: Article28Gap[];
+  /** Its AI supply, judged separately from Article 28. */
+  ai: {
+    assessed: AiSupplierAssessed | null;
+    systems: number;
+    gaps: AiSupplierGap[];
+    missingTerms: AiContractTerm[];
+  };
 };
+
+/**
+ * The AI supplier assessment that counts for each supplier.
+ *
+ * The latest approved one where there is one, so that starting a reassessment
+ * does not make a supplier look unassessed while the new one is in draft.
+ * Otherwise the latest of any status, reported as unfinished.
+ *
+ * Any supplier-record assessment is read, not only ours: a client's own copy
+ * of the template keeps the keys, and one that renamed them simply reports
+ * nothing known — which is the truth about what the register can see.
+ */
+export async function aiSupplierAssessments(
+  organisationId: string,
+): Promise<Map<string, AiSupplierAssessed>> {
+  const rows = await db
+    .select({ assessment: assessments })
+    .from(assessments)
+    .innerJoin(templateVersions, eq(templateVersions.id, assessments.templateVersionId))
+    .innerJoin(templates, eq(templates.id, templateVersions.templateId))
+    .where(
+      and(
+        eq(assessments.organisationId, organisationId),
+        eq(assessments.subjectType, "supplier"),
+        eq(templates.kind, "supplier_record"),
+        ne(assessments.status, "withdrawn"),
+        ne(assessments.status, "superseded"),
+      ),
+    )
+    .orderBy(desc(assessments.updatedAt));
+
+  const chosen = new Map<string, typeof assessments.$inferSelect>();
+  for (const { assessment } of rows) {
+    const id = assessment.subjectId!;
+    const held = chosen.get(id);
+    if (!held || (held.status !== "approved" && assessment.status === "approved")) {
+      chosen.set(id, assessment);
+    }
+  }
+
+  const approvedIds = [...chosen.values()].filter((a) => a.status === "approved").map((a) => a.id);
+  const answersById = new Map<string, Record<string, unknown>>();
+  if (approvedIds.length > 0) {
+    const revisions = await db
+      .selectDistinctOn([assessmentRevisions.assessmentId], {
+        assessmentId: assessmentRevisions.assessmentId,
+        answers: assessmentRevisions.answers,
+      })
+      .from(assessmentRevisions)
+      .where(inArray(assessmentRevisions.assessmentId, approvedIds))
+      .orderBy(assessmentRevisions.assessmentId, desc(assessmentRevisions.revision));
+    for (const r of revisions) answersById.set(r.assessmentId, r.answers as Record<string, unknown>);
+  }
+
+  const result = new Map<string, AiSupplierAssessed>();
+  for (const [supplierId, a] of chosen) {
+    const answers = answersById.get(a.id) ?? {};
+    const text = (key: string) => (typeof answers[key] === "string" ? (answers[key] as string) : null);
+    result.set(supplierId, {
+      reference: a.reference,
+      assessmentId: a.id,
+      approved: a.status === "approved",
+      trainsOnOurData: text("trains_on_our_data"),
+      contractTerms: Array.isArray(answers.contract_terms) ? (answers.contract_terms as string[]) : [],
+      recommendation: text("recommendation"),
+    });
+  }
+  return result;
+}
+
+/** How many AI systems still in use name each supplier. */
+async function aiSystemsBySupplier(organisationId: string): Promise<Map<string, number>> {
+  const rows = await db
+    .select({ supplierId: aiUseCases.supplierId, n: sql<number>`count(*)::int` })
+    .from(aiUseCases)
+    .where(
+      and(
+        eq(aiUseCases.organisationId, organisationId),
+        ne(aiUseCases.lifecycleStage, "retired"),
+        sql`${aiUseCases.supplierId} is not null`,
+      ),
+    )
+    .groupBy(aiUseCases.supplierId);
+  return new Map(rows.map((r) => [r.supplierId!, r.n]));
+}
 
 async function rowsFor(organisationId: string): Promise<SupplierRow[]> {
   const supplierRows = await db
@@ -153,10 +261,17 @@ async function rowsFor(organisationId: string): Promise<SupplierRow[]> {
     bySupplier.set(d.supplierId, list);
   }
 
+  const [aiAssessed, aiSystems] = await Promise.all([
+    aiSupplierAssessments(organisationId),
+    aiSystemsBySupplier(organisationId),
+  ]);
+
   const now = new Date();
   return supplierRows.map(({ supplier, ownerEmail }) => {
     const own = bySupplier.get(supplier.id) ?? [];
     const gaps = article28Gaps(supplier, own, now);
+    const assessed = aiAssessed.get(supplier.id) ?? null;
+    const systems = aiSystems.get(supplier.id) ?? 0;
     return {
       supplier,
       dpas: own,
@@ -164,6 +279,11 @@ async function rowsFor(organisationId: string): Promise<SupplierRow[]> {
       ownerEmail,
       gaps,
       hardGaps: gaps.filter((g) => HARD_GAPS.includes(g)),
+      ai: {
+        assessed,
+        systems,
+        ...aiSupplierGaps(supplier.aiInvolvement as AiInvolvement | null, assessed, systems),
+      },
     };
   });
 }
@@ -239,6 +359,7 @@ export async function updateSupplier(input: {
     description: string;
     categories: string[];
     ownerId: string | null;
+    aiInvolvement: AiInvolvement | null;
   }>;
   /** Record that a person has confirmed this is a real processor. */
   confirmBy?: string;
@@ -270,8 +391,8 @@ export async function updateSupplier(input: {
       action: input.confirmBy ? "supplier.confirmed" : "supplier.updated",
       subjectType: "supplier",
       subjectId: input.supplierId,
-      before: { name: before.name, reviewedAt: before.reviewedAt },
-      after: { name: after.name, reviewedAt: after.reviewedAt },
+      before: { name: before.name, reviewedAt: before.reviewedAt, aiInvolvement: before.aiInvolvement },
+      after: { name: after.name, reviewedAt: after.reviewedAt, aiInvolvement: after.aiInvolvement },
     });
     return after;
   });

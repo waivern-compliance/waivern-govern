@@ -23,7 +23,8 @@ describe("what the navigation offers", () => {
     // Their whole job is answering assigned questions. Offering them the risk
     // register and the template library produces a menu of pages that render
     // their heading and nothing else, which reads as a broken platform.
-    assert.deepEqual(items, ["/app/tasks"]);
+    // Their own AI learning is theirs to keep up, whatever they can read.
+    assert.deepEqual(items, ["/app/tasks", "/app/training"]);
   });
 
   it("offers an analyst the working surfaces", () => {

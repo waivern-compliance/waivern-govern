@@ -6,12 +6,14 @@ import { NotPermitted } from "@/components/NotPermitted";
 import { can } from "@/lib/rbac";
 import { SCALES, labelFor, type RiskScaleId } from "@/lib/risk/scale";
 import { judge, scopeLabel, APPETITE_LEVEL_LABEL } from "@/lib/risk/appetite";
-import { TREATMENT_HELP, TREATMENT_LABEL, type TreatmentType } from "@/lib/risk/treatment";
+import { TREATMENT_LABEL, type TreatmentType } from "@/lib/risk/treatment";
+import { suggestionByKey, suggestionsFor } from "@/lib/risk/treatment-library";
 import { appetiteInForce } from "@/services/risk-policy";
 import { categoryLabel } from "@/lib/risk/categories";
 import { getActiveSession } from "@/lib/session";
 import { loadRisk } from "@/services/risks";
 import { AcceptPanel } from "./accept";
+import { MitigationForm } from "./mitigation-form";
 import { MitigationRow } from "./mitigation-row";
 import { addMitigationAction, closeAction, rateResidualAction } from "./actions";
 
@@ -153,6 +155,7 @@ export default async function RiskPage({ params }: { params: Promise<{ id: strin
                   dueAt: m.dueAt?.toISOString().slice(0, 10) ?? null,
                   evidenceRef: m.evidenceRef,
                   verifiedAt: m.verifiedAt?.toISOString().slice(0, 10) ?? null,
+                  fromToolkit: suggestionByKey(m.suggestionKey)?.theme ?? null,
                   ownedByViewer: m.ownerId !== null && m.ownerId === active.userId,
                 }}
                 editable={mayManage}
@@ -164,57 +167,11 @@ export default async function RiskPage({ params }: { params: Promise<{ id: strin
         )}
 
         {mayManage ? (
-          <form
+          <MitigationForm
             action={addMitigationAction.bind(null, id)}
-            className="grid gap-3 rounded border border-line bg-surface p-4 sm:grid-cols-[1fr_auto_auto_auto_auto] sm:items-end"
-          >
-            <label className="block space-y-1">
-              <span className="text-xs font-medium uppercase tracking-wider text-ink-soft">
-                What will be done
-              </span>
-              <input
-                name="description"
-                required
-                className="w-full rounded border border-line bg-ground px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-brand"
-              />
-            </label>
-            <label className="block space-y-1">
-              <span className="text-xs font-medium uppercase tracking-wider text-ink-soft">Treatment</span>
-              <select
-                name="treatmentType"
-                defaultValue="limitation"
-                className="rounded border border-line bg-ground px-3 py-2 text-sm"
-              >
-                {(Object.keys(TREATMENT_LABEL) as TreatmentType[]).map((t) => (
-                  <option key={t} value={t} title={TREATMENT_HELP[t]}>
-                    {TREATMENT_LABEL[t]}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block space-y-1">
-              <span className="text-xs font-medium uppercase tracking-wider text-ink-soft">Control</span>
-              <input
-                name="controlRef"
-                placeholder="A.8.3"
-                className="w-28 rounded border border-line bg-ground px-3 py-2 font-mono text-sm"
-              />
-            </label>
-            <label className="block space-y-1">
-              <span className="text-xs font-medium uppercase tracking-wider text-ink-soft">Due</span>
-              <input
-                name="dueAt"
-                type="date"
-                className="rounded border border-line bg-ground px-3 py-2 text-sm"
-              />
-            </label>
-            <button
-              type="submit"
-              className="rounded border border-line bg-surface px-4 py-2 text-sm hover:border-brand focus-visible:outline-2 focus-visible:outline-brand"
-            >
-              Add
-            </button>
-          </form>
+            categoryLabel={categoryLabel(risk.category)}
+            {...suggestionsFor(risk.category)}
+          />
         ) : null}
       </section>
 

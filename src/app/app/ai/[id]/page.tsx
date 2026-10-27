@@ -35,6 +35,10 @@ import {
   type AssuranceResult,
 } from "@/lib/ai/assurance";
 import { updateUseCaseAction } from "../actions";
+import { StartAssessment } from "@/components/StartAssessment";
+import { asc, eq } from "drizzle-orm";
+import { db } from "@/db/client";
+import { aiUseCaseRequests, suppliers } from "@/db/schema";
 
 const CONSEQUENCE_WORDS: Record<string, string> = {
   informational: "Informational only — no decision follows",
@@ -62,7 +66,7 @@ export default async function UseCasePage({
   const loaded = await loadUseCase(id, active.membership.organisationId);
   if (!loaded) notFound();
 
-  const { useCase, ownerEmail, officerEmail, assessed, assessments, gaps } = loaded;
+  const { useCase, ownerEmail, officerEmail, assessed, assessments, gaps, supplier } = loaded;
   if (!can(active.membership.grants, "record.read", useCase.entityId)) {
     return (
       <NotPermitted
@@ -72,13 +76,25 @@ export default async function UseCasePage({
     );
   }
   const mayEdit = can(active.membership.grants, "record.write", useCase.entityId);
-  const [members, records, history, gate, assurance, incidents] = await Promise.all([
+  const [members, records, history, gate, assurance, incidents, supplierOptions, [proposal]] = await Promise.all([
     mayEdit ? candidatesFor(active.membership.organisationId) : Promise.resolve([]),
     recordsFor(id, active.membership.organisationId),
     historyFor(id, active.membership.organisationId),
     gateContext(id, active.membership.organisationId),
     assuranceFor(id, active.membership.organisationId),
     listIncidents(active.membership.organisationId, null, { useCaseId: id }),
+    mayEdit
+      ? db
+          .select({ id: suppliers.id, name: suppliers.name })
+          .from(suppliers)
+          .where(eq(suppliers.organisationId, active.membership.organisationId))
+          .orderBy(asc(suppliers.name))
+      : Promise.resolve([]),
+    // The proposal it was accepted from, if it came through intake.
+    db
+      .select({ id: aiUseCaseRequests.id, reference: aiUseCaseRequests.reference })
+      .from(aiUseCaseRequests)
+      .where(eq(aiUseCaseRequests.aiUseCaseId, id)),
   ]);
   const mayWaive = can(active.membership.grants, "approval.decide", useCase.entityId);
   // What each possible move would still need, worked out here so the form can
@@ -113,8 +129,24 @@ export default async function UseCasePage({
           {SYSTEM_TYPE_LABEL[useCase.systemType as SystemType]} ·{" "}
           {PROVENANCE_LABEL[useCase.provenance as Provenance]} ·{" "}
           {STAGE_LABEL[useCase.lifecycleStage as LifecycleStage]}
-          {useCase.vendor ? ` · ${useCase.vendor}` : ""}
+          {useCase.vendor && !supplier ? ` · ${useCase.vendor}` : ""}
         </p>
+        {proposal ? (
+          <p className="text-xs text-ink-soft">
+            Accepted from proposal{" "}
+            <Link href={`/app/ai/intake/${proposal.id}`} className="font-mono text-brand hover:underline">
+              {proposal.reference}
+            </Link>
+          </p>
+        ) : null}
+        {supplier ? (
+          <p className="text-xs text-ink-soft">
+            Supplied by{" "}
+            <Link href={`/app/third-parties/${supplier.id}`} className="text-brand hover:underline">
+              {supplier.name}
+            </Link>
+          </p>
+        ) : null}
         <p className="text-xs text-ink-soft">
           {useCase.deploymentPattern
             ? DEPLOYMENT_PATTERN_LABEL[useCase.deploymentPattern as DeploymentPattern]
@@ -216,6 +248,14 @@ export default async function UseCasePage({
             who is watching it, has not been established.
           </p>
         )}
+        {can(active.membership.grants, "assessment.create", useCase.entityId) ? (
+          <StartAssessment
+            organisationId={active.membership.organisationId}
+            subjectType="ai_use_case"
+            subjectId={id}
+            prefer="AI risk identification (DSIT toolkit)"
+          />
+        ) : null}
       </section>
 
       {assessments.length > 0 ? (
@@ -500,6 +540,15 @@ export default async function UseCasePage({
               label="How it is deployed"
               value={useCase.deploymentPattern ?? ""}
               options={{ "": "Not yet known", ...DEPLOYMENT_PATTERN_LABEL }}
+            />
+            <Choice
+              name="supplierId"
+              label="Supplier"
+              value={useCase.supplierId ?? ""}
+              options={{
+                "": "Not a supplier on the register",
+                ...Object.fromEntries(supplierOptions.map((x) => [x.id, x.name])),
+              }}
             />
             <Choice
               name="ownerId"

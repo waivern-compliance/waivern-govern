@@ -1,0 +1,1 @@
+ALTER TYPE "public"."template_kind" ADD VALUE 'eia' BEFORE 'custom';

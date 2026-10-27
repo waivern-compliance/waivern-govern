@@ -109,6 +109,39 @@ export const scanBatchIn = z.object({
   findings: z.array(scanFindingIn).max(1000),
 });
 
+/**
+ * An AI system the Portal knows about.
+ *
+ * The Portal describes the system; people here govern it. So a push sets what
+ * the system is — name, purpose, type, where it comes from, how it is deployed,
+ * its model and data — and never touches who owns it, its transparency scope,
+ * its review date or its lifecycle stage after it is first recorded. Moving a
+ * system live is a decision with a gate, and an integration does not take it.
+ */
+export const aiUseCaseIn = z.object({
+  ...envelope,
+  externalRef,
+  name: shortText,
+  purpose: longText.min(1),
+  description: longText.optional(),
+  systemType: z.enum(["predictive", "generative", "agentic", "hybrid"]),
+  provenance: z.enum(["built_in_house", "fine_tuned", "third_party_api", "embedded_vendor"]),
+  /** Used only when the system is first recorded. */
+  lifecycleStage: z
+    .enum(["proposed", "development", "pilot", "production", "retiring", "retired"])
+    .optional(),
+  deploymentPattern: z
+    .enum(["public_web_app", "embedded", "public_api", "privately_hosted", "local", "trained_here"])
+    .optional(),
+  /** Linked to a supplier on the register by name, where one matches. */
+  supplierName: shortText.optional(),
+  vendor: z.string().max(200).optional(),
+  modelName: z.string().max(200).optional(),
+  deployedIn: z.array(z.string().max(200)).max(50).default([]),
+  processesPersonalData: z.boolean().optional(),
+  dataCategories: z.array(z.string().max(100)).max(100).default([]),
+});
+
 /** Batches are capped so one request cannot become an unbounded transaction. */
 export const MAX_BATCH = 500;
 
@@ -122,12 +155,16 @@ export const dpaBatch = z.object({ records: z.array(dpaIn).min(1).max(MAX_BATCH)
 export const evidenceBatch = z.object({
   records: z.array(evidenceIn).min(1).max(MAX_BATCH),
 });
+export const aiUseCaseBatch = z.object({
+  records: z.array(aiUseCaseIn).min(1).max(MAX_BATCH),
+});
 
 export type ProcessingActivityIn = z.infer<typeof processingActivityIn>;
 export type VendorIn = z.infer<typeof vendorIn>;
 export type DpaIn = z.infer<typeof dpaIn>;
 export type EvidenceIn = z.infer<typeof evidenceIn>;
 export type ScanBatchIn = z.infer<typeof scanBatchIn>;
+export type AiUseCaseIn = z.infer<typeof aiUseCaseIn>;
 
 export type IngestOutcome = {
   received: number;

@@ -20,7 +20,7 @@ export type StageSpec = {
 };
 
 export const DEFAULT_WORKFLOWS: Array<{
-  templateKind: "dpia" | "tra" | "tia" | "ai_risk" | "screening";
+  templateKind: "dpia" | "tra" | "tia" | "ai_risk" | "screening" | "supplier_record" | "eia";
   name: string;
   stages: StageSpec[];
 }> = [
@@ -169,6 +169,53 @@ export const DEFAULT_WORKFLOWS: Array<{
             },
           ],
         },
+      },
+    ],
+  },
+  {
+    // Without one, a supplier assessment could be submitted but never approved,
+    // and the third-party register reads only approved ones.
+    templateKind: "supplier_record",
+    name: "Supplier assessment approval",
+    stages: [
+      {
+        position: 1,
+        name: "Third-party review",
+        requiredRole: "privacy_analyst",
+        condition: { op: "always" },
+      },
+      {
+        position: 2,
+        name: "Responsible AI review",
+        requiredRole: "ai_governance",
+        condition: {
+          op: "or",
+          any: [
+            { op: "answerEquals", question: "ai_involvement", value: "in_delivery" },
+            { op: "answerEquals", question: "ai_involvement", value: "ai_product" },
+          ],
+        },
+      },
+      {
+        position: 3,
+        name: "Accountable approver",
+        requiredRole: "approver",
+        condition: { op: "tierAtLeast", value: "high" },
+      },
+    ],
+  },
+  {
+    // Signed off by somebody accountable, not by a reviewer in a specialist
+    // team: the duty is the body's, and due regard has to be had by whoever
+    // takes the decision.
+    templateKind: "eia",
+    name: "Equality impact approval",
+    stages: [
+      {
+        position: 1,
+        name: "Accountable approver",
+        requiredRole: "approver",
+        condition: { op: "always" },
       },
     ],
   },

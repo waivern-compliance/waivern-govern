@@ -111,6 +111,10 @@ export async function updateUseCaseAction(useCaseId: string, formData: FormData)
       ...(formData.has("nextReviewAt")
         ? { nextReviewAt: review ? new Date(`${review}T00:00:00Z`) : null }
         : {}),
+      // The service checks it belongs to this organisation.
+      ...(formData.has("supplierId")
+        ? { supplierId: String(formData.get("supplierId")) || null }
+        : {}),
     },
     actor: { actorKind: "user", actorUserId: active.userId, actorLabel: active.email },
   });

@@ -1,12 +1,16 @@
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import { db } from "@/db/client";
+import { db, type Db } from "@/db/client";
+
+/** The database, or a transaction to run inside. */
+type Executor = Db | Parameters<Parameters<Db["transaction"]>[0]>[0];
 import {
   aiChanges,
   aiUseCases,
   assessmentRevisions,
   assessments,
   referenceCounters,
+  suppliers,
   templateVersions,
   templates,
   users,
@@ -17,6 +21,8 @@ import { assuranceByUseCase } from "./ai-assurance";
 import { systemsWithUnresolvedHarm } from "./ai-incidents";
 import { lastMaterialChanges } from "./ai-lifecycle";
 import { systemsWithCurrentRecord } from "./atrs";
+import { aiSupplierAssessments } from "./third-party";
+import { trainedOwners as ownersWithTraining } from "./training";
 import type { Actor } from "./templates";
 
 /**
@@ -125,7 +131,10 @@ export type Gap =
   | "never_tested"
   | "not_independently_tested"
   | "last_test_failed"
-  | "unresolved_harm";
+  | "unresolved_harm"
+  | "supplier_unrecorded"
+  | "supplier_not_assessed"
+  | "owner_not_trained";
 
 export const GAP_WORDS: Record<Gap, string> = {
   never_assessed: "Never assessed",
@@ -141,7 +150,24 @@ export const GAP_WORDS: Record<Gap, string> = {
   not_independently_tested: "No independent testing",
   last_test_failed: "Failed its last test",
   unresolved_harm: "Reported harm unresolved",
+  supplier_unrecorded: "Bought in; supplier not on the register",
+  supplier_not_assessed: "Supplier's AI never assessed",
+  owner_not_trained: "Owner's AI learning not current",
 };
+
+/**
+ * Whether somebody else supplies the system — called over their API, used as
+ * their web app, or switched on inside their product. Either field can say so:
+ * provenance is always set, and deployment may be known where provenance was
+ * recorded loosely.
+ */
+export function suppliedByThirdParty(useCase: typeof aiUseCases.$inferSelect): boolean {
+  return (
+    useCase.provenance === "third_party_api" ||
+    useCase.provenance === "embedded_vendor" ||
+    ["public_web_app", "embedded", "public_api"].includes(useCase.deploymentPattern ?? "")
+  );
+}
 
 /** Gaps that mean the system is running unexamined, rather than merely untidy. */
 export const SERIOUS_GAPS: Gap[] = [
@@ -159,8 +185,8 @@ export type RegisterEntry = {
   gaps: Gap[];
 };
 
-async function nextReference(organisationId: string, year: number) {
-  const rows = await db.execute<{ next_value: number | string }>(sql`
+async function nextReference(organisationId: string, year: number, executor: Executor = db) {
+  const rows = await executor.execute<{ next_value: number | string }>(sql`
     insert into ${referenceCounters} (organisation_id, prefix, year, next_value)
     values (${organisationId}, 'AI', ${year}, 1)
     on conflict (organisation_id, prefix, year)
@@ -188,12 +214,18 @@ export async function createUseCase(input: {
   deployedIn?: string[];
   processesPersonalData?: boolean;
   nextReviewAt?: Date;
+  dataCategories?: string[];
+  supplierId?: string | null;
+  /** Where it came from, when an integration recorded it. */
+  source?: { connectionId: string; externalRef: string };
   actor: Actor;
-}) {
-  const reference = await nextReference(input.organisationId, new Date().getUTCFullYear());
+}, executor: Executor = db) {
+  const reference = await nextReference(input.organisationId, new Date().getUTCFullYear(), executor);
   const stage = input.lifecycleStage ?? "proposed";
 
-  return db.transaction(async (tx) => {
+  // Nested inside a caller's transaction where one is passed, so registering
+  // a system and recording why stand or fall together.
+  return executor.transaction(async (tx) => {
     const [row] = await tx
       .insert(aiUseCases)
       .values({
@@ -214,6 +246,10 @@ export async function createUseCase(input: {
         responsibleTeam: input.responsibleTeam,
         deployedIn: input.deployedIn ?? [],
         processesPersonalData: input.processesPersonalData,
+        dataCategories: input.dataCategories ?? [],
+        supplierId: input.supplierId ?? null,
+        sourceConnectionId: input.source?.connectionId ?? null,
+        externalRef: input.source?.externalRef ?? null,
         nextReviewAt: input.nextReviewAt,
         // Registered already live is the common case for an inventory being
         // built after the fact. The date is when it was recorded as live, not
@@ -255,6 +291,12 @@ export async function createUseCase(input: {
   });
 }
 
+/** Suppliers whose AI supply has an approved assessment. */
+async function approvedAiSuppliers(organisationId: string): Promise<Set<string>> {
+  const assessed = await aiSupplierAssessments(organisationId);
+  return new Set([...assessed].filter(([, a]) => a.approved).map(([id]) => id));
+}
+
 /** The fields an update may touch, and which of them the audit record shows. */
 const TRACKED_FIELDS = [
   "deploymentPattern",
@@ -262,6 +304,7 @@ const TRACKED_FIELDS = [
   "governanceOfficerId",
   "responsibleTeam",
   "vendor",
+  "supplierId",
   "modelName",
   "processesPersonalData",
   "nextReviewAt",
@@ -279,6 +322,7 @@ export async function updateUseCase(input: {
     responsibleTeam: string | null;
     transparencyScope: TransparencyScope | null;
     vendor: string;
+    supplierId: string | null;
     modelName: string;
     deployedIn: string[];
     processesPersonalData: boolean;
@@ -297,6 +341,21 @@ export async function updateUseCase(input: {
         ),
       );
     if (!before) throw new Error("No such AI use case");
+
+    // Another organisation's supplier would be a link nobody here can follow,
+    // and a leak of its name into this register.
+    if (input.changes.supplierId) {
+      const [own] = await tx
+        .select({ id: suppliers.id })
+        .from(suppliers)
+        .where(
+          and(
+            eq(suppliers.id, input.changes.supplierId),
+            eq(suppliers.organisationId, input.organisationId),
+          ),
+        );
+      if (!own) throw new Error("No such supplier");
+    }
 
     const [after] = await tx
       .update(aiUseCases)
@@ -384,9 +443,20 @@ export function gapsFor(
     lastMaterialChangeAt?: Date | null;
     assurance?: AssuranceSummary | null;
     unresolvedHarm?: boolean;
+    /** Suppliers whose AI supply has an approved assessment. */
+    assessedSuppliers?: ReadonlySet<string>;
+    /** Owners whose owner-level AI learning is current. */
+    trainedOwners?: ReadonlySet<string>;
   } = {},
 ): Gap[] {
-  const { transparency, lastMaterialChangeAt, assurance, unresolvedHarm } = context;
+  const {
+    transparency,
+    lastMaterialChangeAt,
+    assurance,
+    unresolvedHarm,
+    assessedSuppliers,
+    trainedOwners,
+  } = context;
   const gaps: Gap[] = [];
   const live = LIVE_STAGES.includes(useCase.lifecycleStage as LifecycleStage);
   const retired = useCase.lifecycleStage === "retired";
@@ -399,6 +469,9 @@ export function gapsFor(
   else if (!assessed.approvedAt) gaps.push("assessment_not_approved");
 
   if (!useCase.ownerId) gaps.push("no_owner");
+  // The Playbook asks the senior responsible owners of AI systems to understand
+  // its risks. Untidy rather than serious: the system may be well run anyway.
+  else if (trainedOwners && !trainedOwners.has(useCase.ownerId)) gaps.push("owner_not_trained");
 
   if (live && assessed) {
     const monitored = assessed.monitoring?.filter((m) => m !== "none") ?? [];
@@ -442,6 +515,15 @@ export function gapsFor(
   // Somebody reported actual harm and nobody has said how it was put right.
   if (unresolvedHarm) gaps.push("unresolved_harm");
 
+  // A bought-in system is only as well governed as the supplier behind it. The
+  // Playbook and the toolkit both put the supplier's data use, testing and
+  // contract inside the buyer's risk, so a system whose supplier nobody has
+  // looked at is not fully examined however good its own assessment.
+  if (assessedSuppliers && suppliedByThirdParty(useCase)) {
+    if (!useCase.supplierId) gaps.push("supplier_unrecorded");
+    else if (!assessedSuppliers.has(useCase.supplierId)) gaps.push("supplier_not_assessed");
+  }
+
   // Only where a record is required and the system is reaching people. A
   // voluntary record not yet written is a choice, not a gap; one required for
   // a system still in development is not due until it goes live.
@@ -474,11 +556,13 @@ export async function listRegister(
           ),
     )
     .orderBy(aiUseCases.reference);
-  const [recorded, changed, tested, harmed] = await Promise.all([
+  const [recorded, changed, tested, harmed, assessedSuppliers, trainedOwners] = await Promise.all([
     systemsWithCurrentRecord(organisationId),
     lastMaterialChanges(organisationId),
     assuranceByUseCase(organisationId),
     systemsWithUnresolvedHarm(organisationId),
+    approvedAiSuppliers(organisationId),
+    ownersWithTraining(organisationId),
   ]);
 
   return Promise.all(
@@ -493,6 +577,8 @@ export async function listRegister(
           lastMaterialChangeAt: changed.get(useCase.id) ?? null,
           assurance: tested.get(useCase.id) ?? null,
           unresolvedHarm: harmed.has(useCase.id),
+          assessedSuppliers,
+          trainedOwners,
         }),
       };
     }),
@@ -511,7 +597,8 @@ export async function loadUseCase(useCaseId: string, organisationId: string) {
     );
   if (!row) return null;
 
-  const [assessed, related, recorded, changed, tested, harmed] = await Promise.all([
+  const [assessed, related, recorded, changed, tested, harmed, assessedSuppliers, supplier, trainedOwners] =
+    await Promise.all([
     latestAssessment(useCaseId),
     db
       .select({ assessment: assessments, kind: templates.kind })
@@ -529,10 +616,20 @@ export async function loadUseCase(useCaseId: string, organisationId: string) {
     lastMaterialChanges(organisationId),
     assuranceByUseCase(organisationId),
     systemsWithUnresolvedHarm(organisationId),
+    approvedAiSuppliers(organisationId),
+    row.useCase.supplierId
+      ? db
+          .select({ id: suppliers.id, name: suppliers.name })
+          .from(suppliers)
+          .where(eq(suppliers.id, row.useCase.supplierId))
+          .then((r) => r[0] ?? null)
+      : null,
+    ownersWithTraining(organisationId),
   ]);
 
   return {
     useCase: row.useCase,
+    supplier,
     ownerEmail: row.ownerEmail,
     officerEmail: row.officerEmail,
     assessed,
@@ -542,6 +639,8 @@ export async function loadUseCase(useCaseId: string, organisationId: string) {
       lastMaterialChangeAt: changed.get(useCaseId) ?? null,
       assurance: tested.get(useCaseId) ?? null,
       unresolvedHarm: harmed.has(useCaseId),
+      assessedSuppliers,
+      trainedOwners,
     }),
   };
 }

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireCapability } from "@/lib/session";
+import { isAiInvolvement } from "@/lib/thirdparty/ai-procurement";
 import {
   ArchiveRefused,
   archiveDpa,
@@ -65,6 +66,21 @@ export async function updateSupplierAction(supplierId: string, formData: FormDat
 
   revalidatePath(`/app/third-parties/${supplierId}`);
   revalidatePath("/app/third-parties");
+}
+
+/** Record whether the supplier uses or supplies AI. Empty clears it back to "not asked". */
+export async function setAiInvolvementAction(supplierId: string, formData: FormData) {
+  const active = await requireCapability("record.write");
+  const value = formData.get("aiInvolvement");
+  await updateSupplier({
+    supplierId,
+    organisationId: active.membership.organisationId,
+    changes: { aiInvolvement: isAiInvolvement(value) ? value : null },
+    actor: { actorKind: "user", actorUserId: active.userId, actorLabel: active.email },
+  });
+  revalidatePath(`/app/third-parties/${supplierId}`);
+  revalidatePath("/app/third-parties");
+  revalidatePath("/app/ai");
 }
 
 /**

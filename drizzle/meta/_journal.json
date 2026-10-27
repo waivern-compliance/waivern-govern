@@ -309,6 +309,55 @@
       "when": 1793029381168,
       "tag": "0043_board_decision_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1793089765287,
+      "tag": "0044_exotic_the_hood",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1793090133911,
+      "tag": "0045_mute_whiplash",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1793090843369,
+      "tag": "0046_lethal_mercury",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1793091190655,
+      "tag": "0047_chemical_ultimates",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1793091205503,
+      "tag": "0048_ai_request_guards",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1793091583872,
+      "tag": "0049_fat_vengeance",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1793091585934,
+      "tag": "0050_training_guards",
+      "breakpoints": true
     }
   ]
 }
