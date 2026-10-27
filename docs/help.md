@@ -23,6 +23,7 @@ Every help topic the application carries, in the order it presents them.
 - [The risk register](#the-risk-register) — Rate a risk, treat it, then rate what remains. Accepting one is a decision with a name and an expiry date on it.
 - [Risk appetite](#risk-appetite) — How much risk of each kind the organisation will carry, signed off, and what every risk is judged against.
 - [Discussion and mentions](#discussion-and-mentions) — Ask a question beside the record it is about, and name the person who can answer.
+- [AI learning](#ai-learning) — What each person needs to know about AI for what they do, recorded as they complete it, and when it is due again.
 
 **The registers**
 
@@ -359,6 +360,28 @@ You can withdraw your own comment. The fact of it remains, so the thread still r
 **See also:** Tasks, and being mentioned · The audit trail
 
 <sub>Also searchable as: comment, mention, @, question, collaborate, thread, reply</sub>
+
+## AI learning
+
+*What each person needs to know about AI for what they do, recorded as they complete it, and when it is due again.*
+
+**Screen:** `/app/training`
+
+### Who needs what
+
+The AI Playbook asks that everybody working with AI has the skills it needs. Everyone here needs the fundamentals. Approvers and owners need AI for decision makers; approvers and AI governance need AI risk management; AI governance and the privacy roles need data protection and AI; AI governance and privacy administrators need ethics.
+
+Owning a system on the AI register adds AI for decision makers and AI risk management, because the Playbook names senior responsible owners as people who must understand AI's risks. A system whose owner's learning is not current shows that on the register.
+
+### Recording it
+
+Record what you completed, with the date and, if you have one, a link to the certificate. Somebody who manages people can record it for others. Records are kept as written: a mistake is corrected by recording again, not by editing.
+
+Learning goes stale. Most courses count for two years; using generative AI tools counts for one, because the tools change fastest. Anything else you have done can be recorded too, though it does not count towards a requirement.
+
+**See also:** The AI register · Giving somebody access
+
+<sub>Also searchable as: training, learning, skills, course, competence, civil service learning, attestation</sub>
 
 ---
 

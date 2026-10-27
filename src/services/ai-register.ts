@@ -22,6 +22,7 @@ import { systemsWithUnresolvedHarm } from "./ai-incidents";
 import { lastMaterialChanges } from "./ai-lifecycle";
 import { systemsWithCurrentRecord } from "./atrs";
 import { aiSupplierAssessments } from "./third-party";
+import { trainedOwners as ownersWithTraining } from "./training";
 import type { Actor } from "./templates";
 
 /**
@@ -132,7 +133,8 @@ export type Gap =
   | "last_test_failed"
   | "unresolved_harm"
   | "supplier_unrecorded"
-  | "supplier_not_assessed";
+  | "supplier_not_assessed"
+  | "owner_not_trained";
 
 export const GAP_WORDS: Record<Gap, string> = {
   never_assessed: "Never assessed",
@@ -150,6 +152,7 @@ export const GAP_WORDS: Record<Gap, string> = {
   unresolved_harm: "Reported harm unresolved",
   supplier_unrecorded: "Bought in; supplier not on the register",
   supplier_not_assessed: "Supplier's AI never assessed",
+  owner_not_trained: "Owner's AI learning not current",
 };
 
 /**
@@ -434,10 +437,18 @@ export function gapsFor(
     unresolvedHarm?: boolean;
     /** Suppliers whose AI supply has an approved assessment. */
     assessedSuppliers?: ReadonlySet<string>;
+    /** Owners whose owner-level AI learning is current. */
+    trainedOwners?: ReadonlySet<string>;
   } = {},
 ): Gap[] {
-  const { transparency, lastMaterialChangeAt, assurance, unresolvedHarm, assessedSuppliers } =
-    context;
+  const {
+    transparency,
+    lastMaterialChangeAt,
+    assurance,
+    unresolvedHarm,
+    assessedSuppliers,
+    trainedOwners,
+  } = context;
   const gaps: Gap[] = [];
   const live = LIVE_STAGES.includes(useCase.lifecycleStage as LifecycleStage);
   const retired = useCase.lifecycleStage === "retired";
@@ -450,6 +461,9 @@ export function gapsFor(
   else if (!assessed.approvedAt) gaps.push("assessment_not_approved");
 
   if (!useCase.ownerId) gaps.push("no_owner");
+  // The Playbook asks the senior responsible owners of AI systems to understand
+  // its risks. Untidy rather than serious: the system may be well run anyway.
+  else if (trainedOwners && !trainedOwners.has(useCase.ownerId)) gaps.push("owner_not_trained");
 
   if (live && assessed) {
     const monitored = assessed.monitoring?.filter((m) => m !== "none") ?? [];
@@ -534,12 +548,13 @@ export async function listRegister(
           ),
     )
     .orderBy(aiUseCases.reference);
-  const [recorded, changed, tested, harmed, assessedSuppliers] = await Promise.all([
+  const [recorded, changed, tested, harmed, assessedSuppliers, trainedOwners] = await Promise.all([
     systemsWithCurrentRecord(organisationId),
     lastMaterialChanges(organisationId),
     assuranceByUseCase(organisationId),
     systemsWithUnresolvedHarm(organisationId),
     approvedAiSuppliers(organisationId),
+    ownersWithTraining(organisationId),
   ]);
 
   return Promise.all(
@@ -555,6 +570,7 @@ export async function listRegister(
           assurance: tested.get(useCase.id) ?? null,
           unresolvedHarm: harmed.has(useCase.id),
           assessedSuppliers,
+          trainedOwners,
         }),
       };
     }),
@@ -573,7 +589,7 @@ export async function loadUseCase(useCaseId: string, organisationId: string) {
     );
   if (!row) return null;
 
-  const [assessed, related, recorded, changed, tested, harmed, assessedSuppliers, supplier] =
+  const [assessed, related, recorded, changed, tested, harmed, assessedSuppliers, supplier, trainedOwners] =
     await Promise.all([
     latestAssessment(useCaseId),
     db
@@ -600,6 +616,7 @@ export async function loadUseCase(useCaseId: string, organisationId: string) {
           .where(eq(suppliers.id, row.useCase.supplierId))
           .then((r) => r[0] ?? null)
       : null,
+    ownersWithTraining(organisationId),
   ]);
 
   return {
@@ -615,6 +632,7 @@ export async function loadUseCase(useCaseId: string, organisationId: string) {
       assurance: tested.get(useCaseId) ?? null,
       unresolvedHarm: harmed.has(useCaseId),
       assessedSuppliers,
+      trainedOwners,
     }),
   };
 }

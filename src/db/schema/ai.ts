@@ -498,3 +498,38 @@ export const aiUseCaseRequests = pgTable(
     ),
   ],
 );
+
+/**
+ * That somebody completed some AI learning.
+ *
+ * An attestation, not a certificate store: the person says they did it, or
+ * somebody who manages people records it for them, with where the evidence is.
+ * Append-only — a mistaken entry is corrected by a later one, and the record of
+ * what was claimed when stays — and never deleted.
+ */
+export const trainingRecords = pgTable(
+  "training_record",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organisationId: uuid("organisation_id")
+      .notNull()
+      .references(() => organisations.id, { onDelete: "restrict" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    /** A key from the shipped course list, or null for learning outside it. */
+    courseKey: text("course_key"),
+    /** What it was called where it was taken, which may not be our name for it. */
+    title: text("title").notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true }).notNull(),
+    evidenceRef: text("evidence_ref"),
+    /** True when the person recorded their own completion. */
+    selfAttested: boolean("self_attested").notNull(),
+    recordedByUserId: uuid("recorded_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    recordedByLabel: text("recorded_by_label").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("training_record_user_idx").on(t.organisationId, t.userId, t.courseKey)],
+);

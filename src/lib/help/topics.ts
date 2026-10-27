@@ -1079,6 +1079,31 @@ export const HELP_TOPICS: HelpTopic[] = [
     related: ["ai-register", "ai-incidents"],
   },
   {
+    id: "training",
+    title: "AI learning",
+    summary:
+      "What each person needs to know about AI for what they do, recorded as they complete it, and when it is due again.",
+    path: "/app/training",
+    keywords: ["training", "learning", "skills", "course", "competence", "civil service learning", "attestation"],
+    sections: [
+      {
+        heading: "Who needs what",
+        body: [
+          "The AI Playbook asks that everybody working with AI has the skills it needs. Everyone here needs the fundamentals. Approvers and owners need AI for decision makers; approvers and AI governance need AI risk management; AI governance and the privacy roles need data protection and AI; AI governance and privacy administrators need ethics.",
+          "Owning a system on the AI register adds AI for decision makers and AI risk management, because the Playbook names senior responsible owners as people who must understand AI's risks. A system whose owner's learning is not current shows that on the register.",
+        ],
+      },
+      {
+        heading: "Recording it",
+        body: [
+          "Record what you completed, with the date and, if you have one, a link to the certificate. Somebody who manages people can record it for others. Records are kept as written: a mistake is corrected by recording again, not by editing.",
+          "Learning goes stale. Most courses count for two years; using generative AI tools counts for one, because the tools change fastest. Anything else you have done can be recorded too, though it does not count towards a requirement.",
+        ],
+      },
+    ],
+    related: ["ai-register", "managing-people"],
+  },
+  {
     id: "transparency-records",
     title: "Algorithmic transparency records",
     summary:
@@ -1166,7 +1191,7 @@ export const HELP_GROUPS: Array<{ heading: string; ids: string[] }> = [
   },
   {
     heading: "Doing the work",
-    ids: ["assessments", "approvals", "contributor-links", "risks", "risk-appetite", "discussion"],
+    ids: ["assessments", "approvals", "contributor-links", "risks", "risk-appetite", "discussion", "training"],
   },
   {
     heading: "The registers",

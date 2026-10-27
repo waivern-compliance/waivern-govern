@@ -59,6 +59,7 @@ export const recordType = pgEnum("record_type", [
   "ai_assurance_record",
   "ai_incident",
   "ai_use_case_request",
+  "training_record",
 ]);
 
 /**

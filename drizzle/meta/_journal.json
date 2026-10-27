@@ -344,6 +344,20 @@
       "when": 1793091205503,
       "tag": "0048_ai_request_guards",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1793091583872,
+      "tag": "0049_fat_vengeance",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1793091585934,
+      "tag": "0050_training_guards",
+      "breakpoints": true
     }
   ]
 }

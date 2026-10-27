@@ -106,6 +106,11 @@ export const NAV: NavItem[] = [
     capability: "record.read",
   },
   {
+    href: "/app/training",
+    label: "AI learning",
+    hint: "what you need to know about AI, and whether it is current",
+  },
+  {
     href: "/app/templates",
     label: "Assessment templates",
     hint: "DPIA, transfer risk and impact, AI risk, screening",
