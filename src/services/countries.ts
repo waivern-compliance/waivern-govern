@@ -1,5 +1,5 @@
 import { and, asc, eq, isNull, lte, or, sql } from "drizzle-orm";
-import { db } from "@/db/client";
+import { db, withOrganisation } from "@/db/client";
 import { countryRisk, countryRiskReviews } from "@/db/schema";
 import { appendAuditEvent } from "@/lib/audit";
 import { addMonths } from "@/lib/dates";
@@ -35,37 +35,41 @@ function decorate(row: typeof countryRisk.$inferSelect): CountryEntry {
  * nobody wrote and nobody can defend.
  */
 export async function libraryFor(organisationId: string): Promise<CountryEntry[]> {
-  const rows = await db
-    .select()
-    .from(countryRisk)
-    .where(or(isNull(countryRisk.organisationId), eq(countryRisk.organisationId, organisationId)))
-    .orderBy(asc(countryRisk.name));
+  return withOrganisation(organisationId, async () => {
+    const rows = await db
+      .select()
+      .from(countryRisk)
+      .where(or(isNull(countryRisk.organisationId), eq(countryRisk.organisationId, organisationId)))
+      .orderBy(asc(countryRisk.name));
 
-  const byCode = new Map<string, typeof countryRisk.$inferSelect>();
-  for (const row of rows) {
-    const existing = byCode.get(row.code);
-    if (!existing || row.organisationId !== null) byCode.set(row.code, row);
-  }
-  return [...byCode.values()]
-    .map(decorate)
-    .sort((a, b) => a.name.localeCompare(b.name));
+    const byCode = new Map<string, typeof countryRisk.$inferSelect>();
+    for (const row of rows) {
+      const existing = byCode.get(row.code);
+      if (!existing || row.organisationId !== null) byCode.set(row.code, row);
+    }
+    return [...byCode.values()]
+      .map(decorate)
+      .sort((a, b) => a.name.localeCompare(b.name));
+  });
 }
 
 export async function lookup(
   organisationId: string,
   code: string,
 ): Promise<CountryEntry | null> {
-  const rows = await db
-    .select()
-    .from(countryRisk)
-    .where(
-      and(
-        eq(countryRisk.code, code.toUpperCase()),
-        or(isNull(countryRisk.organisationId), eq(countryRisk.organisationId, organisationId)),
-      ),
-    );
-  if (rows.length === 0) return null;
-  return decorate(rows.find((r) => r.organisationId !== null) ?? rows[0]);
+  return withOrganisation(organisationId, async () => {
+    const rows = await db
+      .select()
+      .from(countryRisk)
+      .where(
+        and(
+          eq(countryRisk.code, code.toUpperCase()),
+          or(isNull(countryRisk.organisationId), eq(countryRisk.organisationId, organisationId)),
+        ),
+      );
+    if (rows.length === 0) return null;
+    return decorate(rows.find((r) => r.organisationId !== null) ?? rows[0]);
+  });
 }
 
 /** Codes needing an Article 46 route under a given regime. */
@@ -73,19 +77,21 @@ export async function needingSafeguards(
   organisationId: string,
   regime: Regime = "uk",
 ): Promise<Set<string>> {
-  const library = await libraryFor(organisationId);
-  return new Set(
-    library
-      .filter((c) => {
-        const status = regime === "uk" ? c.ukAdequacy : c.euAdequacy;
-        // "Conditionally adequate" counts as needing safeguards. The condition
-        // is about the recipient, not the country, so the platform cannot know
-        // it holds — and assuming it does is how a US transfer to an
-        // uncertified processor sails through.
-        return status !== "adequate";
-      })
-      .map((c) => c.code),
-  );
+  return withOrganisation(organisationId, async () => {
+    const library = await libraryFor(organisationId);
+    return new Set(
+      library
+        .filter((c) => {
+          const status = regime === "uk" ? c.ukAdequacy : c.euAdequacy;
+          // "Conditionally adequate" counts as needing safeguards. The condition
+          // is about the recipient, not the country, so the platform cannot know
+          // it holds — and assuming it does is how a US transfer to an
+          // uncertified processor sails through.
+          return status !== "adequate";
+        })
+        .map((c) => c.code),
+    );
+  });
 }
 
 export type LibraryHealth = {
@@ -97,14 +103,16 @@ export type LibraryHealth = {
 };
 
 export async function libraryHealth(organisationId: string): Promise<LibraryHealth> {
-  const library = await libraryFor(organisationId);
-  const soon = Date.now() + 30 * 24 * 3600 * 1000;
-  return {
-    total: library.length,
-    stale: library.filter((c) => c.stale).length,
-    unverified: library.filter((c) => c.unverified).length,
-    dueSoon: library.filter((c) => !c.stale && c.nextReviewAt.getTime() <= soon).length,
-  };
+  return withOrganisation(organisationId, async () => {
+    const library = await libraryFor(organisationId);
+    const soon = Date.now() + 30 * 24 * 3600 * 1000;
+    return {
+      total: library.length,
+      stale: library.filter((c) => c.stale).length,
+      unverified: library.filter((c) => c.unverified).length,
+      dueSoon: library.filter((c) => !c.stale && c.nextReviewAt.getTime() <= soon).length,
+    };
+  });
 }
 
 /**
@@ -131,90 +139,92 @@ export async function reviewCountry(input: {
   asOverride?: boolean;
   actor: Actor;
 }) {
-  const note = input.note.trim();
-  if (!note) throw new Error("A review needs a note, even if nothing changed");
+  return withOrganisation(input.organisationId, async () => {
+    const note = input.note.trim();
+    if (!note) throw new Error("A review needs a note, even if nothing changed");
 
-  const current = await lookup(input.organisationId, input.code);
-  if (!current) throw new Error(`No country with code ${input.code}`);
+    const current = await lookup(input.organisationId, input.code);
+    if (!current) throw new Error(`No country with code ${input.code}`);
 
-  const now = new Date();
-  const next = addMonths(now, REVIEW_INTERVAL_MONTHS);
+    const now = new Date();
+    const next = addMonths(now, REVIEW_INTERVAL_MONTHS);
 
-  return db.transaction(async (tx) => {
-    const before = {
-      ukAdequacy: current.ukAdequacy,
-      euAdequacy: current.euAdequacy,
-      governmentAccess: current.governmentAccess,
-      redress: current.redress,
-      reviewedBy: current.reviewedBy,
-    };
+    return db.transaction(async (tx) => {
+      const before = {
+        ukAdequacy: current.ukAdequacy,
+        euAdequacy: current.euAdequacy,
+        governmentAccess: current.governmentAccess,
+        redress: current.redress,
+        reviewedBy: current.reviewedBy,
+      };
 
-    const values = {
-      ...input.changes,
-      reviewedAt: now,
-      reviewedBy: input.actor.actorLabel,
-      nextReviewAt: next,
-      updatedAt: now,
-    };
+      const values = {
+        ...input.changes,
+        reviewedAt: now,
+        reviewedBy: input.actor.actorLabel,
+        nextReviewAt: next,
+        updatedAt: now,
+      };
 
-    // Editing the shared library from inside one client would change what every
-    // other client sees, so a client's review always writes their own row.
-    const writeOverride = input.asOverride ?? current.organisationId === null;
+      // Editing the shared library from inside one client would change what every
+      // other client sees, so a client's review always writes their own row.
+      const writeOverride = input.asOverride ?? current.organisationId === null;
 
-    const [row] = writeOverride
-      ? await tx
-          .insert(countryRisk)
-          .values({
-            organisationId: input.organisationId,
-            code: current.code,
-            name: current.name,
-            ukAdequacy: current.ukAdequacy,
-            ukAdequacyNote: current.ukAdequacyNote,
-            euAdequacy: current.euAdequacy,
-            euAdequacyNote: current.euAdequacyNote,
-            governmentAccess: current.governmentAccess,
-            redress: current.redress,
-            summary: current.summary,
-            sources: current.sources,
-            ...values,
-          })
-          .onConflictDoUpdate({
-            target: [countryRisk.organisationId, countryRisk.code],
-            targetWhere: sql`${countryRisk.organisationId} is not null`,
-            set: values,
-          })
-          .returning()
-      : await tx
-          .update(countryRisk)
-          .set(values)
-          .where(eq(countryRisk.id, current.id))
-          .returning();
+      const [row] = writeOverride
+        ? await tx
+            .insert(countryRisk)
+            .values({
+              organisationId: input.organisationId,
+              code: current.code,
+              name: current.name,
+              ukAdequacy: current.ukAdequacy,
+              ukAdequacyNote: current.ukAdequacyNote,
+              euAdequacy: current.euAdequacy,
+              euAdequacyNote: current.euAdequacyNote,
+              governmentAccess: current.governmentAccess,
+              redress: current.redress,
+              summary: current.summary,
+              sources: current.sources,
+              ...values,
+            })
+            .onConflictDoUpdate({
+              target: [countryRisk.organisationId, countryRisk.code],
+              targetWhere: sql`${countryRisk.organisationId} is not null`,
+              set: values,
+            })
+            .returning()
+        : await tx
+            .update(countryRisk)
+            .set(values)
+            .where(eq(countryRisk.id, current.id))
+            .returning();
 
-    await tx.insert(countryRiskReviews).values({
-      countryRiskId: row.id,
-      reviewedByUserId: input.actor.actorUserId ?? null,
-      reviewedByLabel: input.actor.actorLabel,
-      note,
-      before,
-      after: {
-        ukAdequacy: row.ukAdequacy,
-        euAdequacy: row.euAdequacy,
-        governmentAccess: row.governmentAccess,
-        redress: row.redress,
-      },
+      await tx.insert(countryRiskReviews).values({
+        countryRiskId: row.id,
+        reviewedByUserId: input.actor.actorUserId ?? null,
+        reviewedByLabel: input.actor.actorLabel,
+        note,
+        before,
+        after: {
+          ukAdequacy: row.ukAdequacy,
+          euAdequacy: row.euAdequacy,
+          governmentAccess: row.governmentAccess,
+          redress: row.redress,
+        },
+      });
+
+      await appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        action: "country_risk.reviewed",
+        subjectType: "country_risk",
+        subjectId: row.id,
+        before,
+        after: { code: row.code, note, nextReviewAt: next.toISOString() },
+      });
+
+      return decorate(row);
     });
-
-    await appendAuditEvent(tx, {
-      ...input.actor,
-      organisationId: input.organisationId,
-      action: "country_risk.reviewed",
-      subjectType: "country_risk",
-      subjectId: row.id,
-      before,
-      after: { code: row.code, note, nextReviewAt: next.toISOString() },
-    });
-
-    return decorate(row);
   });
 }
 

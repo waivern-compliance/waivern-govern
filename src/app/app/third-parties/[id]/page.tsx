@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { asc, eq } from "drizzle-orm";
-import { db } from "@/db/client";
+import { db, scoped } from "@/db/client";
 import { memberships, users } from "@/db/schema";
 import { Attachments } from "@/components/documents/Attachments";
 import { AgreementAdmin } from "@/components/thirdparty/AgreementAdmin";
@@ -61,12 +61,12 @@ export default async function SupplierPage({
   const { supplier, dpas, current, gaps, hardGaps, privacy, ai } = loaded;
   const mayEdit = can(active.membership.grants, "record.write");
 
-  const colleagues = await db
+  const colleagues = await scoped(active.membership.organisationId, () => db
     .select({ id: users.id, email: users.email })
     .from(memberships)
     .innerJoin(users, eq(users.id, memberships.userId))
     .where(eq(memberships.organisationId, active.membership.organisationId))
-    .orderBy(asc(users.email));
+    .orderBy(asc(users.email)));
 
   const org = active.membership.organisationId;
   const [supplierDocs, ...dpaDocs] = await Promise.all([

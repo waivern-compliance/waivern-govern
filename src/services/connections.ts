@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import { db } from "@/db/client";
+import { db, withOrganisation } from "@/db/client";
 import { integrationConnections } from "@/db/schema";
 import { appendAuditEvent } from "@/lib/audit";
 import { newSecret, sealSecret } from "@/lib/integration/crypto";
@@ -20,35 +20,37 @@ export async function createConnection(input: {
   webhookUrl?: string;
   actor: Actor;
 }): Promise<ProvisionedConnection> {
-  const secret = newSecret();
-  const sealed = sealSecret(secret);
-  if (input.defaultEntityId) await assertEntityIn(input.organisationId, input.defaultEntityId);
+  return withOrganisation(input.organisationId, async () => {
+    const secret = newSecret();
+    const sealed = sealSecret(secret);
+    if (input.defaultEntityId) await assertEntityIn(input.organisationId, input.defaultEntityId);
 
-  return db.transaction(async (tx) => {
-    const [row] = await tx
-      .insert(integrationConnections)
-      .values({
+    return db.transaction(async (tx) => {
+      const [row] = await tx
+        .insert(integrationConnections)
+        .values({
+          organisationId: input.organisationId,
+          kind: input.kind,
+          name: input.name,
+          secretCiphertext: sealed.ciphertext,
+          secretIv: sealed.iv,
+          secretTag: sealed.tag,
+          defaultEntityId: input.defaultEntityId,
+          webhookUrl: input.webhookUrl,
+        })
+        .returning();
+
+      await appendAuditEvent(tx, {
+        ...input.actor,
         organisationId: input.organisationId,
-        kind: input.kind,
-        name: input.name,
-        secretCiphertext: sealed.ciphertext,
-        secretIv: sealed.iv,
-        secretTag: sealed.tag,
-        defaultEntityId: input.defaultEntityId,
-        webhookUrl: input.webhookUrl,
-      })
-      .returning();
+        action: "integration_connection.created",
+        subjectType: "integration_connection",
+        subjectId: row.id,
+        after: { kind: input.kind, name: input.name, webhookUrl: input.webhookUrl ?? null },
+      });
 
-    await appendAuditEvent(tx, {
-      ...input.actor,
-      organisationId: input.organisationId,
-      action: "integration_connection.created",
-      subjectType: "integration_connection",
-      subjectId: row.id,
-      after: { kind: input.kind, name: input.name, webhookUrl: input.webhookUrl ?? null },
+      return { id: row.id, secret };
     });
-
-    return { id: row.id, secret };
   });
 }
 
@@ -58,53 +60,57 @@ export async function rotateSecret(input: {
   organisationId: string;
   actor: Actor;
 }): Promise<ProvisionedConnection> {
-  const secret = newSecret();
-  const sealed = sealSecret(secret);
+  return withOrganisation(input.organisationId, async () => {
+    const secret = newSecret();
+    const sealed = sealSecret(secret);
 
-  return db.transaction(async (tx) => {
-    const [row] = await tx
-      .update(integrationConnections)
-      .set({
-        secretCiphertext: sealed.ciphertext,
-        secretIv: sealed.iv,
-        secretTag: sealed.tag,
-      })
-      // Its own organisation's only. Without this, anyone who could rotate
-      // their own secret could rotate another organisation's by id — and be
-      // handed the new one.
-      .where(
-        and(
-          eq(integrationConnections.id, input.connectionId),
-          eq(integrationConnections.organisationId, input.organisationId),
-        ),
-      )
-      .returning();
-    if (!row) throw new Error("No such connection");
+    return db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(integrationConnections)
+        .set({
+          secretCiphertext: sealed.ciphertext,
+          secretIv: sealed.iv,
+          secretTag: sealed.tag,
+        })
+        // Its own organisation's only. Without this, anyone who could rotate
+        // their own secret could rotate another organisation's by id — and be
+        // handed the new one.
+        .where(
+          and(
+            eq(integrationConnections.id, input.connectionId),
+            eq(integrationConnections.organisationId, input.organisationId),
+          ),
+        )
+        .returning();
+      if (!row) throw new Error("No such connection");
 
-    await appendAuditEvent(tx, {
-      ...input.actor,
-      organisationId: input.organisationId,
-      action: "integration_connection.secret_rotated",
-      subjectType: "integration_connection",
-      subjectId: row.id,
-      after: { name: row.name },
+      await appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        action: "integration_connection.secret_rotated",
+        subjectType: "integration_connection",
+        subjectId: row.id,
+        after: { name: row.name },
+      });
+
+      return { id: row.id, secret };
     });
-
-    return { id: row.id, secret };
   });
 }
 
 export async function listConnections(organisationId: string) {
-  return db
-    .select({
-      id: integrationConnections.id,
-      kind: integrationConnections.kind,
-      name: integrationConnections.name,
-      webhookUrl: integrationConnections.webhookUrl,
-      isActive: integrationConnections.isActive,
-      lastSeenAt: integrationConnections.lastSeenAt,
-      createdAt: integrationConnections.createdAt,
-    })
-    .from(integrationConnections)
-    .where(eq(integrationConnections.organisationId, organisationId));
+  return withOrganisation(organisationId, async () => {
+    return db
+      .select({
+        id: integrationConnections.id,
+        kind: integrationConnections.kind,
+        name: integrationConnections.name,
+        webhookUrl: integrationConnections.webhookUrl,
+        isActive: integrationConnections.isActive,
+        lastSeenAt: integrationConnections.lastSeenAt,
+        createdAt: integrationConnections.createdAt,
+      })
+      .from(integrationConnections)
+      .where(eq(integrationConnections.organisationId, organisationId));
+  });
 }

@@ -1,5 +1,5 @@
 import { and, eq, inArray, isNotNull } from "drizzle-orm";
-import { db } from "@/db/client";
+import { db, withOrganisation } from "@/db/client";
 import { assessments, riskAcceptances, risks, tasks } from "@/db/schema";
 
 /**
@@ -112,59 +112,61 @@ export async function trendFor(
   months = 12,
   now = new Date(),
 ): Promise<{ periods: Period[]; points: TrendPoint[] }> {
-  const periods = monthsEnding(now, months);
-  const inScope = entityIds === null ? null : entityIds;
+  return withOrganisation(organisationId, async () => {
+    const periods = monthsEnding(now, months);
+    const inScope = entityIds === null ? null : entityIds;
 
-  const riskScope = inScope
-    ? and(eq(risks.organisationId, organisationId), inArray(risks.entityId, inScope))
-    : eq(risks.organisationId, organisationId);
-  const assessmentScope = inScope
-    ? and(eq(assessments.organisationId, organisationId), inArray(assessments.entityId, inScope))
-    : eq(assessments.organisationId, organisationId);
-  const taskScope = inScope
-    ? and(eq(tasks.organisationId, organisationId), inArray(tasks.entityId, inScope))
-    : eq(tasks.organisationId, organisationId);
+    const riskScope = inScope
+      ? and(eq(risks.organisationId, organisationId), inArray(risks.entityId, inScope))
+      : eq(risks.organisationId, organisationId);
+    const assessmentScope = inScope
+      ? and(eq(assessments.organisationId, organisationId), inArray(assessments.entityId, inScope))
+      : eq(assessments.organisationId, organisationId);
+    const taskScope = inScope
+      ? and(eq(tasks.organisationId, organisationId), inArray(tasks.entityId, inScope))
+      : eq(tasks.organisationId, organisationId);
 
-  const [riskRows, assessmentRows, taskRows, acceptanceRows] = await Promise.all([
-    db
-      .select({ openedAt: risks.openedAt, closedAt: risks.closedAt })
-      .from(risks)
-      .where(riskScope),
-    db
-      .select({
-        createdAt: assessments.createdAt,
-        submittedAt: assessments.submittedAt,
-        completedAt: assessments.completedAt,
-      })
-      .from(assessments)
-      .where(assessmentScope),
-    db
-      .select({ completedAt: tasks.completedAt, breachedAt: tasks.breachedAt })
-      .from(tasks)
-      .where(taskScope),
-    db
-      .select({
-        createdAt: riskAcceptances.createdAt,
-        expiresAt: riskAcceptances.expiresAt,
-        revokedAt: riskAcceptances.revokedAt,
-      })
-      .from(riskAcceptances)
-      .innerJoin(risks, eq(risks.id, riskAcceptances.riskId))
-      .where(and(riskScope, isNotNull(riskAcceptances.createdAt))),
-  ]);
+    const [riskRows, assessmentRows, taskRows, acceptanceRows] = await Promise.all([
+      db
+        .select({ openedAt: risks.openedAt, closedAt: risks.closedAt })
+        .from(risks)
+        .where(riskScope),
+      db
+        .select({
+          createdAt: assessments.createdAt,
+          submittedAt: assessments.submittedAt,
+          completedAt: assessments.completedAt,
+        })
+        .from(assessments)
+        .where(assessmentScope),
+      db
+        .select({ completedAt: tasks.completedAt, breachedAt: tasks.breachedAt })
+        .from(tasks)
+        .where(taskScope),
+      db
+        .select({
+          createdAt: riskAcceptances.createdAt,
+          expiresAt: riskAcceptances.expiresAt,
+          revokedAt: riskAcceptances.revokedAt,
+        })
+        .from(riskAcceptances)
+        .innerJoin(risks, eq(risks.id, riskAcceptances.riskId))
+        .where(and(riskScope, isNotNull(riskAcceptances.createdAt))),
+    ]);
 
-  return {
-    periods,
-    points: buildTrend(
-      {
-        risks: riskRows,
-        assessments: assessmentRows,
-        tasks: taskRows,
-        acceptances: acceptanceRows,
-      },
+    return {
       periods,
-    ),
-  };
+      points: buildTrend(
+        {
+          risks: riskRows,
+          assessments: assessmentRows,
+          tasks: taskRows,
+          acceptances: acceptanceRows,
+        },
+        periods,
+      ),
+    };
+  });
 }
 
 /** The earliest thing on record, so a chart can say how much history it has. */

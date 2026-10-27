@@ -1,5 +1,5 @@
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
-import { db } from "@/db/client";
+import { db, withOrganisation } from "@/db/client";
 import {
   assessments,
   entities,
@@ -140,8 +140,38 @@ export async function listActivities(
   organisationId: string,
   entityIds: string[] | null,
 ): Promise<RegisterRow[]> {
-  const [rows, needsSafeguards] = await Promise.all([
-    db
+  return withOrganisation(organisationId, async () => {
+    const [rows, needsSafeguards] = await Promise.all([
+      db
+        .select({
+          activity: processingActivities,
+          entityName: entities.name,
+          ownerEmail: users.email,
+        })
+        .from(processingActivities)
+        .innerJoin(entities, eq(entities.id, processingActivities.entityId))
+        .leftJoin(users, eq(users.id, processingActivities.ownerId))
+        .where(await scopeOf(organisationId, entityIds))
+        .orderBy(asc(processingActivities.reference)),
+      needingSafeguards(organisationId, "uk"),
+    ]);
+
+    return rows.map(({ activity, entityName, ownerEmail }) => {
+      const gaps = article30Gaps(activity, needsSafeguards);
+      return {
+        activity,
+        entityName,
+        ownerEmail,
+        gaps,
+        hardGaps: gaps.filter((g) => HARD_GAPS.includes(g)),
+      };
+    });
+  });
+}
+
+export async function loadActivity(activityId: string, organisationId: string) {
+  return withOrganisation(organisationId, async () => {
+    const [row] = await db
       .select({
         activity: processingActivities,
         entityName: entities.name,
@@ -150,64 +180,38 @@ export async function listActivities(
       .from(processingActivities)
       .innerJoin(entities, eq(entities.id, processingActivities.entityId))
       .leftJoin(users, eq(users.id, processingActivities.ownerId))
-      .where(await scopeOf(organisationId, entityIds))
-      .orderBy(asc(processingActivities.reference)),
-    needingSafeguards(organisationId, "uk"),
-  ]);
+      .where(
+        and(
+          eq(processingActivities.id, activityId),
+          eq(processingActivities.organisationId, organisationId),
+        ),
+      );
+    if (!row) return null;
 
-  return rows.map(({ activity, entityName, ownerEmail }) => {
-    const gaps = article30Gaps(activity, needsSafeguards);
+    const [needsSafeguards, related] = await Promise.all([
+      needingSafeguards(organisationId, "uk"),
+      db
+        .select({ assessment: assessments, kind: templates.kind })
+        .from(assessments)
+        .innerJoin(templateVersions, eq(templateVersions.id, assessments.templateVersionId))
+        .innerJoin(templates, eq(templates.id, templateVersions.templateId))
+        .where(
+          and(
+            eq(assessments.subjectType, "processing_activity"),
+            eq(assessments.subjectId, activityId),
+          ),
+        )
+        .orderBy(desc(assessments.createdAt)),
+    ]);
+
+    const gaps = article30Gaps(row.activity, needsSafeguards);
     return {
-      activity,
-      entityName,
-      ownerEmail,
+      ...row,
+      assessments: related,
       gaps,
       hardGaps: gaps.filter((g) => HARD_GAPS.includes(g)),
     };
   });
-}
-
-export async function loadActivity(activityId: string, organisationId: string) {
-  const [row] = await db
-    .select({
-      activity: processingActivities,
-      entityName: entities.name,
-      ownerEmail: users.email,
-    })
-    .from(processingActivities)
-    .innerJoin(entities, eq(entities.id, processingActivities.entityId))
-    .leftJoin(users, eq(users.id, processingActivities.ownerId))
-    .where(
-      and(
-        eq(processingActivities.id, activityId),
-        eq(processingActivities.organisationId, organisationId),
-      ),
-    );
-  if (!row) return null;
-
-  const [needsSafeguards, related] = await Promise.all([
-    needingSafeguards(organisationId, "uk"),
-    db
-      .select({ assessment: assessments, kind: templates.kind })
-      .from(assessments)
-      .innerJoin(templateVersions, eq(templateVersions.id, assessments.templateVersionId))
-      .innerJoin(templates, eq(templates.id, templateVersions.templateId))
-      .where(
-        and(
-          eq(assessments.subjectType, "processing_activity"),
-          eq(assessments.subjectId, activityId),
-        ),
-      )
-      .orderBy(desc(assessments.createdAt)),
-  ]);
-
-  const gaps = article30Gaps(row.activity, needsSafeguards);
-  return {
-    ...row,
-    assessments: related,
-    gaps,
-    hardGaps: gaps.filter((g) => HARD_GAPS.includes(g)),
-  };
 }
 
 async function nextReference(organisationId: string, year: number) {
@@ -241,46 +245,48 @@ export async function createActivity(input: {
   reviewDueAt?: Date;
   actor: Actor;
 }) {
-  await assertEntityIn(input.organisationId, input.entityId);
-  if (input.ownerId) await assertMemberOf(input.organisationId, input.ownerId);
-  const reference = await nextReference(input.organisationId, new Date().getUTCFullYear());
+  return withOrganisation(input.organisationId, async () => {
+    await assertEntityIn(input.organisationId, input.entityId);
+    if (input.ownerId) await assertMemberOf(input.organisationId, input.ownerId);
+    const reference = await nextReference(input.organisationId, new Date().getUTCFullYear());
 
-  return db.transaction(async (tx) => {
-    const [row] = await tx
-      .insert(processingActivities)
-      .values({
+    return db.transaction(async (tx) => {
+      const [row] = await tx
+        .insert(processingActivities)
+        .values({
+          organisationId: input.organisationId,
+          entityId: input.entityId,
+          reference,
+          name: input.name,
+          description: input.description,
+          purposes: input.purposes ?? [],
+          lawfulBasis: input.lawfulBasis,
+          dataCategories: input.dataCategories ?? [],
+          subjectCategories: input.subjectCategories ?? [],
+          recipients: input.recipients ?? [],
+          systems: input.systems ?? [],
+          transfers: input.transfers ?? [],
+          retention: input.retention,
+          securityMeasures: input.securityMeasures,
+          controllerRole: input.controllerRole,
+          controllerName: input.controllerName,
+          ownerId: input.ownerId ?? null,
+          reviewDueAt: input.reviewDueAt,
+        })
+        .returning();
+
+      await appendAuditEvent(tx, {
+        ...input.actor,
         organisationId: input.organisationId,
+        action: "processing_activity.created",
+        subjectType: "processing_activity",
+        subjectId: row.id,
         entityId: input.entityId,
-        reference,
-        name: input.name,
-        description: input.description,
-        purposes: input.purposes ?? [],
-        lawfulBasis: input.lawfulBasis,
-        dataCategories: input.dataCategories ?? [],
-        subjectCategories: input.subjectCategories ?? [],
-        recipients: input.recipients ?? [],
-        systems: input.systems ?? [],
-        transfers: input.transfers ?? [],
-        retention: input.retention,
-        securityMeasures: input.securityMeasures,
-        controllerRole: input.controllerRole,
-        controllerName: input.controllerName,
-        ownerId: input.ownerId ?? null,
-        reviewDueAt: input.reviewDueAt,
-      })
-      .returning();
+        after: { reference, name: row.name },
+      });
 
-    await appendAuditEvent(tx, {
-      ...input.actor,
-      organisationId: input.organisationId,
-      action: "processing_activity.created",
-      subjectType: "processing_activity",
-      subjectId: row.id,
-      entityId: input.entityId,
-      after: { reference, name: row.name },
+      return row;
     });
-
-    return row;
   });
 }
 
@@ -306,40 +312,42 @@ export async function updateActivity(input: {
   }>;
   actor: Actor;
 }) {
-  if (input.changes.name !== undefined && !input.changes.name.trim()) {
-    throw new Error("A processing activity needs a name.");
-  }
-  if (input.changes.ownerId) await assertMemberOf(input.organisationId, input.changes.ownerId);
-  return db.transaction(async (tx) => {
-    const [before] = await tx
-      .select()
-      .from(processingActivities)
-      .where(
-        and(
-          eq(processingActivities.id, input.activityId),
-          eq(processingActivities.organisationId, input.organisationId),
-        ),
-      );
-    if (!before) throw new Error("No such processing activity");
+  return withOrganisation(input.organisationId, async () => {
+    if (input.changes.name !== undefined && !input.changes.name.trim()) {
+      throw new Error("A processing activity needs a name.");
+    }
+    if (input.changes.ownerId) await assertMemberOf(input.organisationId, input.changes.ownerId);
+    return db.transaction(async (tx) => {
+      const [before] = await tx
+        .select()
+        .from(processingActivities)
+        .where(
+          and(
+            eq(processingActivities.id, input.activityId),
+            eq(processingActivities.organisationId, input.organisationId),
+          ),
+        );
+      if (!before) throw new Error("No such processing activity");
 
-    const [after] = await tx
-      .update(processingActivities)
-      .set({ ...input.changes, updatedAt: new Date() })
-      .where(eq(processingActivities.id, input.activityId))
-      .returning();
+      const [after] = await tx
+        .update(processingActivities)
+        .set({ ...input.changes, updatedAt: new Date() })
+        .where(eq(processingActivities.id, input.activityId))
+        .returning();
 
-    await appendAuditEvent(tx, {
-      ...input.actor,
-      organisationId: input.organisationId,
-      action: "processing_activity.updated",
-      subjectType: "processing_activity",
-      subjectId: input.activityId,
-      entityId: before.entityId,
-      before: { name: before.name, changed: Object.keys(input.changes) },
-      after: { name: after.name },
+      await appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        action: "processing_activity.updated",
+        subjectType: "processing_activity",
+        subjectId: input.activityId,
+        entityId: before.entityId,
+        before: { name: before.name, changed: Object.keys(input.changes) },
+        after: { name: after.name },
+      });
+
+      return after;
     });
-
-    return after;
   });
 }
 
@@ -348,13 +356,15 @@ export async function registerHealth(
   organisationId: string,
   entityIds: string[] | null,
 ) {
-  const rows = await listActivities(organisationId, entityIds);
-  return {
-    total: rows.length,
-    complete: rows.filter((r) => r.gaps.length === 0).length,
-    nonCompliant: rows.filter((r) => r.hardGaps.length > 0).length,
-    unowned: rows.filter((r) => r.gaps.includes("no_owner")).length,
-    fromPortal: rows.filter((r) => r.activity.sourceConnectionId !== null).length,
-    rows,
-  };
+  return withOrganisation(organisationId, async () => {
+    const rows = await listActivities(organisationId, entityIds);
+    return {
+      total: rows.length,
+      complete: rows.filter((r) => r.gaps.length === 0).length,
+      nonCompliant: rows.filter((r) => r.hardGaps.length > 0).length,
+      unowned: rows.filter((r) => r.gaps.includes("no_owner")).length,
+      fromPortal: rows.filter((r) => r.activity.sourceConnectionId !== null).length,
+      rows,
+    };
+  });
 }

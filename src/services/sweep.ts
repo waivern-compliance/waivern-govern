@@ -1,5 +1,5 @@
 import { and, asc, eq, inArray, isNull, lte, ne, sql } from "drizzle-orm";
-import { db } from "@/db/client";
+import { db, withOrganisation } from "@/db/client";
 import {
   aiUseCases,
   approvals,
@@ -654,9 +654,11 @@ export async function sweepAll(): Promise<SweepResult[]> {
 
 /** Notifications recorded but not yet handed to a delivery mechanism. */
 export async function pendingNotifications(organisationId: string) {
-  return db
-    .select()
-    .from(notifications)
-    .where(and(eq(notifications.organisationId, organisationId), isNull(notifications.sentAt)))
-    .orderBy(notifications.createdAt);
+  return withOrganisation(organisationId, async () => {
+    return db
+      .select()
+      .from(notifications)
+      .where(and(eq(notifications.organisationId, organisationId), isNull(notifications.sentAt)))
+      .orderBy(notifications.createdAt);
+  });
 }

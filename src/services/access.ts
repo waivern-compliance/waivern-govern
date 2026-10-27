@@ -1,5 +1,5 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
-import { db } from "@/db/client";
+import { db, withOrganisation } from "@/db/client";
 import {
   entities,
   memberships,
@@ -48,43 +48,45 @@ export type MemberRow = {
 };
 
 export async function listMembers(organisationId: string): Promise<MemberRow[]> {
-  const rows = await db
-    .select({ membership: memberships, user: users })
-    .from(memberships)
-    .innerJoin(users, eq(users.id, memberships.userId))
-    .where(eq(memberships.organisationId, organisationId))
-    .orderBy(asc(users.email));
-  if (rows.length === 0) return [];
+  return withOrganisation(organisationId, async () => {
+    const rows = await db
+      .select({ membership: memberships, user: users })
+      .from(memberships)
+      .innerJoin(users, eq(users.id, memberships.userId))
+      .where(eq(memberships.organisationId, organisationId))
+      .orderBy(asc(users.email));
+    if (rows.length === 0) return [];
 
-  const grants = await db
-    .select({ grant: roleAssignments, entityName: entities.name })
-    .from(roleAssignments)
-    .leftJoin(entities, eq(entities.id, roleAssignments.entityId))
-    .where(inArray(roleAssignments.membershipId, rows.map((r) => r.membership.id)));
+    const grants = await db
+      .select({ grant: roleAssignments, entityName: entities.name })
+      .from(roleAssignments)
+      .leftJoin(entities, eq(entities.id, roleAssignments.entityId))
+      .where(inArray(roleAssignments.membershipId, rows.map((r) => r.membership.id)));
 
-  const byMembership = new Map<string, MemberRow["roles"]>();
-  for (const { grant, entityName } of grants) {
-    const list = byMembership.get(grant.membershipId) ?? [];
-    list.push({
-      id: grant.id,
-      role: grant.role as AppRole,
-      scope: grant.scope as "organisation" | "entity",
-      entityId: grant.entityId,
-      entityName,
-    });
-    byMembership.set(grant.membershipId, list);
-  }
+    const byMembership = new Map<string, MemberRow["roles"]>();
+    for (const { grant, entityName } of grants) {
+      const list = byMembership.get(grant.membershipId) ?? [];
+      list.push({
+        id: grant.id,
+        role: grant.role as AppRole,
+        scope: grant.scope as "organisation" | "entity",
+        entityId: grant.entityId,
+        entityName,
+      });
+      byMembership.set(grant.membershipId, list);
+    }
 
-  return rows.map(({ membership, user }) => ({
-    membershipId: membership.id,
-    userId: user.id,
-    email: user.email,
-    name: user.name,
-    persona: membership.persona as Persona | null,
-    isActive: membership.isActive,
-    lastSeenAt: user.lastSeenAt,
-    roles: byMembership.get(membership.id) ?? [],
-  }));
+    return rows.map(({ membership, user }) => ({
+      membershipId: membership.id,
+      userId: user.id,
+      email: user.email,
+      name: user.name,
+      persona: membership.persona as Persona | null,
+      isActive: membership.isActive,
+      lastSeenAt: user.lastSeenAt,
+      roles: byMembership.get(membership.id) ?? [],
+    }));
+  });
 }
 
 /**
@@ -122,77 +124,79 @@ export async function inviteMember(input: {
   entityId?: string | null;
   actor: Actor;
 }) {
-  const email = input.email.toLowerCase().trim();
-  if (input.entityId) await assertEntityIn(input.organisationId, input.entityId);
+  return withOrganisation(input.organisationId, async () => {
+    const email = input.email.toLowerCase().trim();
+    if (input.entityId) await assertEntityIn(input.organisationId, input.entityId);
 
-  return db.transaction(async (tx) => {
-    const [existing] = await tx.select().from(users).where(eq(users.email, email));
-    const user =
-      existing ??
-      (await tx.insert(users).values({ email, name: input.name ?? null }).returning())[0];
+    return db.transaction(async (tx) => {
+      const [existing] = await tx.select().from(users).where(eq(users.email, email));
+      const user =
+        existing ??
+        (await tx.insert(users).values({ email, name: input.name ?? null }).returning())[0];
 
-    // Never overwrite a name they already have: theirs is likelier to be right
-    // than one typed into an admin form.
-    if (input.name && !user.name) {
-      await tx.update(users).set({ name: input.name }).where(eq(users.id, user.id));
-    }
+      // Never overwrite a name they already have: theirs is likelier to be right
+      // than one typed into an admin form.
+      if (input.name && !user.name) {
+        await tx.update(users).set({ name: input.name }).where(eq(users.id, user.id));
+      }
 
-    const [existingMembership] = await tx
-      .select()
-      .from(memberships)
-      .where(
-        and(
-          eq(memberships.organisationId, input.organisationId),
-          eq(memberships.userId, user.id),
-        ),
-      );
+      const [existingMembership] = await tx
+        .select()
+        .from(memberships)
+        .where(
+          and(
+            eq(memberships.organisationId, input.organisationId),
+            eq(memberships.userId, user.id),
+          ),
+        );
 
-    const membership =
-      existingMembership ??
-      (
-        await tx
-          .insert(memberships)
-          .values({
-            organisationId: input.organisationId,
-            userId: user.id,
-            persona: input.persona ?? null,
-          })
-          .returning()
-      )[0];
+      const membership =
+        existingMembership ??
+        (
+          await tx
+            .insert(memberships)
+            .values({
+              organisationId: input.organisationId,
+              userId: user.id,
+              persona: input.persona ?? null,
+            })
+            .returning()
+        )[0];
 
-    // Reactivate rather than refuse. Revoking and restoring access is ordinary,
-    // and it should not need a database console.
-    //
-    // Written unconditionally rather than only when it differs: comparing the
-    // stored persona to the supplied one saved nothing and meant this service
-    // read a persona, which is the one thing it must never do.
-    await tx
-      .update(memberships)
-      .set({ isActive: true, ...(input.persona ? { persona: input.persona } : {}) })
-      .where(eq(memberships.id, membership.id));
+      // Reactivate rather than refuse. Revoking and restoring access is ordinary,
+      // and it should not need a database console.
+      //
+      // Written unconditionally rather than only when it differs: comparing the
+      // stored persona to the supplied one saved nothing and meant this service
+      // read a persona, which is the one thing it must never do.
+      await tx
+        .update(memberships)
+        .set({ isActive: true, ...(input.persona ? { persona: input.persona } : {}) })
+        .where(eq(memberships.id, membership.id));
 
-    const [granted] = await tx
-      .insert(roleAssignments)
-      .values({
-        membershipId: membership.id,
-        role: input.role,
-        scope: input.entityId ? "entity" : "organisation",
-        entityId: input.entityId ?? null,
-      })
-      .onConflictDoNothing()
-      .returning();
+      const [granted] = await tx
+        .insert(roleAssignments)
+        .values({
+          membershipId: membership.id,
+          role: input.role,
+          scope: input.entityId ? "entity" : "organisation",
+          entityId: input.entityId ?? null,
+        })
+        .onConflictDoNothing()
+        .returning();
 
-    await appendAuditEvent(tx, {
-      ...input.actor,
-      organisationId: input.organisationId,
-      entityId: input.entityId ?? undefined,
-      action: granted ? "role_assignment.granted" : "membership.confirmed",
-      subjectType: granted ? "role_assignment" : "membership",
-      subjectId: granted?.id ?? membership.id,
-      after: { email, role: input.role, scope: input.entityId ? "entity" : "organisation" },
+      await appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        entityId: input.entityId ?? undefined,
+        action: granted ? "role_assignment.granted" : "membership.confirmed",
+        subjectType: granted ? "role_assignment" : "membership",
+        subjectId: granted?.id ?? membership.id,
+        after: { email, role: input.role, scope: input.entityId ? "entity" : "organisation" },
+      });
+
+      return { membershipId: membership.id, granted: Boolean(granted) };
     });
-
-    return { membershipId: membership.id, granted: Boolean(granted) };
   });
 }
 
@@ -201,35 +205,37 @@ export async function revokeRole(input: {
   roleAssignmentId: string;
   actor: Actor;
 }) {
-  return db.transaction(async (tx) => {
-    const [row] = await tx
-      .select({ grant: roleAssignments, membership: memberships, email: users.email })
-      .from(roleAssignments)
-      .innerJoin(memberships, eq(memberships.id, roleAssignments.membershipId))
-      .innerJoin(users, eq(users.id, memberships.userId))
-      .where(
-        and(
-          eq(roleAssignments.id, input.roleAssignmentId),
-          eq(memberships.organisationId, input.organisationId),
-        ),
-      );
-    if (!row) throw new Error("No such role assignment");
+  return withOrganisation(input.organisationId, async () => {
+    return db.transaction(async (tx) => {
+      const [row] = await tx
+        .select({ grant: roleAssignments, membership: memberships, email: users.email })
+        .from(roleAssignments)
+        .innerJoin(memberships, eq(memberships.id, roleAssignments.membershipId))
+        .innerJoin(users, eq(users.id, memberships.userId))
+        .where(
+          and(
+            eq(roleAssignments.id, input.roleAssignmentId),
+            eq(memberships.organisationId, input.organisationId),
+          ),
+        );
+      if (!row) throw new Error("No such role assignment");
 
-    if (row.grant.role === "owner") {
-      const remaining = await ownersBesides(input.organisationId, row.membership.id);
-      if (remaining === 0) throw new LastOwnerRemains();
-    }
+      if (row.grant.role === "owner") {
+        const remaining = await ownersBesides(input.organisationId, row.membership.id);
+        if (remaining === 0) throw new LastOwnerRemains();
+      }
 
-    await tx.delete(roleAssignments).where(eq(roleAssignments.id, input.roleAssignmentId));
+      await tx.delete(roleAssignments).where(eq(roleAssignments.id, input.roleAssignmentId));
 
-    await appendAuditEvent(tx, {
-      ...input.actor,
-      organisationId: input.organisationId,
-      entityId: row.grant.entityId ?? undefined,
-      action: "role_assignment.revoked",
-      subjectType: "role_assignment",
-      subjectId: input.roleAssignmentId,
-      before: { email: row.email, role: row.grant.role, scope: row.grant.scope },
+      await appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        entityId: row.grant.entityId ?? undefined,
+        action: "role_assignment.revoked",
+        subjectType: "role_assignment",
+        subjectId: input.roleAssignmentId,
+        before: { email: row.email, role: row.grant.role, scope: row.grant.scope },
+      });
     });
   });
 }
@@ -240,48 +246,50 @@ export async function setMembershipActive(input: {
   isActive: boolean;
   actor: Actor;
 }) {
-  return db.transaction(async (tx) => {
-    const [row] = await tx
-      .select({ membership: memberships, email: users.email })
-      .from(memberships)
-      .innerJoin(users, eq(users.id, memberships.userId))
-      .where(
-        and(
-          eq(memberships.id, input.membershipId),
-          eq(memberships.organisationId, input.organisationId),
-        ),
-      );
-    if (!row) throw new Error("No such membership");
-
-    if (!input.isActive) {
-      const [ownsIt] = await tx
-        .select({ id: roleAssignments.id })
-        .from(roleAssignments)
+  return withOrganisation(input.organisationId, async () => {
+    return db.transaction(async (tx) => {
+      const [row] = await tx
+        .select({ membership: memberships, email: users.email })
+        .from(memberships)
+        .innerJoin(users, eq(users.id, memberships.userId))
         .where(
           and(
-            eq(roleAssignments.membershipId, input.membershipId),
-            eq(roleAssignments.role, "owner"),
+            eq(memberships.id, input.membershipId),
+            eq(memberships.organisationId, input.organisationId),
           ),
         );
-      if (ownsIt) {
-        const remaining = await ownersBesides(input.organisationId, input.membershipId);
-        if (remaining === 0) throw new LastOwnerRemains();
+      if (!row) throw new Error("No such membership");
+
+      if (!input.isActive) {
+        const [ownsIt] = await tx
+          .select({ id: roleAssignments.id })
+          .from(roleAssignments)
+          .where(
+            and(
+              eq(roleAssignments.membershipId, input.membershipId),
+              eq(roleAssignments.role, "owner"),
+            ),
+          );
+        if (ownsIt) {
+          const remaining = await ownersBesides(input.organisationId, input.membershipId);
+          if (remaining === 0) throw new LastOwnerRemains();
+        }
       }
-    }
 
-    await tx
-      .update(memberships)
-      .set({ isActive: input.isActive })
-      .where(eq(memberships.id, input.membershipId));
+      await tx
+        .update(memberships)
+        .set({ isActive: input.isActive })
+        .where(eq(memberships.id, input.membershipId));
 
-    await appendAuditEvent(tx, {
-      ...input.actor,
-      organisationId: input.organisationId,
-      action: input.isActive ? "membership.reinstated" : "membership.suspended",
-      subjectType: "membership",
-      subjectId: input.membershipId,
-      before: { email: row.email, isActive: row.membership.isActive },
-      after: { isActive: input.isActive },
+      await appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        action: input.isActive ? "membership.reinstated" : "membership.suspended",
+        subjectType: "membership",
+        subjectId: input.membershipId,
+        before: { email: row.email, isActive: row.membership.isActive },
+        after: { isActive: input.isActive },
+      });
     });
   });
 }
@@ -292,33 +300,35 @@ export async function setPersona(input: {
   persona: Persona | null;
   actor: Actor;
 }) {
-  return db.transaction(async (tx) => {
-    const [row] = await tx
-      .select()
-      .from(memberships)
-      .where(
-        and(
-          eq(memberships.id, input.membershipId),
-          eq(memberships.organisationId, input.organisationId),
-        ),
-      );
-    if (!row) throw new Error("No such membership");
+  return withOrganisation(input.organisationId, async () => {
+    return db.transaction(async (tx) => {
+      const [row] = await tx
+        .select()
+        .from(memberships)
+        .where(
+          and(
+            eq(memberships.id, input.membershipId),
+            eq(memberships.organisationId, input.organisationId),
+          ),
+        );
+      if (!row) throw new Error("No such membership");
 
-    await tx
-      .update(memberships)
-      .set({ persona: input.persona })
-      .where(eq(memberships.id, input.membershipId));
+      await tx
+        .update(memberships)
+        .set({ persona: input.persona })
+        .where(eq(memberships.id, input.membershipId));
 
-    // Audited even though it changes no access, because somebody looking at
-    // why a colleague sees a different screen should find the answer here.
-    await appendAuditEvent(tx, {
-      ...input.actor,
-      organisationId: input.organisationId,
-      action: "membership.persona_set",
-      subjectType: "membership",
-      subjectId: input.membershipId,
-      before: { persona: row.persona },
-      after: { persona: input.persona },
+      // Audited even though it changes no access, because somebody looking at
+      // why a colleague sees a different screen should find the answer here.
+      await appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        action: "membership.persona_set",
+        subjectType: "membership",
+        subjectId: input.membershipId,
+        before: { persona: row.persona },
+        after: { persona: input.persona },
+      });
     });
   });
 }
@@ -340,40 +350,44 @@ export async function renameOrganisation(input: {
   name: string;
   actor: Actor;
 }) {
-  const name = input.name.trim();
-  if (name.length < 2) throw new Error("An organisation needs a name");
+  return withOrganisation(input.organisationId, async () => {
+    const name = input.name.trim();
+    if (name.length < 2) throw new Error("An organisation needs a name");
 
-  return db.transaction(async (tx) => {
-    const [before] = await tx
-      .select()
-      .from(organisations)
-      .where(eq(organisations.id, input.organisationId));
-    if (!before) throw new Error("No such organisation");
+    return db.transaction(async (tx) => {
+      const [before] = await tx
+        .select()
+        .from(organisations)
+        .where(eq(organisations.id, input.organisationId));
+      if (!before) throw new Error("No such organisation");
 
-    const [after] = await tx
-      .update(organisations)
-      .set({ name, updatedAt: new Date() })
-      .where(eq(organisations.id, input.organisationId))
-      .returning();
+      const [after] = await tx
+        .update(organisations)
+        .set({ name, updatedAt: new Date() })
+        .where(eq(organisations.id, input.organisationId))
+        .returning();
 
-    await appendAuditEvent(tx, {
-      ...input.actor,
-      organisationId: input.organisationId,
-      action: "organisation.renamed",
-      subjectType: "organisation",
-      subjectId: input.organisationId,
-      before: { name: before.name },
-      after: { name: after.name },
+      await appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        action: "organisation.renamed",
+        subjectType: "organisation",
+        subjectId: input.organisationId,
+        before: { name: before.name },
+        after: { name: after.name },
+      });
+
+      return after;
     });
-
-    return after;
   });
 }
 
 export async function organisationDetail(organisationId: string) {
-  const [row] = await db
-    .select()
-    .from(organisations)
-    .where(eq(organisations.id, organisationId));
-  return row ?? null;
+  return withOrganisation(organisationId, async () => {
+    const [row] = await db
+      .select()
+      .from(organisations)
+      .where(eq(organisations.id, organisationId));
+    return row ?? null;
+  });
 }

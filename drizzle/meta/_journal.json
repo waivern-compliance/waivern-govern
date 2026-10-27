@@ -365,6 +365,13 @@
       "when": 1793112173397,
       "tag": "0051_ai_governance_lead",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1793122174466,
+      "tag": "0052_tenant_rls",
+      "breakpoints": true
     }
   ]
 }

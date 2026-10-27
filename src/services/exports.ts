@@ -1,6 +1,6 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import { db } from "@/db/client";
+import { db, withOrganisation } from "@/db/client";
 import {
   aiUseCases,
   assessments,
@@ -83,194 +83,202 @@ export type ExportResult = {
 };
 
 export async function exportRisks(organisationId: string, entityIds: string[] | null) {
-  const rows = await db
-    .select({ risk: risks, entity: entities.name, owner: users.email })
-    .from(risks)
-    .innerJoin(entities, eq(entities.id, risks.entityId))
-    .leftJoin(users, eq(users.id, risks.ownerId))
-    .where(
-      entityIds === null
-        ? eq(risks.organisationId, organisationId)
-        : and(
-            eq(risks.organisationId, organisationId),
-            inArray(risks.entityId, entityIds),
-          ),
-    )
-    .orderBy(asc(risks.reference));
+  return withOrganisation(organisationId, async () => {
+    const rows = await db
+      .select({ risk: risks, entity: entities.name, owner: users.email })
+      .from(risks)
+      .innerJoin(entities, eq(entities.id, risks.entityId))
+      .leftJoin(users, eq(users.id, risks.ownerId))
+      .where(
+        entityIds === null
+          ? eq(risks.organisationId, organisationId)
+          : and(
+              eq(risks.organisationId, organisationId),
+              inArray(risks.entityId, entityIds),
+            ),
+      )
+      .orderBy(asc(risks.reference));
 
-  const treatments = rows.length
-    ? await db
-        .select()
-        .from(mitigations)
-        .where(inArray(mitigations.riskId, rows.map((r) => r.risk.id)))
-    : [];
-  const live = rows.length
-    ? await db
-        .select()
-        .from(riskAcceptances)
-        .where(inArray(riskAcceptances.riskId, rows.map((r) => r.risk.id)))
-    : [];
+    const treatments = rows.length
+      ? await db
+          .select()
+          .from(mitigations)
+          .where(inArray(mitigations.riskId, rows.map((r) => r.risk.id)))
+      : [];
+    const live = rows.length
+      ? await db
+          .select()
+          .from(riskAcceptances)
+          .where(inArray(riskAcceptances.riskId, rows.map((r) => r.risk.id)))
+      : [];
 
-  return {
-    columns: [
-      "Reference", "Entity", "Title", "Description", "Status", "Owner",
-      "Inherent likelihood", "Inherent impact", "Inherent score", "Inherent tier",
-      "Residual likelihood", "Residual impact", "Residual score", "Residual tier",
-      "Mitigations", "Mitigations verified",
-      "Accepted by", "Acceptance rationale", "Acceptance expires", "Acceptance lapsed",
-      "Next review", "Opened", "Closed",
-    ],
-    rows: rows.map(({ risk, entity, owner }) => {
-      const mine = treatments.filter((m) => m.riskId === risk.id);
-      const acceptance = live.find(
-        (a) => a.riskId === risk.id && !a.supersededAt && !a.revokedAt,
-      );
-      return [
-        risk.reference, entity, risk.title, risk.description, risk.status, owner,
-        risk.inherentLikelihood, risk.inherentImpact, risk.inherentScore, risk.inherentTier,
-        risk.residualLikelihood, risk.residualImpact, risk.residualScore, risk.residualTier,
-        mine.length, mine.filter((m) => m.status === "verified").length,
-        acceptance?.acceptedByLabel ?? null,
-        acceptance?.rationale ?? null,
-        acceptance?.expiresAt ?? null,
-        // Stated rather than left to be worked out from a date, so a lapsed
-        // acceptance cannot read as current in a spreadsheet either.
-        acceptance ? (acceptance.expiresAt.getTime() <= Date.now() ? "yes" : "no") : null,
-        risk.nextReviewAt, risk.openedAt, risk.closedAt,
-      ];
-    }),
-  };
+    return {
+      columns: [
+        "Reference", "Entity", "Title", "Description", "Status", "Owner",
+        "Inherent likelihood", "Inherent impact", "Inherent score", "Inherent tier",
+        "Residual likelihood", "Residual impact", "Residual score", "Residual tier",
+        "Mitigations", "Mitigations verified",
+        "Accepted by", "Acceptance rationale", "Acceptance expires", "Acceptance lapsed",
+        "Next review", "Opened", "Closed",
+      ],
+      rows: rows.map(({ risk, entity, owner }) => {
+        const mine = treatments.filter((m) => m.riskId === risk.id);
+        const acceptance = live.find(
+          (a) => a.riskId === risk.id && !a.supersededAt && !a.revokedAt,
+        );
+        return [
+          risk.reference, entity, risk.title, risk.description, risk.status, owner,
+          risk.inherentLikelihood, risk.inherentImpact, risk.inherentScore, risk.inherentTier,
+          risk.residualLikelihood, risk.residualImpact, risk.residualScore, risk.residualTier,
+          mine.length, mine.filter((m) => m.status === "verified").length,
+          acceptance?.acceptedByLabel ?? null,
+          acceptance?.rationale ?? null,
+          acceptance?.expiresAt ?? null,
+          // Stated rather than left to be worked out from a date, so a lapsed
+          // acceptance cannot read as current in a spreadsheet either.
+          acceptance ? (acceptance.expiresAt.getTime() <= Date.now() ? "yes" : "no") : null,
+          risk.nextReviewAt, risk.openedAt, risk.closedAt,
+        ];
+      }),
+    };
+  });
 }
 
 export async function exportAssessments(organisationId: string, entityIds: string[] | null) {
-  const rows = await db
-    .select({
-      assessment: assessments,
-      entity: entities.name,
-      kind: templates.kind,
-      templateName: templates.name,
-      version: templateVersions.version,
-      definition: templateVersions.definition,
-      owner: users.email,
-    })
-    .from(assessments)
-    .innerJoin(entities, eq(entities.id, assessments.entityId))
-    .innerJoin(templateVersions, eq(templateVersions.id, assessments.templateVersionId))
-    .innerJoin(templates, eq(templates.id, templateVersions.templateId))
-    .leftJoin(users, eq(users.id, assessments.ownerId))
-    .where(
-      entityIds === null
-        ? eq(assessments.organisationId, organisationId)
-        : and(
-            eq(assessments.organisationId, organisationId),
-            inArray(assessments.entityId, entityIds),
-          ),
-    )
-    .orderBy(asc(assessments.reference));
-
-  // Resolved once, not per row: an organisation has one reference library and
-  // most assessments cite the same handful of articles.
-  const refs = await legalRefMap();
-
-  /**
-   * The law an assessment was answered against.
-   *
-   * Read from the version it actually ran on rather than from the template as
-   * it stands today, so an export of an assessment approved last year cites
-   * what it was assessed against. A lawyer reviewing it should not have to
-   * work out which questions were on the page at the time.
-   */
-  const citationsFor = (definition: (typeof rows)[number]["definition"]) => {
-    const codes = new Set<string>();
-    for (const { question } of questionsOf(definition.schema)) {
-      for (const code of question.legalRefs ?? []) codes.add(code);
-    }
-    return [...codes]
-      .map((code) => {
-        const ref = refs[code];
-        return ref ? `${ref.regime} ${ref.citation}` : `${code} (unknown)`;
+  return withOrganisation(organisationId, async () => {
+    const rows = await db
+      .select({
+        assessment: assessments,
+        entity: entities.name,
+        kind: templates.kind,
+        templateName: templates.name,
+        version: templateVersions.version,
+        definition: templateVersions.definition,
+        owner: users.email,
       })
-      .sort()
-      .join("; ");
-  };
+      .from(assessments)
+      .innerJoin(entities, eq(entities.id, assessments.entityId))
+      .innerJoin(templateVersions, eq(templateVersions.id, assessments.templateVersionId))
+      .innerJoin(templates, eq(templates.id, templateVersions.templateId))
+      .leftJoin(users, eq(users.id, assessments.ownerId))
+      .where(
+        entityIds === null
+          ? eq(assessments.organisationId, organisationId)
+          : and(
+              eq(assessments.organisationId, organisationId),
+              inArray(assessments.entityId, entityIds),
+            ),
+      )
+      .orderBy(asc(assessments.reference));
 
-  return {
-    columns: [
-      "Reference", "Entity", "Title", "Type", "Template", "Template version",
-      "Status", "Owner", "Score", "Band", "Tier",
-      "Legal references",
-      "Created", "Submitted", "Completed",
-    ],
-    rows: rows.map((r) => [
-      r.assessment.reference, r.entity, r.assessment.title, r.kind,
-      r.templateName, r.version, r.assessment.status, r.owner,
-      r.assessment.scoreValue, r.assessment.scoreBand, r.assessment.scoreTier,
-      citationsFor(r.definition),
-      r.assessment.createdAt, r.assessment.submittedAt, r.assessment.completedAt,
-    ]),
-  };
+    // Resolved once, not per row: an organisation has one reference library and
+    // most assessments cite the same handful of articles.
+    const refs = await legalRefMap();
+
+    /**
+     * The law an assessment was answered against.
+     *
+     * Read from the version it actually ran on rather than from the template as
+     * it stands today, so an export of an assessment approved last year cites
+     * what it was assessed against. A lawyer reviewing it should not have to
+     * work out which questions were on the page at the time.
+     */
+    const citationsFor = (definition: (typeof rows)[number]["definition"]) => {
+      const codes = new Set<string>();
+      for (const { question } of questionsOf(definition.schema)) {
+        for (const code of question.legalRefs ?? []) codes.add(code);
+      }
+      return [...codes]
+        .map((code) => {
+          const ref = refs[code];
+          return ref ? `${ref.regime} ${ref.citation}` : `${code} (unknown)`;
+        })
+        .sort()
+        .join("; ");
+    };
+
+    return {
+      columns: [
+        "Reference", "Entity", "Title", "Type", "Template", "Template version",
+        "Status", "Owner", "Score", "Band", "Tier",
+        "Legal references",
+        "Created", "Submitted", "Completed",
+      ],
+      rows: rows.map((r) => [
+        r.assessment.reference, r.entity, r.assessment.title, r.kind,
+        r.templateName, r.version, r.assessment.status, r.owner,
+        r.assessment.scoreValue, r.assessment.scoreBand, r.assessment.scoreTier,
+        citationsFor(r.definition),
+        r.assessment.createdAt, r.assessment.submittedAt, r.assessment.completedAt,
+      ]),
+    };
+  });
 }
 
 export async function exportAiRegister(organisationId: string, entityIds: string[] | null) {
-  const officers = alias(users, "governance_officer");
-  const rows = await db
-    .select({
-      useCase: aiUseCases,
-      entity: entities.name,
-      owner: users.email,
-      officer: officers.email,
-    })
-    .from(aiUseCases)
-    .innerJoin(entities, eq(entities.id, aiUseCases.entityId))
-    .leftJoin(users, eq(users.id, aiUseCases.ownerId))
-    .leftJoin(officers, eq(officers.id, aiUseCases.governanceOfficerId))
-    .where(
-      entityIds === null
-        ? eq(aiUseCases.organisationId, organisationId)
-        : and(
-            eq(aiUseCases.organisationId, organisationId),
-            inArray(aiUseCases.entityId, entityIds),
-          ),
-    )
-    .orderBy(asc(aiUseCases.reference));
+  return withOrganisation(organisationId, async () => {
+    const officers = alias(users, "governance_officer");
+    const rows = await db
+      .select({
+        useCase: aiUseCases,
+        entity: entities.name,
+        owner: users.email,
+        officer: officers.email,
+      })
+      .from(aiUseCases)
+      .innerJoin(entities, eq(entities.id, aiUseCases.entityId))
+      .leftJoin(users, eq(users.id, aiUseCases.ownerId))
+      .leftJoin(officers, eq(officers.id, aiUseCases.governanceOfficerId))
+      .where(
+        entityIds === null
+          ? eq(aiUseCases.organisationId, organisationId)
+          : and(
+              eq(aiUseCases.organisationId, organisationId),
+              inArray(aiUseCases.entityId, entityIds),
+            ),
+      )
+      .orderBy(asc(aiUseCases.reference));
 
-  return {
-    columns: [
-      "Reference", "Entity", "Name", "Purpose", "Type", "Provenance", "Stage",
-      "Deployment", "Vendor", "Model", "Owner", "AI governance officer", "Team",
-      "Processes personal data", "Outstanding", "Live since", "Next review", "Retired",
-    ],
-    rows: rows.map(({ useCase, entity, owner, officer }) => [
-      useCase.reference, entity, useCase.name, useCase.purpose,
-      useCase.systemType, useCase.provenance, useCase.lifecycleStage,
-      useCase.deploymentPattern, useCase.vendor, useCase.modelName, owner, officer,
-      useCase.responsibleTeam,
-      useCase.processesPersonalData === null
-        ? null
-        : useCase.processesPersonalData ? "yes" : "no",
-      // Computed at export, matching what the register shows — a stored copy
-      // would disagree with the screen the moment anything changed.
-      gapsFor(useCase, null).join("; ") || "nothing",
-      useCase.liveSince, useCase.nextReviewAt, useCase.retiredAt,
-    ]),
-  };
+    return {
+      columns: [
+        "Reference", "Entity", "Name", "Purpose", "Type", "Provenance", "Stage",
+        "Deployment", "Vendor", "Model", "Owner", "AI governance officer", "Team",
+        "Processes personal data", "Outstanding", "Live since", "Next review", "Retired",
+      ],
+      rows: rows.map(({ useCase, entity, owner, officer }) => [
+        useCase.reference, entity, useCase.name, useCase.purpose,
+        useCase.systemType, useCase.provenance, useCase.lifecycleStage,
+        useCase.deploymentPattern, useCase.vendor, useCase.modelName, owner, officer,
+        useCase.responsibleTeam,
+        useCase.processesPersonalData === null
+          ? null
+          : useCase.processesPersonalData ? "yes" : "no",
+        // Computed at export, matching what the register shows — a stored copy
+        // would disagree with the screen the moment anything changed.
+        gapsFor(useCase, null).join("; ") || "nothing",
+        useCase.liveSince, useCase.nextReviewAt, useCase.retiredAt,
+      ]),
+    };
+  });
 }
 
 export async function exportCountries(organisationId: string) {
-  const library = await libraryFor(organisationId);
-  return {
-    columns: [
-      "Code", "Country", "UK adequacy", "UK note", "EU adequacy", "EU note",
-      "Government access", "Redress", "Summary",
-      "Source of this entry", "Last checked", "Checked by", "Next review", "Overdue",
-    ],
-    rows: library.map((c) => [
-      c.code, c.name, c.ukAdequacy, c.ukAdequacyNote, c.euAdequacy, c.euAdequacyNote,
-      c.governmentAccess, c.redress, c.summary,
-      c.isOverride ? "your organisation" : "shared library",
-      c.reviewedAt, c.reviewedBy, c.nextReviewAt, c.stale ? "yes" : "no",
-    ]),
-  };
+  return withOrganisation(organisationId, async () => {
+    const library = await libraryFor(organisationId);
+    return {
+      columns: [
+        "Code", "Country", "UK adequacy", "UK note", "EU adequacy", "EU note",
+        "Government access", "Redress", "Summary",
+        "Source of this entry", "Last checked", "Checked by", "Next review", "Overdue",
+      ],
+      rows: library.map((c) => [
+        c.code, c.name, c.ukAdequacy, c.ukAdequacyNote, c.euAdequacy, c.euAdequacyNote,
+        c.governmentAccess, c.redress, c.summary,
+        c.isOverride ? "your organisation" : "shared library",
+        c.reviewedAt, c.reviewedBy, c.nextReviewAt, c.stale ? "yes" : "no",
+      ]),
+    };
+  });
 }
 
 /**
@@ -288,39 +296,41 @@ export async function exportAudit(
   organisationId: string,
   entityIds: string[] | null,
 ) {
-  const complete = entityIds === null;
+  return withOrganisation(organisationId, async () => {
+    const complete = entityIds === null;
 
-  const rows = await db
-    .select()
-    .from(auditEvents)
-    .where(
-      complete
-        ? eq(auditEvents.organisationId, organisationId)
-        : and(
-            eq(auditEvents.organisationId, organisationId),
-            inArray(auditEvents.entityId, entityIds),
-          ),
-    )
-    .orderBy(asc(auditEvents.seq));
+    const rows = await db
+      .select()
+      .from(auditEvents)
+      .where(
+        complete
+          ? eq(auditEvents.organisationId, organisationId)
+          : and(
+              eq(auditEvents.organisationId, organisationId),
+              inArray(auditEvents.entityId, entityIds),
+            ),
+      )
+      .orderBy(asc(auditEvents.seq));
 
-  return {
-    complete,
-    columns: [
-      "Sequence", "At", "Actor kind", "Actor", "Action",
-      "Subject type", "Subject", "Entity",
-      "Before", "After", "Metadata", "Previous hash", "Hash",
-    ],
-    rows: rows.map((e) => [
-      e.seq, e.at, e.actorKind, e.actorLabel, e.action,
-      e.subjectType, e.subjectId, e.entityId,
-      e.before, e.after, e.metadata, e.prevHash, e.hash,
-    ]),
-    caveat: complete
-      ? undefined
-      : "This is an extract filtered to the entities you can see. The hash chain " +
-        "cannot be verified from it, because the events in between are missing. " +
-        "A verifiable export requires organisation-wide audit access.",
-  };
+    return {
+      complete,
+      columns: [
+        "Sequence", "At", "Actor kind", "Actor", "Action",
+        "Subject type", "Subject", "Entity",
+        "Before", "After", "Metadata", "Previous hash", "Hash",
+      ],
+      rows: rows.map((e) => [
+        e.seq, e.at, e.actorKind, e.actorLabel, e.action,
+        e.subjectType, e.subjectId, e.entityId,
+        e.before, e.after, e.metadata, e.prevHash, e.hash,
+      ]),
+      caveat: complete
+        ? undefined
+        : "This is an extract filtered to the entities you can see. The hash chain " +
+          "cannot be verified from it, because the events in between are missing. " +
+          "A verifiable export requires organisation-wide audit access.",
+    };
+  });
 }
 
 /**
@@ -371,20 +381,22 @@ export async function recordExport(input: {
   complete?: boolean;
   actor: Actor;
 }) {
-  return db.transaction((tx) =>
-    appendAuditEvent(tx, {
-      ...input.actor,
-      organisationId: input.organisationId,
-      action: "data.exported",
-      subjectType: "organisation",
-      subjectId: input.organisationId,
-      after: {
-        dataset: input.dataset,
-        rows: input.rows,
-        ...(input.complete === undefined ? {} : { completeChain: input.complete }),
-      },
-    }),
-  );
+  return withOrganisation(input.organisationId, async () => {
+    return db.transaction((tx) =>
+      appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        action: "data.exported",
+        subjectType: "organisation",
+        subjectId: input.organisationId,
+        after: {
+          dataset: input.dataset,
+          rows: input.rows,
+          ...(input.complete === undefined ? {} : { completeChain: input.complete }),
+        },
+      }),
+    );
+  });
 }
 
 export { toCsv };
@@ -398,34 +410,36 @@ export { toCsv };
  * were deficient would be worse than no export.
  */
 export async function exportRopa(organisationId: string, entityIds: string[] | null) {
-  const rows = await listActivities(organisationId, entityIds);
+  return withOrganisation(organisationId, async () => {
+    const rows = await listActivities(organisationId, entityIds);
 
-  return {
-    columns: [
-      "Reference", "Entity", "Activity", "Description",
-      "Controller role", "Controller acted for", "Owner",
-      "Purposes", "Lawful basis",
-      "Categories of data subject", "Categories of personal data",
-      "Categories of recipient", "Transfers", "Retention", "Security measures",
-      "Systems", "Article 30 gaps", "Would fail an inspection", "Last updated",
-    ],
-    rows: rows.map(({ activity, entityName, ownerEmail, gaps, hardGaps }) => [
-      activity.reference, entityName, activity.name, activity.description,
-      activity.controllerRole, activity.controllerName, ownerEmail,
-      (activity.purposes ?? []).join("; "), activity.lawfulBasis,
-      (activity.subjectCategories ?? []).join("; "),
-      (activity.dataCategories ?? []).join("; "),
-      (activity.recipients ?? []).join("; "),
-      (activity.transfers ?? [])
-        .map((t) => (t.mechanism ? `${t.country} (${t.mechanism})` : `${t.country} (none recorded)`))
-        .join("; "),
-      activity.retention, activity.securityMeasures,
-      (activity.systems ?? []).join("; "),
-      gaps.map((g) => GAP_WORDS[g]).join("; ") || "nothing",
-      hardGaps.length > 0 ? "yes" : "no",
-      activity.updatedAt,
-    ]),
-  };
+    return {
+      columns: [
+        "Reference", "Entity", "Activity", "Description",
+        "Controller role", "Controller acted for", "Owner",
+        "Purposes", "Lawful basis",
+        "Categories of data subject", "Categories of personal data",
+        "Categories of recipient", "Transfers", "Retention", "Security measures",
+        "Systems", "Article 30 gaps", "Would fail an inspection", "Last updated",
+      ],
+      rows: rows.map(({ activity, entityName, ownerEmail, gaps, hardGaps }) => [
+        activity.reference, entityName, activity.name, activity.description,
+        activity.controllerRole, activity.controllerName, ownerEmail,
+        (activity.purposes ?? []).join("; "), activity.lawfulBasis,
+        (activity.subjectCategories ?? []).join("; "),
+        (activity.dataCategories ?? []).join("; "),
+        (activity.recipients ?? []).join("; "),
+        (activity.transfers ?? [])
+          .map((t) => (t.mechanism ? `${t.country} (${t.mechanism})` : `${t.country} (none recorded)`))
+          .join("; "),
+        activity.retention, activity.securityMeasures,
+        (activity.systems ?? []).join("; "),
+        gaps.map((g) => GAP_WORDS[g]).join("; ") || "nothing",
+        hardGaps.length > 0 ? "yes" : "no",
+        activity.updatedAt,
+      ]),
+    };
+  });
 }
 
 /**
@@ -436,55 +450,59 @@ export async function exportRopa(organisationId: string, entityIds: string[] | n
  * register and are reachable on the record.
  */
 export async function exportThirdParties(organisationId: string) {
-  const rows = await listSuppliers(organisationId);
+  return withOrganisation(organisationId, async () => {
+    const rows = await listSuppliers(organisationId);
 
-  return {
-    columns: [
-      "Third party", "Categories", "Description", "Owner", "Source",
-      "Confirmed by a person", "Agreement", "Document reference",
-      "Signed", "Expires", "Transfer mechanism", "Sub-processors",
-      "Outstanding", "Not under contract",
-      "Privacy standing", "AI standing", "AI conditions",
-    ],
-    rows: rows.map(({ supplier, current, ownerEmail, gaps, hardGaps, privacy, ai }) => [
-      supplier.name,
-      (supplier.categories ?? []).join("; "),
-      supplier.description,
-      ownerEmail,
-      supplier.sourceConnectionId ? "connected tool" : "person",
-      supplier.reviewedAt,
-      current?.title ?? null,
-      current?.documentRef ?? null,
-      current?.signedAt ?? null,
-      current?.expiresAt ?? null,
-      current?.transferMechanism ?? null,
-      (current?.subProcessors ?? []).join("; "),
-      gaps.map((g) => SUPPLIER_GAP_WORDS[g]).join("; ") || "nothing",
-      hardGaps.length > 0 ? "yes" : "no",
-      PRIVACY_STANDING_LABEL[privacy],
-      AI_STANDING_LABEL[ai.standing],
-      ai.assessed?.approved ? ai.assessed.conditions : null,
-    ]),
-  };
+    return {
+      columns: [
+        "Third party", "Categories", "Description", "Owner", "Source",
+        "Confirmed by a person", "Agreement", "Document reference",
+        "Signed", "Expires", "Transfer mechanism", "Sub-processors",
+        "Outstanding", "Not under contract",
+        "Privacy standing", "AI standing", "AI conditions",
+      ],
+      rows: rows.map(({ supplier, current, ownerEmail, gaps, hardGaps, privacy, ai }) => [
+        supplier.name,
+        (supplier.categories ?? []).join("; "),
+        supplier.description,
+        ownerEmail,
+        supplier.sourceConnectionId ? "connected tool" : "person",
+        supplier.reviewedAt,
+        current?.title ?? null,
+        current?.documentRef ?? null,
+        current?.signedAt ?? null,
+        current?.expiresAt ?? null,
+        current?.transferMechanism ?? null,
+        (current?.subProcessors ?? []).join("; "),
+        gaps.map((g) => SUPPLIER_GAP_WORDS[g]).join("; ") || "nothing",
+        hardGaps.length > 0 ? "yes" : "no",
+        PRIVACY_STANDING_LABEL[privacy],
+        AI_STANDING_LABEL[ai.standing],
+        ai.assessed?.approved ? ai.assessed.conditions : null,
+      ]),
+    };
+  });
 }
 
 /** The trend figures, for a board pack that needs numbers rather than a screenshot. */
 export async function exportTrends(organisationId: string, entityIds: string[] | null) {
-  const { points } = await trendFor(organisationId, entityIds, 12);
-  return {
-    columns: [
-      "Month", "Risks open at month end", "Risks raised", "Risks closed",
-      "Assessments started", "Assessments decided", "Median days to decide",
-      "Tasks completed", "Tasks breached", "Acceptances granted",
-      "Acceptances lapsed",
-    ],
-    rows: points.map((p) => [
-      p.period, p.risksOpen, p.risksOpened, p.risksClosed,
-      p.assessmentsStarted, p.assessmentsApproved, p.daysToDecide,
-      p.tasksCompleted, p.tasksBreached, p.acceptancesGranted,
-      p.acceptancesExpired,
-    ]),
-  };
+  return withOrganisation(organisationId, async () => {
+    const { points } = await trendFor(organisationId, entityIds, 12);
+    return {
+      columns: [
+        "Month", "Risks open at month end", "Risks raised", "Risks closed",
+        "Assessments started", "Assessments decided", "Median days to decide",
+        "Tasks completed", "Tasks breached", "Acceptances granted",
+        "Acceptances lapsed",
+      ],
+      rows: points.map((p) => [
+        p.period, p.risksOpen, p.risksOpened, p.risksClosed,
+        p.assessmentsStarted, p.assessmentsApproved, p.daysToDecide,
+        p.tasksCompleted, p.tasksBreached, p.acceptancesGranted,
+        p.acceptancesExpired,
+      ]),
+    };
+  });
 }
 
 /**
@@ -497,55 +515,57 @@ export async function exportTrends(organisationId: string, entityIds: string[] |
  * asking us instead of reading it.
  */
 export async function exportBreaches(organisationId: string, entityIds: string[] | null) {
-  const register = await breachRegister(organisationId, entityIds);
+  return withOrganisation(organisationId, async () => {
+    const register = await breachRegister(organisationId, entityIds);
 
-  const decision = (
-    row: (typeof register.rows)[number],
-    kind: string,
-  ): [string, string, string] => {
-    // The latest decision of that kind: decisions are appended, and the most
-    // recent is the position the organisation currently holds.
-    const found = [...row.decisions].reverse().find((d) => d.kind === kind);
-    if (!found) return ["", "", ""];
-    return [found.outcome, found.statutoryBasis ?? "not required by law", found.rationale];
-  };
+    const decision = (
+      row: (typeof register.rows)[number],
+      kind: string,
+    ): [string, string, string] => {
+      // The latest decision of that kind: decisions are appended, and the most
+      // recent is the position the organisation currently holds.
+      const found = [...row.decisions].reverse().find((d) => d.kind === kind);
+      if (!found) return ["", "", ""];
+      return [found.outcome, found.statutoryBasis ?? "not required by law", found.rationale];
+    };
 
-  return {
-    columns: [
-      "Reference", "Entity", "What happened", "Description", "Our role",
-      "Became aware", "Occurred", "Contained", "Kind",
-      "Categories of data subject", "Categories of personal data",
-      "People affected", "Records affected", "Special category",
-      "Likely consequences", "Measures taken", "Data unintelligible",
-      "Risk assessed as", "Seventy-two hour position",
-      "Authority — outcome", "Authority — basis", "Authority — reasoning",
-      "Data subjects — outcome", "Data subjects — basis", "Data subjects — reasoning",
-      "Other decisions", "Status", "Closed", "Closure reasoning",
-    ],
-    rows: register.rows.map((row) => {
-      const b = row.breach;
-      const [aOut, aBasis, aWhy] = decision(row, "supervisory_authority");
-      const [sOut, sBasis, sWhy] = decision(row, "data_subjects");
-      const others = row.decisions
-        .filter((d) => !["supervisory_authority", "data_subjects"].includes(d.kind))
-        .map((d) => `${d.kind.replace(/_/g, " ")}: ${d.outcome} — ${d.rationale}`)
-        .join(" | ");
+    return {
+      columns: [
+        "Reference", "Entity", "What happened", "Description", "Our role",
+        "Became aware", "Occurred", "Contained", "Kind",
+        "Categories of data subject", "Categories of personal data",
+        "People affected", "Records affected", "Special category",
+        "Likely consequences", "Measures taken", "Data unintelligible",
+        "Risk assessed as", "Seventy-two hour position",
+        "Authority — outcome", "Authority — basis", "Authority — reasoning",
+        "Data subjects — outcome", "Data subjects — basis", "Data subjects — reasoning",
+        "Other decisions", "Status", "Closed", "Closure reasoning",
+      ],
+      rows: register.rows.map((row) => {
+        const b = row.breach;
+        const [aOut, aBasis, aWhy] = decision(row, "supervisory_authority");
+        const [sOut, sBasis, sWhy] = decision(row, "data_subjects");
+        const others = row.decisions
+          .filter((d) => !["supervisory_authority", "data_subjects"].includes(d.kind))
+          .map((d) => `${d.kind.replace(/_/g, " ")}: ${d.outcome} — ${d.rationale}`)
+          .join(" | ");
 
-      return [
-        b.reference, row.entityName, b.title, b.description, b.controllerRole,
-        b.discoveredAt, b.occurredAt, b.containedAt, (b.categories ?? []).join("; "),
-        (b.subjectCategories ?? []).join("; "), (b.dataCategories ?? []).join("; "),
-        b.subjectsAffected, b.recordsAffected,
-        b.specialCategory === null ? "not known" : b.specialCategory ? "yes" : "no",
-        b.likelyConsequences, b.measuresTaken,
-        b.dataUnintelligible === null ? "not known" : b.dataUnintelligible ? "yes" : "no",
-        row.risk ?? "not assessed", row.clock.words,
-        aOut, aBasis, aWhy,
-        sOut, sBasis, sWhy,
-        others, b.status, b.closedAt, b.closureRationale,
-      ];
-    }),
-  };
+        return [
+          b.reference, row.entityName, b.title, b.description, b.controllerRole,
+          b.discoveredAt, b.occurredAt, b.containedAt, (b.categories ?? []).join("; "),
+          (b.subjectCategories ?? []).join("; "), (b.dataCategories ?? []).join("; "),
+          b.subjectsAffected, b.recordsAffected,
+          b.specialCategory === null ? "not known" : b.specialCategory ? "yes" : "no",
+          b.likelyConsequences, b.measuresTaken,
+          b.dataUnintelligible === null ? "not known" : b.dataUnintelligible ? "yes" : "no",
+          row.risk ?? "not assessed", row.clock.words,
+          aOut, aBasis, aWhy,
+          sOut, sBasis, sWhy,
+          others, b.status, b.closedAt, b.closureRationale,
+        ];
+      }),
+    };
+  });
 }
 
 /**
@@ -554,34 +574,36 @@ export async function exportBreaches(organisationId: string, entityIds: string[]
  * in force at export.
  */
 export async function exportAiRiskLog(organisationId: string, entityIds: string[] | null) {
-  const rows = await aiRiskLog(organisationId, entityIds);
-  return {
-    columns: [
-      "System", "System name", "Stage", "Deployment",
-      "Risk", "Title", "Description", "Category", "Scale",
-      "Inherent likelihood", "Inherent impact", "Inherent score", "Inherent tier",
-      "Residual likelihood", "Residual impact", "Residual score", "Residual tier",
-      "Judged against", "Tolerated tier", "Within appetite",
-      "Treatments", "Accepted until", "Status", "Owner",
-    ],
-    rows: rows.map(({ system, risk, treatments, acceptance, appetite, ownerEmail }) => [
-      system.reference, system.name, system.lifecycleStage, system.deploymentPattern,
-      risk.reference, risk.title, risk.description, categoryLabel(risk.category), risk.scale,
-      risk.inherentLikelihood, risk.inherentImpact, risk.inherentScore, risk.inherentTier,
-      risk.residualLikelihood, risk.residualImpact, risk.residualScore, risk.residualTier,
-      appetite.state === "closed"
-        ? null
-        : appetite.basis.source === "platform"
-          ? "platform default (no appetite signed off)"
-          : appetite.basis.source === "category"
-            ? `appetite for ${categoryLabel(appetite.basis.scope)}`
-            : "organisation default appetite",
-      appetite.state === "closed" ? null : appetite.basis.toleratedTier,
-      appetite.state === "within" ? "yes" : appetite.state === "outside" ? "no" : appetite.state === "unrated" ? "not rated" : null,
-      treatments.map(treatmentWords).join("; ") || null,
-      acceptance?.expiresAt ?? null,
-      risk.status,
-      ownerEmail,
-    ]),
-  };
+  return withOrganisation(organisationId, async () => {
+    const rows = await aiRiskLog(organisationId, entityIds);
+    return {
+      columns: [
+        "System", "System name", "Stage", "Deployment",
+        "Risk", "Title", "Description", "Category", "Scale",
+        "Inherent likelihood", "Inherent impact", "Inherent score", "Inherent tier",
+        "Residual likelihood", "Residual impact", "Residual score", "Residual tier",
+        "Judged against", "Tolerated tier", "Within appetite",
+        "Treatments", "Accepted until", "Status", "Owner",
+      ],
+      rows: rows.map(({ system, risk, treatments, acceptance, appetite, ownerEmail }) => [
+        system.reference, system.name, system.lifecycleStage, system.deploymentPattern,
+        risk.reference, risk.title, risk.description, categoryLabel(risk.category), risk.scale,
+        risk.inherentLikelihood, risk.inherentImpact, risk.inherentScore, risk.inherentTier,
+        risk.residualLikelihood, risk.residualImpact, risk.residualScore, risk.residualTier,
+        appetite.state === "closed"
+          ? null
+          : appetite.basis.source === "platform"
+            ? "platform default (no appetite signed off)"
+            : appetite.basis.source === "category"
+              ? `appetite for ${categoryLabel(appetite.basis.scope)}`
+              : "organisation default appetite",
+        appetite.state === "closed" ? null : appetite.basis.toleratedTier,
+        appetite.state === "within" ? "yes" : appetite.state === "outside" ? "no" : appetite.state === "unrated" ? "not rated" : null,
+        treatments.map(treatmentWords).join("; ") || null,
+        acceptance?.expiresAt ?? null,
+        risk.status,
+        ownerEmail,
+      ]),
+    };
+  });
 }

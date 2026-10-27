@@ -1,5 +1,5 @@
 import { and, asc, eq, inArray, isNull, lte, or, sql } from "drizzle-orm";
-import { db, type Db } from "@/db/client";
+import { db, type Db, withOrganisation } from "@/db/client";
 import {
   aiUseCases,
   approvals,
@@ -179,97 +179,99 @@ export async function openApprovals(input: {
   organisationId: string;
   actor: Actor;
 }) {
-  const loaded = await loadAssessment(input.assessmentId, input.organisationId);
-  if (!loaded) throw new Error("No such assessment");
+  return withOrganisation(input.organisationId, async () => {
+    const loaded = await loadAssessment(input.assessmentId, input.organisationId);
+    if (!loaded) throw new Error("No such assessment");
 
-  const [tmpl] = await db
-    .select({ kind: templates.kind })
-    .from(templateVersions)
-    .innerJoin(templates, eq(templates.id, templateVersions.templateId))
-    .where(eq(templateVersions.id, loaded.assessment.templateVersionId));
-  if (!tmpl) throw new Error("No such template");
+    const [tmpl] = await db
+      .select({ kind: templates.kind })
+      .from(templateVersions)
+      .innerJoin(templates, eq(templates.id, templateVersions.templateId))
+      .where(eq(templateVersions.id, loaded.assessment.templateVersionId));
+    if (!tmpl) throw new Error("No such template");
 
-  const [definition] = await db
-    .select()
-    .from(workflowDefinitions)
-    .where(
-      and(
-        eq(workflowDefinitions.organisationId, input.organisationId),
-        eq(workflowDefinitions.templateKind, tmpl.kind),
-        eq(workflowDefinitions.isActive, true),
-      ),
-    );
-  if (!definition) return { approvals: [], firstPending: null };
+    const [definition] = await db
+      .select()
+      .from(workflowDefinitions)
+      .where(
+        and(
+          eq(workflowDefinitions.organisationId, input.organisationId),
+          eq(workflowDefinitions.templateKind, tmpl.kind),
+          eq(workflowDefinitions.isActive, true),
+        ),
+      );
+    if (!definition) return { approvals: [], firstPending: null };
 
-  const stages = await db
-    .select()
-    .from(workflowStages)
-    .where(eq(workflowStages.workflowDefinitionId, definition.id))
-    .orderBy(asc(workflowStages.position));
+    const stages = await db
+      .select()
+      .from(workflowStages)
+      .where(eq(workflowStages.workflowDefinitionId, definition.id))
+      .orderBy(asc(workflowStages.position));
 
-  const ctx: RoutingContext = {
-    answers: loaded.answers,
-    score: loaded.assessment.scoreValue,
-    tier: loaded.assessment.scoreTier as RiskTier | null,
-    // Loaded per submission rather than baked in, so an adequacy decision
-    // changing takes effect on the next assessment rather than the next deploy.
-    needsSafeguards: await needingSafeguards(input.organisationId, "uk"),
-  };
+    const ctx: RoutingContext = {
+      answers: loaded.answers,
+      score: loaded.assessment.scoreValue,
+      tier: loaded.assessment.scoreTier as RiskTier | null,
+      // Loaded per submission rather than baked in, so an adequacy decision
+      // changing takes effect on the next assessment rather than the next deploy.
+      needsSafeguards: await needingSafeguards(input.organisationId, "uk"),
+    };
 
-  return db.transaction(async (tx) => {
-    const created: Array<typeof approvals.$inferSelect> = [];
+    return db.transaction(async (tx) => {
+      const created: Array<typeof approvals.$inferSelect> = [];
 
-    for (const stage of stages) {
-      const applies = matches(stage.condition, ctx);
-      const [row] = await tx
-        .insert(approvals)
-        .values({
-          assessmentId: input.assessmentId,
-          stageId: stage.id,
-          position: stage.position,
-          name: stage.name,
-          requiredRole: stage.requiredRole,
-          boardName: stage.boardName,
-          status: applies ? "pending" : "skipped",
-          reason: applies
-            ? `Applies: ${describe(stage.condition)}`
-            : `Not required: ${describe(stage.condition)} did not hold`,
-        })
-        .onConflictDoNothing({ target: [approvals.assessmentId, approvals.position] })
-        .returning();
-      if (row) created.push(row);
-    }
+      for (const stage of stages) {
+        const applies = matches(stage.condition, ctx);
+        const [row] = await tx
+          .insert(approvals)
+          .values({
+            assessmentId: input.assessmentId,
+            stageId: stage.id,
+            position: stage.position,
+            name: stage.name,
+            requiredRole: stage.requiredRole,
+            boardName: stage.boardName,
+            status: applies ? "pending" : "skipped",
+            reason: applies
+              ? `Applies: ${describe(stage.condition)}`
+              : `Not required: ${describe(stage.condition)} did not hold`,
+          })
+          .onConflictDoNothing({ target: [approvals.assessmentId, approvals.position] })
+          .returning();
+        if (row) created.push(row);
+      }
 
-    const firstPending = created.find((a) => a.status === "pending") ?? null;
+      const firstPending = created.find((a) => a.status === "pending") ?? null;
 
-    if (firstPending) {
-      await raiseTask(tx, {
+      if (firstPending) {
+        await raiseTask(tx, {
+          organisationId: input.organisationId,
+          entityId: loaded.assessment.entityId,
+          type: "approve_stage",
+          title: `${firstPending.name}: ${loaded.assessment.reference} ${loaded.assessment.title}`,
+          description: firstPending.reason,
+          subjectType: "assessment",
+          subjectId: input.assessmentId,
+          assigneeRole: firstPending.requiredRole,
+          idempotencyKey: `approve:${firstPending.id}`,
+          actor: input.actor,
+        });
+      }
+
+      await appendAuditEvent(tx, {
+        ...input.actor,
         organisationId: input.organisationId,
-        entityId: loaded.assessment.entityId,
-        type: "approve_stage",
-        title: `${firstPending.name}: ${loaded.assessment.reference} ${loaded.assessment.title}`,
-        description: firstPending.reason,
+        action: "assessment.approvals_opened",
         subjectType: "assessment",
         subjectId: input.assessmentId,
-        assigneeRole: firstPending.requiredRole,
-        idempotencyKey: `approve:${firstPending.id}`,
-        actor: input.actor,
+        entityId: loaded.assessment.entityId,
+        after: {
+          stages: created.map((a) => ({ name: a.name, status: a.status, reason: a.reason })),
+        },
       });
-    }
 
-    await appendAuditEvent(tx, {
-      ...input.actor,
-      organisationId: input.organisationId,
-      action: "assessment.approvals_opened",
-      subjectType: "assessment",
-      subjectId: input.assessmentId,
-      entityId: loaded.assessment.entityId,
-      after: {
-        stages: created.map((a) => ({ name: a.name, status: a.status, reason: a.reason })),
-      },
+      return { approvals: created, firstPending };
     });
-
-    return { approvals: created, firstPending };
   });
 }
 
@@ -293,251 +295,253 @@ export async function decideApproval(input: {
   callerRoles: string[];
   actor: Actor;
 }) {
-  const rationale = input.rationale.trim();
-  if (!rationale) throw new DecisionRefused("A rationale is required for every decision");
-  const boardReference = input.boardReference?.trim() || null;
+  return withOrganisation(input.organisationId, async () => {
+    const rationale = input.rationale.trim();
+    if (!rationale) throw new DecisionRefused("A rationale is required for every decision");
+    const boardReference = input.boardReference?.trim() || null;
 
-  return db.transaction(async (tx) => {
-    const [row] = await tx
-      .select({ approval: approvals, assessment: assessments })
-      .from(approvals)
-      .innerJoin(assessments, eq(assessments.id, approvals.assessmentId))
-      .where(
-        and(
-          eq(approvals.id, input.approvalId),
-          eq(assessments.organisationId, input.organisationId),
-        ),
-      );
-    if (!row) throw new Error("No such approval");
-    if (row.approval.status !== "pending") {
-      throw new DecisionRefused(`This stage is already ${row.approval.status}`);
-    }
-    // A board's decision is recorded by one person but made by the meeting,
-    // and the record has to say which meeting — otherwise it reads as that
-    // person's own decision, with the board's authority borrowed.
-    if (row.approval.boardName && !boardReference) {
-      throw new DecisionRefused(
-        `This is the ${row.approval.boardName}'s decision: give the meeting and minute that made it`,
-      );
-    }
-    if (!mayDecideStage(input.callerRoles, row.approval.requiredRole)) {
-      throw new NotYourDecision(
-        `This stage is decided by ${row.approval.requiredRole.replace(/_/g, " ")}`,
-      );
-    }
-
-    const earlier = await tx
-      .select()
-      .from(approvals)
-      .where(
-        and(
-          eq(approvals.assessmentId, row.approval.assessmentId),
-          eq(approvals.status, "pending"),
-          sql`${approvals.position} < ${row.approval.position}`,
-        ),
-      );
-    if (earlier.length > 0) {
-      throw new DecisionRefused(
-        `${earlier[0].name} has not been decided yet`,
-      );
-    }
-
-    const now = new Date();
-    await tx
-      .update(approvals)
-      .set({
-        status: input.decision,
-        decidedByUserId: input.actor.actorUserId ?? null,
-        decidedByLabel: input.actor.actorLabel,
-        decidedAt: now,
-        rationale,
-        boardReference: row.approval.boardName ? boardReference : null,
-      })
-      .where(eq(approvals.id, input.approvalId));
-
-    // Close the task that asked for this decision.
-    await tx
-      .update(tasks)
-      .set({ status: "done", completedAt: now, completedByLabel: input.actor.actorLabel })
-      .where(
-        and(
-          eq(tasks.organisationId, input.organisationId),
-          eq(tasks.idempotencyKey, `approve:${input.approvalId}`),
-        ),
-      );
-
-    let assessmentStatus: "in_review" | "approved" | "returned" | "rejected" = "in_review";
-    let nextPending: typeof approvals.$inferSelect | null = null;
-
-    if (input.decision === "rejected") {
-      assessmentStatus = "rejected";
-    } else if (input.decision === "returned") {
-      assessmentStatus = "returned";
-      // The remaining gates are moot until it comes back.
-      await tx
-        .update(approvals)
-        .set({ status: "skipped", reason: "Assessment returned before this stage" })
+    return db.transaction(async (tx) => {
+      const [row] = await tx
+        .select({ approval: approvals, assessment: assessments })
+        .from(approvals)
+        .innerJoin(assessments, eq(assessments.id, approvals.assessmentId))
         .where(
           and(
-            eq(approvals.assessmentId, row.approval.assessmentId),
-            eq(approvals.status, "pending"),
+            eq(approvals.id, input.approvalId),
+            eq(assessments.organisationId, input.organisationId),
           ),
         );
-    } else {
-      const remaining = await tx
+      if (!row) throw new Error("No such approval");
+      if (row.approval.status !== "pending") {
+        throw new DecisionRefused(`This stage is already ${row.approval.status}`);
+      }
+      // A board's decision is recorded by one person but made by the meeting,
+      // and the record has to say which meeting — otherwise it reads as that
+      // person's own decision, with the board's authority borrowed.
+      if (row.approval.boardName && !boardReference) {
+        throw new DecisionRefused(
+          `This is the ${row.approval.boardName}'s decision: give the meeting and minute that made it`,
+        );
+      }
+      if (!mayDecideStage(input.callerRoles, row.approval.requiredRole)) {
+        throw new NotYourDecision(
+          `This stage is decided by ${row.approval.requiredRole.replace(/_/g, " ")}`,
+        );
+      }
+
+      const earlier = await tx
         .select()
         .from(approvals)
         .where(
           and(
             eq(approvals.assessmentId, row.approval.assessmentId),
             eq(approvals.status, "pending"),
-          ),
-        )
-        .orderBy(asc(approvals.position));
-      nextPending = remaining[0] ?? null;
-      assessmentStatus = nextPending ? "in_review" : "approved";
-    }
-
-    /**
-     * A review date, set from the template's own cycle.
-     *
-     * Nothing created a schedule before this: the table, the sweep that reads
-     * it and the capability that guards it all existed, and no code path ever
-     * wrote a row — so an approved assessment was never brought back. Where a
-     * template declares no cycle, none is created rather than one being
-     * invented on the organisation's behalf.
-     */
-    let reviewDueAt: Date | null = null;
-    let intervalMonths: number | null = null;
-    if (assessmentStatus === "approved") {
-      const [version] = await tx
-        .select({ definition: templateVersions.definition })
-        .from(templateVersions)
-        .where(eq(templateVersions.id, row.assessment.templateVersionId));
-      intervalMonths = version?.definition.reviewIntervalMonths ?? null;
-
-      // The AI templates ask the assessor how soon the system should be looked
-      // at again, because DSIT's toolkit is explicit that AI risk has to be
-      // reassessed as the system and its use change. The answer may bring the
-      // review forward; it may not push it past the template's own cycle,
-      // which is the organisation's policy rather than one assessor's view.
-      const [chosen] = await tx
-        .select({ value: assessmentAnswers.value })
-        .from(assessmentAnswers)
-        .where(
-          and(
-            eq(assessmentAnswers.assessmentId, row.approval.assessmentId),
-            eq(assessmentAnswers.questionKey, "review_interval"),
+            sql`${approvals.position} < ${row.approval.position}`,
           ),
         );
-      const assessorMonths = REVIEW_INTERVAL_MONTHS[String(chosen?.value ?? "")];
-      if (assessorMonths) {
-        intervalMonths = intervalMonths ? Math.min(intervalMonths, assessorMonths) : assessorMonths;
+      if (earlier.length > 0) {
+        throw new DecisionRefused(
+          `${earlier[0].name} has not been decided yet`,
+        );
       }
 
-      if (intervalMonths) reviewDueAt = addMonths(now, intervalMonths);
-    }
-
-    await tx
-      .update(assessments)
-      .set({
-        status: assessmentStatus,
-        updatedAt: now,
-        completedAt: assessmentStatus === "approved" ? now : null,
-        ...(reviewDueAt ? { reviewDueAt, reviewIntervalMonths: intervalMonths } : {}),
-      })
-      .where(eq(assessments.id, row.approval.assessmentId));
-
-    // An approved assessment of an AI system dates the system's next review on
-    // the register too. Without this the register's review date is whatever
-    // somebody typed when they added the system, and nothing ever moves it.
-    if (reviewDueAt && row.assessment.subjectType === "ai_use_case" && row.assessment.subjectId) {
+      const now = new Date();
       await tx
-        .update(aiUseCases)
-        .set({ nextReviewAt: reviewDueAt, updatedAt: now })
+        .update(approvals)
+        .set({
+          status: input.decision,
+          decidedByUserId: input.actor.actorUserId ?? null,
+          decidedByLabel: input.actor.actorLabel,
+          decidedAt: now,
+          rationale,
+          boardReference: row.approval.boardName ? boardReference : null,
+        })
+        .where(eq(approvals.id, input.approvalId));
+
+      // Close the task that asked for this decision.
+      await tx
+        .update(tasks)
+        .set({ status: "done", completedAt: now, completedByLabel: input.actor.actorLabel })
         .where(
           and(
-            eq(aiUseCases.id, row.assessment.subjectId),
-            eq(aiUseCases.organisationId, input.organisationId),
+            eq(tasks.organisationId, input.organisationId),
+            eq(tasks.idempotencyKey, `approve:${input.approvalId}`),
           ),
         );
-    }
 
-    if (reviewDueAt && intervalMonths) {
+      let assessmentStatus: "in_review" | "approved" | "returned" | "rejected" = "in_review";
+      let nextPending: typeof approvals.$inferSelect | null = null;
+
+      if (input.decision === "rejected") {
+        assessmentStatus = "rejected";
+      } else if (input.decision === "returned") {
+        assessmentStatus = "returned";
+        // The remaining gates are moot until it comes back.
+        await tx
+          .update(approvals)
+          .set({ status: "skipped", reason: "Assessment returned before this stage" })
+          .where(
+            and(
+              eq(approvals.assessmentId, row.approval.assessmentId),
+              eq(approvals.status, "pending"),
+            ),
+          );
+      } else {
+        const remaining = await tx
+          .select()
+          .from(approvals)
+          .where(
+            and(
+              eq(approvals.assessmentId, row.approval.assessmentId),
+              eq(approvals.status, "pending"),
+            ),
+          )
+          .orderBy(asc(approvals.position));
+        nextPending = remaining[0] ?? null;
+        assessmentStatus = nextPending ? "in_review" : "approved";
+      }
+
+      /**
+       * A review date, set from the template's own cycle.
+       *
+       * Nothing created a schedule before this: the table, the sweep that reads
+       * it and the capability that guards it all existed, and no code path ever
+       * wrote a row — so an approved assessment was never brought back. Where a
+       * template declares no cycle, none is created rather than one being
+       * invented on the organisation's behalf.
+       */
+      let reviewDueAt: Date | null = null;
+      let intervalMonths: number | null = null;
+      if (assessmentStatus === "approved") {
+        const [version] = await tx
+          .select({ definition: templateVersions.definition })
+          .from(templateVersions)
+          .where(eq(templateVersions.id, row.assessment.templateVersionId));
+        intervalMonths = version?.definition.reviewIntervalMonths ?? null;
+
+        // The AI templates ask the assessor how soon the system should be looked
+        // at again, because DSIT's toolkit is explicit that AI risk has to be
+        // reassessed as the system and its use change. The answer may bring the
+        // review forward; it may not push it past the template's own cycle,
+        // which is the organisation's policy rather than one assessor's view.
+        const [chosen] = await tx
+          .select({ value: assessmentAnswers.value })
+          .from(assessmentAnswers)
+          .where(
+            and(
+              eq(assessmentAnswers.assessmentId, row.approval.assessmentId),
+              eq(assessmentAnswers.questionKey, "review_interval"),
+            ),
+          );
+        const assessorMonths = REVIEW_INTERVAL_MONTHS[String(chosen?.value ?? "")];
+        if (assessorMonths) {
+          intervalMonths = intervalMonths ? Math.min(intervalMonths, assessorMonths) : assessorMonths;
+        }
+
+        if (intervalMonths) reviewDueAt = addMonths(now, intervalMonths);
+      }
+
       await tx
-        .insert(schedules)
-        .values({
+        .update(assessments)
+        .set({
+          status: assessmentStatus,
+          updatedAt: now,
+          completedAt: assessmentStatus === "approved" ? now : null,
+          ...(reviewDueAt ? { reviewDueAt, reviewIntervalMonths: intervalMonths } : {}),
+        })
+        .where(eq(assessments.id, row.approval.assessmentId));
+
+      // An approved assessment of an AI system dates the system's next review on
+      // the register too. Without this the register's review date is whatever
+      // somebody typed when they added the system, and nothing ever moves it.
+      if (reviewDueAt && row.assessment.subjectType === "ai_use_case" && row.assessment.subjectId) {
+        await tx
+          .update(aiUseCases)
+          .set({ nextReviewAt: reviewDueAt, updatedAt: now })
+          .where(
+            and(
+              eq(aiUseCases.id, row.assessment.subjectId),
+              eq(aiUseCases.organisationId, input.organisationId),
+            ),
+          );
+      }
+
+      if (reviewDueAt && intervalMonths) {
+        await tx
+          .insert(schedules)
+          .values({
+            organisationId: input.organisationId,
+            entityId: row.assessment.entityId,
+            subjectType: "assessment",
+            subjectId: row.approval.assessmentId,
+            action: "reassess",
+            title: `Reassess ${row.assessment.reference} ${row.assessment.title}`,
+            intervalMonths,
+            nextDueAt: reviewDueAt,
+            // The owner does the work. The people who approved it are found at
+            // materialisation time from the approvals themselves, because a
+            // reapproval is theirs and a schedule holds only one name.
+            assigneeUserId: row.assessment.ownerId,
+          })
+          .onConflictDoNothing();
+      }
+
+      if (nextPending) {
+        await raiseTask(tx, {
           organisationId: input.organisationId,
           entityId: row.assessment.entityId,
+          type: "approve_stage",
+          title: `${nextPending.name}: ${row.assessment.reference} ${row.assessment.title}`,
+          description: nextPending.reason,
           subjectType: "assessment",
           subjectId: row.approval.assessmentId,
-          action: "reassess",
-          title: `Reassess ${row.assessment.reference} ${row.assessment.title}`,
-          intervalMonths,
-          nextDueAt: reviewDueAt,
-          // The owner does the work. The people who approved it are found at
-          // materialisation time from the approvals themselves, because a
-          // reapproval is theirs and a schedule holds only one name.
-          assigneeUserId: row.assessment.ownerId,
-        })
-        .onConflictDoNothing();
-    }
+          assigneeRole: nextPending.requiredRole,
+          idempotencyKey: `approve:${nextPending.id}`,
+          actor: input.actor,
+        });
+      }
 
-    if (nextPending) {
-      await raiseTask(tx, {
+      // Queued inside the same transaction as the decision, so an approval never
+      // lands without its notification and a rolled-back decision never announces
+      // itself. Delivery happens later, on the sweep.
+      if (assessmentStatus === "approved" || assessmentStatus === "rejected") {
+        await queueEvent(tx, {
+          organisationId: input.organisationId,
+          event: assessmentStatus === "approved" ? "assessment.approved" : "assessment.rejected",
+          payload: {
+            reference: row.assessment.reference,
+            title: row.assessment.title,
+            entityId: row.assessment.entityId,
+            score: row.assessment.scoreValue,
+            tier: row.assessment.scoreTier,
+            decidedBy: input.actor.actorLabel,
+            rationale,
+          },
+          idempotencyKey: `assessment:${row.approval.assessmentId}:${assessmentStatus}`,
+        });
+      }
+
+      await appendAuditEvent(tx, {
+        ...input.actor,
         organisationId: input.organisationId,
+        action: `approval.${input.decision}`,
+        subjectType: "approval",
+        subjectId: input.approvalId,
         entityId: row.assessment.entityId,
-        type: "approve_stage",
-        title: `${nextPending.name}: ${row.assessment.reference} ${row.assessment.title}`,
-        description: nextPending.reason,
-        subjectType: "assessment",
-        subjectId: row.approval.assessmentId,
-        assigneeRole: nextPending.requiredRole,
-        idempotencyKey: `approve:${nextPending.id}`,
-        actor: input.actor,
-      });
-    }
-
-    // Queued inside the same transaction as the decision, so an approval never
-    // lands without its notification and a rolled-back decision never announces
-    // itself. Delivery happens later, on the sweep.
-    if (assessmentStatus === "approved" || assessmentStatus === "rejected") {
-      await queueEvent(tx, {
-        organisationId: input.organisationId,
-        event: assessmentStatus === "approved" ? "assessment.approved" : "assessment.rejected",
-        payload: {
-          reference: row.assessment.reference,
-          title: row.assessment.title,
-          entityId: row.assessment.entityId,
-          score: row.assessment.scoreValue,
-          tier: row.assessment.scoreTier,
-          decidedBy: input.actor.actorLabel,
+        before: { status: "pending" },
+        after: {
+          status: input.decision,
+          stage: row.approval.name,
           rationale,
+          ...(row.approval.boardName
+            ? { decidedBy: row.approval.boardName, boardReference }
+            : {}),
+          assessmentStatus,
         },
-        idempotencyKey: `assessment:${row.approval.assessmentId}:${assessmentStatus}`,
       });
-    }
 
-    await appendAuditEvent(tx, {
-      ...input.actor,
-      organisationId: input.organisationId,
-      action: `approval.${input.decision}`,
-      subjectType: "approval",
-      subjectId: input.approvalId,
-      entityId: row.assessment.entityId,
-      before: { status: "pending" },
-      after: {
-        status: input.decision,
-        stage: row.approval.name,
-        rationale,
-        ...(row.approval.boardName
-          ? { decidedBy: row.approval.boardName, boardReference }
-          : {}),
-        assessmentStatus,
-      },
+      return { status: assessmentStatus, nextPending };
     });
-
-    return { status: assessmentStatus, nextPending };
   });
 }
 
@@ -554,31 +558,33 @@ export async function completeTask(input: {
   organisationId: string;
   actor: Actor;
 }) {
-  return db.transaction(async (tx) => {
-    const now = new Date();
-    const [task] = await tx
-      .update(tasks)
-      .set({ status: "done", completedAt: now, completedByLabel: input.actor.actorLabel })
-      .where(
-        and(
-          eq(tasks.id, input.taskId),
-          eq(tasks.organisationId, input.organisationId),
-          inArray(tasks.status, ["open", "in_progress"]),
-        ),
-      )
-      .returning();
-    if (!task) return null;
+  return withOrganisation(input.organisationId, async () => {
+    return db.transaction(async (tx) => {
+      const now = new Date();
+      const [task] = await tx
+        .update(tasks)
+        .set({ status: "done", completedAt: now, completedByLabel: input.actor.actorLabel })
+        .where(
+          and(
+            eq(tasks.id, input.taskId),
+            eq(tasks.organisationId, input.organisationId),
+            inArray(tasks.status, ["open", "in_progress"]),
+          ),
+        )
+        .returning();
+      if (!task) return null;
 
-    await appendAuditEvent(tx, {
-      ...input.actor,
-      organisationId: input.organisationId,
-      action: "task.completed",
-      subjectType: "task",
-      subjectId: task.id,
-      entityId: task.entityId,
-      after: { title: task.title },
+      await appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        action: "task.completed",
+        subjectType: "task",
+        subjectId: task.id,
+        entityId: task.entityId,
+        after: { title: task.title },
+      });
+      return task;
     });
-    return task;
   });
 }
 
@@ -605,75 +611,81 @@ export type TaskViewer = {
  *  - it sits in an entity whose records they may read.
  */
 export async function openTasks(organisationId: string, viewer: TaskViewer) {
-  const reach = [];
+  return withOrganisation(organisationId, async () => {
+    const reach = [];
 
-  if (viewer.entityIds === null) {
-    reach.push(sql`true`);
-  } else if (viewer.entityIds.length > 0) {
-    reach.push(inArray(tasks.entityId, viewer.entityIds));
-  }
+    if (viewer.entityIds === null) {
+      reach.push(sql`true`);
+    } else if (viewer.entityIds.length > 0) {
+      reach.push(inArray(tasks.entityId, viewer.entityIds));
+    }
 
-  if (viewer.userId) {
-    reach.push(eq(tasks.assigneeUserId, viewer.userId));
-  }
+    if (viewer.userId) {
+      reach.push(eq(tasks.assigneeUserId, viewer.userId));
+    }
 
-  for (const g of actingGrants((viewer.grants ?? []) as readonly Grant[])) {
-    reach.push(
-      g.scope === "organisation"
-        ? eq(tasks.assigneeRole, g.role as never)
-        : and(
-            eq(tasks.assigneeRole, g.role as never),
-            eq(tasks.entityId, g.entityId!),
-          ),
-    );
-  }
+    for (const g of actingGrants((viewer.grants ?? []) as readonly Grant[])) {
+      reach.push(
+        g.scope === "organisation"
+          ? eq(tasks.assigneeRole, g.role as never)
+          : and(
+              eq(tasks.assigneeRole, g.role as never),
+              eq(tasks.entityId, g.entityId!),
+            ),
+      );
+    }
 
-  // Nothing reaches them at all — return nothing rather than everything.
-  if (reach.length === 0) return [];
+    // Nothing reaches them at all — return nothing rather than everything.
+    if (reach.length === 0) return [];
 
-  return db
-    .select()
-    .from(tasks)
-    .where(
-      and(
-        eq(tasks.organisationId, organisationId),
-        inArray(tasks.status, ["open", "in_progress"]),
-        or(...reach),
-      ),
-    )
-    .orderBy(asc(tasks.dueAt));
+    return db
+      .select()
+      .from(tasks)
+      .where(
+        and(
+          eq(tasks.organisationId, organisationId),
+          inArray(tasks.status, ["open", "in_progress"]),
+          or(...reach),
+        ),
+      )
+      .orderBy(asc(tasks.dueAt));
+  });
 }
 
 /** Open tasks past their due date and not yet marked as breached. */
 export async function tasksInBreach(organisationId: string) {
-  return db
-    .select()
-    .from(tasks)
-    .where(
-      and(
-        eq(tasks.organisationId, organisationId),
-        inArray(tasks.status, ["open", "in_progress"]),
-        isNull(tasks.breachedAt),
-        lte(tasks.dueAt, new Date()),
-      ),
-    );
+  return withOrganisation(organisationId, async () => {
+    return db
+      .select()
+      .from(tasks)
+      .where(
+        and(
+          eq(tasks.organisationId, organisationId),
+          inArray(tasks.status, ["open", "in_progress"]),
+          isNull(tasks.breachedAt),
+          lte(tasks.dueAt, new Date()),
+        ),
+      );
+  });
 }
 
 /** Open tasks falling due inside the window, for a nudge before the deadline. */
 export async function tasksDueSoon(organisationId: string, withinHours: number) {
-  const horizon = new Date(Date.now() + withinHours * 3600 * 1000);
-  return db
-    .select()
-    .from(tasks)
-    .where(
-      and(
-        eq(tasks.organisationId, organisationId),
-        inArray(tasks.status, ["open", "in_progress"]),
-        isNull(tasks.breachedAt),
-        lte(tasks.dueAt, horizon),
-        or(isNull(tasks.escalatedAt), sql`true`),
-      ),
-    );
+  return withOrganisation(organisationId, async () => {
+    const horizon = new Date(Date.now() + withinHours * 3600 * 1000);
+    return db
+      .select()
+      .from(tasks)
+      .where(
+        and(
+          eq(tasks.organisationId, organisationId),
+          inArray(tasks.status, ["open", "in_progress"]),
+          isNull(tasks.breachedAt),
+          lte(tasks.dueAt, horizon),
+          or(isNull(tasks.escalatedAt), sql`true`),
+        ),
+      );
+  });
 }
 
 /**
@@ -693,7 +705,9 @@ export async function submitForApproval(input: {
   organisationId: string;
   actor: Actor;
 }) {
-  const submitted = await submitAssessment(input);
-  const routed = await openApprovals(input);
-  return { ...submitted, ...routed };
+  return withOrganisation(input.organisationId, async () => {
+    const submitted = await submitAssessment(input);
+    const routed = await openApprovals(input);
+    return { ...submitted, ...routed };
+  });
 }

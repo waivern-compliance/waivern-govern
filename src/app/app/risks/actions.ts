@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { and, eq } from "drizzle-orm";
-import { db } from "@/db/client";
+import { db, scoped } from "@/db/client";
 import { entities } from "@/db/schema";
 import { requireCapability } from "@/lib/session";
 import { createRisk, riskScaleOf } from "@/services/risks";
@@ -35,12 +35,12 @@ export async function raiseRisk(formData: FormData) {
     }
   }
 
-  const [entity] = await db
+  const [entity] = await scoped(active.membership.organisationId, () => db
     .select()
     .from(entities)
     .where(
       and(eq(entities.id, entityId), eq(entities.organisationId, active.membership.organisationId)),
-    );
+    ));
   if (!entity) throw new Error("No such entity");
 
   const risk = await createRisk({

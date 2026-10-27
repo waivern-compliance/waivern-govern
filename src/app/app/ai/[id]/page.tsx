@@ -37,7 +37,7 @@ import {
 import { updateUseCaseAction } from "../actions";
 import { StartAssessment } from "@/components/StartAssessment";
 import { asc, eq } from "drizzle-orm";
-import { db } from "@/db/client";
+import { db, scoped } from "@/db/client";
 import { aiUseCaseRequests, suppliers } from "@/db/schema";
 import { savedKey } from "@/lib/saved-key";
 import { EditForm } from "@/components/EditForm";
@@ -86,17 +86,17 @@ export default async function UseCasePage({
     assuranceFor(id, active.membership.organisationId),
     listIncidents(active.membership.organisationId, null, { useCaseId: id }),
     mayEdit
-      ? db
+      ? scoped(active.membership.organisationId, () => db
           .select({ id: suppliers.id, name: suppliers.name })
           .from(suppliers)
           .where(eq(suppliers.organisationId, active.membership.organisationId))
-          .orderBy(asc(suppliers.name))
+          .orderBy(asc(suppliers.name)))
       : Promise.resolve([]),
     // The proposal it was accepted from, if it came through intake.
-    db
+    scoped(active.membership.organisationId, () => db
       .select({ id: aiUseCaseRequests.id, reference: aiUseCaseRequests.reference })
       .from(aiUseCaseRequests)
-      .where(eq(aiUseCaseRequests.aiUseCaseId, id)),
+      .where(eq(aiUseCaseRequests.aiUseCaseId, id))),
   ]);
   const mayWaive = can(active.membership.grants, "approval.decide", useCase.entityId);
   // What each possible move would still need, worked out here so the form can

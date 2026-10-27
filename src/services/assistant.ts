@@ -1,5 +1,5 @@
 import { and, asc, desc, eq, lte } from "drizzle-orm";
-import { db } from "@/db/client";
+import { db, withOrganisation } from "@/db/client";
 import {
   aiConversations,
   aiMessages,
@@ -74,45 +74,47 @@ export type Configured = { config: ProviderConfig; surfaces: Surface[] };
  * configured a provider has no assistant, rather than quietly having ours.
  */
 export async function providerFor(organisationId: string): Promise<Configured | null> {
-  const [connection] = await db
-    .select()
-    .from(integrationConnections)
-    .where(
-      and(
-        eq(integrationConnections.organisationId, organisationId),
-        eq(integrationConnections.kind, "model_provider"),
-        eq(integrationConnections.isActive, true),
-      ),
-    );
-  if (!connection) return null;
+  return withOrganisation(organisationId, async () => {
+    const [connection] = await db
+      .select()
+      .from(integrationConnections)
+      .where(
+        and(
+          eq(integrationConnections.organisationId, organisationId),
+          eq(integrationConnections.kind, "model_provider"),
+          eq(integrationConnections.isActive, true),
+        ),
+      );
+    if (!connection) return null;
 
-  let settings: ProviderSettings;
-  let apiKey: string;
-  try {
-    apiKey = openSecret({
-      ciphertext: connection.secretCiphertext,
-      iv: connection.secretIv,
-      tag: connection.secretTag,
-    });
-    // The non-secret half rides on webhookUrl, which is the connection row's
-    // free-text field. A dedicated column would be tidier and is a migration
-    // this does not need yet.
-    settings = JSON.parse(connection.webhookUrl ?? "{}") as ProviderSettings;
-  } catch {
-    return null;
-  }
-  if (!settings.baseUrl || !settings.model) return null;
+    let settings: ProviderSettings;
+    let apiKey: string;
+    try {
+      apiKey = openSecret({
+        ciphertext: connection.secretCiphertext,
+        iv: connection.secretIv,
+        tag: connection.secretTag,
+      });
+      // The non-secret half rides on webhookUrl, which is the connection row's
+      // free-text field. A dedicated column would be tidier and is a migration
+      // this does not need yet.
+      settings = JSON.parse(connection.webhookUrl ?? "{}") as ProviderSettings;
+    } catch {
+      return null;
+    }
+    if (!settings.baseUrl || !settings.model) return null;
 
-  return {
-    config: {
-      kind: settings.kind === "anthropic" ? "anthropic" : "openai_compatible",
-      baseUrl: settings.baseUrl,
-      model: settings.model,
-      apiKey,
-      apiVersion: settings.apiVersion,
-    },
-    surfaces: settings.surfaces ?? [],
-  };
+    return {
+      config: {
+        kind: settings.kind === "anthropic" ? "anthropic" : "openai_compatible",
+        baseUrl: settings.baseUrl,
+        model: settings.model,
+        apiKey,
+        apiVersion: settings.apiVersion,
+      },
+      surfaces: settings.surfaces ?? [],
+    };
+  });
 }
 
 export type Exchange = {
@@ -231,23 +233,25 @@ export async function converse(input: {
 }
 
 export async function conversationMessages(conversationId: string, organisationId: string) {
-  const [conversation] = await db
-    .select()
-    .from(aiConversations)
-    .where(
-      and(
-        eq(aiConversations.id, conversationId),
-        eq(aiConversations.organisationId, organisationId),
-      ),
-    );
-  if (!conversation) return null;
+  return withOrganisation(organisationId, async () => {
+    const [conversation] = await db
+      .select()
+      .from(aiConversations)
+      .where(
+        and(
+          eq(aiConversations.id, conversationId),
+          eq(aiConversations.organisationId, organisationId),
+        ),
+      );
+    if (!conversation) return null;
 
-  const messages = await db
-    .select()
-    .from(aiMessages)
-    .where(eq(aiMessages.conversationId, conversationId))
-    .orderBy(asc(aiMessages.createdAt));
-  return { conversation, messages };
+    const messages = await db
+      .select()
+      .from(aiMessages)
+      .where(eq(aiMessages.conversationId, conversationId))
+      .orderBy(asc(aiMessages.createdAt));
+    return { conversation, messages };
+  });
 }
 
 /**
@@ -267,72 +271,78 @@ export async function acceptSuggestion(input: {
   model: string;
   actor: Actor;
 }) {
-  // Both must be this organisation's: the suggestion is recorded against them.
-  if (input.conversationId) {
-    const [own] = await db
-      .select({ id: aiConversations.id })
-      .from(aiConversations)
-      .where(
-        and(
-          eq(aiConversations.id, input.conversationId),
-          eq(aiConversations.organisationId, input.organisationId),
-        ),
-      );
-    if (!own) throw new NotInOrganisation("No such conversation in this organisation.");
-  }
-  await assertRecordIn(input.organisationId, input.subjectType, input.subjectId);
-  return db.transaction(async (tx) => {
-    const [row] = await tx
-      .insert(aiSuggestions)
-      .values({
+  return withOrganisation(input.organisationId, async () => {
+    // Both must be this organisation's: the suggestion is recorded against them.
+    if (input.conversationId) {
+      const [own] = await db
+        .select({ id: aiConversations.id })
+        .from(aiConversations)
+        .where(
+          and(
+            eq(aiConversations.id, input.conversationId),
+            eq(aiConversations.organisationId, input.organisationId),
+          ),
+        );
+      if (!own) throw new NotInOrganisation("No such conversation in this organisation.");
+    }
+    await assertRecordIn(input.organisationId, input.subjectType, input.subjectId);
+    return db.transaction(async (tx) => {
+      const [row] = await tx
+        .insert(aiSuggestions)
+        .values({
+          organisationId: input.organisationId,
+          conversationId: input.conversationId,
+          subjectType: input.subjectType,
+          subjectId: input.subjectId,
+          field: input.field,
+          proposed: input.proposed,
+          model: input.model,
+          promptVersion: PROMPT_VERSION,
+          status: "accepted",
+          decidedBy: input.actor.actorUserId ?? null,
+          decidedAt: new Date(),
+        })
+        .returning();
+
+      await appendAuditEvent(tx, {
+        ...input.actor,
         organisationId: input.organisationId,
-        conversationId: input.conversationId,
+        action: "assistant.suggestion_accepted",
         subjectType: input.subjectType,
         subjectId: input.subjectId,
-        field: input.field,
-        proposed: input.proposed,
-        model: input.model,
-        promptVersion: PROMPT_VERSION,
-        status: "accepted",
-        decidedBy: input.actor.actorUserId ?? null,
-        decidedAt: new Date(),
-      })
-      .returning();
-
-    await appendAuditEvent(tx, {
-      ...input.actor,
-      organisationId: input.organisationId,
-      action: "assistant.suggestion_accepted",
-      subjectType: input.subjectType,
-      subjectId: input.subjectId,
-      after: { field: input.field, model: input.model, suggestion: row.id },
+        after: { field: input.field, model: input.model, suggestion: row.id },
+      });
+      return row;
     });
-    return row;
   });
 }
 
 /** Conversations past their retention date. Called by the sweep. */
 export async function forgetExpiredConversations(organisationId: string): Promise<number> {
-  const expired = await db
-    .delete(aiConversations)
-    .where(
-      and(
-        eq(aiConversations.organisationId, organisationId),
-        lte(aiConversations.retainUntil, new Date()),
-      ),
-    )
-    .returning({ id: aiConversations.id });
-  return expired.length;
+  return withOrganisation(organisationId, async () => {
+    const expired = await db
+      .delete(aiConversations)
+      .where(
+        and(
+          eq(aiConversations.organisationId, organisationId),
+          lte(aiConversations.retainUntil, new Date()),
+        ),
+      )
+      .returning({ id: aiConversations.id });
+    return expired.length;
+  });
 }
 
 /** Recent exchanges, for showing somebody what was asked on their behalf. */
 export async function recentConversations(organisationId: string, limit = 20) {
-  return db
-    .select()
-    .from(aiConversations)
-    .where(eq(aiConversations.organisationId, organisationId))
-    .orderBy(desc(aiConversations.lastMessageAt))
-    .limit(limit);
+  return withOrganisation(organisationId, async () => {
+    return db
+      .select()
+      .from(aiConversations)
+      .where(eq(aiConversations.organisationId, organisationId))
+      .orderBy(desc(aiConversations.lastMessageAt))
+      .limit(limit);
+  });
 }
 
 /** What the settings screen may show. Never the key. */
@@ -350,34 +360,36 @@ export type ProviderSummary = {
 export async function providerSummary(
   organisationId: string,
 ): Promise<ProviderSummary | null> {
-  const [connection] = await db
-    .select()
-    .from(integrationConnections)
-    .where(
-      and(
-        eq(integrationConnections.organisationId, organisationId),
-        eq(integrationConnections.kind, "model_provider"),
-      ),
-    );
-  if (!connection) return null;
+  return withOrganisation(organisationId, async () => {
+    const [connection] = await db
+      .select()
+      .from(integrationConnections)
+      .where(
+        and(
+          eq(integrationConnections.organisationId, organisationId),
+          eq(integrationConnections.kind, "model_provider"),
+        ),
+      );
+    if (!connection) return null;
 
-  let settings: ProviderSettings = {} as ProviderSettings;
-  try {
-    settings = JSON.parse(connection.webhookUrl ?? "{}") as ProviderSettings;
-  } catch {
-    // A malformed row should still be visible and replaceable, not invisible.
-  }
+    let settings: ProviderSettings = {} as ProviderSettings;
+    try {
+      settings = JSON.parse(connection.webhookUrl ?? "{}") as ProviderSettings;
+    } catch {
+      // A malformed row should still be visible and replaceable, not invisible.
+    }
 
-  return {
-    connectionId: connection.id,
-    kind: settings.kind === "anthropic" ? "anthropic" : "openai_compatible",
-    baseUrl: settings.baseUrl ?? "",
-    model: settings.model ?? "",
-    apiVersion: settings.apiVersion ?? null,
-    surfaces: settings.surfaces ?? [],
-    isActive: connection.isActive,
-    lastSeenAt: connection.lastSeenAt,
-  };
+    return {
+      connectionId: connection.id,
+      kind: settings.kind === "anthropic" ? "anthropic" : "openai_compatible",
+      baseUrl: settings.baseUrl ?? "",
+      model: settings.model ?? "",
+      apiVersion: settings.apiVersion ?? null,
+      surfaces: settings.surfaces ?? [],
+      isActive: connection.isActive,
+      lastSeenAt: connection.lastSeenAt,
+    };
+  });
 }
 
 /**
@@ -400,99 +412,103 @@ export async function saveProvider(input: {
   isActive: boolean;
   actor: Actor;
 }) {
-  const settings: ProviderSettings = {
-    kind: input.kind,
-    baseUrl: input.baseUrl.trim(),
-    model: input.model.trim(),
-    ...(input.apiVersion?.trim() ? { apiVersion: input.apiVersion.trim() } : {}),
-    surfaces: input.surfaces,
-  };
-
-  return db.transaction(async (tx) => {
-    const [existing] = await tx
-      .select()
-      .from(integrationConnections)
-      .where(
-        and(
-          eq(integrationConnections.organisationId, input.organisationId),
-          eq(integrationConnections.kind, "model_provider"),
-        ),
-      );
-
-    if (!existing && !input.apiKey) {
-      throw new Error("A key is needed the first time a provider is configured");
-    }
-
-    const sealed = input.apiKey
-      ? sealSecret(input.apiKey)
-      : {
-          ciphertext: existing!.secretCiphertext,
-          iv: existing!.secretIv,
-          tag: existing!.secretTag,
-        };
-
-    const values = {
-      organisationId: input.organisationId,
-      kind: "model_provider" as const,
-      name: `${input.kind} · ${input.model}`,
-      secretCiphertext: sealed.ciphertext,
-      secretIv: sealed.iv,
-      secretTag: sealed.tag,
-      webhookUrl: JSON.stringify(settings),
-      isActive: input.isActive,
+  return withOrganisation(input.organisationId, async () => {
+    const settings: ProviderSettings = {
+      kind: input.kind,
+      baseUrl: input.baseUrl.trim(),
+      model: input.model.trim(),
+      ...(input.apiVersion?.trim() ? { apiVersion: input.apiVersion.trim() } : {}),
+      surfaces: input.surfaces,
     };
 
-    const row = existing
-      ? (
-          await tx
-            .update(integrationConnections)
-            .set(values)
-            .where(eq(integrationConnections.id, existing.id))
-            .returning()
-        )[0]
-      : (await tx.insert(integrationConnections).values(values).returning())[0];
+    return db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select()
+        .from(integrationConnections)
+        .where(
+          and(
+            eq(integrationConnections.organisationId, input.organisationId),
+            eq(integrationConnections.kind, "model_provider"),
+          ),
+        );
 
-    await appendAuditEvent(tx, {
-      ...input.actor,
-      organisationId: input.organisationId,
-      action: existing ? "model_provider.updated" : "model_provider.configured",
-      subjectType: "integration_connection",
-      subjectId: row.id,
-      // The endpoint and model are recorded; the key never is.
-      after: {
-        kind: input.kind,
-        baseUrl: settings.baseUrl,
-        model: settings.model,
-        surfaces: input.surfaces,
+      if (!existing && !input.apiKey) {
+        throw new Error("A key is needed the first time a provider is configured");
+      }
+
+      const sealed = input.apiKey
+        ? sealSecret(input.apiKey)
+        : {
+            ciphertext: existing!.secretCiphertext,
+            iv: existing!.secretIv,
+            tag: existing!.secretTag,
+          };
+
+      const values = {
+        organisationId: input.organisationId,
+        kind: "model_provider" as const,
+        name: `${input.kind} · ${input.model}`,
+        secretCiphertext: sealed.ciphertext,
+        secretIv: sealed.iv,
+        secretTag: sealed.tag,
+        webhookUrl: JSON.stringify(settings),
         isActive: input.isActive,
-        keyReplaced: Boolean(input.apiKey),
-      },
-    });
+      };
 
-    return row;
+      const row = existing
+        ? (
+            await tx
+              .update(integrationConnections)
+              .set(values)
+              .where(eq(integrationConnections.id, existing.id))
+              .returning()
+          )[0]
+        : (await tx.insert(integrationConnections).values(values).returning())[0];
+
+      await appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        action: existing ? "model_provider.updated" : "model_provider.configured",
+        subjectType: "integration_connection",
+        subjectId: row.id,
+        // The endpoint and model are recorded; the key never is.
+        after: {
+          kind: input.kind,
+          baseUrl: settings.baseUrl,
+          model: settings.model,
+          surfaces: input.surfaces,
+          isActive: input.isActive,
+          keyReplaced: Boolean(input.apiKey),
+        },
+      });
+
+      return row;
+    });
   });
 }
 
 export async function removeProvider(input: { organisationId: string; actor: Actor }) {
-  return db.transaction(async (tx) => {
-    const [existing] = await tx
-      .select()
-      .from(integrationConnections)
-      .where(
-        and(
-          eq(integrationConnections.organisationId, input.organisationId),
-          eq(integrationConnections.kind, "model_provider"),
-        ),
-      );
-    if (!existing) return;
+  return withOrganisation(input.organisationId, async () => {
+    return db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select()
+        .from(integrationConnections)
+        .where(
+          and(
+            eq(integrationConnections.organisationId, input.organisationId),
+            eq(integrationConnections.kind, "model_provider"),
+          ),
+        );
+      if (!existing) return;
 
-    await tx.delete(integrationConnections).where(eq(integrationConnections.id, existing.id));
-    await appendAuditEvent(tx, {
-      ...input.actor,
-      organisationId: input.organisationId,
-      action: "model_provider.removed",
-      subjectType: "integration_connection",
-      subjectId: existing.id,
+      await tx.delete(integrationConnections).where(eq(integrationConnections.id, existing.id));
+      await appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        action: "model_provider.removed",
+        subjectType: "integration_connection",
+        subjectId: existing.id,
+      });
     });
   });
 }

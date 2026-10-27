@@ -1,5 +1,5 @@
 import { and, desc, eq } from "drizzle-orm";
-import { db } from "@/db/client";
+import { db, withOrganisation } from "@/db/client";
 import {
   documents,
   dpas,
@@ -82,8 +82,10 @@ export class ExtractionUnavailable extends Error {
 
 /** Whether the button should be offered at all. */
 export async function extractionAvailable(organisationId: string): Promise<boolean> {
-  const configured = await providerFor(organisationId);
-  return Boolean(configured?.surfaces.includes("extraction"));
+  return withOrganisation(organisationId, async () => {
+    const configured = await providerFor(organisationId);
+    return Boolean(configured?.surfaces.includes("extraction"));
+  });
 }
 
 type Loaded = { organisationId: string; dpa: typeof dpas.$inferSelect };
@@ -515,15 +517,17 @@ export async function declineLink(input: {
   linkId: string;
   actor: Actor;
 }) {
-  await db
-    .update(extractionLinks)
-    .set({ status: "declined", decidedBy: input.actor.actorUserId ?? null })
-    .where(
-      and(
-        eq(extractionLinks.id, input.linkId),
-        eq(extractionLinks.organisationId, input.organisationId),
-      ),
-    );
+  return withOrganisation(input.organisationId, async () => {
+    await db
+      .update(extractionLinks)
+      .set({ status: "declined", decidedBy: input.actor.actorUserId ?? null })
+      .where(
+        and(
+          eq(extractionLinks.id, input.linkId),
+          eq(extractionLinks.organisationId, input.organisationId),
+        ),
+      );
+  });
 }
 
 /**
@@ -540,123 +544,127 @@ export async function decideFinding(input: {
   accept: boolean;
   actor: Actor;
 }) {
-  return db.transaction(async (tx) => {
-    const [finding] = await tx
-      .select()
-      .from(extractionFindings)
-      .where(
-        and(
-          eq(extractionFindings.id, input.findingId),
-          eq(extractionFindings.organisationId, input.organisationId),
-        ),
-      );
-    if (!finding) throw new ExtractionUnavailable("That proposal no longer exists.");
-    if (finding.status !== "proposed") return finding;
+  return withOrganisation(input.organisationId, async () => {
+    return db.transaction(async (tx) => {
+      const [finding] = await tx
+        .select()
+        .from(extractionFindings)
+        .where(
+          and(
+            eq(extractionFindings.id, input.findingId),
+            eq(extractionFindings.organisationId, input.organisationId),
+          ),
+        );
+      if (!finding) throw new ExtractionUnavailable("That proposal no longer exists.");
+      if (finding.status !== "proposed") return finding;
 
-    const [run] = await tx
-      .select()
-      .from(extractions)
-      .where(eq(extractions.id, finding.extractionId));
+      const [run] = await tx
+        .select()
+        .from(extractions)
+        .where(eq(extractions.id, finding.extractionId));
 
-    await tx
-      .update(extractionFindings)
-      .set({
-        status: input.accept ? "accepted" : "rejected",
-        decidedBy: input.actor.actorUserId ?? null,
-        decidedAt: new Date(),
-      })
-      .where(eq(extractionFindings.id, finding.id));
+      await tx
+        .update(extractionFindings)
+        .set({
+          status: input.accept ? "accepted" : "rejected",
+          decidedBy: input.actor.actorUserId ?? null,
+          decidedAt: new Date(),
+        })
+        .where(eq(extractionFindings.id, finding.id));
 
-    let before: Record<string, unknown> | undefined;
-    let after: Record<string, unknown> | undefined;
+      let before: Record<string, unknown> | undefined;
+      let after: Record<string, unknown> | undefined;
 
-    if (input.accept && run) {
-      const [dpa] = await tx.select().from(dpas).where(eq(dpas.id, run.subjectId));
-      if (dpa) {
-        if (finding.kind === "sub_processor") {
-          const existing = dpa.subProcessors ?? [];
-          // Matched case-insensitively: "Datadog Inc." arriving twice from two
-          // sources should not become two entries in the register.
-          const already = existing.some(
-            (name) => name.trim().toLowerCase() === finding.value.trim().toLowerCase(),
-          );
-          if (!already) {
-            before = { subProcessors: existing };
-            const next = [...existing, finding.value].sort((a, b) => a.localeCompare(b));
-            after = { subProcessors: next };
+      if (input.accept && run) {
+        const [dpa] = await tx.select().from(dpas).where(eq(dpas.id, run.subjectId));
+        if (dpa) {
+          if (finding.kind === "sub_processor") {
+            const existing = dpa.subProcessors ?? [];
+            // Matched case-insensitively: "Datadog Inc." arriving twice from two
+            // sources should not become two entries in the register.
+            const already = existing.some(
+              (name) => name.trim().toLowerCase() === finding.value.trim().toLowerCase(),
+            );
+            if (!already) {
+              before = { subProcessors: existing };
+              const next = [...existing, finding.value].sort((a, b) => a.localeCompare(b));
+              after = { subProcessors: next };
+              await tx
+                .update(dpas)
+                .set({ subProcessors: next, updatedAt: new Date() })
+                .where(eq(dpas.id, dpa.id));
+            }
+          } else {
+            const value = finding.detail
+              ? `${finding.value} — ${finding.detail}`
+              : finding.value;
+            before = { transferMechanism: dpa.transferMechanism };
+            after = { transferMechanism: value };
             await tx
               .update(dpas)
-              .set({ subProcessors: next, updatedAt: new Date() })
+              .set({ transferMechanism: value, updatedAt: new Date() })
               .where(eq(dpas.id, dpa.id));
           }
-        } else {
-          const value = finding.detail
-            ? `${finding.value} — ${finding.detail}`
-            : finding.value;
-          before = { transferMechanism: dpa.transferMechanism };
-          after = { transferMechanism: value };
-          await tx
-            .update(dpas)
-            .set({ transferMechanism: value, updatedAt: new Date() })
-            .where(eq(dpas.id, dpa.id));
         }
       }
-    }
 
-    await appendAuditEvent(tx, {
-      ...input.actor,
-      organisationId: input.organisationId,
-      entityId: input.entityId ?? undefined,
-      action: input.accept ? "extraction.finding.accepted" : "extraction.finding.rejected",
-      subjectType: "extraction_finding",
-      subjectId: finding.id,
-      before,
-      after: {
-        ...after,
-        kind: finding.kind,
-        value: finding.value,
-        // The provenance travels into the audit trail, so the register entry
-        // can be traced to a source without the extraction still being to hand.
-        source: finding.sourceUrl ?? finding.sourceDocumentId,
-        sourceSha256: finding.sourceSha256,
-        quote: finding.quote,
-      },
+      await appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        entityId: input.entityId ?? undefined,
+        action: input.accept ? "extraction.finding.accepted" : "extraction.finding.rejected",
+        subjectType: "extraction_finding",
+        subjectId: finding.id,
+        before,
+        after: {
+          ...after,
+          kind: finding.kind,
+          value: finding.value,
+          // The provenance travels into the audit trail, so the register entry
+          // can be traced to a source without the extraction still being to hand.
+          source: finding.sourceUrl ?? finding.sourceDocumentId,
+          sourceSha256: finding.sourceSha256,
+          quote: finding.quote,
+        },
+      });
+
+      return finding;
     });
-
-    return finding;
   });
 }
 
 /** The most recent run against an agreement, with everything it proposed. */
 export async function latestExtraction(organisationId: string, dpaId: string) {
-  const [run] = await db
-    .select()
-    .from(extractions)
-    .where(
-      and(
-        eq(extractions.organisationId, organisationId),
-        eq(extractions.subjectType, "dpa"),
-        eq(extractions.subjectId, dpaId),
-      ),
-    )
-    .orderBy(desc(extractions.createdAt))
-    .limit(1);
-  if (!run) return null;
-
-  const [findings, links] = await Promise.all([
-    db
+  return withOrganisation(organisationId, async () => {
+    const [run] = await db
       .select()
-      .from(extractionFindings)
-      .where(eq(extractionFindings.extractionId, run.id))
-      .orderBy(extractionFindings.kind, extractionFindings.value),
-    db
-      .select()
-      .from(extractionLinks)
-      .where(eq(extractionLinks.extractionId, run.id))
-      .orderBy(extractionLinks.createdAt),
-  ]);
+      .from(extractions)
+      .where(
+        and(
+          eq(extractions.organisationId, organisationId),
+          eq(extractions.subjectType, "dpa"),
+          eq(extractions.subjectId, dpaId),
+        ),
+      )
+      .orderBy(desc(extractions.createdAt))
+      .limit(1);
+    if (!run) return null;
 
-  return { run, findings, links };
+    const [findings, links] = await Promise.all([
+      db
+        .select()
+        .from(extractionFindings)
+        .where(eq(extractionFindings.extractionId, run.id))
+        .orderBy(extractionFindings.kind, extractionFindings.value),
+      db
+        .select()
+        .from(extractionLinks)
+        .where(eq(extractionLinks.extractionId, run.id))
+        .orderBy(extractionLinks.createdAt),
+    ]);
+
+    return { run, findings, links };
+  });
 }
 
 /**
@@ -664,23 +672,25 @@ export async function latestExtraction(organisationId: string, dpaId: string) {
  * following a link, which are runs in their own right.
  */
 export async function extractionHistory(organisationId: string, dpaId: string) {
-  return db
-    .select({
-      id: extractions.id,
-      createdAt: extractions.createdAt,
-      model: extractions.model,
-      requestedByLabel: extractions.requestedByLabel,
-      failure: extractions.failure,
-      sources: extractions.sources,
-    })
-    .from(extractions)
-    .where(
-      and(
-        eq(extractions.organisationId, organisationId),
-        eq(extractions.subjectType, "dpa"),
-        eq(extractions.subjectId, dpaId),
-      ),
-    )
-    .orderBy(desc(extractions.createdAt))
-    .limit(20);
+  return withOrganisation(organisationId, async () => {
+    return db
+      .select({
+        id: extractions.id,
+        createdAt: extractions.createdAt,
+        model: extractions.model,
+        requestedByLabel: extractions.requestedByLabel,
+        failure: extractions.failure,
+        sources: extractions.sources,
+      })
+      .from(extractions)
+      .where(
+        and(
+          eq(extractions.organisationId, organisationId),
+          eq(extractions.subjectType, "dpa"),
+          eq(extractions.subjectId, dpaId),
+        ),
+      )
+      .orderBy(desc(extractions.createdAt))
+      .limit(20);
+  });
 }

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
-import { db } from "@/db/client";
+import { db, scoped } from "@/db/client";
 import { entities } from "@/db/schema";
 import { HelpLink } from "@/components/help/HelpLink";
 import { NotPermitted } from "@/components/NotPermitted";
@@ -31,7 +31,7 @@ export default async function OrganisationPage() {
   if (!org) redirect("/app");
 
   const [legalEntities, scale, risksHeld] = await Promise.all([
-    db.select().from(entities).where(eq(entities.organisationId, org.id)),
+    scoped(org.id, () => db.select().from(entities).where(eq(entities.organisationId, org.id))),
     riskScaleOf(org.id),
     riskCount(org.id),
   ]);

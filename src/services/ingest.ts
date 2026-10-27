@@ -1,5 +1,5 @@
 import { and, eq, inArray, isNull, or } from "drizzle-orm";
-import { db, type Db } from "@/db/client";
+import { db, type Db, withOrganisation } from "@/db/client";
 import {
   aiUseCases,
   assessments,
@@ -101,147 +101,151 @@ export async function ingestProcessingActivities(
   connection: AuthedConnection,
   records: ProcessingActivityIn[],
 ): Promise<IngestOutcome> {
-  const outcome: IngestOutcome = { received: records.length, created: 0, updated: 0, skipped: [] };
-  const actor = actorFor(connection);
-  const year = new Date().getUTCFullYear();
+  return withOrganisation(connection.organisationId, async () => {
+    const outcome: IngestOutcome = { received: records.length, created: 0, updated: 0, skipped: [] };
+    const actor = actorFor(connection);
+    const year = new Date().getUTCFullYear();
 
-  for (const r of records) {
-    const entity = await resolveEntity(connection.organisationId, connection, r.entity);
-    if (!entity.ok) {
-      outcome.skipped.push({ externalRef: r.externalRef, reason: entity.reason });
-      continue;
-    }
+    for (const r of records) {
+      const entity = await resolveEntity(connection.organisationId, connection, r.entity);
+      if (!entity.ok) {
+        outcome.skipped.push({ externalRef: r.externalRef, reason: entity.reason });
+        continue;
+      }
 
-    await db.transaction(async (tx) => {
-      const [existing] = await tx
-        .select()
-        .from(processingActivities)
-        .where(
-          and(
-            eq(processingActivities.organisationId, connection.organisationId),
-            eq(processingActivities.sourceConnectionId, connection.id),
-            eq(processingActivities.externalRef, r.externalRef),
-          ),
-        );
+      await db.transaction(async (tx) => {
+        const [existing] = await tx
+          .select()
+          .from(processingActivities)
+          .where(
+            and(
+              eq(processingActivities.organisationId, connection.organisationId),
+              eq(processingActivities.sourceConnectionId, connection.id),
+              eq(processingActivities.externalRef, r.externalRef),
+            ),
+          );
 
-      const values = {
-        name: r.name,
-        description: r.description,
-        purposes: r.purposes,
-        lawfulBasis: r.lawfulBasis,
-        dataCategories: r.dataCategories,
-        subjectCategories: r.subjectCategories,
-        recipients: r.recipients,
-        systems: r.systems,
-        transfers: r.transfers,
-        retention: r.retention,
-        securityMeasures: r.securityMeasures,
-        controllerRole: r.controllerRole,
-        controllerName: r.controllerName,
-        reviewDueAt: r.reviewDueAt ? new Date(r.reviewDueAt) : undefined,
-        updatedAt: new Date(),
-      };
+        const values = {
+          name: r.name,
+          description: r.description,
+          purposes: r.purposes,
+          lawfulBasis: r.lawfulBasis,
+          dataCategories: r.dataCategories,
+          subjectCategories: r.subjectCategories,
+          recipients: r.recipients,
+          systems: r.systems,
+          transfers: r.transfers,
+          retention: r.retention,
+          securityMeasures: r.securityMeasures,
+          controllerRole: r.controllerRole,
+          controllerName: r.controllerName,
+          reviewDueAt: r.reviewDueAt ? new Date(r.reviewDueAt) : undefined,
+          updatedAt: new Date(),
+        };
 
-      if (existing) {
-        await tx
-          .update(processingActivities)
-          .set(values)
-          .where(eq(processingActivities.id, existing.id));
-        outcome.updated += 1;
+        if (existing) {
+          await tx
+            .update(processingActivities)
+            .set(values)
+            .where(eq(processingActivities.id, existing.id));
+          outcome.updated += 1;
+          await appendAuditEvent(tx, {
+            ...actor,
+            organisationId: connection.organisationId,
+            action: "processing_activity.updated",
+            subjectType: "processing_activity",
+            subjectId: existing.id,
+            entityId: existing.entityId,
+            before: { name: existing.name },
+            after: { name: r.name, externalRef: r.externalRef },
+          });
+          return;
+        }
+
+        const reference = await nextReference(tx, connection.organisationId, "ROPA", year);
+        const [row] = await tx
+          .insert(processingActivities)
+          .values({
+            organisationId: connection.organisationId,
+            entityId: entity.entityId,
+            reference,
+            sourceConnectionId: connection.id,
+            externalRef: r.externalRef,
+            ...values,
+          })
+          .returning();
+        outcome.created += 1;
         await appendAuditEvent(tx, {
           ...actor,
           organisationId: connection.organisationId,
-          action: "processing_activity.updated",
+          action: "processing_activity.created",
           subjectType: "processing_activity",
-          subjectId: existing.id,
-          entityId: existing.entityId,
-          before: { name: existing.name },
-          after: { name: r.name, externalRef: r.externalRef },
-        });
-        return;
-      }
-
-      const reference = await nextReference(tx, connection.organisationId, "ROPA", year);
-      const [row] = await tx
-        .insert(processingActivities)
-        .values({
-          organisationId: connection.organisationId,
+          subjectId: row.id,
           entityId: entity.entityId,
-          reference,
-          sourceConnectionId: connection.id,
-          externalRef: r.externalRef,
-          ...values,
-        })
-        .returning();
-      outcome.created += 1;
-      await appendAuditEvent(tx, {
-        ...actor,
-        organisationId: connection.organisationId,
-        action: "processing_activity.created",
-        subjectType: "processing_activity",
-        subjectId: row.id,
-        entityId: entity.entityId,
-        after: { reference, name: r.name, externalRef: r.externalRef },
+          after: { reference, name: r.name, externalRef: r.externalRef },
+        });
       });
-    });
-  }
-  return outcome;
+    }
+    return outcome;
+  });
 }
 
 export async function ingestVendors(
   connection: AuthedConnection,
   records: VendorIn[],
 ): Promise<IngestOutcome> {
-  const outcome: IngestOutcome = { received: records.length, created: 0, updated: 0, skipped: [] };
-  const actor = actorFor(connection);
+  return withOrganisation(connection.organisationId, async () => {
+    const outcome: IngestOutcome = { received: records.length, created: 0, updated: 0, skipped: [] };
+    const actor = actorFor(connection);
 
-  for (const r of records) {
-    const key = canonicalise(r.name);
-    if (!key) {
-      outcome.skipped.push({ externalRef: r.externalRef ?? r.name, reason: "Name is not usable" });
-      continue;
-    }
+    for (const r of records) {
+      const key = canonicalise(r.name);
+      if (!key) {
+        outcome.skipped.push({ externalRef: r.externalRef ?? r.name, reason: "Name is not usable" });
+        continue;
+      }
 
-    await db.transaction(async (tx) => {
-      const [row] = await tx
-        .insert(suppliers)
-        .values({
+      await db.transaction(async (tx) => {
+        const [row] = await tx
+          .insert(suppliers)
+          .values({
+            organisationId: connection.organisationId,
+            name: r.name,
+            canonicalKey: key,
+            description: r.description,
+            categories: r.categories,
+            sourceConnectionId: connection.id,
+            externalRef: r.externalRef,
+          })
+          .onConflictDoUpdate({
+            target: [suppliers.organisationId, suppliers.canonicalKey],
+            set: {
+              // Set-union rather than overwrite: two systems may each know a
+              // different half of what a supplier does, and the later push should
+              // not erase what the earlier one knew.
+              categories: sql`(
+                select coalesce(jsonb_agg(distinct value), '[]'::jsonb)
+                from jsonb_array_elements(${suppliers.categories} || ${JSON.stringify(r.categories)}::jsonb)
+              )`,
+              description: sql`coalesce(${suppliers.description}, ${r.description ?? null})`,
+              updatedAt: new Date(),
+            },
+          })
+          .returning();
+
+        outcome.created += 1;
+        await appendAuditEvent(tx, {
+          ...actor,
           organisationId: connection.organisationId,
-          name: r.name,
-          canonicalKey: key,
-          description: r.description,
-          categories: r.categories,
-          sourceConnectionId: connection.id,
-          externalRef: r.externalRef,
-        })
-        .onConflictDoUpdate({
-          target: [suppliers.organisationId, suppliers.canonicalKey],
-          set: {
-            // Set-union rather than overwrite: two systems may each know a
-            // different half of what a supplier does, and the later push should
-            // not erase what the earlier one knew.
-            categories: sql`(
-              select coalesce(jsonb_agg(distinct value), '[]'::jsonb)
-              from jsonb_array_elements(${suppliers.categories} || ${JSON.stringify(r.categories)}::jsonb)
-            )`,
-            description: sql`coalesce(${suppliers.description}, ${r.description ?? null})`,
-            updatedAt: new Date(),
-          },
-        })
-        .returning();
-
-      outcome.created += 1;
-      await appendAuditEvent(tx, {
-        ...actor,
-        organisationId: connection.organisationId,
-        action: "supplier.upserted",
-        subjectType: "supplier",
-        subjectId: row.id,
-        after: { name: r.name, canonicalKey: key },
+          action: "supplier.upserted",
+          subjectType: "supplier",
+          subjectId: row.id,
+          after: { name: r.name, canonicalKey: key },
+        });
       });
-    });
-  }
-  return outcome;
+    }
+    return outcome;
+  });
 }
 
 /**
@@ -259,155 +263,159 @@ export async function ingestAiUseCases(
   connection: AuthedConnection,
   records: AiUseCaseIn[],
 ): Promise<IngestOutcome> {
-  const outcome: IngestOutcome = { received: records.length, created: 0, updated: 0, skipped: [] };
-  const actor = actorFor(connection);
+  return withOrganisation(connection.organisationId, async () => {
+    const outcome: IngestOutcome = { received: records.length, created: 0, updated: 0, skipped: [] };
+    const actor = actorFor(connection);
 
-  for (const r of records) {
-    const entity = await resolveEntity(connection.organisationId, connection, r.entity);
-    if (!entity.ok) {
-      outcome.skipped.push({ externalRef: r.externalRef, reason: entity.reason });
-      continue;
-    }
-
-    // Suppliers recorded by hand and suppliers pushed in are keyed differently,
-    // so either spelling of the key finds the supplier.
-    let supplierId: string | null = null;
-    if (r.supplierName) {
-      const [match] = await db
-        .select({ id: suppliers.id })
-        .from(suppliers)
-        .where(
-          and(
-            eq(suppliers.organisationId, connection.organisationId),
-            inArray(suppliers.canonicalKey, [canonicalise(r.supplierName), canonicaliseByHand(r.supplierName)]),
-          ),
-        )
-        .limit(1);
-      supplierId = match?.id ?? null;
-    }
-
-    await db.transaction(async (tx) => {
-      const [existing] = await tx
-        .select()
-        .from(aiUseCases)
-        .where(
-          and(
-            eq(aiUseCases.organisationId, connection.organisationId),
-            eq(aiUseCases.sourceConnectionId, connection.id),
-            eq(aiUseCases.externalRef, r.externalRef),
-          ),
-        );
-
-      const described = {
-        name: r.name,
-        purpose: r.purpose,
-        description: r.description,
-        systemType: r.systemType,
-        provenance: r.provenance,
-        deploymentPattern: r.deploymentPattern,
-        vendor: r.vendor ?? (supplierId ? undefined : r.supplierName),
-        modelName: r.modelName,
-        deployedIn: r.deployedIn,
-        processesPersonalData: r.processesPersonalData,
-        dataCategories: r.dataCategories,
-      };
-
-      if (existing) {
-        await tx
-          .update(aiUseCases)
-          .set({
-            ...described,
-            // A link somebody made here is kept; the push only fills an empty one.
-            supplierId: existing.supplierId ?? supplierId,
-            updatedAt: new Date(),
-          })
-          .where(eq(aiUseCases.id, existing.id));
-        outcome.updated += 1;
-        await appendAuditEvent(tx, {
-          ...actor,
-          organisationId: connection.organisationId,
-          action: "ai_use_case.updated",
-          subjectType: "ai_use_case",
-          subjectId: existing.id,
-          entityId: existing.entityId,
-          before: { name: existing.name, purpose: existing.purpose },
-          after: { name: r.name, purpose: r.purpose, externalRef: r.externalRef },
-        });
-        return;
+    for (const r of records) {
+      const entity = await resolveEntity(connection.organisationId, connection, r.entity);
+      if (!entity.ok) {
+        outcome.skipped.push({ externalRef: r.externalRef, reason: entity.reason });
+        continue;
       }
 
-      await createUseCase(
-        {
-          organisationId: connection.organisationId,
-          entityId: entity.entityId,
-          ...described,
-          deploymentPattern: r.deploymentPattern ?? null,
-          lifecycleStage: r.lifecycleStage ?? "proposed",
-          supplierId,
-          source: { connectionId: connection.id, externalRef: r.externalRef },
-          actor,
-        },
-        tx,
-      );
-      outcome.created += 1;
-    });
-  }
-  return outcome;
+      // Suppliers recorded by hand and suppliers pushed in are keyed differently,
+      // so either spelling of the key finds the supplier.
+      let supplierId: string | null = null;
+      if (r.supplierName) {
+        const [match] = await db
+          .select({ id: suppliers.id })
+          .from(suppliers)
+          .where(
+            and(
+              eq(suppliers.organisationId, connection.organisationId),
+              inArray(suppliers.canonicalKey, [canonicalise(r.supplierName), canonicaliseByHand(r.supplierName)]),
+            ),
+          )
+          .limit(1);
+        supplierId = match?.id ?? null;
+      }
+
+      await db.transaction(async (tx) => {
+        const [existing] = await tx
+          .select()
+          .from(aiUseCases)
+          .where(
+            and(
+              eq(aiUseCases.organisationId, connection.organisationId),
+              eq(aiUseCases.sourceConnectionId, connection.id),
+              eq(aiUseCases.externalRef, r.externalRef),
+            ),
+          );
+
+        const described = {
+          name: r.name,
+          purpose: r.purpose,
+          description: r.description,
+          systemType: r.systemType,
+          provenance: r.provenance,
+          deploymentPattern: r.deploymentPattern,
+          vendor: r.vendor ?? (supplierId ? undefined : r.supplierName),
+          modelName: r.modelName,
+          deployedIn: r.deployedIn,
+          processesPersonalData: r.processesPersonalData,
+          dataCategories: r.dataCategories,
+        };
+
+        if (existing) {
+          await tx
+            .update(aiUseCases)
+            .set({
+              ...described,
+              // A link somebody made here is kept; the push only fills an empty one.
+              supplierId: existing.supplierId ?? supplierId,
+              updatedAt: new Date(),
+            })
+            .where(eq(aiUseCases.id, existing.id));
+          outcome.updated += 1;
+          await appendAuditEvent(tx, {
+            ...actor,
+            organisationId: connection.organisationId,
+            action: "ai_use_case.updated",
+            subjectType: "ai_use_case",
+            subjectId: existing.id,
+            entityId: existing.entityId,
+            before: { name: existing.name, purpose: existing.purpose },
+            after: { name: r.name, purpose: r.purpose, externalRef: r.externalRef },
+          });
+          return;
+        }
+
+        await createUseCase(
+          {
+            organisationId: connection.organisationId,
+            entityId: entity.entityId,
+            ...described,
+            deploymentPattern: r.deploymentPattern ?? null,
+            lifecycleStage: r.lifecycleStage ?? "proposed",
+            supplierId,
+            source: { connectionId: connection.id, externalRef: r.externalRef },
+            actor,
+          },
+          tx,
+        );
+        outcome.created += 1;
+      });
+    }
+    return outcome;
+  });
 }
 
 export async function ingestDpas(
   connection: AuthedConnection,
   records: DpaIn[],
 ): Promise<IngestOutcome> {
-  const outcome: IngestOutcome = { received: records.length, created: 0, updated: 0, skipped: [] };
-  const actor = actorFor(connection);
+  return withOrganisation(connection.organisationId, async () => {
+    const outcome: IngestOutcome = { received: records.length, created: 0, updated: 0, skipped: [] };
+    const actor = actorFor(connection);
 
-  for (const r of records) {
-    const key = canonicalise(r.vendorName);
-    await db.transaction(async (tx) => {
-      const [supplier] = await tx
-        .insert(suppliers)
-        .values({
+    for (const r of records) {
+      const key = canonicalise(r.vendorName);
+      await db.transaction(async (tx) => {
+        const [supplier] = await tx
+          .insert(suppliers)
+          .values({
+            organisationId: connection.organisationId,
+            name: r.vendorName,
+            canonicalKey: key,
+            sourceConnectionId: connection.id,
+          })
+          .onConflictDoUpdate({
+            target: [suppliers.organisationId, suppliers.canonicalKey],
+            set: { updatedAt: new Date() },
+          })
+          .returning();
+
+        const [row] = await tx
+          .insert(dpas)
+          .values({
+            organisationId: connection.organisationId,
+            supplierId: supplier.id,
+            title: r.title,
+            documentRef: r.documentRef,
+            signedAt: r.signedAt ? new Date(r.signedAt) : undefined,
+            expiresAt: r.expiresAt ? new Date(r.expiresAt) : undefined,
+            transferMechanism: r.transferMechanism,
+            subProcessors: r.subProcessors,
+            terms: r.terms,
+            sourceConnectionId: connection.id,
+            externalRef: r.externalRef,
+          })
+          .returning();
+
+        outcome.created += 1;
+        await appendAuditEvent(tx, {
+          ...actor,
           organisationId: connection.organisationId,
-          name: r.vendorName,
-          canonicalKey: key,
-          sourceConnectionId: connection.id,
-        })
-        .onConflictDoUpdate({
-          target: [suppliers.organisationId, suppliers.canonicalKey],
-          set: { updatedAt: new Date() },
-        })
-        .returning();
-
-      const [row] = await tx
-        .insert(dpas)
-        .values({
-          organisationId: connection.organisationId,
-          supplierId: supplier.id,
-          title: r.title,
-          documentRef: r.documentRef,
-          signedAt: r.signedAt ? new Date(r.signedAt) : undefined,
-          expiresAt: r.expiresAt ? new Date(r.expiresAt) : undefined,
-          transferMechanism: r.transferMechanism,
-          subProcessors: r.subProcessors,
-          terms: r.terms,
-          sourceConnectionId: connection.id,
-          externalRef: r.externalRef,
-        })
-        .returning();
-
-      outcome.created += 1;
-      await appendAuditEvent(tx, {
-        ...actor,
-        organisationId: connection.organisationId,
-        action: "dpa.recorded",
-        subjectType: "dpa",
-        subjectId: row.id,
-        after: { supplier: r.vendorName, title: r.title, expiresAt: r.expiresAt ?? null },
+          action: "dpa.recorded",
+          subjectType: "dpa",
+          subjectId: row.id,
+          after: { supplier: r.vendorName, title: r.title, expiresAt: r.expiresAt ?? null },
+        });
       });
-    });
-  }
-  return outcome;
+    }
+    return outcome;
+  });
 }
 
 /** Resolve "DPIA-2026-0001" or "ROPA-2026-0004" to a record to link against. */
@@ -464,69 +472,71 @@ export async function ingestEvidence(
   connection: AuthedConnection,
   records: EvidenceIn[],
 ): Promise<IngestOutcome> {
-  const outcome: IngestOutcome = { received: records.length, created: 0, updated: 0, skipped: [] };
-  const actor = actorFor(connection);
+  return withOrganisation(connection.organisationId, async () => {
+    const outcome: IngestOutcome = { received: records.length, created: 0, updated: 0, skipped: [] };
+    const actor = actorFor(connection);
 
-  for (const r of records) {
-    const entity = await resolveEntity(connection.organisationId, connection, r.entity);
-    if (!entity.ok) {
-      outcome.skipped.push({ externalRef: r.externalRef, reason: entity.reason });
-      continue;
-    }
-
-    const attachment = r.attachTo
-      ? await resolveAttachment(connection.organisationId, r.attachTo)
-      : null;
-    if (r.attachTo && !attachment) {
-      outcome.skipped.push({
-        externalRef: r.externalRef,
-        reason: `Nothing here is referenced "${r.attachTo}"`,
-      });
-      continue;
-    }
-
-    await db.transaction(async (tx) => {
-      const [row] = await tx
-        .insert(evidence)
-        .values({
-          organisationId: connection.organisationId,
-          entityId: entity.entityId,
-          kind: r.kind,
-          title: r.title,
-          description: r.description,
-          uri: r.uri,
-          sha256: r.sha256,
-          collectedAt: r.collectedAt ? new Date(r.collectedAt) : undefined,
-          payload: r.payload,
-          sourceConnectionId: connection.id,
-          externalRef: r.externalRef,
-        })
-        .onConflictDoUpdate({
-          target: [evidence.organisationId, evidence.sourceConnectionId, evidence.externalRef],
-          // The unique index is partial, so the predicate has to be repeated
-          // here or Postgres will not match it to a constraint.
-          targetWhere: sql`${evidence.externalRef} is not null`,
-          set: { title: r.title, description: r.description, payload: r.payload },
-        })
-        .returning();
-
-      if (attachment) {
-        await link(tx, connection.organisationId, { type: "evidence", id: row.id }, attachment, "supports");
+    for (const r of records) {
+      const entity = await resolveEntity(connection.organisationId, connection, r.entity);
+      if (!entity.ok) {
+        outcome.skipped.push({ externalRef: r.externalRef, reason: entity.reason });
+        continue;
       }
 
-      outcome.created += 1;
-      await appendAuditEvent(tx, {
-        ...actor,
-        organisationId: connection.organisationId,
-        action: "evidence.received",
-        subjectType: "evidence",
-        subjectId: row.id,
-        entityId: entity.entityId,
-        after: { title: r.title, kind: r.kind, attachedTo: r.attachTo ?? null },
+      const attachment = r.attachTo
+        ? await resolveAttachment(connection.organisationId, r.attachTo)
+        : null;
+      if (r.attachTo && !attachment) {
+        outcome.skipped.push({
+          externalRef: r.externalRef,
+          reason: `Nothing here is referenced "${r.attachTo}"`,
+        });
+        continue;
+      }
+
+      await db.transaction(async (tx) => {
+        const [row] = await tx
+          .insert(evidence)
+          .values({
+            organisationId: connection.organisationId,
+            entityId: entity.entityId,
+            kind: r.kind,
+            title: r.title,
+            description: r.description,
+            uri: r.uri,
+            sha256: r.sha256,
+            collectedAt: r.collectedAt ? new Date(r.collectedAt) : undefined,
+            payload: r.payload,
+            sourceConnectionId: connection.id,
+            externalRef: r.externalRef,
+          })
+          .onConflictDoUpdate({
+            target: [evidence.organisationId, evidence.sourceConnectionId, evidence.externalRef],
+            // The unique index is partial, so the predicate has to be repeated
+            // here or Postgres will not match it to a constraint.
+            targetWhere: sql`${evidence.externalRef} is not null`,
+            set: { title: r.title, description: r.description, payload: r.payload },
+          })
+          .returning();
+
+        if (attachment) {
+          await link(tx, connection.organisationId, { type: "evidence", id: row.id }, attachment, "supports");
+        }
+
+        outcome.created += 1;
+        await appendAuditEvent(tx, {
+          ...actor,
+          organisationId: connection.organisationId,
+          action: "evidence.received",
+          subjectType: "evidence",
+          subjectId: row.id,
+          entityId: entity.entityId,
+          after: { title: r.title, kind: r.kind, attachedTo: r.attachTo ?? null },
+        });
       });
-    });
-  }
-  return outcome;
+    }
+    return outcome;
+  });
 }
 
 export type ScanIngestOutcome = IngestOutcome & {
@@ -548,125 +558,127 @@ export async function ingestScan(
   connection: AuthedConnection,
   batch: ScanBatchIn,
 ): Promise<ScanIngestOutcome> {
-  const entity = await resolveEntity(connection.organisationId, connection, batch.entity);
-  if (!entity.ok) {
-    return {
-      received: batch.findings.length,
-      created: 0,
-      updated: 0,
-      skipped: [{ externalRef: batch.scanRef, reason: entity.reason }],
-      evidenceId: null,
-      proposed: 0,
-    };
-  }
-
-  const attachment = batch.attachTo
-    ? await resolveAttachment(connection.organisationId, batch.attachTo)
-    : null;
-  if (batch.attachTo && !attachment) {
-    return {
-      received: batch.findings.length,
-      created: 0,
-      updated: 0,
-      skipped: [{ externalRef: batch.scanRef, reason: `Nothing here is referenced "${batch.attachTo}"` }],
-      evidenceId: null,
-      proposed: 0,
-    };
-  }
-
-  const actor = actorFor(connection);
-  const outcome: ScanIngestOutcome = {
-    received: batch.findings.length,
-    created: 0,
-    updated: 0,
-    skipped: [],
-    evidenceId: null,
-    proposed: 0,
-  };
-
-  await db.transaction(async (tx) => {
-    const [ev] = await tx
-      .insert(evidence)
-      .values({
-        organisationId: connection.organisationId,
-        entityId: entity.entityId,
-        kind: "scan",
-        title: `Scan ${batch.scanRef}${batch.scannedUrl ? ` — ${batch.scannedUrl}` : ""}`,
-        description: `${batch.findings.length} findings from ${connection.name}.`,
-        uri: batch.scannedUrl,
-        collectedAt: batch.scannedAt ? new Date(batch.scannedAt) : new Date(),
-        payload: batch.summary,
-        sourceConnectionId: connection.id,
-        externalRef: `scan:${batch.scanRef}`,
-      })
-      .onConflictDoUpdate({
-        target: [evidence.organisationId, evidence.sourceConnectionId, evidence.externalRef],
-        targetWhere: sql`${evidence.externalRef} is not null`,
-        set: { payload: batch.summary, description: `${batch.findings.length} findings.` },
-      })
-      .returning();
-    outcome.evidenceId = ev.id;
-
-    if (attachment) {
-      await link(tx, connection.organisationId, { type: "evidence", id: ev.id }, attachment, "supports");
+  return withOrganisation(connection.organisationId, async () => {
+    const entity = await resolveEntity(connection.organisationId, connection, batch.entity);
+    if (!entity.ok) {
+      return {
+        received: batch.findings.length,
+        created: 0,
+        updated: 0,
+        skipped: [{ externalRef: batch.scanRef, reason: entity.reason }],
+        evidenceId: null,
+        proposed: 0,
+      };
     }
 
-    for (const f of batch.findings) {
-      const [row] = await tx
-        .insert(scanFindings)
+    const attachment = batch.attachTo
+      ? await resolveAttachment(connection.organisationId, batch.attachTo)
+      : null;
+    if (batch.attachTo && !attachment) {
+      return {
+        received: batch.findings.length,
+        created: 0,
+        updated: 0,
+        skipped: [{ externalRef: batch.scanRef, reason: `Nothing here is referenced "${batch.attachTo}"` }],
+        evidenceId: null,
+        proposed: 0,
+      };
+    }
+
+    const actor = actorFor(connection);
+    const outcome: ScanIngestOutcome = {
+      received: batch.findings.length,
+      created: 0,
+      updated: 0,
+      skipped: [],
+      evidenceId: null,
+      proposed: 0,
+    };
+
+    await db.transaction(async (tx) => {
+      const [ev] = await tx
+        .insert(evidence)
         .values({
           organisationId: connection.organisationId,
           entityId: entity.entityId,
-          evidenceId: ev.id,
-          scanRef: batch.scanRef,
-          url: f.url ?? batch.scannedUrl,
-          category: f.category,
-          severity: f.severity,
-          title: f.title,
-          detail: f.detail,
-          vendor: f.vendor,
-          cookieName: f.cookieName,
-          setBeforeConsent: f.setBeforeConsent,
-          thirdCountry: f.thirdCountry,
-          advisory: f.advisory,
+          kind: "scan",
+          title: `Scan ${batch.scanRef}${batch.scannedUrl ? ` — ${batch.scannedUrl}` : ""}`,
+          description: `${batch.findings.length} findings from ${connection.name}.`,
+          uri: batch.scannedUrl,
+          collectedAt: batch.scannedAt ? new Date(batch.scannedAt) : new Date(),
+          payload: batch.summary,
           sourceConnectionId: connection.id,
-          externalRef: f.externalRef,
+          externalRef: `scan:${batch.scanRef}`,
         })
         .onConflictDoUpdate({
-          target: [scanFindings.organisationId, scanFindings.externalRef],
-          set: {
+          target: [evidence.organisationId, evidence.sourceConnectionId, evidence.externalRef],
+          targetWhere: sql`${evidence.externalRef} is not null`,
+          set: { payload: batch.summary, description: `${batch.findings.length} findings.` },
+        })
+        .returning();
+      outcome.evidenceId = ev.id;
+
+      if (attachment) {
+        await link(tx, connection.organisationId, { type: "evidence", id: ev.id }, attachment, "supports");
+      }
+
+      for (const f of batch.findings) {
+        const [row] = await tx
+          .insert(scanFindings)
+          .values({
+            organisationId: connection.organisationId,
+            entityId: entity.entityId,
+            evidenceId: ev.id,
+            scanRef: batch.scanRef,
+            url: f.url ?? batch.scannedUrl,
+            category: f.category,
             severity: f.severity,
             title: f.title,
             detail: f.detail,
-            advisory: f.advisory,
+            vendor: f.vendor,
+            cookieName: f.cookieName,
             setBeforeConsent: f.setBeforeConsent,
-          },
-        })
-        .returning();
-      if (row) outcome.created += 1;
-      if (f.severity === "high" || f.setBeforeConsent) outcome.proposed += 1;
-    }
+            thirdCountry: f.thirdCountry,
+            advisory: f.advisory,
+            sourceConnectionId: connection.id,
+            externalRef: f.externalRef,
+          })
+          .onConflictDoUpdate({
+            target: [scanFindings.organisationId, scanFindings.externalRef],
+            set: {
+              severity: f.severity,
+              title: f.title,
+              detail: f.detail,
+              advisory: f.advisory,
+              setBeforeConsent: f.setBeforeConsent,
+            },
+          })
+          .returning();
+        if (row) outcome.created += 1;
+        if (f.severity === "high" || f.setBeforeConsent) outcome.proposed += 1;
+      }
 
-    await appendAuditEvent(tx, {
-      ...actor,
-      organisationId: connection.organisationId,
-      action: "scan.received",
-      subjectType: "evidence",
-      subjectId: ev.id,
-      entityId: entity.entityId,
-      after: {
-        scanRef: batch.scanRef,
-        url: batch.scannedUrl ?? null,
-        findings: batch.findings.length,
-        // Named as a suggestion in the record itself, so nobody reading the
-        // audit trail later mistakes it for a decision the platform took.
-        advisoryForReview: outcome.proposed,
-        attachedTo: batch.attachTo ?? null,
-      },
+      await appendAuditEvent(tx, {
+        ...actor,
+        organisationId: connection.organisationId,
+        action: "scan.received",
+        subjectType: "evidence",
+        subjectId: ev.id,
+        entityId: entity.entityId,
+        after: {
+          scanRef: batch.scanRef,
+          url: batch.scannedUrl ?? null,
+          findings: batch.findings.length,
+          // Named as a suggestion in the record itself, so nobody reading the
+          // audit trail later mistakes it for a decision the platform took.
+          advisoryForReview: outcome.proposed,
+          attachedTo: batch.attachTo ?? null,
+        },
+      });
     });
-  });
 
-  return outcome;
+    return outcome;
+  });
 }
 
 
@@ -689,67 +701,69 @@ export async function convertFindingToRisk(input: {
   ownerId?: string;
   actor: Actor;
 }) {
-  const [finding] = await db
-    .select()
-    .from(scanFindings)
-    .where(
-      and(
-        eq(scanFindings.id, input.findingId),
-        eq(scanFindings.organisationId, input.organisationId),
-      ),
-    );
-  if (!finding) throw new Error("No such finding");
-  if (finding.convertedRiskId) throw new Error("This finding is already on the register");
-
-  const { createRisk } = await import("./risks");
-  const risk = await createRisk({
-    organisationId: input.organisationId,
-    entityId: finding.entityId,
-    title: input.title,
-    description: input.description,
-    category: finding.category,
-    likelihood: input.likelihood,
-    impact: input.impact,
-    ownerId: input.ownerId,
-    source: "integration",
-    actor: input.actor,
-  });
-
-  await db.transaction(async (tx) => {
-    await tx
-      .update(scanFindings)
-      .set({ convertedRiskId: risk.id })
-      .where(eq(scanFindings.id, finding.id));
-
-    if (finding.evidenceId) {
-      await link(
-        tx,
-        input.organisationId,
-        { type: "evidence", id: finding.evidenceId },
-        { type: "risk", id: risk.id },
-        "supports",
+  return withOrganisation(input.organisationId, async () => {
+    const [finding] = await db
+      .select()
+      .from(scanFindings)
+      .where(
+        and(
+          eq(scanFindings.id, input.findingId),
+          eq(scanFindings.organisationId, input.organisationId),
+        ),
       );
-    }
+    if (!finding) throw new Error("No such finding");
+    if (finding.convertedRiskId) throw new Error("This finding is already on the register");
 
-    await appendAuditEvent(tx, {
-      ...input.actor,
+    const { createRisk } = await import("./risks");
+    const risk = await createRisk({
       organisationId: input.organisationId,
-      action: "scan_finding.raised_as_risk",
-      subjectType: "scan_finding",
-      subjectId: finding.id,
       entityId: finding.entityId,
-      after: {
-        risk: risk.reference,
-        // Kept side by side so a later reader can see what the scanner said and
-        // what the person decided, and that they were not the same act.
-        scannerSeverity: finding.severity,
-        ratedBy: input.actor.actorLabel,
-        rating: { likelihood: input.likelihood, impact: input.impact },
-      },
+      title: input.title,
+      description: input.description,
+      category: finding.category,
+      likelihood: input.likelihood,
+      impact: input.impact,
+      ownerId: input.ownerId,
+      source: "integration",
+      actor: input.actor,
     });
-  });
 
-  return risk;
+    await db.transaction(async (tx) => {
+      await tx
+        .update(scanFindings)
+        .set({ convertedRiskId: risk.id })
+        .where(eq(scanFindings.id, finding.id));
+
+      if (finding.evidenceId) {
+        await link(
+          tx,
+          input.organisationId,
+          { type: "evidence", id: finding.evidenceId },
+          { type: "risk", id: risk.id },
+          "supports",
+        );
+      }
+
+      await appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        action: "scan_finding.raised_as_risk",
+        subjectType: "scan_finding",
+        subjectId: finding.id,
+        entityId: finding.entityId,
+        after: {
+          risk: risk.reference,
+          // Kept side by side so a later reader can see what the scanner said and
+          // what the person decided, and that they were not the same act.
+          scannerSeverity: finding.severity,
+          ratedBy: input.actor.actorLabel,
+          rating: { likelihood: input.likelihood, impact: input.impact },
+        },
+      });
+    });
+
+    return risk;
+  });
 }
 
 export async function dismissFinding(input: {
@@ -758,47 +772,51 @@ export async function dismissFinding(input: {
   reason: string;
   actor: Actor;
 }) {
-  if (!input.reason.trim()) throw new Error("A reason is required to dismiss a finding");
-  return db.transaction(async (tx) => {
-    const [row] = await tx
-      .update(scanFindings)
-      .set({ dismissedAt: new Date(), dismissedReason: input.reason })
-      .where(
-        and(
-          eq(scanFindings.id, input.findingId),
-          eq(scanFindings.organisationId, input.organisationId),
-        ),
-      )
-      .returning();
-    if (!row) throw new Error("No such finding");
+  return withOrganisation(input.organisationId, async () => {
+    if (!input.reason.trim()) throw new Error("A reason is required to dismiss a finding");
+    return db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(scanFindings)
+        .set({ dismissedAt: new Date(), dismissedReason: input.reason })
+        .where(
+          and(
+            eq(scanFindings.id, input.findingId),
+            eq(scanFindings.organisationId, input.organisationId),
+          ),
+        )
+        .returning();
+      if (!row) throw new Error("No such finding");
 
-    await appendAuditEvent(tx, {
-      ...input.actor,
-      organisationId: input.organisationId,
-      action: "scan_finding.dismissed",
-      subjectType: "scan_finding",
-      subjectId: row.id,
-      entityId: row.entityId,
-      after: { title: row.title, reason: input.reason },
+      await appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        action: "scan_finding.dismissed",
+        subjectType: "scan_finding",
+        subjectId: row.id,
+        entityId: row.entityId,
+        after: { title: row.title, reason: input.reason },
+      });
+      return row;
     });
-    return row;
   });
 }
 
 export async function openFindings(organisationId: string, entityIds: string[] | null) {
-  return db
-    .select({ finding: scanFindings, evidence: evidence })
-    .from(scanFindings)
-    .leftJoin(evidence, eq(evidence.id, scanFindings.evidenceId))
-    .where(
-      and(
-        eq(scanFindings.organisationId, organisationId),
-        isNull(scanFindings.dismissedAt),
-        isNull(scanFindings.convertedRiskId),
-        entityIds === null
-          ? undefined
-          : inArray(scanFindings.entityId, entityIds),
-      ),
-    )
-    .orderBy(scanFindings.createdAt);
+  return withOrganisation(organisationId, async () => {
+    return db
+      .select({ finding: scanFindings, evidence: evidence })
+      .from(scanFindings)
+      .leftJoin(evidence, eq(evidence.id, scanFindings.evidenceId))
+      .where(
+        and(
+          eq(scanFindings.organisationId, organisationId),
+          isNull(scanFindings.dismissedAt),
+          isNull(scanFindings.convertedRiskId),
+          entityIds === null
+            ? undefined
+            : inArray(scanFindings.entityId, entityIds),
+        ),
+      )
+      .orderBy(scanFindings.createdAt);
+  });
 }

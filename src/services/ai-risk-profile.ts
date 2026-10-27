@@ -1,5 +1,5 @@
 import { and, eq, inArray, isNull, isNotNull } from "drizzle-orm";
-import { db } from "@/db/client";
+import { db, withOrganisation } from "@/db/client";
 import {
   aiIncidents,
   aiUseCases,
@@ -135,56 +135,58 @@ function worst(tiers: Array<RiskTier | null>): RiskTier | null {
  * view DSIT's AI risk monitoring dashboard gives.
  */
 export async function riskProfileFor(useCaseId: string, organisationId: string) {
-  const owner = await riskOwnership(organisationId, [useCaseId]);
-  const riskIds = [...owner.keys()];
-  const rows = riskIds.length
-    ? await db
-        .select()
-        .from(risks)
-        .where(and(eq(risks.organisationId, organisationId), inArray(risks.id, riskIds)))
-    : [];
-  const profiled = (await profile(rows, organisationId)).sort(
-    (a, b) => b.risk.inherentScore - a.risk.inherentScore,
-  );
-  const open = profiled.filter((p) => p.risk.status !== "closed");
+  return withOrganisation(organisationId, async () => {
+    const owner = await riskOwnership(organisationId, [useCaseId]);
+    const riskIds = [...owner.keys()];
+    const rows = riskIds.length
+      ? await db
+          .select()
+          .from(risks)
+          .where(and(eq(risks.organisationId, organisationId), inArray(risks.id, riskIds)))
+      : [];
+    const profiled = (await profile(rows, organisationId)).sort(
+      (a, b) => b.risk.inherentScore - a.risk.inherentScore,
+    );
+    const open = profiled.filter((p) => p.risk.status !== "closed");
 
-  const categories = [
-    ...AI_RISK_CATEGORIES.map((c) => c.value as string),
-    // Anything filed outside the toolkit's list still has to appear somewhere.
-    ...new Set(open.map((p) => p.risk.category ?? "").filter((c) => !AI_RISK_CATEGORIES.some((k) => k.value === c))),
-  ];
-  const byCategory: CategoryLine[] = categories.map((category) => {
-    const here = open.filter((p) => (p.risk.category ?? "") === category);
-    const basis = here[0]?.appetite;
+    const categories = [
+      ...AI_RISK_CATEGORIES.map((c) => c.value as string),
+      // Anything filed outside the toolkit's list still has to appear somewhere.
+      ...new Set(open.map((p) => p.risk.category ?? "").filter((c) => !AI_RISK_CATEGORIES.some((k) => k.value === c))),
+    ];
+    const byCategory: CategoryLine[] = categories.map((category) => {
+      const here = open.filter((p) => (p.risk.category ?? "") === category);
+      const basis = here[0]?.appetite;
+      return {
+        category,
+        label: category === "" ? "No category" : (categoryLabel(category) ?? category),
+        open: here.length,
+        worstInherent: worst(here.map((p) => p.risk.inherentTier as RiskTier)),
+        worstResidual: worst(here.map((p) => p.risk.residualTier as RiskTier | null)),
+        outside: here.filter((p) => p.appetite.state === "outside").length,
+        unrated: here.filter((p) => p.appetite.state === "unrated").length,
+        appetite:
+          basis && basis.state !== "closed"
+            ? basis.basis.source === "platform"
+              ? `no appetite signed off — residual up to ${basis.basis.toleratedTier}`
+              : `${basis.basis.source === "category" ? scopeLabel(basis.basis.scope) : "organisation default"}: up to ${basis.basis.toleratedTier}`
+            : "",
+      };
+    });
+
     return {
-      category,
-      label: category === "" ? "No category" : (categoryLabel(category) ?? category),
-      open: here.length,
-      worstInherent: worst(here.map((p) => p.risk.inherentTier as RiskTier)),
-      worstResidual: worst(here.map((p) => p.risk.residualTier as RiskTier | null)),
-      outside: here.filter((p) => p.appetite.state === "outside").length,
-      unrated: here.filter((p) => p.appetite.state === "unrated").length,
-      appetite:
-        basis && basis.state !== "closed"
-          ? basis.basis.source === "platform"
-            ? `no appetite signed off — residual up to ${basis.basis.toleratedTier}`
-            : `${basis.basis.source === "category" ? scopeLabel(basis.basis.scope) : "organisation default"}: up to ${basis.basis.toleratedTier}`
-          : "",
+      risks: profiled,
+      byCategory,
+      totals: {
+        open: open.length,
+        outside: open.filter((p) => p.appetite.state === "outside").length,
+        unrated: open.filter((p) => p.appetite.state === "unrated").length,
+        accepted: open.filter((p) => p.acceptance !== null).length,
+        lapsed: open.filter((p) => p.lapsed).length,
+        untreated: open.filter((p) => p.treatments.filter((t) => t.status !== "abandoned").length === 0 && !p.acceptance).length,
+      },
     };
   });
-
-  return {
-    risks: profiled,
-    byCategory,
-    totals: {
-      open: open.length,
-      outside: open.filter((p) => p.appetite.state === "outside").length,
-      unrated: open.filter((p) => p.appetite.state === "unrated").length,
-      accepted: open.filter((p) => p.acceptance !== null).length,
-      lapsed: open.filter((p) => p.lapsed).length,
-      untreated: open.filter((p) => p.treatments.filter((t) => t.status !== "abandoned").length === 0 && !p.acceptance).length,
-    },
-  };
 }
 
 /**
@@ -196,35 +198,37 @@ export async function riskProfileFor(useCaseId: string, organisationId: string) 
  * scale it was rated on, appetite, treatment and acceptance alongside.
  */
 export async function aiRiskLog(organisationId: string, entityIds: string[] | null) {
-  const owner = await riskOwnership(organisationId);
-  const riskIds = [...owner.keys()];
-  if (riskIds.length === 0) return [];
+  return withOrganisation(organisationId, async () => {
+    const owner = await riskOwnership(organisationId);
+    const riskIds = [...owner.keys()];
+    if (riskIds.length === 0) return [];
 
-  const [rows, systems] = await Promise.all([
-    db
-      .select()
-      .from(risks)
-      .where(
-        and(
-          eq(risks.organisationId, organisationId),
-          inArray(risks.id, riskIds),
-          entityIds === null ? undefined : inArray(risks.entityId, entityIds),
+    const [rows, systems] = await Promise.all([
+      db
+        .select()
+        .from(risks)
+        .where(
+          and(
+            eq(risks.organisationId, organisationId),
+            inArray(risks.id, riskIds),
+            entityIds === null ? undefined : inArray(risks.entityId, entityIds),
+          ),
         ),
-      ),
-    db.select().from(aiUseCases).where(eq(aiUseCases.organisationId, organisationId)),
-  ]);
-  const systemById = new Map(systems.map((s) => [s.id, s]));
-  const profiled = await profile(rows, organisationId);
+      db.select().from(aiUseCases).where(eq(aiUseCases.organisationId, organisationId)),
+    ]);
+    const systemById = new Map(systems.map((s) => [s.id, s]));
+    const profiled = await profile(rows, organisationId);
 
-  return profiled.flatMap((p) =>
-    [...(owner.get(p.risk.id) ?? [])]
-      .map((id) => systemById.get(id))
-      .filter((s): s is NonNullable<typeof s> => Boolean(s))
-      .map((system) => ({ system, ...p })),
-  ).sort(
-    (a, b) =>
-      a.system.reference.localeCompare(b.system.reference) || b.risk.inherentScore - a.risk.inherentScore,
-  );
+    return profiled.flatMap((p) =>
+      [...(owner.get(p.risk.id) ?? [])]
+        .map((id) => systemById.get(id))
+        .filter((s): s is NonNullable<typeof s> => Boolean(s))
+        .map((system) => ({ system, ...p })),
+    ).sort(
+      (a, b) =>
+        a.system.reference.localeCompare(b.system.reference) || b.risk.inherentScore - a.risk.inherentScore,
+    );
+  });
 }
 
 /** A treatment, in words, for a flat file. */

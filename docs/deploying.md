@@ -153,6 +153,25 @@ The same caveat applies to `railway.json`. A `deploy.preDeployCommand` there is
 valid against Railway's published schema and was still never executed, so this
 repository does not carry one. Configure the start command in the dashboard.
 
+### Row-level security
+
+Migration 0052 creates a database role, `govern_tenant`, and a policy on every
+table that carries an organisation. Work done for one organisation runs inside a
+transaction that switches to that role and records the organisation, so the
+database itself refuses another organisation's rows — whatever a query forgets
+to filter. Sign-in, the sweep and migrations run as the connecting user, as
+before.
+
+Two things follow:
+
+- The user in `DATABASE_URL` must be able to create a role and to become it.
+  Railway's default `postgres` user can. A restricted user needs `CREATEROLE`
+  for the migration; the migration then grants it membership of the new role.
+- Roles belong to the whole Postgres server, not one database. The migration
+  creates the role only if it does not exist, so several databases on one server
+  share it — and each must be migrated before its code serves, or the role will
+  exist without permission on that database's tables.
+
 Because it runs per replica, keep this service at one replica, or move to a
 mechanism that runs once. Two containers starting together would race for the
 same migration.

@@ -1,5 +1,5 @@
 import { and, asc, desc, eq, inArray, isNull, or } from "drizzle-orm";
-import { db } from "@/db/client";
+import { db, withOrganisation } from "@/db/client";
 import {
   aiUseCases,
   assessments,
@@ -109,98 +109,100 @@ export async function aiChains(
   organisationId: string,
   entityIds: string[] | null,
 ): Promise<Chain[]> {
-  const scope =
-    entityIds === null
-      ? eq(aiUseCases.organisationId, organisationId)
-      : and(
-          eq(aiUseCases.organisationId, organisationId),
-          inArray(aiUseCases.entityId, entityIds),
-        );
+  return withOrganisation(organisationId, async () => {
+    const scope =
+      entityIds === null
+        ? eq(aiUseCases.organisationId, organisationId)
+        : and(
+            eq(aiUseCases.organisationId, organisationId),
+            inArray(aiUseCases.entityId, entityIds),
+          );
 
-  // Retired systems are history, not a gap somebody should chase.
-  const cases = await db
-    .select()
-    .from(aiUseCases)
-    .where(and(scope, isNull(aiUseCases.retiredAt)))
-    .orderBy(asc(aiUseCases.reference));
-  if (cases.length === 0) return [];
+    // Retired systems are history, not a gap somebody should chase.
+    const cases = await db
+      .select()
+      .from(aiUseCases)
+      .where(and(scope, isNull(aiUseCases.retiredAt)))
+      .orderBy(asc(aiUseCases.reference));
+    if (cases.length === 0) return [];
 
-  const caseIds = cases.map((c) => c.id);
-  const covering = await db
-    .select({ assessment: assessments, templateName: templates.name })
-    .from(assessments)
-    .innerJoin(templateVersions, eq(templateVersions.id, assessments.templateVersionId))
-    .innerJoin(templates, eq(templates.id, templateVersions.templateId))
-    .where(
-      and(
-        eq(assessments.subjectType, "ai_use_case"),
-        inArray(assessments.subjectId, caseIds),
-      ),
-    )
-    .orderBy(desc(assessments.createdAt));
+    const caseIds = cases.map((c) => c.id);
+    const covering = await db
+      .select({ assessment: assessments, templateName: templates.name })
+      .from(assessments)
+      .innerJoin(templateVersions, eq(templateVersions.id, assessments.templateVersionId))
+      .innerJoin(templates, eq(templates.id, templateVersions.templateId))
+      .where(
+        and(
+          eq(assessments.subjectType, "ai_use_case"),
+          inArray(assessments.subjectId, caseIds),
+        ),
+      )
+      .orderBy(desc(assessments.createdAt));
 
-  const assessmentIds = covering.map((c) => c.assessment.id);
-  const raised = assessmentIds.length
-    ? await db.select().from(risks).where(inArray(risks.assessmentId, assessmentIds))
-    : [];
+    const assessmentIds = covering.map((c) => c.assessment.id);
+    const raised = assessmentIds.length
+      ? await db.select().from(risks).where(inArray(risks.assessmentId, assessmentIds))
+      : [];
 
-  const riskIds = raised.map((r) => r.id);
-  const [treatments, acceptances] = await Promise.all([
-    riskIds.length
-      ? db.select().from(mitigations).where(inArray(mitigations.riskId, riskIds))
-      : Promise.resolve([]),
-    riskIds.length
-      ? db
-          .select()
-          .from(riskAcceptances)
-          .where(inArray(riskAcceptances.riskId, riskIds))
-          .orderBy(desc(riskAcceptances.expiresAt))
-      : Promise.resolve([]),
-  ]);
+    const riskIds = raised.map((r) => r.id);
+    const [treatments, acceptances] = await Promise.all([
+      riskIds.length
+        ? db.select().from(mitigations).where(inArray(mitigations.riskId, riskIds))
+        : Promise.resolve([]),
+      riskIds.length
+        ? db
+            .select()
+            .from(riskAcceptances)
+            .where(inArray(riskAcceptances.riskId, riskIds))
+            .orderBy(desc(riskAcceptances.expiresAt))
+        : Promise.resolve([]),
+    ]);
 
-  const byRisk = new Map<string, (typeof mitigations.$inferSelect)[]>();
-  for (const m of treatments) {
-    const list = byRisk.get(m.riskId) ?? [];
-    list.push(m);
-    byRisk.set(m.riskId, list);
-  }
-  // Latest expiry wins: that is the acceptance actually in force.
-  const acceptanceByRisk = new Map<string, typeof riskAcceptances.$inferSelect>();
-  for (const a of acceptances) if (!acceptanceByRisk.has(a.riskId)) acceptanceByRisk.set(a.riskId, a);
+    const byRisk = new Map<string, (typeof mitigations.$inferSelect)[]>();
+    for (const m of treatments) {
+      const list = byRisk.get(m.riskId) ?? [];
+      list.push(m);
+      byRisk.set(m.riskId, list);
+    }
+    // Latest expiry wins: that is the acceptance actually in force.
+    const acceptanceByRisk = new Map<string, typeof riskAcceptances.$inferSelect>();
+    for (const a of acceptances) if (!acceptanceByRisk.has(a.riskId)) acceptanceByRisk.set(a.riskId, a);
 
-  const risksByAssessment = new Map<string, ChainRisk[]>();
-  const now = new Date();
-  for (const risk of raised) {
-    if (!risk.assessmentId) continue;
-    const own = byRisk.get(risk.id) ?? [];
-    const acceptance = acceptanceByRisk.get(risk.id) ?? null;
-    const list = risksByAssessment.get(risk.assessmentId) ?? [];
-    list.push({
-      risk,
-      mitigations: own,
-      acceptance,
-      treated:
-        own.some((m) => TREATING.includes(m.status)) ||
-        Boolean(acceptance && acceptance.expiresAt > now),
+    const risksByAssessment = new Map<string, ChainRisk[]>();
+    const now = new Date();
+    for (const risk of raised) {
+      if (!risk.assessmentId) continue;
+      const own = byRisk.get(risk.id) ?? [];
+      const acceptance = acceptanceByRisk.get(risk.id) ?? null;
+      const list = risksByAssessment.get(risk.assessmentId) ?? [];
+      list.push({
+        risk,
+        mitigations: own,
+        acceptance,
+        treated:
+          own.some((m) => TREATING.includes(m.status)) ||
+          Boolean(acceptance && acceptance.expiresAt > now),
+      });
+      risksByAssessment.set(risk.assessmentId, list);
+    }
+
+    const byCase = new Map<string, ChainAssessment[]>();
+    for (const { assessment, templateName } of covering) {
+      if (!assessment.subjectId) continue;
+      const list = byCase.get(assessment.subjectId) ?? [];
+      list.push({ assessment, templateName, risks: risksByAssessment.get(assessment.id) ?? [] });
+      byCase.set(assessment.subjectId, list);
+    }
+
+    return cases.map((useCase) => {
+      const partial = {
+        useCase,
+        live: LIVE_STAGES.includes(useCase.lifecycleStage as LifecycleStage),
+        assessments: byCase.get(useCase.id) ?? [],
+      };
+      return { ...partial, ...chainBreaks(partial, now) };
     });
-    risksByAssessment.set(risk.assessmentId, list);
-  }
-
-  const byCase = new Map<string, ChainAssessment[]>();
-  for (const { assessment, templateName } of covering) {
-    if (!assessment.subjectId) continue;
-    const list = byCase.get(assessment.subjectId) ?? [];
-    list.push({ assessment, templateName, risks: risksByAssessment.get(assessment.id) ?? [] });
-    byCase.set(assessment.subjectId, list);
-  }
-
-  return cases.map((useCase) => {
-    const partial = {
-      useCase,
-      live: LIVE_STAGES.includes(useCase.lifecycleStage as LifecycleStage),
-      assessments: byCase.get(useCase.id) ?? [],
-    };
-    return { ...partial, ...chainBreaks(partial, now) };
   });
 }
 

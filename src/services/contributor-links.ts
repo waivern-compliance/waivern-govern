@@ -1,5 +1,5 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
-import { db } from "@/db/client";
+import { db, withOrganisation } from "@/db/client";
 import { assessments, contributorLinks } from "@/db/schema";
 import { appendAuditEvent } from "@/lib/audit";
 import { sha256Hex } from "@/lib/canonical";
@@ -43,54 +43,56 @@ export async function issueContributorLink(input: {
   ttlDays?: number;
   actor: Actor;
 }): Promise<IssuedLink> {
-  const [assessment] = await db
-    .select()
-    .from(assessments)
-    .where(
-      and(
-        eq(assessments.id, input.assessmentId),
-        eq(assessments.organisationId, input.organisationId),
-      ),
+  return withOrganisation(input.organisationId, async () => {
+    const [assessment] = await db
+      .select()
+      .from(assessments)
+      .where(
+        and(
+          eq(assessments.id, input.assessmentId),
+          eq(assessments.organisationId, input.organisationId),
+        ),
+      );
+    if (!assessment) throw new Error("No such assessment");
+
+    const bytes = crypto.getRandomValues(new Uint8Array(TOKEN_BYTES));
+    const token = encodeToken(bytes);
+    const tokenHash = await sha256Hex(token);
+
+    const expiresAt = new Date(
+      Date.now() + (input.ttlDays ?? DEFAULT_TTL_DAYS) * 24 * 60 * 60 * 1000,
     );
-  if (!assessment) throw new Error("No such assessment");
 
-  const bytes = crypto.getRandomValues(new Uint8Array(TOKEN_BYTES));
-  const token = encodeToken(bytes);
-  const tokenHash = await sha256Hex(token);
+    return db.transaction(async (tx) => {
+      const [row] = await tx
+        .insert(contributorLinks)
+        .values({
+          organisationId: input.organisationId,
+          assessmentId: input.assessmentId,
+          sectionKey: input.sectionKey ?? null,
+          email: input.email.toLowerCase(),
+          tokenHash,
+          expiresAt,
+          createdByUserId: input.actor.actorUserId ?? null,
+        })
+        .returning();
 
-  const expiresAt = new Date(
-    Date.now() + (input.ttlDays ?? DEFAULT_TTL_DAYS) * 24 * 60 * 60 * 1000,
-  );
-
-  return db.transaction(async (tx) => {
-    const [row] = await tx
-      .insert(contributorLinks)
-      .values({
+      await appendAuditEvent(tx, {
+        ...input.actor,
         organisationId: input.organisationId,
-        assessmentId: input.assessmentId,
-        sectionKey: input.sectionKey ?? null,
-        email: input.email.toLowerCase(),
-        tokenHash,
-        expiresAt,
-        createdByUserId: input.actor.actorUserId ?? null,
-      })
-      .returning();
+        action: "contributor_link.issued",
+        subjectType: "assessment",
+        subjectId: input.assessmentId,
+        entityId: assessment.entityId,
+        after: {
+          email: row.email,
+          section: row.sectionKey,
+          expiresAt: expiresAt.toISOString(),
+        },
+      });
 
-    await appendAuditEvent(tx, {
-      ...input.actor,
-      organisationId: input.organisationId,
-      action: "contributor_link.issued",
-      subjectType: "assessment",
-      subjectId: input.assessmentId,
-      entityId: assessment.entityId,
-      after: {
-        email: row.email,
-        section: row.sectionKey,
-        expiresAt: expiresAt.toISOString(),
-      },
+      return { id: row.id, token, expiresAt };
     });
-
-    return { id: row.id, token, expiresAt };
   });
 }
 
@@ -170,31 +172,33 @@ export async function completeContributorLink(input: {
   organisationId: string;
   actor: Actor;
 }) {
-  const now = new Date();
-  return db.transaction(async (tx) => {
-    const [row] = await tx
-      .update(contributorLinks)
-      .set({ completedAt: now })
-      .where(
-        and(
-          eq(contributorLinks.id, input.linkId),
-          eq(contributorLinks.organisationId, input.organisationId),
-          isNull(contributorLinks.completedAt),
-          isNull(contributorLinks.revokedAt),
-        ),
-      )
-      .returning();
-    if (!row) return null;
+  return withOrganisation(input.organisationId, async () => {
+    const now = new Date();
+    return db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(contributorLinks)
+        .set({ completedAt: now })
+        .where(
+          and(
+            eq(contributorLinks.id, input.linkId),
+            eq(contributorLinks.organisationId, input.organisationId),
+            isNull(contributorLinks.completedAt),
+            isNull(contributorLinks.revokedAt),
+          ),
+        )
+        .returning();
+      if (!row) return null;
 
-    await appendAuditEvent(tx, {
-      ...input.actor,
-      organisationId: input.organisationId,
-      action: "contributor_link.completed",
-      subjectType: "assessment",
-      subjectId: row.assessmentId,
-      after: { email: row.email, section: row.sectionKey },
+      await appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        action: "contributor_link.completed",
+        subjectType: "assessment",
+        subjectId: row.assessmentId,
+        after: { email: row.email, section: row.sectionKey },
+      });
+      return row;
     });
-    return row;
   });
 }
 
@@ -203,30 +207,32 @@ export async function revokeContributorLink(input: {
   organisationId: string;
   actor: Actor;
 }) {
-  const now = new Date();
-  return db.transaction(async (tx) => {
-    const [row] = await tx
-      .update(contributorLinks)
-      .set({ revokedAt: now })
-      .where(
-        and(
-          eq(contributorLinks.id, input.linkId),
-          eq(contributorLinks.organisationId, input.organisationId),
-          isNull(contributorLinks.revokedAt),
-        ),
-      )
-      .returning();
-    if (!row) return null;
+  return withOrganisation(input.organisationId, async () => {
+    const now = new Date();
+    return db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(contributorLinks)
+        .set({ revokedAt: now })
+        .where(
+          and(
+            eq(contributorLinks.id, input.linkId),
+            eq(contributorLinks.organisationId, input.organisationId),
+            isNull(contributorLinks.revokedAt),
+          ),
+        )
+        .returning();
+      if (!row) return null;
 
-    await appendAuditEvent(tx, {
-      ...input.actor,
-      organisationId: input.organisationId,
-      action: "contributor_link.revoked",
-      subjectType: "assessment",
-      subjectId: row.assessmentId,
-      after: { email: row.email, section: row.sectionKey },
+      await appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        action: "contributor_link.revoked",
+        subjectType: "assessment",
+        subjectId: row.assessmentId,
+        after: { email: row.email, section: row.sectionKey },
+      });
+      return row;
     });
-    return row;
   });
 }
 
