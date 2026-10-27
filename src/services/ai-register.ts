@@ -1,6 +1,9 @@
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import { db } from "@/db/client";
+import { db, type Db } from "@/db/client";
+
+/** The database, or a transaction to run inside. */
+type Executor = Db | Parameters<Parameters<Db["transaction"]>[0]>[0];
 import {
   aiChanges,
   aiUseCases,
@@ -179,8 +182,8 @@ export type RegisterEntry = {
   gaps: Gap[];
 };
 
-async function nextReference(organisationId: string, year: number) {
-  const rows = await db.execute<{ next_value: number | string }>(sql`
+async function nextReference(organisationId: string, year: number, executor: Executor = db) {
+  const rows = await executor.execute<{ next_value: number | string }>(sql`
     insert into ${referenceCounters} (organisation_id, prefix, year, next_value)
     values (${organisationId}, 'AI', ${year}, 1)
     on conflict (organisation_id, prefix, year)
@@ -209,11 +212,13 @@ export async function createUseCase(input: {
   processesPersonalData?: boolean;
   nextReviewAt?: Date;
   actor: Actor;
-}) {
-  const reference = await nextReference(input.organisationId, new Date().getUTCFullYear());
+}, executor: Executor = db) {
+  const reference = await nextReference(input.organisationId, new Date().getUTCFullYear(), executor);
   const stage = input.lifecycleStage ?? "proposed";
 
-  return db.transaction(async (tx) => {
+  // Nested inside a caller's transaction where one is passed, so registering
+  // a system and recording why stand or fall together.
+  return executor.transaction(async (tx) => {
     const [row] = await tx
       .insert(aiUseCases)
       .values({

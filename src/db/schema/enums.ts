@@ -58,6 +58,7 @@ export const recordType = pgEnum("record_type", [
   "ai_change",
   "ai_assurance_record",
   "ai_incident",
+  "ai_use_case_request",
 ]);
 
 /**
@@ -494,6 +495,17 @@ export const aiIncidentSource = pgEnum("ai_incident_source", [
 ]);
 
 export const aiHarm = pgEnum("ai_harm", ["none_known", "potential", "actual"]);
+
+/**
+ * Where a proposal to use AI has got to. Submitted until somebody decides;
+ * deferred can be decided again later, accepted and declined cannot.
+ */
+export const aiRequestStatus = pgEnum("ai_request_status", [
+  "submitted",
+  "accepted",
+  "declined",
+  "deferred",
+]);
 
 export const aiIncidentStatus = pgEnum("ai_incident_status", [
   "reported",

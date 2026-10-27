@@ -38,7 +38,7 @@ import { updateUseCaseAction } from "../actions";
 import { StartAssessment } from "@/components/StartAssessment";
 import { asc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
-import { suppliers } from "@/db/schema";
+import { aiUseCaseRequests, suppliers } from "@/db/schema";
 
 const CONSEQUENCE_WORDS: Record<string, string> = {
   informational: "Informational only — no decision follows",
@@ -76,7 +76,7 @@ export default async function UseCasePage({
     );
   }
   const mayEdit = can(active.membership.grants, "record.write", useCase.entityId);
-  const [members, records, history, gate, assurance, incidents, supplierOptions] = await Promise.all([
+  const [members, records, history, gate, assurance, incidents, supplierOptions, [proposal]] = await Promise.all([
     mayEdit ? candidatesFor(active.membership.organisationId) : Promise.resolve([]),
     recordsFor(id, active.membership.organisationId),
     historyFor(id, active.membership.organisationId),
@@ -90,6 +90,11 @@ export default async function UseCasePage({
           .where(eq(suppliers.organisationId, active.membership.organisationId))
           .orderBy(asc(suppliers.name))
       : Promise.resolve([]),
+    // The proposal it was accepted from, if it came through intake.
+    db
+      .select({ id: aiUseCaseRequests.id, reference: aiUseCaseRequests.reference })
+      .from(aiUseCaseRequests)
+      .where(eq(aiUseCaseRequests.aiUseCaseId, id)),
   ]);
   const mayWaive = can(active.membership.grants, "approval.decide", useCase.entityId);
   // What each possible move would still need, worked out here so the form can
@@ -126,6 +131,14 @@ export default async function UseCasePage({
           {STAGE_LABEL[useCase.lifecycleStage as LifecycleStage]}
           {useCase.vendor && !supplier ? ` · ${useCase.vendor}` : ""}
         </p>
+        {proposal ? (
+          <p className="text-xs text-ink-soft">
+            Accepted from proposal{" "}
+            <Link href={`/app/ai/intake/${proposal.id}`} className="font-mono text-brand hover:underline">
+              {proposal.reference}
+            </Link>
+          </p>
+        ) : null}
         {supplier ? (
           <p className="text-xs text-ink-soft">
             Supplied by{" "}

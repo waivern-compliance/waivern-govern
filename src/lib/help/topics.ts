@@ -1054,6 +1054,31 @@ export const HELP_TOPICS: HelpTopic[] = [
     related: ["ai-register", "risks"],
   },
   {
+    id: "ai-intake",
+    title: "Proposals to use AI",
+    summary:
+      "Ideas for using AI, captured before anything is built or bought, scored on value and feasibility, and decided with a reason.",
+    path: "/app/ai/intake",
+    keywords: ["intake", "proposal", "idea", "use case", "business case", "prioritise", "value", "feasibility", "environmental", "pipeline"],
+    sections: [
+      {
+        heading: "Proposing",
+        body: [
+          "Anyone in the organisation can propose a use of AI. Four things are required, because the AI Playbook says they decide whether AI is the right tool at all: the need it meets, why AI rather than something simpler, what it should achieve, and its environmental impact. User research, data, skills and a stakeholder plan can be added as they become known.",
+          "Say if members of the public would use it, if it would inform decisions about people's health, safety, rights or entitlements, and roughly what it would cost. Those raise cautions for whoever decides: the Playbook's advice against AI making significant decisions on its own, and the spend control thresholds — £100,000 for anything public-facing, £1 million otherwise.",
+        ],
+      },
+      {
+        heading: "Scoring and deciding",
+        body: [
+          "Whoever manages the register scores value and feasibility from 1 to 5. Four or more on both is pursue now; high value but hard is worth investing in; easy but modest is just that; neither is not now. The list puts unscored proposals first, then the rest by priority.",
+          "Accepting needs a score and a reason, and puts the system on the AI register at the proposed stage, carrying the need and benefits with it. Declining and deferring need a reason too. A deferred proposal can be decided again; accepted and declined are final, and what was proposed is never rewritten.",
+        ],
+      },
+    ],
+    related: ["ai-register", "ai-incidents"],
+  },
+  {
     id: "transparency-records",
     title: "Algorithmic transparency records",
     summary:
@@ -1145,7 +1170,7 @@ export const HELP_GROUPS: Array<{ heading: string; ids: string[] }> = [
   },
   {
     heading: "The registers",
-    ids: ["ropa", "third-parties", "breaches", "ai-register", "ai-chain", "ai-incidents", "transparency-records", "transfers", "findings"],
+    ids: ["ropa", "third-parties", "breaches", "ai-register", "ai-intake", "ai-chain", "ai-incidents", "transparency-records", "transfers", "findings"],
   },
   {
     heading: "Seeing where you stand",

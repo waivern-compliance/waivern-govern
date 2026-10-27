@@ -30,6 +30,7 @@ Every help topic the application carries, in the order it presents them.
 - [Third parties and processor agreements (Article 28)](#third-parties-and-processor-agreements-article-28) — Every processor you rely on, whether or not anybody procured it, and whether a contract actually covers them.
 - [Personal data breaches](#personal-data-breaches) — Record every breach, decide the two statutory questions separately, and keep the reasoning for both.
 - [The AI register](#the-ai-register) — Every AI system the organisation is accountable for, including the ones nobody has assessed.
+- [Proposals to use AI](#proposals-to-use-ai) — Ideas for using AI, captured before anything is built or bought, scored on value and feasibility, and decided with a reason.
 - [The AI assurance chain](#the-ai-assurance-chain) — Each AI system drawn through to what was done about it — and, more usefully, where that chain stops.
 - [AI incidents and concerns](#ai-incidents-and-concerns) — Reports about AI systems — failures, harm, challenges to outcomes and concerns — each handled by a named person.
 - [Algorithmic transparency records](#algorithmic-transparency-records) — The public record of how an AI system is used, in the Algorithmic Transparency Recording Standard's own fields.
@@ -578,6 +579,28 @@ Start assessments from the system's own page, so they are tied to it and the reg
 **See also:** The AI assurance chain · Assessments: DPIAs, transfer risk, AI risk, screening · The risk register · Third parties and processor agreements (Article 28)
 
 <sub>Also searchable as: ai, model, llm, machine learning, shadow ai, lifecycle, oversight, eu ai act</sub>
+
+## Proposals to use AI
+
+*Ideas for using AI, captured before anything is built or bought, scored on value and feasibility, and decided with a reason.*
+
+**Screen:** `/app/ai/intake`
+
+### Proposing
+
+Anyone in the organisation can propose a use of AI. Four things are required, because the AI Playbook says they decide whether AI is the right tool at all: the need it meets, why AI rather than something simpler, what it should achieve, and its environmental impact. User research, data, skills and a stakeholder plan can be added as they become known.
+
+Say if members of the public would use it, if it would inform decisions about people's health, safety, rights or entitlements, and roughly what it would cost. Those raise cautions for whoever decides: the Playbook's advice against AI making significant decisions on its own, and the spend control thresholds — £100,000 for anything public-facing, £1 million otherwise.
+
+### Scoring and deciding
+
+Whoever manages the register scores value and feasibility from 1 to 5. Four or more on both is pursue now; high value but hard is worth investing in; easy but modest is just that; neither is not now. The list puts unscored proposals first, then the rest by priority.
+
+Accepting needs a score and a reason, and puts the system on the AI register at the proposed stage, carrying the need and benefits with it. Declining and deferring need a reason too. A deferred proposal can be decided again; accepted and declined are final, and what was proposed is never rewritten.
+
+**See also:** The AI register · AI incidents and concerns
+
+<sub>Also searchable as: intake, proposal, idea, use case, business case, prioritise, value, feasibility, environmental, pipeline</sub>
 
 ## The AI assurance chain
 

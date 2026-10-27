@@ -19,6 +19,7 @@ import {
   type SystemType,
 } from "@/services/ai-register";
 import { registerUseCase } from "./actions";
+import { awaitingDecision } from "@/services/ai-intake";
 
 export default async function AiRegisterPage() {
   const active = await getActiveSession();
@@ -34,9 +35,10 @@ export default async function AiRegisterPage() {
   }
 
   const org = active.membership.organisationId;
-  const [summary, orgEntities] = await Promise.all([
+  const [summary, orgEntities, proposals] = await Promise.all([
     registerSummary(org, visibleEntityIds(active)),
     db.select().from(entities).where(eq(entities.organisationId, org)),
+    awaitingDecision(org),
   ]);
   const mayAdd = can(active.membership.grants, "record.write");
 
@@ -49,6 +51,9 @@ export default async function AiRegisterPage() {
         <div className="flex flex-wrap items-baseline justify-between gap-x-4">
           <h1 className="text-2xl font-semibold tracking-tight">AI register</h1>
           <span className="flex gap-4">
+            <Link href="/app/ai/intake" className="text-xs text-ink-soft hover:text-brand">
+              Proposals{proposals > 0 ? ` (${proposals} awaiting a decision)` : ""} →
+            </Link>
             <Link href="/app/ai/incidents" className="text-xs text-ink-soft hover:text-brand">
               Incidents and concerns →
             </Link>
