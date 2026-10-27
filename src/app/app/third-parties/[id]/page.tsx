@@ -14,7 +14,21 @@ import { getActiveSession } from "@/lib/session";
 import { documentsFor } from "@/services/documents";
 import { extractionAvailable, latestExtraction } from "@/services/extraction";
 import { GAP_WORDS, HARD_GAPS, loadSupplier } from "@/services/third-party";
-import { confirmSupplierAction, recordDpaAction, updateSupplierAction } from "../actions";
+import { StartAssessment } from "@/components/StartAssessment";
+import {
+  AI_CONTRACT_TERMS,
+  AI_GAP_WORDS,
+  AI_INVOLVEMENT_LABEL,
+  SERIOUS_AI_GAPS,
+  involvesAi,
+  type AiInvolvement,
+} from "@/lib/thirdparty/ai-procurement";
+import {
+  confirmSupplierAction,
+  recordDpaAction,
+  setAiInvolvementAction,
+  updateSupplierAction,
+} from "../actions";
 
 const day = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
 
@@ -39,7 +53,7 @@ export default async function SupplierPage({
   const loaded = await loadSupplier(id, active.membership.organisationId);
   if (!loaded) notFound();
 
-  const { supplier, dpas, current, gaps, hardGaps } = loaded;
+  const { supplier, dpas, current, gaps, hardGaps, ai } = loaded;
   const mayEdit = can(active.membership.grants, "record.write");
 
   const colleagues = await db
@@ -148,6 +162,83 @@ export default async function SupplierPage({
           </form>
         </section>
       ) : null}
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold">AI</h2>
+        {mayEdit ? (
+          <form
+            action={setAiInvolvementAction.bind(null, supplier.id)}
+            className="flex flex-wrap items-end gap-2"
+          >
+            <label className="block space-y-1">
+              <span className="block text-xs font-medium uppercase tracking-wider text-ink-soft">
+                Does this supplier use AI?
+              </span>
+              <select
+                name="aiInvolvement"
+                defaultValue={supplier.aiInvolvement ?? ""}
+                className="rounded border border-line bg-ground px-3 py-2 text-sm"
+              >
+                <option value="">Not asked yet</option>
+                {(Object.keys(AI_INVOLVEMENT_LABEL) as AiInvolvement[]).map((v) => (
+                  <option key={v} value={v}>{AI_INVOLVEMENT_LABEL[v]}</option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="submit"
+              className="rounded border border-line bg-surface px-4 py-2 text-sm hover:border-brand"
+            >
+              Save
+            </button>
+          </form>
+        ) : (
+          <p className="text-sm">
+            {supplier.aiInvolvement
+              ? AI_INVOLVEMENT_LABEL[supplier.aiInvolvement as AiInvolvement]
+              : "Not asked whether it uses AI."}
+          </p>
+        )}
+        {ai.systems > 0 ? (
+          <p className="text-xs text-ink-soft">
+            Supplies {ai.systems} AI system{ai.systems === 1 ? "" : "s"} on the{" "}
+            <Link href="/app/ai" className="text-brand hover:underline">AI register</Link>.
+          </p>
+        ) : null}
+        {ai.gaps.length > 0 ? (
+          <GapChips gaps={ai.gaps} words={AI_GAP_WORDS} serious={SERIOUS_AI_GAPS} clear="" />
+        ) : null}
+        {ai.missingTerms.length > 0 ? (
+          <div className="space-y-1 text-xs">
+            <p className="text-ink-soft">The contract, as last assessed, does not provide that:</p>
+            <ul className="list-disc space-y-0.5 pl-5">
+              {ai.missingTerms.map((t) => (
+                <li key={t}>{AI_CONTRACT_TERMS.find((x) => x.value === t)?.label}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        {ai.assessed ? (
+          <p className="text-xs text-ink-soft">
+            Last assessed in{" "}
+            <Link href={`/app/assessments/${ai.assessed.assessmentId}`} className="font-mono text-brand hover:underline">
+              {ai.assessed.reference}
+            </Link>
+            {ai.assessed.approved ? "" : " — not yet approved"}
+            {ai.assessed.recommendation
+              ? ` · recommended: ${ai.assessed.recommendation.replace(/_/g, " ")}`
+              : ""}
+          </p>
+        ) : null}
+        {(involvesAi(supplier.aiInvolvement as AiInvolvement | null) || ai.systems > 0) && mayEdit ? (
+          <StartAssessment
+            organisationId={org}
+            subjectType="supplier"
+            subjectId={supplier.id}
+            prefer="AI supplier assessment"
+          />
+        ) : null}
+      </section>
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold">Agreements</h2>

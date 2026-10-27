@@ -424,6 +424,12 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Handover is offered for everybody, not only the suspended. The case that goes wrong most often is somebody who moved teams and still owns forty records, because nobody ever suspends them and nothing prompts the question.",
         ],
       },
+      {
+        heading: "Workflows added after your organisation was set up",
+        body: [
+          "When a new kind of assessment ships with its own workflow, organisations created earlier do not have it, and assessments of that kind can be submitted but never approved. This page says so and offers to install it. Installing adds only what is missing; workflows you have already changed are left alone.",
+        ],
+      },
     ],
     related: ["approvals", "managing-people", "roles-and-access", "service-levels"],
   },
@@ -507,8 +513,16 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Anything within six months of lapsing raises a monthly task. Six months because that is renewal lead time — a warning at ninety days arrives after the window to renegotiate has closed.",
         ],
       },
+      {
+        heading: "Suppliers that use or supply AI",
+        body: [
+          "Say on the supplier whether it uses AI in delivering the service or supplies an AI product — the distinction PPN 02/24 draws. Using AI is not a reason to exclude a supplier; it is a reason to ask more.",
+          "Then assess it from the supplier's page with the AI supplier assessment, which follows PPN 02/24, the Crown Commercial Service's data ethics requirements and the AI Playbook's advice on buying AI. Once it is approved, the register reads back whether the supplier trains on your data and which of the expected contract terms are missing — use disclosure, no training without agreement, notice of model changes, incident reporting, and return or deletion of data at the end.",
+          "A supplier named by a system on the AI register is asked about even if nobody has said it uses AI.",
+        ],
+      },
     ],
-    related: ["ropa", "transfers", "findings"],
+    related: ["ropa", "transfers", "findings", "ai-register"],
   },
   {
     id: "breaches",
@@ -624,8 +638,15 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Say whether the people who ran it were independent of the team that built the system — DSIT's toolkit asks for that for bias testing and red-teaming. Live systems never tested, systems rated high or critical with no independent test, and systems whose latest test failed all show on the register. The latest evaluation also starts the model performance section of an ATRS record.",
         ],
       },
+      {
+        heading: "Bought-in systems and their suppliers",
+        body: [
+          "A system called over a provider's API, used as their web app, or switched on inside their product is only as well governed as its supplier. Name the supplier from the third-party register; until you do, the system shows as bought in with no supplier recorded, and once you do, it shows until the supplier's AI supply has an approved assessment.",
+          "Start assessments from the system's own page, so they are tied to it and the register reads what they conclude.",
+        ],
+      },
     ],
-    related: ["ai-chain", "assessments", "risks"],
+    related: ["ai-chain", "assessments", "risks", "third-parties"],
   },
   {
     id: "ai-chain",

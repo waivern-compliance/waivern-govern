@@ -572,7 +572,7 @@ describe("the sweep", () => {
 describe("default workflows", () => {
   it("configures one workflow per assessment kind", () => {
     const kinds = DEFAULT_WORKFLOWS.map((w) => w.templateKind).sort();
-    assert.deepEqual(kinds, ["ai_risk", "dpia", "screening", "tia", "tra"]);
+    assert.deepEqual(kinds, ["ai_risk", "dpia", "screening", "supplier_record", "tia", "tra"]);
   });
 
   it("starts every workflow with an unconditional stage", () => {

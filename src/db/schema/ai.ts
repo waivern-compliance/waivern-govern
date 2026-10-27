@@ -26,7 +26,7 @@ import {
   atrsStatus,
   riskTier,
 } from "./enums";
-import { integrationConnections } from "./integration";
+import { integrationConnections, suppliers } from "./integration";
 import { risks } from "./risks";
 import { entities, organisations, users } from "./tenancy";
 
@@ -73,6 +73,12 @@ export const aiUseCases = pgTable(
 
     /** Who supplies it, and which model, where that is known. */
     vendor: text("vendor"),
+    /**
+     * The supplier on the third-party register, where it is one. `vendor` is
+     * what somebody typed; this is the record whose AI supply was assessed and
+     * whose contract can be checked.
+     */
+    supplierId: uuid("supplier_id").references(() => suppliers.id, { onDelete: "set null" }),
     modelName: text("model_name"),
 
     /**

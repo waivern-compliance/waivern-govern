@@ -3,7 +3,13 @@
 import { revalidatePath } from "next/cache";
 import type { AppRole } from "@/lib/rbac";
 import { requireCapability } from "@/lib/session";
-import { RoutingRefused, addStage, resetWorkflow, updateStage } from "@/services/approval-routing";
+import {
+  RoutingRefused,
+  addStage,
+  installShippedWorkflows,
+  resetWorkflow,
+  updateStage,
+} from "@/services/approval-routing";
 import type { RoutingCondition } from "@/lib/workflow/routing";
 
 export type RoutingResult = { ok: boolean; message: string } | null;
@@ -115,6 +121,15 @@ export async function resetWorkflowAction(templateKind: string) {
   await resetWorkflow({
     organisationId: active.membership.organisationId,
     templateKind,
+    actor: { actorKind: "user", actorUserId: active.userId, actorLabel: active.email },
+  });
+  revalidatePath("/app/admin/workflows");
+}
+
+export async function installWorkflowsAction() {
+  const active = await requireCapability("workflow.configure");
+  await installShippedWorkflows({
+    organisationId: active.membership.organisationId,
     actor: { actorKind: "user", actorUserId: active.userId, actorLabel: active.email },
   });
   revalidatePath("/app/admin/workflows");

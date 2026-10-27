@@ -7,6 +7,7 @@ import {
   assessmentRevisions,
   assessments,
   referenceCounters,
+  suppliers,
   templateVersions,
   templates,
   users,
@@ -17,6 +18,7 @@ import { assuranceByUseCase } from "./ai-assurance";
 import { systemsWithUnresolvedHarm } from "./ai-incidents";
 import { lastMaterialChanges } from "./ai-lifecycle";
 import { systemsWithCurrentRecord } from "./atrs";
+import { aiSupplierAssessments } from "./third-party";
 import type { Actor } from "./templates";
 
 /**
@@ -125,7 +127,9 @@ export type Gap =
   | "never_tested"
   | "not_independently_tested"
   | "last_test_failed"
-  | "unresolved_harm";
+  | "unresolved_harm"
+  | "supplier_unrecorded"
+  | "supplier_not_assessed";
 
 export const GAP_WORDS: Record<Gap, string> = {
   never_assessed: "Never assessed",
@@ -141,7 +145,23 @@ export const GAP_WORDS: Record<Gap, string> = {
   not_independently_tested: "No independent testing",
   last_test_failed: "Failed its last test",
   unresolved_harm: "Reported harm unresolved",
+  supplier_unrecorded: "Bought in; supplier not on the register",
+  supplier_not_assessed: "Supplier's AI never assessed",
 };
+
+/**
+ * Whether somebody else supplies the system — called over their API, used as
+ * their web app, or switched on inside their product. Either field can say so:
+ * provenance is always set, and deployment may be known where provenance was
+ * recorded loosely.
+ */
+export function suppliedByThirdParty(useCase: typeof aiUseCases.$inferSelect): boolean {
+  return (
+    useCase.provenance === "third_party_api" ||
+    useCase.provenance === "embedded_vendor" ||
+    ["public_web_app", "embedded", "public_api"].includes(useCase.deploymentPattern ?? "")
+  );
+}
 
 /** Gaps that mean the system is running unexamined, rather than merely untidy. */
 export const SERIOUS_GAPS: Gap[] = [
@@ -255,6 +275,12 @@ export async function createUseCase(input: {
   });
 }
 
+/** Suppliers whose AI supply has an approved assessment. */
+async function approvedAiSuppliers(organisationId: string): Promise<Set<string>> {
+  const assessed = await aiSupplierAssessments(organisationId);
+  return new Set([...assessed].filter(([, a]) => a.approved).map(([id]) => id));
+}
+
 /** The fields an update may touch, and which of them the audit record shows. */
 const TRACKED_FIELDS = [
   "deploymentPattern",
@@ -262,6 +288,7 @@ const TRACKED_FIELDS = [
   "governanceOfficerId",
   "responsibleTeam",
   "vendor",
+  "supplierId",
   "modelName",
   "processesPersonalData",
   "nextReviewAt",
@@ -279,6 +306,7 @@ export async function updateUseCase(input: {
     responsibleTeam: string | null;
     transparencyScope: TransparencyScope | null;
     vendor: string;
+    supplierId: string | null;
     modelName: string;
     deployedIn: string[];
     processesPersonalData: boolean;
@@ -297,6 +325,21 @@ export async function updateUseCase(input: {
         ),
       );
     if (!before) throw new Error("No such AI use case");
+
+    // Another organisation's supplier would be a link nobody here can follow,
+    // and a leak of its name into this register.
+    if (input.changes.supplierId) {
+      const [own] = await tx
+        .select({ id: suppliers.id })
+        .from(suppliers)
+        .where(
+          and(
+            eq(suppliers.id, input.changes.supplierId),
+            eq(suppliers.organisationId, input.organisationId),
+          ),
+        );
+      if (!own) throw new Error("No such supplier");
+    }
 
     const [after] = await tx
       .update(aiUseCases)
@@ -384,9 +427,12 @@ export function gapsFor(
     lastMaterialChangeAt?: Date | null;
     assurance?: AssuranceSummary | null;
     unresolvedHarm?: boolean;
+    /** Suppliers whose AI supply has an approved assessment. */
+    assessedSuppliers?: ReadonlySet<string>;
   } = {},
 ): Gap[] {
-  const { transparency, lastMaterialChangeAt, assurance, unresolvedHarm } = context;
+  const { transparency, lastMaterialChangeAt, assurance, unresolvedHarm, assessedSuppliers } =
+    context;
   const gaps: Gap[] = [];
   const live = LIVE_STAGES.includes(useCase.lifecycleStage as LifecycleStage);
   const retired = useCase.lifecycleStage === "retired";
@@ -442,6 +488,15 @@ export function gapsFor(
   // Somebody reported actual harm and nobody has said how it was put right.
   if (unresolvedHarm) gaps.push("unresolved_harm");
 
+  // A bought-in system is only as well governed as the supplier behind it. The
+  // Playbook and the toolkit both put the supplier's data use, testing and
+  // contract inside the buyer's risk, so a system whose supplier nobody has
+  // looked at is not fully examined however good its own assessment.
+  if (assessedSuppliers && suppliedByThirdParty(useCase)) {
+    if (!useCase.supplierId) gaps.push("supplier_unrecorded");
+    else if (!assessedSuppliers.has(useCase.supplierId)) gaps.push("supplier_not_assessed");
+  }
+
   // Only where a record is required and the system is reaching people. A
   // voluntary record not yet written is a choice, not a gap; one required for
   // a system still in development is not due until it goes live.
@@ -474,11 +529,12 @@ export async function listRegister(
           ),
     )
     .orderBy(aiUseCases.reference);
-  const [recorded, changed, tested, harmed] = await Promise.all([
+  const [recorded, changed, tested, harmed, assessedSuppliers] = await Promise.all([
     systemsWithCurrentRecord(organisationId),
     lastMaterialChanges(organisationId),
     assuranceByUseCase(organisationId),
     systemsWithUnresolvedHarm(organisationId),
+    approvedAiSuppliers(organisationId),
   ]);
 
   return Promise.all(
@@ -493,6 +549,7 @@ export async function listRegister(
           lastMaterialChangeAt: changed.get(useCase.id) ?? null,
           assurance: tested.get(useCase.id) ?? null,
           unresolvedHarm: harmed.has(useCase.id),
+          assessedSuppliers,
         }),
       };
     }),
@@ -511,7 +568,8 @@ export async function loadUseCase(useCaseId: string, organisationId: string) {
     );
   if (!row) return null;
 
-  const [assessed, related, recorded, changed, tested, harmed] = await Promise.all([
+  const [assessed, related, recorded, changed, tested, harmed, assessedSuppliers, supplier] =
+    await Promise.all([
     latestAssessment(useCaseId),
     db
       .select({ assessment: assessments, kind: templates.kind })
@@ -529,10 +587,19 @@ export async function loadUseCase(useCaseId: string, organisationId: string) {
     lastMaterialChanges(organisationId),
     assuranceByUseCase(organisationId),
     systemsWithUnresolvedHarm(organisationId),
+    approvedAiSuppliers(organisationId),
+    row.useCase.supplierId
+      ? db
+          .select({ id: suppliers.id, name: suppliers.name })
+          .from(suppliers)
+          .where(eq(suppliers.id, row.useCase.supplierId))
+          .then((r) => r[0] ?? null)
+      : null,
   ]);
 
   return {
     useCase: row.useCase,
+    supplier,
     ownerEmail: row.ownerEmail,
     officerEmail: row.officerEmail,
     assessed,
@@ -542,6 +609,7 @@ export async function loadUseCase(useCaseId: string, organisationId: string) {
       lastMaterialChangeAt: changed.get(useCaseId) ?? null,
       assurance: tested.get(useCaseId) ?? null,
       unresolvedHarm: harmed.has(useCaseId),
+      assessedSuppliers,
     }),
   };
 }

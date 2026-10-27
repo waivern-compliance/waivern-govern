@@ -16,6 +16,7 @@ import {
   findingSeverity,
   integrationKind,
   recordType,
+  supplierAiInvolvement,
 } from "./enums";
 import { risks } from "./risks";
 import { entities, organisations, users } from "./tenancy";
@@ -159,6 +160,12 @@ export const suppliers = pgTable(
      */
     reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
     reviewedBy: uuid("reviewed_by").references(() => users.id, { onDelete: "set null" }),
+    /**
+     * Whether it uses or supplies AI. Only the fact of it: what the AI does
+     * with our data and what the contract says are judged in the supplier's
+     * AI assessment, and read from there.
+     */
+    aiInvolvement: supplierAiInvolvement("ai_involvement"),
     sourceConnectionId: uuid("source_connection_id").references(
       () => integrationConnections.id,
       { onDelete: "set null" },

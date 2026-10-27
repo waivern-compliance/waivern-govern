@@ -387,6 +387,16 @@ export const aiDeploymentPattern = pgEnum("ai_deployment_pattern", [
 ]);
 
 /**
+ * Whether a supplier uses AI, in PPN 02/24's terms: in delivering the service,
+ * or as the thing supplied. Null on a supplier means nobody has asked.
+ */
+export const supplierAiInvolvement = pgEnum("supplier_ai_involvement", [
+  "none",
+  "in_delivery",
+  "ai_product",
+]);
+
+/**
  * Whether the Algorithmic Transparency Recording Standard applies to a system.
  * Null on the register means nobody has worked it out yet.
  */
