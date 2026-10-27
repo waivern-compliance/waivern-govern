@@ -6,6 +6,7 @@ import {
   aiChanges,
   aiUseCases,
   entities,
+  memberships,
   organisations,
   users,
   workflowDefinitions,
@@ -87,6 +88,7 @@ async function world(label: string) {
     .insert(users)
     .values({ email: `owner-${crypto.randomUUID().slice(0, 8)}@example.com` })
     .returning();
+  await db.insert(memberships).values({ organisationId: org.id, userId: owner.id });
   const useCase = await createUseCase({
     organisationId: org.id,
     entityId: entity.id,

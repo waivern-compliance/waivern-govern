@@ -6,6 +6,7 @@ import {
   approvals,
   assessments,
   entities,
+  memberships,
   organisations,
   schedules,
   tasks,
@@ -41,6 +42,10 @@ async function scenario() {
     .insert(users)
     .values({ email: `approver-${s}@example.com` })
     .returning();
+  await db.insert(memberships).values([
+    { organisationId: org.id, userId: owner.id },
+    { organisationId: org.id, userId: approver.id },
+  ]);
 
   const [template] = await db
     .insert(templates)
@@ -143,6 +148,7 @@ describe("a review coming round", () => {
       .insert(users)
       .values({ email: `both-${s}@example.com` })
       .returning();
+    await db.insert(memberships).values({ organisationId: org.id, userId: person.id });
     const [template] = await db
       .insert(templates)
       .values({ organisationId: org.id, kind: "dpia", name: `T ${s}` })

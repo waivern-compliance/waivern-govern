@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db, withOrganisation } from "@/db/client";
 import {
   entities,
@@ -129,16 +129,20 @@ export async function inviteMember(input: {
     if (input.entityId) await assertEntityIn(input.organisationId, input.entityId);
 
     return db.transaction(async (tx) => {
-      const [existing] = await tx.select().from(users).where(eq(users.email, email));
-      const user =
-        existing ??
-        (await tx.insert(users).values({ email, name: input.name ?? null }).returning())[0];
-
-      // Never overwrite a name they already have: theirs is likelier to be right
-      // than one typed into an admin form.
-      if (input.name && !user.name) {
-        await tx.update(users).set({ name: input.name }).where(eq(users.id, user.id));
+      // People are shared across organisations, but each organisation sees
+      // only its own members. Whether somebody already has an account is the
+      // one question an invitation must ask across that line, so a database
+      // function answers it with the id alone — nothing else about them.
+      const [found] = (await tx.execute(
+        sql`select app_user_id_for_email(${email}) as id`,
+      )) as unknown as Array<{ id: string | null }>;
+      const userId = found?.id ?? crypto.randomUUID();
+      if (!found?.id) {
+        // No `returning`: until the membership below exists, this organisation
+        // cannot see the person it has just created.
+        await tx.insert(users).values({ id: userId, email, name: input.name ?? null });
       }
+      const user = { id: userId };
 
       const [existingMembership] = await tx
         .select()
@@ -173,6 +177,13 @@ export async function inviteMember(input: {
         .update(memberships)
         .set({ isActive: true, ...(input.persona ? { persona: input.persona } : {}) })
         .where(eq(memberships.id, membership.id));
+
+      // Never overwrite a name they already have: theirs is likelier to be right
+      // than one typed into an admin form. Visible to this organisation now that
+      // they are a member of it.
+      if (input.name) {
+        await tx.update(users).set({ name: input.name }).where(and(eq(users.id, user.id), isNull(users.name)));
+      }
 
       const [granted] = await tx
         .insert(roleAssignments)
