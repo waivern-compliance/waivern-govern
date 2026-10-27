@@ -10,6 +10,7 @@ import { validateTemplate } from "@/lib/templates/validate";
 import type { ResolvedRef } from "@/lib/legal-refs";
 import { loadTemplate } from "@/services/templates";
 import { publishAction, startDraftAction } from "../actions";
+import type { TemplateDefinition } from "@/lib/templates/schema";
 
 const day = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
 
@@ -157,7 +158,7 @@ function Definition({
   definition,
   refs,
 }: {
-  definition: any;
+  definition: TemplateDefinition;
   refs: Record<string, ResolvedRef>;
 }) {
   const labels = questionLabels(definition.schema);
@@ -165,7 +166,7 @@ function Definition({
 
   return (
     <div className="space-y-5">
-      {definition.schema.sections.map((section: any) => (
+      {definition.schema.sections.map((section) => (
         <div key={section.key} className="rounded border border-line bg-surface">
           <div className="space-y-1 border-b border-line px-4 py-3">
             <div className="flex flex-wrap items-baseline justify-between gap-x-4">
@@ -182,7 +183,7 @@ function Definition({
             ) : null}
           </div>
           <ol className="divide-y divide-line">
-            {section.questions.map((q: any) => (
+            {section.questions.map((q) => (
               <li key={q.key} className="space-y-1 px-4 py-3 text-sm">
                 <div className="flex flex-wrap items-baseline justify-between gap-x-4">
                   <span className="font-medium">
@@ -230,7 +231,7 @@ function Definition({
                 {q.help ? <p className="text-xs text-ink-soft">{q.help}</p> : null}
                 {q.options?.length ? (
                   <p className="text-xs text-ink-soft">
-                    Options: {q.options.map((o: any) =>
+                    Options: {q.options.map((o) =>
                       o.weight === undefined ? o.label : `${o.label} (${o.weight})`,
                     ).join(", ")}
                   </p>
@@ -262,7 +263,7 @@ function Definition({
             </p>
             {scoring.bands?.length ? (
               <ul className="mt-1.5 space-y-0.5 text-xs text-ink-soft">
-                {scoring.bands.map((b: any, i: number) => (
+                {scoring.bands.map((b, i) => (
                   <li key={i} className="font-mono">
                     {b.min}–{b.max}: {b.label}
                   </li>
