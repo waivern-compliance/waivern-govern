@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, describe, it } from "node:test";
 import { eq } from "drizzle-orm";
 import { db, sql as pg } from "@/db/client";
-import { entities, organisations, tasks, users } from "@/db/schema";
+import { entities, memberships, organisations, tasks, users } from "@/db/schema";
 import { NAV, navFor } from "@/lib/nav";
 import type { Grant } from "@/lib/rbac";
 import { openTasks } from "@/services/workflow";
@@ -70,6 +70,7 @@ describe("which tasks reach a person", () => {
       .insert(users)
       .values({ email: `p-${crypto.randomUUID().slice(0, 8)}@example.com` })
       .returning();
+    await db.insert(memberships).values({ organisationId: org.id, userId: person.id });
     return { org, ps, studios, person };
   }
 

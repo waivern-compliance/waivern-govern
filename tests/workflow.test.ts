@@ -530,7 +530,11 @@ describe("the sweep", () => {
     );
     await sweepOrganisation(w.org.id);
 
-    const [task] = await db.select().from(tasks).where(eq(tasks.organisationId, w.org.id));
+    // The approval that went overdue — not whichever task comes back first.
+    const [task] = await db
+      .select()
+      .from(tasks)
+      .where(and(eq(tasks.organisationId, w.org.id), eq(tasks.type, "approve_stage")));
     await completeTask({ taskId: task.id, organisationId: w.org.id, actor: SYSTEM });
 
     const [after] = await db.select().from(tasks).where(eq(tasks.id, task.id));

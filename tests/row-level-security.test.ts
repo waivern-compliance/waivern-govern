@@ -10,6 +10,7 @@ import { after, describe, it } from "node:test";
 import { sql } from "drizzle-orm";
 import { db, sql as pg, withOrganisation } from "@/db/client";
 import { entities, organisations } from "@/db/schema";
+import { inviteMember } from "@/services/access";
 import { addMitigation, createRisk } from "@/services/risks";
 
 const SYSTEM = { actorKind: "system" as const, actorUserId: null, actorLabel: "rls test" };
@@ -98,11 +99,54 @@ describe("row-level security", () => {
     assert.ok(!outside.org, "the organisation outlived its transaction");
   });
 
+  it("shows an organisation only its own people, and still lets it invite anyone", async () => {
+    const a = await organisationWithRisk("pa");
+    const b = await organisationWithRisk("pb");
+    const theirs = await inviteMember({
+      organisationId: b.org.id, email: `theirs-${crypto.randomUUID().slice(0, 6)}@example.test`,
+      role: "contributor", actor: SYSTEM,
+    });
+    const [bPerson] = await rows(sql`select user_id from membership where id = ${theirs.membershipId}`);
+    const seen = await withOrganisation(a.org.id, async () => rows(sql`select id from app_user`));
+    assert.ok(!seen.some((u) => u.id === bPerson.user_id), "another organisation's person was visible");
+
+    // Somebody already on the platform joins as the same person, not a copy.
+    const [{ email }] = await rows(sql`select email from app_user where id = ${bPerson.user_id}`);
+    await inviteMember({ organisationId: a.org.id, email: String(email).toUpperCase(), role: "contributor", actor: SYSTEM });
+    const people = await rows(sql`select id from app_user where email = ${email}`);
+    assert.equal(people.length, 1);
+    const nowSeen = await withOrganisation(a.org.id, async () => rows(sql`select id from app_user where id = ${bPerson.user_id}`));
+    assert.equal(nowSeen.length, 1, "a new member stayed invisible to the organisation that invited them");
+  });
+
+  it("refuses, in the database, a link to another organisation's record or person", async () => {
+    const a = await organisationWithRisk("la");
+    const b = await organisationWithRisk("lb");
+    const [bEntity] = await rows(sql`select id from entity where organisation_id = ${b.org.id}`);
+    const [aEntity] = await rows(sql`select id from entity where organisation_id = ${a.org.id}`);
+    const cause = (e: Error) => `${e.message} ${(e as Error & { cause?: Error }).cause?.message ?? ""}`;
+    // As the owner, outside any organisation's scope: only the constraint stands in the way.
+    await assert.rejects(
+      db.execute(sql`insert into risk (organisation_id, entity_id, reference, title, description, scale,
+        inherent_likelihood, inherent_impact, inherent_score, inherent_tier, status)
+        select organisation_id, ${bEntity.id}, 'X-1', title, description, scale,
+          inherent_likelihood, inherent_impact, inherent_score, inherent_tier, status
+        from risk where id = ${a.risk.id}`),
+      (e: Error) => /risk_entity_id_same_org/.test(cause(e)),
+    );
+    const [stranger] = await rows(sql`insert into app_user (email) values (${`s-${crypto.randomUUID().slice(0, 6)}@example.test`}) returning id`);
+    await assert.rejects(
+      db.execute(sql`update risk set owner_id = ${stranger.id} where id = ${a.risk.id}`),
+      (e: Error) => /risk_owner_id_member/.test(cause(e)),
+    );
+    assert.ok(aEntity.id);
+  });
+
   it("protects every table that carries an organisation", async () => {
     const unprotected = await rows(sql`
       select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
       where n.nspname = 'public' and c.relkind = 'r' and not c.relrowsecurity
-        and c.relname not in ('app_user', 'legal_reference')
+        and c.relname not in ('legal_reference')
       order by 1`);
     assert.deepEqual(unprotected.map((r) => r.relname), [], "tables without row-level security");
   });
