@@ -7,6 +7,7 @@ import {
   claimRefusal,
   domainOf,
   mayJoinByDomain,
+  mayRequestOrganisation,
   normaliseDomain,
   recordsProve,
   unverifiedEmail,
@@ -77,6 +78,9 @@ describe("domains as typed", () => {
     assert.equal(unverifiedEmail("microsoft-entra-id", {}), false, "Microsoft sign-in works as before");
     assert.equal(mayJoinByDomain("google", { email_verified: true }), true);
     assert.equal(mayJoinByDomain("microsoft-entra-id", { email_verified: true }), false);
+    assert.equal(mayRequestOrganisation("google", { email_verified: true }), true);
+    assert.equal(mayRequestOrganisation("credentials", undefined), true, "local development only");
+    assert.equal(mayRequestOrganisation("microsoft-entra-id", {}), false);
   });
 });
 

@@ -85,3 +85,12 @@ export function unverifiedEmail(provider: string, profile: Record<string, unknow
 export function mayJoinByDomain(provider: string, profile: Record<string, unknown> | undefined): boolean {
   return provider === "google" && profile?.email_verified === true;
 }
+
+/**
+ * Whether somebody who belongs nowhere may sign in to ask for an organisation:
+ * a Google-verified address, or local development sign-in — which exists only
+ * where ALLOW_DEV_SIGN_IN is set, and the production build refuses that.
+ */
+export function mayRequestOrganisation(provider: string, profile: Record<string, unknown> | undefined): boolean {
+  return mayJoinByDomain(provider, profile) || provider === "credentials";
+}

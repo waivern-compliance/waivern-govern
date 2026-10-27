@@ -5,7 +5,7 @@ import {
   PRODUCT_SUFFIX,
   PRODUCT_VENDOR,
 } from "@/lib/product";
-import { authConfig, signIn } from "@/auth";
+import { auth, authConfig, signIn } from "@/auth";
 import { getActiveSession } from "@/lib/session";
 
 export default async function SignIn({
@@ -14,6 +14,8 @@ export default async function SignIn({
   searchParams: Promise<{ error?: string }>;
 }) {
   if (await getActiveSession()) redirect("/app");
+  // Signed in, but a member of no organisation yet: somewhere to ask for one.
+  if ((await auth())?.user?.id) redirect("/welcome");
   const { error } = await searchParams;
   // Auth.js reports a thrown callback as "Configuration". Here that means the
   // membership lookup failed rather than refused — usually the database being

@@ -18,6 +18,13 @@ export const HELP_TOPICS: HelpTopic[] = [
     keywords: ["overview", "introduction", "waivern govern", "purpose"],
     sections: [
       {
+        heading: "Starting a new organisation",
+        body: [
+          "Somebody who signs in and belongs to no organisation here can ask Waivern for one: its name, its legal entity, and anything Waivern should know. Waivern sets each one up by hand. Once it is approved, the person who asked is its owner and signing in takes them straight to it, with the shipped templates and approval workflows already in place.",
+          "Joining an organisation that already exists is different: ask its administrator for an invitation, or sign in with an address at a domain it has verified.",
+        ],
+      },
+      {
         heading: "What it does",
         body: [
           "It holds the registers an organisation is accountable for — processing activities, AI systems, third parties, risks — and moves work between the people who have to act on them. Assessments get started, answered, reviewed and approved. Risks get rated, treated or accepted. Reviews come round again on schedule.",

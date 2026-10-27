@@ -10,7 +10,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import { appRole, guidanceMode, persona, recordType, riskScale, roleScope } from "./enums";
+import { appRole, guidanceMode, organisationRequestStatus, persona, recordType, riskScale, roleScope } from "./enums";
 
 /** A client of the platform. One organisation, one governance programme. */
 export const organisations = pgTable("organisation", {
@@ -128,6 +128,43 @@ export const memberships = pgTable(
   (t) => [
     uniqueIndex("membership_org_user_key").on(t.organisationId, t.userId),
     index("membership_user_idx").on(t.userId),
+  ],
+);
+
+/**
+ * Somebody's request for a new organisation, awaiting a Waivern operator.
+ *
+ * The platform's, not any organisation's: until it is approved there is no
+ * organisation for it to belong to. Row-level security is on with no policy,
+ * so no organisation's work can read it; only the platform can.
+ */
+export const organisationRequests = pgTable(
+  "organisation_request",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    requestedBy: uuid("requested_by")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    requestedByEmail: text("requested_by_email").notNull(),
+    organisationName: text("organisation_name").notNull(),
+    entityName: text("entity_name").notNull(),
+    note: text("note"),
+    status: organisationRequestStatus("status").notNull().default("pending"),
+    decidedByEmail: text("decided_by_email"),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+    decisionNote: text("decision_note"),
+    /** The organisation an approval created. */
+    createdOrganisationId: uuid("created_organisation_id").references(() => organisations.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // One request in the queue per person at a time.
+    uniqueIndex("organisation_request_one_pending_key")
+      .on(t.requestedBy)
+      .where(sql`${t.status} = 'pending'`),
+    index("organisation_request_status_idx").on(t.status, t.createdAt),
   ],
 );
 

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Wordmark } from "@/components/Wordmark";
 import { can } from "@/lib/rbac";
 import { getActiveSession } from "@/lib/session";
+import { isPlatformAdmin } from "@/lib/platform";
 import { switchOrganisationAction } from "./actions";
 
 /**
@@ -73,6 +74,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                 className="rounded border border-white/25 px-2.5 py-1 text-xs text-white hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
               >
                 Settings
+              </Link>
+            ) : null}
+            {active && isPlatformAdmin(active.email) ? (
+              <Link
+                href="/platform"
+                className="rounded border border-white/25 px-2.5 py-1 text-xs text-white hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+              >
+                Platform
               </Link>
             ) : null}
             <Link

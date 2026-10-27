@@ -679,6 +679,12 @@ const NOT_TENANT_SCOPED: Record<string, string> = {
   "templates.createTemplate": "creates a template in the caller's own organisation",
   "templates.updateShippedTemplates": "updates the caller's own system templates",
   "domains.claimDomain": "claims a domain for the caller's own organisation",
+  // Requests for new organisations: the platform's, before any organisation exists.
+  "organisation-requests.requestOrganisation": "belongs to no organisation; the requester's own",
+  "organisation-requests.requestsBy": "the requester's own requests, which belong to no organisation",
+  "organisation-requests.requestQueue": "platform operators only; requests belong to no organisation",
+  "organisation-requests.approveRequest": "platform operators only; creates the organisation, then sets it up inside its own scope",
+  "organisation-requests.declineRequest": "platform operators only; requests belong to no organisation",
   "domains.joinByVerifiedDomain": "sign-in, before anyone acts for an organisation: joins only the one that verified the domain",
 };
 
