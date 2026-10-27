@@ -2,7 +2,7 @@ import Link from "next/link";
 import { HelpLink } from "@/components/help/HelpLink";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
-import { db } from "@/db/client";
+import { db, scoped } from "@/db/client";
 import { entities } from "@/db/schema";
 import { can } from "@/lib/rbac";
 import { NotPermitted } from "@/components/NotPermitted";
@@ -44,7 +44,7 @@ export default async function AssessmentsPage() {
 
 const org = active.membership.organisationId;
   const rows = await listAssessments(org, visibleEntityIds(active));
-  const orgEntities = await db.select().from(entities).where(eq(entities.organisationId, org));
+  const orgEntities = await scoped(org, () => db.select().from(entities).where(eq(entities.organisationId, org)));
   const templates = await availableTemplates(org);
   const mayCreate = can(active.membership.grants, "assessment.create");
 

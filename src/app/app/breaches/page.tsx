@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
-import { db } from "@/db/client";
+import { db, scoped } from "@/db/client";
 import { entities } from "@/db/schema";
 import { Clock } from "@/components/breach/Clock";
 import { HelpLink } from "@/components/help/HelpLink";
@@ -27,7 +27,7 @@ export default async function BreachesPage() {
   const org = active.membership.organisationId;
   const [register, orgEntities] = await Promise.all([
     breachRegister(org, visibleEntityIds(active)),
-    db.select().from(entities).where(eq(entities.organisationId, org)),
+    scoped(org, () => db.select().from(entities).where(eq(entities.organisationId, org))),
   ]);
   const mayRecord = can(active.membership.grants, "record.write");
 

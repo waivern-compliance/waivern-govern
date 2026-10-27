@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { asc, eq } from "drizzle-orm";
-import { db } from "@/db/client";
+import { db, scoped } from "@/db/client";
 import { memberships, users } from "@/db/schema";
 import { Clock } from "@/components/breach/Clock";
 import { Discussion } from "@/components/Discussion";
@@ -47,12 +47,12 @@ export default async function BreachPage({
   const mayAssess = can(active.membership.grants, "assessment.create", breach.entityId);
   const suggestion = await severitySuggestion(breach);
 
-  const colleagues = await db
+  const colleagues = await scoped(active.membership.organisationId, () => db
     .select({ id: users.id, email: users.email })
     .from(memberships)
     .innerJoin(users, eq(users.id, memberships.userId))
     .where(eq(memberships.organisationId, active.membership.organisationId))
-    .orderBy(asc(users.email));
+    .orderBy(asc(users.email)));
 
   return (
     <main className="mx-auto max-w-3xl space-y-9 px-6 py-12">

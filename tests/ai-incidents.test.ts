@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, describe, it } from "node:test";
 import { and, eq, sql } from "drizzle-orm";
 import { db, sql as pg } from "@/db/client";
-import { aiIncidents, auditEvents, entities, organisations, tasks, users } from "@/db/schema";
+import { aiIncidents, auditEvents, entities, memberships, organisations, tasks, users } from "@/db/schema";
 import { capabilitiesFor } from "@/lib/rbac";
 import { createUseCase, loadUseCase } from "@/services/ai-register";
 import {
@@ -34,6 +34,7 @@ async function world(label: string) {
     .insert(users)
     .values({ email: `officer-${crypto.randomUUID().slice(0, 8)}@example.com` })
     .returning();
+  await db.insert(memberships).values({ organisationId: org.id, userId: officer.id });
   const useCase = await createUseCase({
     organisationId: org.id,
     entityId: entity.id,

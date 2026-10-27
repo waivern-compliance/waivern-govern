@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import { db, type Db } from "@/db/client";
+import { db, type Db, withOrganisation } from "@/db/client";
 
 /** The database, or a transaction to run inside. */
 type Executor = Db | Parameters<Parameters<Db["transaction"]>[0]>[0];
@@ -24,6 +24,7 @@ import { systemsWithCurrentRecord } from "./atrs";
 import { aiSupplierAssessments } from "./third-party";
 import { trainedOwners as ownersWithTraining } from "./training";
 import type { Actor } from "./templates";
+import { assertEntityIn, assertMemberOf, assertRecordIn } from "./tenancy-guards";
 
 /**
  * The AI register.
@@ -222,74 +223,80 @@ export async function createUseCase(input: {
   source?: { connectionId: string; externalRef: string };
   actor: Actor;
 }, executor: Executor = db) {
-  const reference = await nextReference(input.organisationId, new Date().getUTCFullYear(), executor);
-  const stage = input.lifecycleStage ?? "proposed";
+  return withOrganisation(input.organisationId, async () => {
+    const reference = await nextReference(input.organisationId, new Date().getUTCFullYear(), executor);
+    const stage = input.lifecycleStage ?? "proposed";
 
-  // Nested inside a caller's transaction where one is passed, so registering
-  // a system and recording why stand or fall together.
-  return executor.transaction(async (tx) => {
-    const [row] = await tx
-      .insert(aiUseCases)
-      .values({
+    // Nested inside a caller's transaction where one is passed, so registering
+    // a system and recording why stand or fall together.
+    return executor.transaction(async (tx) => {
+      await assertEntityIn(input.organisationId, input.entityId, tx);
+      if (input.ownerId) await assertMemberOf(input.organisationId, input.ownerId, tx);
+      if (input.governanceOfficerId) await assertMemberOf(input.organisationId, input.governanceOfficerId, tx);
+      if (input.supplierId) await assertRecordIn(input.organisationId, "supplier", input.supplierId, tx);
+      const [row] = await tx
+        .insert(aiUseCases)
+        .values({
+          organisationId: input.organisationId,
+          entityId: input.entityId,
+          reference,
+          name: input.name,
+          purpose: input.purpose,
+          description: input.description,
+          systemType: input.systemType,
+          provenance: input.provenance,
+          lifecycleStage: stage,
+          deploymentPattern: input.deploymentPattern ?? null,
+          vendor: input.vendor,
+          modelName: input.modelName,
+          ownerId: input.ownerId ?? null,
+          governanceOfficerId: input.governanceOfficerId ?? null,
+          responsibleTeam: input.responsibleTeam,
+          deployedIn: input.deployedIn ?? [],
+          processesPersonalData: input.processesPersonalData,
+          dataCategories: input.dataCategories ?? [],
+          supplierId: input.supplierId ?? null,
+          sourceConnectionId: input.source?.connectionId ?? null,
+          externalRef: input.source?.externalRef ?? null,
+          nextReviewAt: input.nextReviewAt,
+          // Registered already live is the common case for an inventory being
+          // built after the fact. The date is when it was recorded as live, not
+          // a guess at when it started — the register says what it knows.
+          liveSince: LIVE_STAGES.includes(stage) ? new Date() : null,
+        })
+        .returning();
+
+      // The history starts with the stage it was registered at.
+      await tx.insert(aiChanges).values({
         organisationId: input.organisationId,
         entityId: input.entityId,
-        reference,
-        name: input.name,
-        purpose: input.purpose,
-        description: input.description,
-        systemType: input.systemType,
-        provenance: input.provenance,
-        lifecycleStage: stage,
-        deploymentPattern: input.deploymentPattern ?? null,
-        vendor: input.vendor,
-        modelName: input.modelName,
-        ownerId: input.ownerId ?? null,
-        governanceOfficerId: input.governanceOfficerId ?? null,
-        responsibleTeam: input.responsibleTeam,
-        deployedIn: input.deployedIn ?? [],
-        processesPersonalData: input.processesPersonalData,
-        dataCategories: input.dataCategories ?? [],
-        supplierId: input.supplierId ?? null,
-        sourceConnectionId: input.source?.connectionId ?? null,
-        externalRef: input.source?.externalRef ?? null,
-        nextReviewAt: input.nextReviewAt,
-        // Registered already live is the common case for an inventory being
-        // built after the fact. The date is when it was recorded as live, not
-        // a guess at when it started — the register says what it knows.
-        liveSince: LIVE_STAGES.includes(stage) ? new Date() : null,
-      })
-      .returning();
+        aiUseCaseId: row.id,
+        kind: "stage",
+        fromStage: null,
+        toStage: stage,
+        summary: "Added to the register.",
+        recordedByUserId: input.actor.actorUserId ?? null,
+        recordedByLabel: input.actor.actorLabel,
+      });
 
-    // The history starts with the stage it was registered at.
-    await tx.insert(aiChanges).values({
-      organisationId: input.organisationId,
-      entityId: input.entityId,
-      aiUseCaseId: row.id,
-      kind: "stage",
-      fromStage: null,
-      toStage: stage,
-      summary: "Added to the register.",
-      recordedByUserId: input.actor.actorUserId ?? null,
-      recordedByLabel: input.actor.actorLabel,
+      await appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        action: "ai_use_case.registered",
+        subjectType: "ai_use_case",
+        subjectId: row.id,
+        entityId: input.entityId,
+        after: {
+          reference,
+          name: row.name,
+          systemType: row.systemType,
+          lifecycleStage: row.lifecycleStage,
+          deploymentPattern: row.deploymentPattern,
+        },
+      });
+
+      return row;
     });
-
-    await appendAuditEvent(tx, {
-      ...input.actor,
-      organisationId: input.organisationId,
-      action: "ai_use_case.registered",
-      subjectType: "ai_use_case",
-      subjectId: row.id,
-      entityId: input.entityId,
-      after: {
-        reference,
-        name: row.name,
-        systemType: row.systemType,
-        lifecycleStage: row.lifecycleStage,
-        deploymentPattern: row.deploymentPattern,
-      },
-    });
-
-    return row;
   });
 }
 
@@ -337,56 +344,62 @@ export async function updateUseCase(input: {
   }>;
   actor: Actor;
 }) {
-  return db.transaction(async (tx) => {
-    const [before] = await tx
-      .select()
-      .from(aiUseCases)
-      .where(
-        and(
-          eq(aiUseCases.id, input.useCaseId),
-          eq(aiUseCases.organisationId, input.organisationId),
-        ),
-      );
-    if (!before) throw new Error("No such AI use case");
-
-    // Another organisation's supplier would be a link nobody here can follow,
-    // and a leak of its name into this register.
-    if (input.changes.supplierId) {
-      const [own] = await tx
-        .select({ id: suppliers.id })
-        .from(suppliers)
+  return withOrganisation(input.organisationId, async () => {
+    return db.transaction(async (tx) => {
+      const [before] = await tx
+        .select()
+        .from(aiUseCases)
         .where(
           and(
-            eq(suppliers.id, input.changes.supplierId),
-            eq(suppliers.organisationId, input.organisationId),
+            eq(aiUseCases.id, input.useCaseId),
+            eq(aiUseCases.organisationId, input.organisationId),
           ),
         );
-      if (!own) throw new Error("No such supplier");
-    }
+      if (!before) throw new Error("No such AI use case");
+      if (input.changes.ownerId) await assertMemberOf(input.organisationId, input.changes.ownerId, tx);
+      if (input.changes.governanceOfficerId) {
+        await assertMemberOf(input.organisationId, input.changes.governanceOfficerId, tx);
+      }
 
-    const [after] = await tx
-      .update(aiUseCases)
-      .set({ ...input.changes, updatedAt: new Date() })
-      .where(eq(aiUseCases.id, input.useCaseId))
-      .returning();
+      // Another organisation's supplier would be a link nobody here can follow,
+      // and a leak of its name into this register.
+      if (input.changes.supplierId) {
+        const [own] = await tx
+          .select({ id: suppliers.id })
+          .from(suppliers)
+          .where(
+            and(
+              eq(suppliers.id, input.changes.supplierId),
+              eq(suppliers.organisationId, input.organisationId),
+            ),
+          );
+        if (!own) throw new Error("No such supplier");
+      }
 
-    // Only what actually moved, so the log reads as a list of changes rather
-    // than a dump of the record with the change somewhere inside it.
-    const changed = TRACKED_FIELDS.filter(
-      (f) => f in input.changes && String(before[f] ?? "") !== String(after[f] ?? ""),
-    );
-    await appendAuditEvent(tx, {
-      ...input.actor,
-      organisationId: input.organisationId,
-      action: "ai_use_case.updated",
-      subjectType: "ai_use_case",
-      subjectId: input.useCaseId,
-      entityId: before.entityId,
-      before: Object.fromEntries(changed.map((f) => [f, before[f]])),
-      after: Object.fromEntries(changed.map((f) => [f, after[f]])),
+      const [after] = await tx
+        .update(aiUseCases)
+        .set({ ...input.changes, updatedAt: new Date() })
+        .where(eq(aiUseCases.id, input.useCaseId))
+        .returning();
+
+      // Only what actually moved, so the log reads as a list of changes rather
+      // than a dump of the record with the change somewhere inside it.
+      const changed = TRACKED_FIELDS.filter(
+        (f) => f in input.changes && String(before[f] ?? "") !== String(after[f] ?? ""),
+      );
+      await appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        action: "ai_use_case.updated",
+        subjectType: "ai_use_case",
+        subjectId: input.useCaseId,
+        entityId: before.entityId,
+        before: Object.fromEntries(changed.map((f) => [f, before[f]])),
+        after: Object.fromEntries(changed.map((f) => [f, after[f]])),
+      });
+
+      return after;
     });
-
-    return after;
   });
 }
 
@@ -554,108 +567,112 @@ export async function listRegister(
   organisationId: string,
   entityIds: string[] | null,
 ): Promise<RegisterEntry[]> {
-  const rows = await db
-    .select({ useCase: aiUseCases, ownerEmail: users.email })
-    .from(aiUseCases)
-    .leftJoin(users, eq(users.id, aiUseCases.ownerId))
-    .where(
-      entityIds === null
-        ? eq(aiUseCases.organisationId, organisationId)
-        : and(
-            eq(aiUseCases.organisationId, organisationId),
-            inArray(aiUseCases.entityId, entityIds),
-          ),
-    )
-    .orderBy(aiUseCases.reference);
-  const [recorded, changed, tested, harmed, verdicts, trainedOwners] = await Promise.all([
-    systemsWithCurrentRecord(organisationId),
-    lastMaterialChanges(organisationId),
-    assuranceByUseCase(organisationId),
-    systemsWithUnresolvedHarm(organisationId),
-    approvedAiSuppliers(organisationId),
-    ownersWithTraining(organisationId),
-  ]);
+  return withOrganisation(organisationId, async () => {
+    const rows = await db
+      .select({ useCase: aiUseCases, ownerEmail: users.email })
+      .from(aiUseCases)
+      .leftJoin(users, eq(users.id, aiUseCases.ownerId))
+      .where(
+        entityIds === null
+          ? eq(aiUseCases.organisationId, organisationId)
+          : and(
+              eq(aiUseCases.organisationId, organisationId),
+              inArray(aiUseCases.entityId, entityIds),
+            ),
+      )
+      .orderBy(aiUseCases.reference);
+    const [recorded, changed, tested, harmed, verdicts, trainedOwners] = await Promise.all([
+      systemsWithCurrentRecord(organisationId),
+      lastMaterialChanges(organisationId),
+      assuranceByUseCase(organisationId),
+      systemsWithUnresolvedHarm(organisationId),
+      approvedAiSuppliers(organisationId),
+      ownersWithTraining(organisationId),
+    ]);
 
-  return Promise.all(
-    rows.map(async ({ useCase, ownerEmail }) => {
-      const assessed = await latestAssessment(useCase.id);
-      return {
-        useCase,
-        ownerEmail,
-        assessed,
-        gaps: gapsFor(useCase, assessed, {
-          transparency: { hasCurrentRecord: recorded.has(useCase.id) },
-          lastMaterialChangeAt: changed.get(useCase.id) ?? null,
-          assurance: tested.get(useCase.id) ?? null,
-          unresolvedHarm: harmed.has(useCase.id),
-          assessedSuppliers: verdicts.approved,
-          advisedAgainstSuppliers: verdicts.advisedAgainst,
-          trainedOwners,
-        }),
-      };
-    }),
-  );
+    return Promise.all(
+      rows.map(async ({ useCase, ownerEmail }) => {
+        const assessed = await latestAssessment(useCase.id);
+        return {
+          useCase,
+          ownerEmail,
+          assessed,
+          gaps: gapsFor(useCase, assessed, {
+            transparency: { hasCurrentRecord: recorded.has(useCase.id) },
+            lastMaterialChangeAt: changed.get(useCase.id) ?? null,
+            assurance: tested.get(useCase.id) ?? null,
+            unresolvedHarm: harmed.has(useCase.id),
+            assessedSuppliers: verdicts.approved,
+            advisedAgainstSuppliers: verdicts.advisedAgainst,
+            trainedOwners,
+          }),
+        };
+      }),
+    );
+  });
 }
 
 export async function loadUseCase(useCaseId: string, organisationId: string) {
-  const officers = alias(users, "governance_officer");
-  const [row] = await db
-    .select({ useCase: aiUseCases, ownerEmail: users.email, officerEmail: officers.email })
-    .from(aiUseCases)
-    .leftJoin(users, eq(users.id, aiUseCases.ownerId))
-    .leftJoin(officers, eq(officers.id, aiUseCases.governanceOfficerId))
-    .where(
-      and(eq(aiUseCases.id, useCaseId), eq(aiUseCases.organisationId, organisationId)),
-    );
-  if (!row) return null;
-
-  const [assessed, related, recorded, changed, tested, harmed, verdicts, supplier, trainedOwners] =
-    await Promise.all([
-    latestAssessment(useCaseId),
-    db
-      .select({ assessment: assessments, kind: templates.kind })
-      .from(assessments)
-      .innerJoin(templateVersions, eq(templateVersions.id, assessments.templateVersionId))
-      .innerJoin(templates, eq(templates.id, templateVersions.templateId))
+  return withOrganisation(organisationId, async () => {
+    const officers = alias(users, "governance_officer");
+    const [row] = await db
+      .select({ useCase: aiUseCases, ownerEmail: users.email, officerEmail: officers.email })
+      .from(aiUseCases)
+      .leftJoin(users, eq(users.id, aiUseCases.ownerId))
+      .leftJoin(officers, eq(officers.id, aiUseCases.governanceOfficerId))
       .where(
-        and(
-          eq(assessments.subjectType, "ai_use_case"),
-          eq(assessments.subjectId, useCaseId),
-        ),
-      )
-      .orderBy(desc(assessments.createdAt)),
-    systemsWithCurrentRecord(organisationId),
-    lastMaterialChanges(organisationId),
-    assuranceByUseCase(organisationId),
-    systemsWithUnresolvedHarm(organisationId),
-    approvedAiSuppliers(organisationId),
-    row.useCase.supplierId
-      ? db
-          .select({ id: suppliers.id, name: suppliers.name })
-          .from(suppliers)
-          .where(eq(suppliers.id, row.useCase.supplierId))
-          .then((r) => r[0] ?? null)
-      : null,
-    ownersWithTraining(organisationId),
-  ]);
+        and(eq(aiUseCases.id, useCaseId), eq(aiUseCases.organisationId, organisationId)),
+      );
+    if (!row) return null;
 
-  return {
-    useCase: row.useCase,
-    supplier,
-    ownerEmail: row.ownerEmail,
-    officerEmail: row.officerEmail,
-    assessed,
-    assessments: related,
-    gaps: gapsFor(row.useCase, assessed, {
-      transparency: { hasCurrentRecord: recorded.has(useCaseId) },
-      lastMaterialChangeAt: changed.get(useCaseId) ?? null,
-      assurance: tested.get(useCaseId) ?? null,
-      unresolvedHarm: harmed.has(useCaseId),
-      assessedSuppliers: verdicts.approved,
-      advisedAgainstSuppliers: verdicts.advisedAgainst,
-      trainedOwners,
-    }),
-  };
+    const [assessed, related, recorded, changed, tested, harmed, verdicts, supplier, trainedOwners] =
+      await Promise.all([
+      latestAssessment(useCaseId),
+      db
+        .select({ assessment: assessments, kind: templates.kind })
+        .from(assessments)
+        .innerJoin(templateVersions, eq(templateVersions.id, assessments.templateVersionId))
+        .innerJoin(templates, eq(templates.id, templateVersions.templateId))
+        .where(
+          and(
+            eq(assessments.subjectType, "ai_use_case"),
+            eq(assessments.subjectId, useCaseId),
+          ),
+        )
+        .orderBy(desc(assessments.createdAt)),
+      systemsWithCurrentRecord(organisationId),
+      lastMaterialChanges(organisationId),
+      assuranceByUseCase(organisationId),
+      systemsWithUnresolvedHarm(organisationId),
+      approvedAiSuppliers(organisationId),
+      row.useCase.supplierId
+        ? db
+            .select({ id: suppliers.id, name: suppliers.name })
+            .from(suppliers)
+            .where(eq(suppliers.id, row.useCase.supplierId))
+            .then((r) => r[0] ?? null)
+        : null,
+      ownersWithTraining(organisationId),
+    ]);
+
+    return {
+      useCase: row.useCase,
+      supplier,
+      ownerEmail: row.ownerEmail,
+      officerEmail: row.officerEmail,
+      assessed,
+      assessments: related,
+      gaps: gapsFor(row.useCase, assessed, {
+        transparency: { hasCurrentRecord: recorded.has(useCaseId) },
+        lastMaterialChangeAt: changed.get(useCaseId) ?? null,
+        assurance: tested.get(useCaseId) ?? null,
+        unresolvedHarm: harmed.has(useCaseId),
+        assessedSuppliers: verdicts.approved,
+        advisedAgainstSuppliers: verdicts.advisedAgainst,
+        trainedOwners,
+      }),
+    };
+  });
 }
 
 /** The headline an AI governance lead wants: what is running, and what is unexamined. */
@@ -663,21 +680,23 @@ export async function registerSummary(
   organisationId: string,
   entityIds: string[] | null,
 ) {
-  const entries = await listRegister(organisationId, entityIds);
-  const active = entries.filter((e) => e.useCase.lifecycleStage !== "retired");
+  return withOrganisation(organisationId, async () => {
+    const entries = await listRegister(organisationId, entityIds);
+    const active = entries.filter((e) => e.useCase.lifecycleStage !== "retired");
 
-  return {
-    // Active only. A retired system is history: counting it under a heading
-    // that says "excluding retired" is the kind of small dishonesty that makes
-    // a reader stop trusting every other number on the page.
-    total: active.length,
-    retired: entries.length - active.length,
-    live: active.filter((e) =>
-      LIVE_STAGES.includes(e.useCase.lifecycleStage as LifecycleStage),
-    ).length,
-    neverAssessed: active.filter((e) => e.gaps.includes("never_assessed")).length,
-    serious: active.filter((e) => e.gaps.some((g) => SERIOUS_GAPS.includes(g))).length,
-    withGaps: active.filter((e) => e.gaps.length > 0).length,
-    entries: active,
-  };
+    return {
+      // Active only. A retired system is history: counting it under a heading
+      // that says "excluding retired" is the kind of small dishonesty that makes
+      // a reader stop trusting every other number on the page.
+      total: active.length,
+      retired: entries.length - active.length,
+      live: active.filter((e) =>
+        LIVE_STAGES.includes(e.useCase.lifecycleStage as LifecycleStage),
+      ).length,
+      neverAssessed: active.filter((e) => e.gaps.includes("never_assessed")).length,
+      serious: active.filter((e) => e.gaps.some((g) => SERIOUS_GAPS.includes(g))).length,
+      withGaps: active.filter((e) => e.gaps.length > 0).length,
+      entries: active,
+    };
+  });
 }

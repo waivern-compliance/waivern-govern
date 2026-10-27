@@ -8,6 +8,7 @@ import {
   legalReferences,
   templates,
   entities,
+  memberships,
   organisations,
   tasks,
   users,
@@ -47,6 +48,7 @@ async function world(label: string) {
     .insert(users)
     .values({ email: `p-${crypto.randomUUID().slice(0, 8)}@example.com` })
     .returning();
+  await db.insert(memberships).values({ organisationId: org.id, userId: person.id });
   return { org, entity, person };
 }
 

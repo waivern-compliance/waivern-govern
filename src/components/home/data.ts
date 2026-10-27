@@ -1,5 +1,5 @@
 import { and, desc, eq, inArray, isNull, ne } from "drizzle-orm";
-import { db } from "@/db/client";
+import { db, scoped } from "@/db/client";
 import {
   assessments,
   mitigations,
@@ -22,7 +22,7 @@ export function myTasks(active: ActiveSession) {
 
 /** Assessments this person started or owns — what a product manager asked for. */
 export async function myAssessments(active: ActiveSession) {
-  return db
+  return scoped(active.membership.organisationId, () => db
     .select({ assessment: assessments, kind: templates.kind, templateName: templates.name })
     .from(assessments)
     .innerJoin(templateVersions, eq(templateVersions.id, assessments.templateVersionId))
@@ -34,12 +34,12 @@ export async function myAssessments(active: ActiveSession) {
       ),
     )
     .orderBy(desc(assessments.updatedAt))
-    .limit(25);
+    .limit(25));
 }
 
 /** Controls this person is on the hook for. */
 export async function myMitigations(active: ActiveSession) {
-  return db
+  return scoped(active.membership.organisationId, () => db
     .select({ mitigation: mitigations, risk: risks })
     .from(mitigations)
     .innerJoin(risks, eq(risks.id, mitigations.riskId))
@@ -51,7 +51,7 @@ export async function myMitigations(active: ActiveSession) {
       ),
     )
     .orderBy(mitigations.dueAt)
-    .limit(25);
+    .limit(25));
 }
 
 /**
@@ -72,14 +72,14 @@ export async function aiEstate(active: ActiveSession) {
       );
 
   const [aiAssessments, aiRisks] = await Promise.all([
-    db
+    scoped(active.membership.organisationId, () => db
       .select({ assessment: assessments })
       .from(assessments)
       .innerJoin(templateVersions, eq(templateVersions.id, assessments.templateVersionId))
       .innerJoin(templates, eq(templates.id, templateVersions.templateId))
       .where(and(scope, eq(templates.kind, "ai_risk")))
-      .orderBy(desc(assessments.updatedAt)),
-    db
+      .orderBy(desc(assessments.updatedAt))),
+    scoped(active.membership.organisationId, () => db
       .select({ risk: risks, assessment: assessments })
       .from(risks)
       .innerJoin(assessments, eq(assessments.id, risks.assessmentId))
@@ -91,7 +91,7 @@ export async function aiEstate(active: ActiveSession) {
           eq(templates.kind, "ai_risk"),
           ne(risks.status, "closed"),
         ),
-      ),
+      )),
   ]);
 
   return {
@@ -107,7 +107,7 @@ export async function aiEstate(active: ActiveSession) {
 /** Risks nobody has rated for residual — the ones a register quietly hides. */
 export async function unratedRisks(active: ActiveSession) {
   const entityIds = visibleEntityIds(active);
-  return db
+  return scoped(active.membership.organisationId, () => db
     .select()
     .from(risks)
     .where(
@@ -121,5 +121,5 @@ export async function unratedRisks(active: ActiveSession) {
       ),
     )
     .orderBy(desc(risks.inherentScore))
-    .limit(10);
+    .limit(10));
 }

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { and, eq } from "drizzle-orm";
-import { db } from "@/db/client";
+import { db, scoped } from "@/db/client";
 import { breaches, entities } from "@/db/schema";
 import { createAssessment } from "@/services/assessments";
 import { availableTemplates } from "@/services/templates";
@@ -57,12 +57,12 @@ export async function recordBreachAction(_prev: BreachResult, formData: FormData
   }
 
   const active = await requireCapability("record.write", { entityId });
-  const [entity] = await db
+  const [entity] = await scoped(active.membership.organisationId, () => db
     .select()
     .from(entities)
     .where(
       and(eq(entities.id, entityId), eq(entities.organisationId, active.membership.organisationId)),
-    );
+    ));
   if (!entity) return { ok: false, message: "No such entity." };
 
   const breach = await recordBreach({
@@ -192,12 +192,12 @@ export async function closeBreachAction(
 export async function startSeverityAssessmentAction(breachId: string) {
   const active = await requireCapability("assessment.create");
 
-  const [breach] = await db
+  const [breach] = await scoped(active.membership.organisationId, () => db
     .select()
     .from(breaches)
     .where(
       and(eq(breaches.id, breachId), eq(breaches.organisationId, active.membership.organisationId)),
-    );
+    ));
   if (!breach) throw new Error("No such breach");
 
   const [available] = await availableTemplates(active.membership.organisationId, "breach");

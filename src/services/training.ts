@@ -1,5 +1,5 @@
 import { and, desc, eq, inArray, isNotNull, ne } from "drizzle-orm";
-import { db } from "@/db/client";
+import { db, withOrganisation } from "@/db/client";
 import { aiUseCases, memberships, roleAssignments, trainingRecords, users } from "@/db/schema";
 import { appendAuditEvent } from "@/lib/audit";
 import {
@@ -30,52 +30,54 @@ export async function recordTraining(input: {
   evidenceRef?: string;
   actor: Actor;
 }) {
-  const course = input.courseKey ? COURSE_BY_KEY.get(input.courseKey) : null;
-  if (input.courseKey && !course) throw new TrainingRefused("No such course.");
-  const title = (input.title ?? "").trim() || course?.title || "";
-  if (!title) throw new TrainingRefused("Say what the learning was.");
-  if (Number.isNaN(input.completedAt.getTime()) || input.completedAt.getTime() > Date.now()) {
-    throw new TrainingRefused("Give the date it was completed, which cannot be in the future.");
-  }
+  return withOrganisation(input.organisationId, async () => {
+    const course = input.courseKey ? COURSE_BY_KEY.get(input.courseKey) : null;
+    if (input.courseKey && !course) throw new TrainingRefused("No such course.");
+    const title = (input.title ?? "").trim() || course?.title || "";
+    if (!title) throw new TrainingRefused("Say what the learning was.");
+    if (Number.isNaN(input.completedAt.getTime()) || input.completedAt.getTime() > Date.now()) {
+      throw new TrainingRefused("Give the date it was completed, which cannot be in the future.");
+    }
 
-  const [member] = await db
-    .select({ id: memberships.id })
-    .from(memberships)
-    .where(
-      and(eq(memberships.organisationId, input.organisationId), eq(memberships.userId, input.userId)),
-    );
-  if (!member) throw new TrainingRefused("That person is not a member.");
+    const [member] = await db
+      .select({ id: memberships.id })
+      .from(memberships)
+      .where(
+        and(eq(memberships.organisationId, input.organisationId), eq(memberships.userId, input.userId)),
+      );
+    if (!member) throw new TrainingRefused("That person is not a member.");
 
-  return db.transaction(async (tx) => {
-    const [row] = await tx
-      .insert(trainingRecords)
-      .values({
+    return db.transaction(async (tx) => {
+      const [row] = await tx
+        .insert(trainingRecords)
+        .values({
+          organisationId: input.organisationId,
+          userId: input.userId,
+          courseKey: course?.key ?? null,
+          title,
+          completedAt: input.completedAt,
+          evidenceRef: (input.evidenceRef ?? "").trim() || null,
+          selfAttested: input.actor.actorUserId === input.userId,
+          recordedByUserId: input.actor.actorUserId ?? null,
+          recordedByLabel: input.actor.actorLabel,
+        })
+        .returning();
+      await appendAuditEvent(tx, {
+        ...input.actor,
         organisationId: input.organisationId,
-        userId: input.userId,
-        courseKey: course?.key ?? null,
-        title,
-        completedAt: input.completedAt,
-        evidenceRef: (input.evidenceRef ?? "").trim() || null,
-        selfAttested: input.actor.actorUserId === input.userId,
-        recordedByUserId: input.actor.actorUserId ?? null,
-        recordedByLabel: input.actor.actorLabel,
-      })
-      .returning();
-    await appendAuditEvent(tx, {
-      ...input.actor,
-      organisationId: input.organisationId,
-      action: "training.recorded",
-      subjectType: "training_record",
-      subjectId: row.id,
-      after: {
-        userId: input.userId,
-        course: row.courseKey,
-        title,
-        completedAt: row.completedAt.toISOString(),
-        selfAttested: row.selfAttested,
-      },
+        action: "training.recorded",
+        subjectType: "training_record",
+        subjectId: row.id,
+        after: {
+          userId: input.userId,
+          course: row.courseKey,
+          title,
+          completedAt: row.completedAt.toISOString(),
+          selfAttested: row.selfAttested,
+        },
+      });
+      return row;
     });
-    return row;
   });
 }
 
@@ -126,68 +128,74 @@ export type PersonCoverage = {
 
 /** Every active member, what they need, and where they stand. */
 export async function coverage(organisationId: string, onlyUserId?: string): Promise<PersonCoverage[]> {
-  const people = await db
-    .select({ userId: users.id, email: users.email, membershipId: memberships.id })
-    .from(memberships)
-    .innerJoin(users, eq(users.id, memberships.userId))
-    .where(
-      and(
-        eq(memberships.organisationId, organisationId),
-        eq(memberships.isActive, true),
-        ...(onlyUserId ? [eq(memberships.userId, onlyUserId)] : []),
-      ),
-    )
-    .orderBy(users.email);
-  if (people.length === 0) return [];
+  return withOrganisation(organisationId, async () => {
+    const people = await db
+      .select({ userId: users.id, email: users.email, membershipId: memberships.id })
+      .from(memberships)
+      .innerJoin(users, eq(users.id, memberships.userId))
+      .where(
+        and(
+          eq(memberships.organisationId, organisationId),
+          eq(memberships.isActive, true),
+          ...(onlyUserId ? [eq(memberships.userId, onlyUserId)] : []),
+        ),
+      )
+      .orderBy(users.email);
+    if (people.length === 0) return [];
 
-  const [grants, owners, latest] = await Promise.all([
-    db
-      .select({ membershipId: roleAssignments.membershipId, role: roleAssignments.role })
-      .from(roleAssignments)
-      .where(inArray(roleAssignments.membershipId, people.map((p) => p.membershipId))),
-    aiSystemOwners(organisationId),
-    latestCompletions(organisationId, people.map((p) => p.userId)),
-  ]);
-  const rolesOf = new Map<string, AppRole[]>();
-  for (const g of grants) rolesOf.set(g.membershipId, [...(rolesOf.get(g.membershipId) ?? []), g.role as AppRole]);
+    const [grants, owners, latest] = await Promise.all([
+      db
+        .select({ membershipId: roleAssignments.membershipId, role: roleAssignments.role })
+        .from(roleAssignments)
+        .where(inArray(roleAssignments.membershipId, people.map((p) => p.membershipId))),
+      aiSystemOwners(organisationId),
+      latestCompletions(organisationId, people.map((p) => p.userId)),
+    ]);
+    const rolesOf = new Map<string, AppRole[]>();
+    for (const g of grants) rolesOf.set(g.membershipId, [...(rolesOf.get(g.membershipId) ?? []), g.role as AppRole]);
 
-  const now = new Date();
-  return people.map((p) => {
-    const roles = rolesOf.get(p.membershipId) ?? [];
-    const ownsAiSystem = owners.has(p.userId);
-    const courses = requirementsFor(roles, ownsAiSystem).map(({ course, because }) => {
-      const completedAt = latest(p.userId, course);
-      return { course, because, status: statusOf(course, completedAt, now), completedAt };
+    const now = new Date();
+    return people.map((p) => {
+      const roles = rolesOf.get(p.membershipId) ?? [];
+      const ownsAiSystem = owners.has(p.userId);
+      const courses = requirementsFor(roles, ownsAiSystem).map(({ course, because }) => {
+        const completedAt = latest(p.userId, course);
+        return { course, because, status: statusOf(course, completedAt, now), completedAt };
+      });
+      return {
+        userId: p.userId,
+        email: p.email,
+        roles,
+        ownsAiSystem,
+        courses,
+        outstanding: courses.filter((c) => c.status !== "current").length,
+      };
     });
-    return {
-      userId: p.userId,
-      email: p.email,
-      roles,
-      ownsAiSystem,
-      courses,
-      outstanding: courses.filter((c) => c.status !== "current").length,
-    };
   });
 }
 
 /** One person's record of learning, newest first, including anything outside the course list. */
 export async function historyOf(organisationId: string, userId: string) {
-  return db
-    .select()
-    .from(trainingRecords)
-    .where(and(eq(trainingRecords.organisationId, organisationId), eq(trainingRecords.userId, userId)))
-    .orderBy(desc(trainingRecords.completedAt), desc(trainingRecords.createdAt));
+  return withOrganisation(organisationId, async () => {
+    return db
+      .select()
+      .from(trainingRecords)
+      .where(and(eq(trainingRecords.organisationId, organisationId), eq(trainingRecords.userId, userId)))
+      .orderBy(desc(trainingRecords.completedAt), desc(trainingRecords.createdAt));
+  });
 }
 
 /** Owners whose owner-level learning is current, for the AI register. */
 export async function trainedOwners(organisationId: string): Promise<Set<string>> {
-  const owners = [...(await aiSystemOwners(organisationId))];
-  if (owners.length === 0) return new Set();
-  const latest = await latestCompletions(organisationId, owners);
-  const now = new Date();
-  return new Set(
-    owners.filter((id) => SRO_COURSES.every((c) => statusOf(c, latest(id, c), now) === "current")),
-  );
+  return withOrganisation(organisationId, async () => {
+    const owners = [...(await aiSystemOwners(organisationId))];
+    if (owners.length === 0) return new Set();
+    const latest = await latestCompletions(organisationId, owners);
+    const now = new Date();
+    return new Set(
+      owners.filter((id) => SRO_COURSES.every((c) => statusOf(c, latest(id, c), now) === "current")),
+    );
+  });
 }
 
 export { isCourseKey };

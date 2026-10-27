@@ -1,5 +1,5 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
-import { db } from "@/db/client";
+import { db, withOrganisation } from "@/db/client";
 import {
   approvals,
   assessments,
@@ -62,80 +62,82 @@ export class RoutingRefused extends Error {
 }
 
 export async function workflowsFor(organisationId: string): Promise<WorkflowView[]> {
-  const definitions = await db
-    .select()
-    .from(workflowDefinitions)
-    .where(
-      and(
-        eq(workflowDefinitions.organisationId, organisationId),
-        eq(workflowDefinitions.isActive, true),
-      ),
-    )
-    .orderBy(asc(workflowDefinitions.templateKind));
-  if (definitions.length === 0) return [];
+  return withOrganisation(organisationId, async () => {
+    const definitions = await db
+      .select()
+      .from(workflowDefinitions)
+      .where(
+        and(
+          eq(workflowDefinitions.organisationId, organisationId),
+          eq(workflowDefinitions.isActive, true),
+        ),
+      )
+      .orderBy(asc(workflowDefinitions.templateKind));
+    if (definitions.length === 0) return [];
 
-  const stages = await db
-    .select()
-    .from(workflowStages)
-    .where(inArray(workflowStages.workflowDefinitionId, definitions.map((d) => d.id)))
-    .orderBy(asc(workflowStages.position));
+    const stages = await db
+      .select()
+      .from(workflowStages)
+      .where(inArray(workflowStages.workflowDefinitionId, definitions.map((d) => d.id)))
+      .orderBy(asc(workflowStages.position));
 
-  // Who holds which role, so a rule can be shown as the people it resolves to.
-  const holders = await db
-    .select({
-      role: roleAssignments.role,
-      email: users.email,
-      entityName: entities.name,
-      active: memberships.isActive,
-    })
-    .from(roleAssignments)
-    .innerJoin(memberships, eq(memberships.id, roleAssignments.membershipId))
-    .innerJoin(users, eq(users.id, memberships.userId))
-    .leftJoin(entities, eq(entities.id, roleAssignments.entityId))
-    .where(eq(memberships.organisationId, organisationId))
-    .orderBy(asc(users.email));
+    // Who holds which role, so a rule can be shown as the people it resolves to.
+    const holders = await db
+      .select({
+        role: roleAssignments.role,
+        email: users.email,
+        entityName: entities.name,
+        active: memberships.isActive,
+      })
+      .from(roleAssignments)
+      .innerJoin(memberships, eq(memberships.id, roleAssignments.membershipId))
+      .innerJoin(users, eq(users.id, memberships.userId))
+      .leftJoin(entities, eq(entities.id, roleAssignments.entityId))
+      .where(eq(memberships.organisationId, organisationId))
+      .orderBy(asc(users.email));
 
-  const waiting = await db
-    .select({ stageId: approvals.stageId })
-    .from(approvals)
-    .innerJoin(assessments, eq(assessments.id, approvals.assessmentId))
-    .where(
-      and(eq(assessments.organisationId, organisationId), eq(approvals.status, "pending")),
-    );
-  const pendingByStage = new Map<string, number>();
-  for (const row of waiting) {
-    if (row.stageId) pendingByStage.set(row.stageId, (pendingByStage.get(row.stageId) ?? 0) + 1);
-  }
+    const waiting = await db
+      .select({ stageId: approvals.stageId })
+      .from(approvals)
+      .innerJoin(assessments, eq(assessments.id, approvals.assessmentId))
+      .where(
+        and(eq(assessments.organisationId, organisationId), eq(approvals.status, "pending")),
+      );
+    const pendingByStage = new Map<string, number>();
+    for (const row of waiting) {
+      if (row.stageId) pendingByStage.set(row.stageId, (pendingByStage.get(row.stageId) ?? 0) + 1);
+    }
 
-  return definitions.map((definition) => ({
-    id: definition.id,
-    templateKind: definition.templateKind,
-    name: definition.name,
-    stages: stages
-      .filter((s) => s.workflowDefinitionId === definition.id)
-      .map((s) => ({
-        id: s.id,
-        position: s.position,
-        name: s.name,
-        requiredRole: s.requiredRole as AppRole,
-        roleLabel: ROLE_LABEL[s.requiredRole as AppRole] ?? s.requiredRole,
-        condition: s.condition,
-        appliesWhen: describeRouting(s.condition),
-        slaHours: s.slaHours,
-        boardName: s.boardName ?? null,
-        // An owner can decide anything, so they are eligible for every gate.
-        // Once per person and place: somebody holding two roles that both
-        // qualify — AI governance and its lead — is still one approver.
-        eligible: [
-          ...new Map(
-            holders
-              .filter((h) => h.active && mayDecideStage([h.role], s.requiredRole))
-              .map((h) => [`${h.email}|${h.entityName ?? ""}`, { email: h.email, entityName: h.entityName }]),
-          ).values(),
-        ],
-        pending: pendingByStage.get(s.id) ?? 0,
-      })),
-  }));
+    return definitions.map((definition) => ({
+      id: definition.id,
+      templateKind: definition.templateKind,
+      name: definition.name,
+      stages: stages
+        .filter((s) => s.workflowDefinitionId === definition.id)
+        .map((s) => ({
+          id: s.id,
+          position: s.position,
+          name: s.name,
+          requiredRole: s.requiredRole as AppRole,
+          roleLabel: ROLE_LABEL[s.requiredRole as AppRole] ?? s.requiredRole,
+          condition: s.condition,
+          appliesWhen: describeRouting(s.condition),
+          slaHours: s.slaHours,
+          boardName: s.boardName ?? null,
+          // An owner can decide anything, so they are eligible for every gate.
+          // Once per person and place: somebody holding two roles that both
+          // qualify — AI governance and its lead — is still one approver.
+          eligible: [
+            ...new Map(
+              holders
+                .filter((h) => h.active && mayDecideStage([h.role], s.requiredRole))
+                .map((h) => [`${h.email}|${h.entityName ?? ""}`, { email: h.email, entityName: h.entityName }]),
+            ).values(),
+          ],
+          pending: pendingByStage.get(s.id) ?? 0,
+        })),
+    }));
+  });
 }
 
 /**
@@ -186,66 +188,68 @@ export async function updateStage(input: {
   kinds?: readonly string[] | null;
   actor: Actor;
 }) {
-  const { stage, definition } = await stageIn(input.organisationId, input.stageId);
-  reachKind(definition.templateKind, input.kinds);
-  const boardName =
-    input.boardName === undefined ? stage.boardName : input.boardName?.trim() || null;
+  return withOrganisation(input.organisationId, async () => {
+    const { stage, definition } = await stageIn(input.organisationId, input.stageId);
+    reachKind(definition.templateKind, input.kinds);
+    const boardName =
+      input.boardName === undefined ? stage.boardName : input.boardName?.trim() || null;
 
-  const name = input.name.trim();
-  if (!name) throw new RoutingRefused("A stage needs a name — it is what the approver sees.");
-  if (input.slaHours !== null && (input.slaHours < 1 || input.slaHours > 24 * 90)) {
-    throw new RoutingRefused("A service level must be between an hour and ninety days.");
-  }
+    const name = input.name.trim();
+    if (!name) throw new RoutingRefused("A stage needs a name — it is what the approver sees.");
+    if (input.slaHours !== null && (input.slaHours < 1 || input.slaHours > 24 * 90)) {
+      throw new RoutingRefused("A service level must be between an hour and ninety days.");
+    }
 
-  const condition = input.condition ?? stage.condition;
-  const parsed = routingCondition.safeParse(condition);
-  if (!parsed.success) throw new RoutingRefused("That condition is not one this platform understands.");
+    const condition = input.condition ?? stage.condition;
+    const parsed = routingCondition.safeParse(condition);
+    if (!parsed.success) throw new RoutingRefused("That condition is not one this platform understands.");
 
-  return db.transaction(async (tx) => {
-    await tx
-      .update(workflowStages)
-      .set({
-        name,
-        requiredRole: input.requiredRole,
-        slaHours: input.slaHours,
-        condition: parsed.data,
-        boardName,
-      })
-      .where(eq(workflowStages.id, stage.id));
+    return db.transaction(async (tx) => {
+      await tx
+        .update(workflowStages)
+        .set({
+          name,
+          requiredRole: input.requiredRole,
+          slaHours: input.slaHours,
+          condition: parsed.data,
+          boardName,
+        })
+        .where(eq(workflowStages.id, stage.id));
 
-    // Open gates follow the rule. The approval row carries its own copy of the
-    // required role so a decided approval stays a record of who was entitled
-    // to decide it at the time — only the undecided ones are moved.
-    const redirected = await tx
-      .update(approvals)
-      .set({ requiredRole: input.requiredRole, name, boardName })
-      .where(and(eq(approvals.stageId, stage.id), eq(approvals.status, "pending")))
-      .returning({ id: approvals.id });
+      // Open gates follow the rule. The approval row carries its own copy of the
+      // required role so a decided approval stays a record of who was entitled
+      // to decide it at the time — only the undecided ones are moved.
+      const redirected = await tx
+        .update(approvals)
+        .set({ requiredRole: input.requiredRole, name, boardName })
+        .where(and(eq(approvals.stageId, stage.id), eq(approvals.status, "pending")))
+        .returning({ id: approvals.id });
 
-    await appendAuditEvent(tx, {
-      ...input.actor,
-      organisationId: input.organisationId,
-      action: "workflow.stage.updated",
-      subjectType: "workflow_stage",
-      subjectId: stage.id,
-      before: {
-        name: stage.name,
-        requiredRole: stage.requiredRole,
-        slaHours: stage.slaHours,
-        condition: stage.condition,
-        boardName: stage.boardName,
-      },
-      after: {
-        name,
-        requiredRole: input.requiredRole,
-        slaHours: input.slaHours,
-        condition: parsed.data,
-        boardName,
-        pendingRedirected: redirected.length,
-      },
+      await appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        action: "workflow.stage.updated",
+        subjectType: "workflow_stage",
+        subjectId: stage.id,
+        before: {
+          name: stage.name,
+          requiredRole: stage.requiredRole,
+          slaHours: stage.slaHours,
+          condition: stage.condition,
+          boardName: stage.boardName,
+        },
+        after: {
+          name,
+          requiredRole: input.requiredRole,
+          slaHours: input.slaHours,
+          condition: parsed.data,
+          boardName,
+          pendingRedirected: redirected.length,
+        },
+      });
+
+      return { redirected: redirected.length };
     });
-
-    return { redirected: redirected.length };
   });
 }
 
@@ -269,59 +273,61 @@ export async function addStage(input: {
   kinds?: readonly string[] | null;
   actor: Actor;
 }) {
-  const name = input.name.trim();
-  if (!name) throw new RoutingRefused("A stage needs a name — it is what the approver sees.");
-  const parsed = routingCondition.safeParse(input.condition);
-  if (!parsed.success) throw new RoutingRefused("That condition is not one this platform understands.");
+  return withOrganisation(input.organisationId, async () => {
+    const name = input.name.trim();
+    if (!name) throw new RoutingRefused("A stage needs a name — it is what the approver sees.");
+    const parsed = routingCondition.safeParse(input.condition);
+    if (!parsed.success) throw new RoutingRefused("That condition is not one this platform understands.");
 
-  return db.transaction(async (tx) => {
-    const [definition] = await tx
-      .select()
-      .from(workflowDefinitions)
-      .where(
-        and(
-          eq(workflowDefinitions.id, input.workflowDefinitionId),
-          eq(workflowDefinitions.organisationId, input.organisationId),
-        ),
-      );
-    if (!definition) throw new RoutingRefused("That workflow does not exist.");
-    reachKind(definition.templateKind, input.kinds);
+    return db.transaction(async (tx) => {
+      const [definition] = await tx
+        .select()
+        .from(workflowDefinitions)
+        .where(
+          and(
+            eq(workflowDefinitions.id, input.workflowDefinitionId),
+            eq(workflowDefinitions.organisationId, input.organisationId),
+          ),
+        );
+      if (!definition) throw new RoutingRefused("That workflow does not exist.");
+      reachKind(definition.templateKind, input.kinds);
 
-    const existing = await tx
-      .select({ position: workflowStages.position })
-      .from(workflowStages)
-      .where(eq(workflowStages.workflowDefinitionId, definition.id));
-    const position = Math.max(0, ...existing.map((e) => e.position)) + 1;
+      const existing = await tx
+        .select({ position: workflowStages.position })
+        .from(workflowStages)
+        .where(eq(workflowStages.workflowDefinitionId, definition.id));
+      const position = Math.max(0, ...existing.map((e) => e.position)) + 1;
 
-    const [stage] = await tx
-      .insert(workflowStages)
-      .values({
-        workflowDefinitionId: definition.id,
-        position,
-        name,
-        requiredRole: input.requiredRole,
-        condition: parsed.data,
-        slaHours: input.slaHours ?? null,
-        boardName: input.boardName?.trim() || null,
-      })
-      .returning();
+      const [stage] = await tx
+        .insert(workflowStages)
+        .values({
+          workflowDefinitionId: definition.id,
+          position,
+          name,
+          requiredRole: input.requiredRole,
+          condition: parsed.data,
+          slaHours: input.slaHours ?? null,
+          boardName: input.boardName?.trim() || null,
+        })
+        .returning();
 
-    await appendAuditEvent(tx, {
-      ...input.actor,
-      organisationId: input.organisationId,
-      action: "workflow.stage.added",
-      subjectType: "workflow_stage",
-      subjectId: stage.id,
-      after: {
-        workflow: definition.name,
-        position,
-        name,
-        requiredRole: input.requiredRole,
-        boardName: stage.boardName,
-        condition: parsed.data,
-      },
+      await appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        action: "workflow.stage.added",
+        subjectType: "workflow_stage",
+        subjectId: stage.id,
+        after: {
+          workflow: definition.name,
+          position,
+          name,
+          requiredRole: input.requiredRole,
+          boardName: stage.boardName,
+          condition: parsed.data,
+        },
+      });
+      return stage;
     });
-    return stage;
   });
 }
 
@@ -332,12 +338,14 @@ export async function addStage(input: {
  * assessment of that kind then has no route to approval at all.
  */
 export async function shippedWorkflowsMissing(organisationId: string) {
-  const held = await db
-    .select({ kind: workflowDefinitions.templateKind })
-    .from(workflowDefinitions)
-    .where(eq(workflowDefinitions.organisationId, organisationId));
-  const kinds = new Set(held.map((h) => h.kind));
-  return DEFAULT_WORKFLOWS.filter((w) => !kinds.has(w.templateKind));
+  return withOrganisation(organisationId, async () => {
+    const held = await db
+      .select({ kind: workflowDefinitions.templateKind })
+      .from(workflowDefinitions)
+      .where(eq(workflowDefinitions.organisationId, organisationId));
+    const kinds = new Set(held.map((h) => h.kind));
+    return DEFAULT_WORKFLOWS.filter((w) => !kinds.has(w.templateKind));
+  });
 }
 
 /** Install the shipped workflows an organisation is missing. Never touches one it has. */
@@ -347,18 +355,83 @@ export async function installShippedWorkflows(input: {
   kinds?: readonly string[] | null;
   actor: Actor;
 }) {
-  const installed: string[] = [];
-  for (const spec of await shippedWorkflowsMissing(input.organisationId)) {
-    if (input.kinds && !input.kinds.includes(spec.templateKind)) continue;
-    await db.transaction(async (tx) => {
-      const [definition] = await tx
-        .insert(workflowDefinitions)
-        .values({
+  return withOrganisation(input.organisationId, async () => {
+    const installed: string[] = [];
+    for (const spec of await shippedWorkflowsMissing(input.organisationId)) {
+      if (input.kinds && !input.kinds.includes(spec.templateKind)) continue;
+      await db.transaction(async (tx) => {
+        const [definition] = await tx
+          .insert(workflowDefinitions)
+          .values({
+            organisationId: input.organisationId,
+            templateKind: spec.templateKind,
+            name: spec.name,
+          })
+          .returning();
+        for (const s of spec.stages) {
+          await tx.insert(workflowStages).values({
+            workflowDefinitionId: definition.id,
+            position: s.position,
+            name: s.name,
+            requiredRole: s.requiredRole,
+            condition: s.condition,
+            slaHours: s.slaHours,
+            boardName: s.boardName ?? null,
+          });
+        }
+        await appendAuditEvent(tx, {
+          ...input.actor,
           organisationId: input.organisationId,
-          templateKind: spec.templateKind,
-          name: spec.name,
-        })
-        .returning();
+          action: "workflow.installed",
+          subjectType: "workflow_definition",
+          subjectId: definition.id,
+          after: {
+            templateKind: spec.templateKind,
+            stages: spec.stages.map((s) => ({ name: s.name, requiredRole: s.requiredRole })),
+          },
+        });
+      });
+      installed.push(spec.name);
+    }
+    return installed;
+  });
+}
+
+/** Restore the shipped workflow for one kind, when somebody has edited it into a corner. */
+export async function resetWorkflow(input: {
+  organisationId: string;
+  templateKind: string;
+  kinds?: readonly string[] | null;
+  actor: Actor;
+}) {
+  return withOrganisation(input.organisationId, async () => {
+    reachKind(input.templateKind, input.kinds);
+    const spec = DEFAULT_WORKFLOWS.find((w) => w.templateKind === input.templateKind);
+    if (!spec) throw new RoutingRefused("There is no shipped workflow for that kind of assessment.");
+
+    return db.transaction(async (tx) => {
+      const [definition] = await tx
+        .select()
+        .from(workflowDefinitions)
+        .where(
+          and(
+            eq(workflowDefinitions.organisationId, input.organisationId),
+            eq(workflowDefinitions.templateKind, spec.templateKind),
+            eq(workflowDefinitions.isActive, true),
+          ),
+        );
+      if (!definition) throw new RoutingRefused("There is no active workflow for that kind.");
+
+      const existing = await tx
+        .select()
+        .from(workflowStages)
+        .where(eq(workflowStages.workflowDefinitionId, definition.id));
+
+      // Stages are replaced, not deleted outright: an approval keeps its stage
+      // reference, and dropping the row would sever a decided gate from the rule
+      // that produced it. The FK is "set null" for exactly that reason, so the
+      // history survives with its own copy of the role and name.
+      await tx.delete(workflowStages).where(eq(workflowStages.workflowDefinitionId, definition.id));
       for (const s of spec.stages) {
         await tx.insert(workflowStages).values({
           workflowDefinitionId: definition.id,
@@ -370,77 +443,16 @@ export async function installShippedWorkflows(input: {
           boardName: s.boardName ?? null,
         });
       }
+
       await appendAuditEvent(tx, {
         ...input.actor,
         organisationId: input.organisationId,
-        action: "workflow.installed",
+        action: "workflow.reset",
         subjectType: "workflow_definition",
         subjectId: definition.id,
-        after: {
-          templateKind: spec.templateKind,
-          stages: spec.stages.map((s) => ({ name: s.name, requiredRole: s.requiredRole })),
-        },
+        before: { stages: existing.map((s) => ({ name: s.name, requiredRole: s.requiredRole })) },
+        after: { stages: spec.stages.map((s) => ({ name: s.name, requiredRole: s.requiredRole })) },
       });
-    });
-    installed.push(spec.name);
-  }
-  return installed;
-}
-
-/** Restore the shipped workflow for one kind, when somebody has edited it into a corner. */
-export async function resetWorkflow(input: {
-  organisationId: string;
-  templateKind: string;
-  kinds?: readonly string[] | null;
-  actor: Actor;
-}) {
-  reachKind(input.templateKind, input.kinds);
-  const spec = DEFAULT_WORKFLOWS.find((w) => w.templateKind === input.templateKind);
-  if (!spec) throw new RoutingRefused("There is no shipped workflow for that kind of assessment.");
-
-  return db.transaction(async (tx) => {
-    const [definition] = await tx
-      .select()
-      .from(workflowDefinitions)
-      .where(
-        and(
-          eq(workflowDefinitions.organisationId, input.organisationId),
-          eq(workflowDefinitions.templateKind, spec.templateKind),
-          eq(workflowDefinitions.isActive, true),
-        ),
-      );
-    if (!definition) throw new RoutingRefused("There is no active workflow for that kind.");
-
-    const existing = await tx
-      .select()
-      .from(workflowStages)
-      .where(eq(workflowStages.workflowDefinitionId, definition.id));
-
-    // Stages are replaced, not deleted outright: an approval keeps its stage
-    // reference, and dropping the row would sever a decided gate from the rule
-    // that produced it. The FK is "set null" for exactly that reason, so the
-    // history survives with its own copy of the role and name.
-    await tx.delete(workflowStages).where(eq(workflowStages.workflowDefinitionId, definition.id));
-    for (const s of spec.stages) {
-      await tx.insert(workflowStages).values({
-        workflowDefinitionId: definition.id,
-        position: s.position,
-        name: s.name,
-        requiredRole: s.requiredRole,
-        condition: s.condition,
-        slaHours: s.slaHours,
-        boardName: s.boardName ?? null,
-      });
-    }
-
-    await appendAuditEvent(tx, {
-      ...input.actor,
-      organisationId: input.organisationId,
-      action: "workflow.reset",
-      subjectType: "workflow_definition",
-      subjectId: definition.id,
-      before: { stages: existing.map((s) => ({ name: s.name, requiredRole: s.requiredRole })) },
-      after: { stages: spec.stages.map((s) => ({ name: s.name, requiredRole: s.requiredRole })) },
     });
   });
 }

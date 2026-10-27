@@ -2,7 +2,7 @@ import Link from "next/link";
 import { HelpLink } from "@/components/help/HelpLink";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
-import { db } from "@/db/client";
+import { db, scoped } from "@/db/client";
 import { entities } from "@/db/schema";
 import { RiskTierBadge } from "@/components/RiskTierBadge";
 import { can } from "@/lib/rbac";
@@ -29,7 +29,7 @@ export default async function RisksPage() {
 const org = active.membership.organisationId;
   const [rows, orgEntities, lapsed, scale] = await Promise.all([
     listRisks(org, visibleEntityIds(active)),
-    db.select().from(entities).where(eq(entities.organisationId, org)),
+    scoped(org, () => db.select().from(entities).where(eq(entities.organisationId, org))),
     expiredAcceptances(org),
     riskScaleOf(org),
   ]);

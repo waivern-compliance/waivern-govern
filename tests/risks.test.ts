@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, describe, it } from "node:test";
 import { eq, sql } from "drizzle-orm";
 import { db, sql as pg } from "@/db/client";
-import { entities, organisations, riskAcceptances, users } from "@/db/schema";
+import { entities, memberships, organisations, riskAcceptances, users } from "@/db/schema";
 import { verifyAuditChain } from "@/lib/audit";
 import { rate } from "@/lib/risk/scale";
 import { capabilitiesFor } from "@/lib/rbac";
@@ -52,6 +52,10 @@ async function world(label: string) {
     .insert(users)
     .values({ email: `approver-${crypto.randomUUID().slice(0, 8)}@example.com`, name: "Approver" })
     .returning();
+  await db.insert(memberships).values([
+    { organisationId: org.id, userId: owner.id },
+    { organisationId: org.id, userId: approver.id },
+  ]);
   return { org, entity, owner, approver };
 }
 

@@ -1,5 +1,5 @@
 import { and, count, eq, ne, or } from "drizzle-orm";
-import { db } from "@/db/client";
+import { db, withOrganisation } from "@/db/client";
 import {
   aiUseCases,
   assessments,
@@ -46,76 +46,78 @@ export class HandoverRefused extends Error {
 const first = async (query: Promise<Array<{ n: number }>>) => (await query)[0]?.n ?? 0;
 
 export async function holdingsOf(organisationId: string, userId: string): Promise<Holding> {
-  const n = { n: count() };
-  const [openTasks, owned, activities, supplierCount, ai, breachCount] = await Promise.all([
-    first(
-      db
-        .select(n)
-        .from(tasks)
-        .where(
-          and(
-            eq(tasks.organisationId, organisationId),
-            eq(tasks.assigneeUserId, userId),
-            ne(tasks.status, "done"),
+  return withOrganisation(organisationId, async () => {
+    const n = { n: count() };
+    const [openTasks, owned, activities, supplierCount, ai, breachCount] = await Promise.all([
+      first(
+        db
+          .select(n)
+          .from(tasks)
+          .where(
+            and(
+              eq(tasks.organisationId, organisationId),
+              eq(tasks.assigneeUserId, userId),
+              ne(tasks.status, "done"),
+            ),
           ),
-        ),
-    ),
-    first(
-      db
-        .select(n)
-        .from(assessments)
-        .where(
-          and(eq(assessments.organisationId, organisationId), eq(assessments.ownerId, userId)),
-        ),
-    ),
-    first(
-      db
-        .select(n)
-        .from(processingActivities)
-        .where(
-          and(
-            eq(processingActivities.organisationId, organisationId),
-            eq(processingActivities.ownerId, userId),
+      ),
+      first(
+        db
+          .select(n)
+          .from(assessments)
+          .where(
+            and(eq(assessments.organisationId, organisationId), eq(assessments.ownerId, userId)),
           ),
-        ),
-    ),
-    first(
-      db
-        .select(n)
-        .from(suppliers)
-        .where(and(eq(suppliers.organisationId, organisationId), eq(suppliers.ownerId, userId))),
-    ),
-    first(
-      db
-        .select(n)
-        .from(aiUseCases)
-        .where(
-          and(
-            eq(aiUseCases.organisationId, organisationId),
-            or(eq(aiUseCases.ownerId, userId), eq(aiUseCases.governanceOfficerId, userId)),
+      ),
+      first(
+        db
+          .select(n)
+          .from(processingActivities)
+          .where(
+            and(
+              eq(processingActivities.organisationId, organisationId),
+              eq(processingActivities.ownerId, userId),
+            ),
           ),
-        ),
-    ),
-    first(
-      db
-        .select(n)
-        .from(breaches)
-        .where(and(eq(breaches.organisationId, organisationId), eq(breaches.ownerId, userId))),
-    ),
-  ]);
+      ),
+      first(
+        db
+          .select(n)
+          .from(suppliers)
+          .where(and(eq(suppliers.organisationId, organisationId), eq(suppliers.ownerId, userId))),
+      ),
+      first(
+        db
+          .select(n)
+          .from(aiUseCases)
+          .where(
+            and(
+              eq(aiUseCases.organisationId, organisationId),
+              or(eq(aiUseCases.ownerId, userId), eq(aiUseCases.governanceOfficerId, userId)),
+            ),
+          ),
+      ),
+      first(
+        db
+          .select(n)
+          .from(breaches)
+          .where(and(eq(breaches.organisationId, organisationId), eq(breaches.ownerId, userId))),
+      ),
+    ]);
 
-  const holding = {
-    openTasks,
-    assessments: owned,
-    activities,
-    suppliers: supplierCount,
-    aiSystems: ai,
-    breaches: breachCount,
-    total: 0,
-  };
-  holding.total =
-    openTasks + owned + activities + supplierCount + ai + breachCount;
-  return holding;
+    const holding = {
+      openTasks,
+      assessments: owned,
+      activities,
+      suppliers: supplierCount,
+      aiSystems: ai,
+      breaches: breachCount,
+      total: 0,
+    };
+    holding.total =
+      openTasks + owned + activities + supplierCount + ai + breachCount;
+    return holding;
+  });
 }
 
 /**
@@ -128,17 +130,19 @@ export async function holdingsOf(organisationId: string, userId: string): Promis
  * be absent, not represented by a value the column cannot hold.
  */
 export async function candidatesFor(organisationId: string, exclude?: string) {
-  const scope = [
-    eq(memberships.organisationId, organisationId),
-    eq(memberships.isActive, true),
-    ...(exclude ? [ne(memberships.userId, exclude)] : []),
-  ];
+  return withOrganisation(organisationId, async () => {
+    const scope = [
+      eq(memberships.organisationId, organisationId),
+      eq(memberships.isActive, true),
+      ...(exclude ? [ne(memberships.userId, exclude)] : []),
+    ];
 
-  return db
-    .select({ id: users.id, email: users.email })
-    .from(memberships)
-    .innerJoin(users, eq(users.id, memberships.userId))
-    .where(and(...scope));
+    return db
+      .select({ id: users.id, email: users.email })
+      .from(memberships)
+      .innerJoin(users, eq(users.id, memberships.userId))
+      .where(and(...scope));
+  });
 }
 
 /**
@@ -156,116 +160,118 @@ export async function handOver(input: {
   toUserId: string;
   actor: Actor;
 }) {
-  if (input.fromUserId === input.toUserId) {
-    throw new HandoverRefused("Choose somebody other than the person handing over.");
-  }
+  return withOrganisation(input.organisationId, async () => {
+    if (input.fromUserId === input.toUserId) {
+      throw new HandoverRefused("Choose somebody other than the person handing over.");
+    }
 
-  const [recipient] = await db
-    .select({ id: memberships.id, email: users.email, active: memberships.isActive })
-    .from(memberships)
-    .innerJoin(users, eq(users.id, memberships.userId))
-    .where(
-      and(
-        eq(memberships.organisationId, input.organisationId),
-        eq(memberships.userId, input.toUserId),
-      ),
-    );
-  if (!recipient) throw new HandoverRefused("That person is not a member of this organisation.");
-  if (!recipient.active) {
-    throw new HandoverRefused(
-      "That person's access is suspended, so handing work to them would strand it again.",
-    );
-  }
+    const [recipient] = await db
+      .select({ id: memberships.id, email: users.email, active: memberships.isActive })
+      .from(memberships)
+      .innerJoin(users, eq(users.id, memberships.userId))
+      .where(
+        and(
+          eq(memberships.organisationId, input.organisationId),
+          eq(memberships.userId, input.toUserId),
+        ),
+      );
+    if (!recipient) throw new HandoverRefused("That person is not a member of this organisation.");
+    if (!recipient.active) {
+      throw new HandoverRefused(
+        "That person's access is suspended, so handing work to them would strand it again.",
+      );
+    }
 
-  const before = await holdingsOf(input.organisationId, input.fromUserId);
-  if (before.total === 0) return { moved: before };
+    const before = await holdingsOf(input.organisationId, input.fromUserId);
+    if (before.total === 0) return { moved: before };
 
-  const [leaver] = await db
-    .select({ email: users.email })
-    .from(users)
-    .where(eq(users.id, input.fromUserId));
+    const [leaver] = await db
+      .select({ email: users.email })
+      .from(users)
+      .where(eq(users.id, input.fromUserId));
 
-  await db.transaction(async (tx) => {
-    await tx
-      .update(tasks)
-      .set({ assigneeUserId: input.toUserId })
-      .where(
-        and(
-          eq(tasks.organisationId, input.organisationId),
-          eq(tasks.assigneeUserId, input.fromUserId),
-          ne(tasks.status, "done"),
-        ),
-      );
-    await tx
-      .update(assessments)
-      .set({ ownerId: input.toUserId })
-      .where(
-        and(
-          eq(assessments.organisationId, input.organisationId),
-          eq(assessments.ownerId, input.fromUserId),
-        ),
-      );
-    await tx
-      .update(processingActivities)
-      .set({ ownerId: input.toUserId })
-      .where(
-        and(
-          eq(processingActivities.organisationId, input.organisationId),
-          eq(processingActivities.ownerId, input.fromUserId),
-        ),
-      );
-    await tx
-      .update(suppliers)
-      .set({ ownerId: input.toUserId })
-      .where(
-        and(
-          eq(suppliers.organisationId, input.organisationId),
-          eq(suppliers.ownerId, input.fromUserId),
-        ),
-      );
-    await tx
-      .update(aiUseCases)
-      .set({ ownerId: input.toUserId })
-      .where(
-        and(
-          eq(aiUseCases.organisationId, input.organisationId),
-          eq(aiUseCases.ownerId, input.fromUserId),
-        ),
-      );
-    // The governance officer role goes with the rest of their work. Left
-    // behind, it points at somebody who has gone, and the register would show
-    // a system as looked after when nobody is looking.
-    await tx
-      .update(aiUseCases)
-      .set({ governanceOfficerId: input.toUserId })
-      .where(
-        and(
-          eq(aiUseCases.organisationId, input.organisationId),
-          eq(aiUseCases.governanceOfficerId, input.fromUserId),
-        ),
-      );
-    await tx
-      .update(breaches)
-      .set({ ownerId: input.toUserId })
-      .where(
-        and(
-          eq(breaches.organisationId, input.organisationId),
-          eq(breaches.ownerId, input.fromUserId),
-        ),
-      );
+    await db.transaction(async (tx) => {
+      await tx
+        .update(tasks)
+        .set({ assigneeUserId: input.toUserId })
+        .where(
+          and(
+            eq(tasks.organisationId, input.organisationId),
+            eq(tasks.assigneeUserId, input.fromUserId),
+            ne(tasks.status, "done"),
+          ),
+        );
+      await tx
+        .update(assessments)
+        .set({ ownerId: input.toUserId })
+        .where(
+          and(
+            eq(assessments.organisationId, input.organisationId),
+            eq(assessments.ownerId, input.fromUserId),
+          ),
+        );
+      await tx
+        .update(processingActivities)
+        .set({ ownerId: input.toUserId })
+        .where(
+          and(
+            eq(processingActivities.organisationId, input.organisationId),
+            eq(processingActivities.ownerId, input.fromUserId),
+          ),
+        );
+      await tx
+        .update(suppliers)
+        .set({ ownerId: input.toUserId })
+        .where(
+          and(
+            eq(suppliers.organisationId, input.organisationId),
+            eq(suppliers.ownerId, input.fromUserId),
+          ),
+        );
+      await tx
+        .update(aiUseCases)
+        .set({ ownerId: input.toUserId })
+        .where(
+          and(
+            eq(aiUseCases.organisationId, input.organisationId),
+            eq(aiUseCases.ownerId, input.fromUserId),
+          ),
+        );
+      // The governance officer role goes with the rest of their work. Left
+      // behind, it points at somebody who has gone, and the register would show
+      // a system as looked after when nobody is looking.
+      await tx
+        .update(aiUseCases)
+        .set({ governanceOfficerId: input.toUserId })
+        .where(
+          and(
+            eq(aiUseCases.organisationId, input.organisationId),
+            eq(aiUseCases.governanceOfficerId, input.fromUserId),
+          ),
+        );
+      await tx
+        .update(breaches)
+        .set({ ownerId: input.toUserId })
+        .where(
+          and(
+            eq(breaches.organisationId, input.organisationId),
+            eq(breaches.ownerId, input.fromUserId),
+          ),
+        );
 
-    await appendAuditEvent(tx, {
-      ...input.actor,
-      organisationId: input.organisationId,
-      action: "membership.handover",
-      subjectType: "user",
-      subjectId: input.fromUserId,
-      before: { heldBy: leaver?.email ?? input.fromUserId, ...before },
-      after: { nowHeldBy: recipient.email },
+      await appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        action: "membership.handover",
+        subjectType: "user",
+        subjectId: input.fromUserId,
+        before: { heldBy: leaver?.email ?? input.fromUserId, ...before },
+        after: { nowHeldBy: recipient.email },
+      });
     });
-  });
 
-  return { moved: before };
+    return { moved: before };
+  });
 }
 
 /**

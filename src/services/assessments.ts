@@ -1,5 +1,5 @@
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
-import { db, type Db } from "@/db/client";
+import { db, type Db, withOrganisation } from "@/db/client";
 import {
   approvals,
   assessmentAnswers,
@@ -20,6 +20,7 @@ import {
 import { evaluate, questionsOf, type AnswerValue, type Answers } from "@/lib/templates/logic";
 import { score } from "@/lib/templates/scoring";
 import type { Actor } from "./templates";
+import { assertEntityIn, assertMemberOf, assertRecordIn } from "./tenancy-guards";
 
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
@@ -94,63 +95,71 @@ export async function createAssessment(input: {
   supersedesId?: string;
   actor: Actor;
 }) {
-  return db.transaction(async (tx) => {
-    const [version] = await tx
-      .select({ version: templateVersions, template: templates })
-      .from(templateVersions)
-      .innerJoin(templates, eq(templates.id, templateVersions.templateId))
-      .where(eq(templateVersions.id, input.templateVersionId));
+  return withOrganisation(input.organisationId, async () => {
+    return db.transaction(async (tx) => {
+      const [version] = await tx
+        .select({ version: templateVersions, template: templates })
+        .from(templateVersions)
+        .innerJoin(templates, eq(templates.id, templateVersions.templateId))
+        .where(eq(templateVersions.id, input.templateVersionId));
 
-    if (!version) throw new Error("No such template version");
-    if (version.version.status !== "published") {
-      // Starting work against a draft would mean the questions could change
-      // underneath the person answering them.
-      throw new Error("Assessments can only be started from a published template version");
-    }
-    if (version.template.organisationId !== input.organisationId) {
-      throw new Error("That template belongs to a different organisation");
-    }
+      if (!version) throw new Error("No such template version");
+      if (version.version.status !== "published") {
+        // Starting work against a draft would mean the questions could change
+        // underneath the person answering them.
+        throw new Error("Assessments can only be started from a published template version");
+      }
+      if (version.template.organisationId !== input.organisationId) {
+        throw new Error("That template belongs to a different organisation");
+      }
+      await assertEntityIn(input.organisationId, input.entityId, tx);
+      if (input.subjectType && input.subjectId) {
+        await assertRecordIn(input.organisationId, input.subjectType, input.subjectId, tx);
+      }
+      if (input.ownerId) await assertMemberOf(input.organisationId, input.ownerId, tx);
+      if (input.supersedesId) await assertRecordIn(input.organisationId, "assessment", input.supersedesId, tx);
 
-    const reference = await nextReference(
-      tx,
-      input.organisationId,
-      version.template.kind,
-      new Date().getUTCFullYear(),
-    );
+      const reference = await nextReference(
+        tx,
+        input.organisationId,
+        version.template.kind,
+        new Date().getUTCFullYear(),
+      );
 
-    const [assessment] = await tx
-      .insert(assessments)
-      .values({
+      const [assessment] = await tx
+        .insert(assessments)
+        .values({
+          organisationId: input.organisationId,
+          entityId: input.entityId,
+          templateVersionId: input.templateVersionId,
+          reference,
+          title: input.title,
+          subjectType: input.subjectType,
+          subjectId: input.subjectId,
+          ownerId: input.ownerId,
+          dueAt: input.dueAt,
+          supersedesId: input.supersedesId,
+          status: "draft",
+        })
+        .returning();
+
+      await appendAuditEvent(tx, {
+        ...input.actor,
         organisationId: input.organisationId,
+        action: "assessment.created",
+        subjectType: "assessment",
+        subjectId: assessment.id,
         entityId: input.entityId,
-        templateVersionId: input.templateVersionId,
-        reference,
-        title: input.title,
-        subjectType: input.subjectType,
-        subjectId: input.subjectId,
-        ownerId: input.ownerId,
-        dueAt: input.dueAt,
-        supersedesId: input.supersedesId,
-        status: "draft",
-      })
-      .returning();
+        after: {
+          reference,
+          title: assessment.title,
+          template: version.template.name,
+          templateVersion: version.version.version,
+        },
+      });
 
-    await appendAuditEvent(tx, {
-      ...input.actor,
-      organisationId: input.organisationId,
-      action: "assessment.created",
-      subjectType: "assessment",
-      subjectId: assessment.id,
-      entityId: input.entityId,
-      after: {
-        reference,
-        title: assessment.title,
-        template: version.template.name,
-        templateVersion: version.version.version,
-      },
+      return assessment;
     });
-
-    return assessment;
   });
 }
 
@@ -168,36 +177,38 @@ export async function loadAssessment(
   assessmentId: string,
   organisationId: string,
 ): Promise<LoadedAssessment | null> {
-  const [row] = await db
-    .select({ assessment: assessments, version: templateVersions, template: templates })
-    .from(assessments)
-    .innerJoin(templateVersions, eq(templateVersions.id, assessments.templateVersionId))
-    .innerJoin(templates, eq(templates.id, templateVersions.templateId))
-    .where(
-      and(eq(assessments.id, assessmentId), eq(assessments.organisationId, organisationId)),
-    );
-  if (!row) return null;
+  return withOrganisation(organisationId, async () => {
+    const [row] = await db
+      .select({ assessment: assessments, version: templateVersions, template: templates })
+      .from(assessments)
+      .innerJoin(templateVersions, eq(templateVersions.id, assessments.templateVersionId))
+      .innerJoin(templates, eq(templates.id, templateVersions.templateId))
+      .where(
+        and(eq(assessments.id, assessmentId), eq(assessments.organisationId, organisationId)),
+      );
+    if (!row) return null;
 
-  const stored = await db
-    .select()
-    .from(assessmentAnswers)
-    .where(eq(assessmentAnswers.assessmentId, assessmentId));
+    const stored = await db
+      .select()
+      .from(assessmentAnswers)
+      .where(eq(assessmentAnswers.assessmentId, assessmentId));
 
-  const answers: Answers = {};
-  const answerMeta: Record<string, { by: string; at: Date }> = {};
-  for (const a of stored) {
-    answers[a.questionKey] = a.value;
-    answerMeta[a.questionKey] = { by: a.answeredByLabel, at: a.answeredAt };
-  }
+    const answers: Answers = {};
+    const answerMeta: Record<string, { by: string; at: Date }> = {};
+    for (const a of stored) {
+      answers[a.questionKey] = a.value;
+      answerMeta[a.questionKey] = { by: a.answeredByLabel, at: a.answeredAt };
+    }
 
-  return {
-    assessment: row.assessment,
-    definition: row.version.definition,
-    templateName: row.template.name,
-    templateKind: row.template.kind,
-    answers,
-    answerMeta,
-  };
+    return {
+      assessment: row.assessment,
+      definition: row.version.definition,
+      templateName: row.template.name,
+      templateKind: row.template.kind,
+      answers,
+      answerMeta,
+    };
+  });
 }
 
 /**
@@ -214,93 +225,95 @@ export async function saveAnswers(input: {
   allowedSection?: string | null;
   actor: Actor;
 }) {
-  const loaded = await loadAssessment(input.assessmentId, input.organisationId);
-  if (!loaded) throw new Error("No such assessment");
-  if (!EDITABLE.includes(loaded.assessment.status as (typeof EDITABLE)[number])) {
-    throw new AssessmentNotEditable(loaded.assessment.status);
-  }
-
-  const schema = loaded.definition.schema;
-  const index = new Map(
-    questionsOf(schema).map(({ question, section }) => [question.key, { question, section }]),
-  );
-
-  const problems: AnswerProblem[] = [];
-  for (const key of Object.keys(input.answers)) {
-    const entry = index.get(key);
-    if (!entry) {
-      problems.push({ questionKey: key, message: "No such question in this template" });
-      continue;
+  return withOrganisation(input.organisationId, async () => {
+    const loaded = await loadAssessment(input.assessmentId, input.organisationId);
+    if (!loaded) throw new Error("No such assessment");
+    if (!EDITABLE.includes(loaded.assessment.status as (typeof EDITABLE)[number])) {
+      throw new AssessmentNotEditable(loaded.assessment.status);
     }
-    if (input.allowedSection && entry.section.key !== input.allowedSection) {
-      problems.push({ questionKey: key, message: "Outside the section you were asked about" });
+
+    const schema = loaded.definition.schema;
+    const index = new Map(
+      questionsOf(schema).map(({ question, section }) => [question.key, { question, section }]),
+    );
+
+    const problems: AnswerProblem[] = [];
+    for (const key of Object.keys(input.answers)) {
+      const entry = index.get(key);
+      if (!entry) {
+        problems.push({ questionKey: key, message: "No such question in this template" });
+        continue;
+      }
+      if (input.allowedSection && entry.section.key !== input.allowedSection) {
+        problems.push({ questionKey: key, message: "Outside the section you were asked about" });
+      }
     }
-  }
-  if (problems.length) throw new AnswersRejected(problems);
+    if (problems.length) throw new AnswersRejected(problems);
 
-  // Visibility is judged against the merged state, because a batch can both set
-  // a trigger and answer what it reveals.
-  const merged: Answers = { ...loaded.answers, ...input.answers };
-  const evaluation = evaluate(schema, merged);
+    // Visibility is judged against the merged state, because a batch can both set
+    // a trigger and answer what it reveals.
+    const merged: Answers = { ...loaded.answers, ...input.answers };
+    const evaluation = evaluate(schema, merged);
 
-  const shapeProblems: AnswerProblem[] = [];
-  for (const [key, value] of Object.entries(input.answers)) {
-    const entry = index.get(key)!;
-    if (!evaluation.questions[key]?.visible) {
-      shapeProblems.push({ questionKey: key, message: "This question is not currently being asked" });
-      continue;
-    }
-    const problem = validateAnswer(entry.question, value);
-    if (problem) shapeProblems.push(problem);
-  }
-  if (shapeProblems.length) throw new AnswersRejected(shapeProblems);
-
-  const now = new Date();
-
-  return db.transaction(async (tx) => {
+    const shapeProblems: AnswerProblem[] = [];
     for (const [key, value] of Object.entries(input.answers)) {
-      await tx
-        .insert(assessmentAnswers)
-        .values({
-          assessmentId: input.assessmentId,
-          questionKey: key,
-          value,
-          answeredByUserId: input.actor.actorUserId ?? null,
-          answeredByLabel: input.actor.actorLabel,
-          answeredAt: now,
-        })
-        .onConflictDoUpdate({
-          target: [assessmentAnswers.assessmentId, assessmentAnswers.questionKey],
-          set: {
+      const entry = index.get(key)!;
+      if (!evaluation.questions[key]?.visible) {
+        shapeProblems.push({ questionKey: key, message: "This question is not currently being asked" });
+        continue;
+      }
+      const problem = validateAnswer(entry.question, value);
+      if (problem) shapeProblems.push(problem);
+    }
+    if (shapeProblems.length) throw new AnswersRejected(shapeProblems);
+
+    const now = new Date();
+
+    return db.transaction(async (tx) => {
+      for (const [key, value] of Object.entries(input.answers)) {
+        await tx
+          .insert(assessmentAnswers)
+          .values({
+            assessmentId: input.assessmentId,
+            questionKey: key,
             value,
             answeredByUserId: input.actor.actorUserId ?? null,
             answeredByLabel: input.actor.actorLabel,
             answeredAt: now,
-          },
-        });
-    }
+          })
+          .onConflictDoUpdate({
+            target: [assessmentAnswers.assessmentId, assessmentAnswers.questionKey],
+            set: {
+              value,
+              answeredByUserId: input.actor.actorUserId ?? null,
+              answeredByLabel: input.actor.actorLabel,
+              answeredAt: now,
+            },
+          });
+      }
 
-    const nextStatus =
-      loaded.assessment.status === "draft" ? "in_progress" : loaded.assessment.status;
-    await tx
-      .update(assessments)
-      .set({ updatedAt: now, status: nextStatus })
-      .where(eq(assessments.id, input.assessmentId));
+      const nextStatus =
+        loaded.assessment.status === "draft" ? "in_progress" : loaded.assessment.status;
+      await tx
+        .update(assessments)
+        .set({ updatedAt: now, status: nextStatus })
+        .where(eq(assessments.id, input.assessmentId));
 
-    // One event per batch rather than per field. A per-keystroke audit trail is
-    // unreadable, and an unreadable trail is not evidence of anything.
-    await appendAuditEvent(tx, {
-      ...input.actor,
-      organisationId: input.organisationId,
-      action: "assessment.answers_saved",
-      subjectType: "assessment",
-      subjectId: input.assessmentId,
-      entityId: loaded.assessment.entityId,
-      after: { questions: Object.keys(input.answers).sort(), values: input.answers },
-      metadata: input.allowedSection ? { section: input.allowedSection } : {},
+      // One event per batch rather than per field. A per-keystroke audit trail is
+      // unreadable, and an unreadable trail is not evidence of anything.
+      await appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        action: "assessment.answers_saved",
+        subjectType: "assessment",
+        subjectId: input.assessmentId,
+        entityId: loaded.assessment.entityId,
+        after: { questions: Object.keys(input.answers).sort(), values: input.answers },
+        metadata: input.allowedSection ? { section: input.allowedSection } : {},
+      });
+
+      return { saved: Object.keys(input.answers).length, evaluation };
     });
-
-    return { saved: Object.keys(input.answers).length, evaluation };
   });
 }
 
@@ -316,66 +329,68 @@ export async function submitAssessment(input: {
   organisationId: string;
   actor: Actor;
 }) {
-  const loaded = await loadAssessment(input.assessmentId, input.organisationId);
-  if (!loaded) throw new Error("No such assessment");
-  if (!EDITABLE.includes(loaded.assessment.status as (typeof EDITABLE)[number])) {
-    throw new AssessmentNotEditable(loaded.assessment.status);
-  }
+  return withOrganisation(input.organisationId, async () => {
+    const loaded = await loadAssessment(input.assessmentId, input.organisationId);
+    if (!loaded) throw new Error("No such assessment");
+    if (!EDITABLE.includes(loaded.assessment.status as (typeof EDITABLE)[number])) {
+      throw new AssessmentNotEditable(loaded.assessment.status);
+    }
 
-  const { schema, scoring } = loaded.definition;
-  const check = checkForSubmission(schema, loaded.answers);
-  if (!check.ready) throw new SubmissionIncomplete(check.missing, check.invalid);
+    const { schema, scoring } = loaded.definition;
+    const check = checkForSubmission(schema, loaded.answers);
+    if (!check.ready) throw new SubmissionIncomplete(check.missing, check.invalid);
 
-  const scored = score(scoring, schema, loaded.answers, check.evaluation);
-  const now = new Date();
+    const scored = score(scoring, schema, loaded.answers, check.evaluation);
+    const now = new Date();
 
-  return db.transaction(async (tx) => {
-    const [{ revision }] = await tx
-      .select({ revision: sql<number>`coalesce(max(${assessmentRevisions.revision}), 0) + 1` })
-      .from(assessmentRevisions)
-      .where(eq(assessmentRevisions.assessmentId, input.assessmentId));
+    return db.transaction(async (tx) => {
+      const [{ revision }] = await tx
+        .select({ revision: sql<number>`coalesce(max(${assessmentRevisions.revision}), 0) + 1` })
+        .from(assessmentRevisions)
+        .where(eq(assessmentRevisions.assessmentId, input.assessmentId));
 
-    await tx.insert(assessmentRevisions).values({
-      assessmentId: input.assessmentId,
-      revision: Number(revision),
-      reason: "submitted",
-      answers: loaded.answers as Record<string, AnswerValue>,
-      evaluation: check.evaluation,
-      score: scored,
-      createdByUserId: input.actor.actorUserId ?? null,
-      createdByLabel: input.actor.actorLabel,
-      createdAt: now,
-    });
-
-    const [updated] = await tx
-      .update(assessments)
-      .set({
-        status: "in_review",
-        submittedAt: now,
-        updatedAt: now,
-        scoreValue: scored.scored ? scored.score : null,
-        scoreBand: scored.scored ? scored.band.label : null,
-        scoreTier: scored.scored ? scored.band.tier : null,
-      })
-      .where(eq(assessments.id, input.assessmentId))
-      .returning();
-
-    await appendAuditEvent(tx, {
-      ...input.actor,
-      organisationId: input.organisationId,
-      action: "assessment.submitted",
-      subjectType: "assessment",
-      subjectId: input.assessmentId,
-      entityId: loaded.assessment.entityId,
-      before: { status: loaded.assessment.status },
-      after: {
-        status: "in_review",
+      await tx.insert(assessmentRevisions).values({
+        assessmentId: input.assessmentId,
         revision: Number(revision),
-        score: scored.scored ? { value: scored.score, band: scored.band.label, tier: scored.band.tier } : null,
-      },
-    });
+        reason: "submitted",
+        answers: loaded.answers as Record<string, AnswerValue>,
+        evaluation: check.evaluation,
+        score: scored,
+        createdByUserId: input.actor.actorUserId ?? null,
+        createdByLabel: input.actor.actorLabel,
+        createdAt: now,
+      });
 
-    return { assessment: updated, revision: Number(revision), score: scored };
+      const [updated] = await tx
+        .update(assessments)
+        .set({
+          status: "in_review",
+          submittedAt: now,
+          updatedAt: now,
+          scoreValue: scored.scored ? scored.score : null,
+          scoreBand: scored.scored ? scored.band.label : null,
+          scoreTier: scored.scored ? scored.band.tier : null,
+        })
+        .where(eq(assessments.id, input.assessmentId))
+        .returning();
+
+      await appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        action: "assessment.submitted",
+        subjectType: "assessment",
+        subjectId: input.assessmentId,
+        entityId: loaded.assessment.entityId,
+        before: { status: loaded.assessment.status },
+        after: {
+          status: "in_review",
+          revision: Number(revision),
+          score: scored.scored ? { value: scored.score, band: scored.band.label, tier: scored.band.tier } : null,
+        },
+      });
+
+      return { assessment: updated, revision: Number(revision), score: scored };
+    });
   });
 }
 
@@ -387,73 +402,77 @@ export async function returnAssessment(input: {
   reason: string;
   actor: Actor;
 }) {
-  if (!input.reason.trim()) {
-    // Returning work without saying why wastes the next person's time and is
-    // the most common reason these loops go round more than once.
-    throw new Error("A reason is required when returning an assessment");
-  }
+  return withOrganisation(input.organisationId, async () => {
+    if (!input.reason.trim()) {
+      // Returning work without saying why wastes the next person's time and is
+      // the most common reason these loops go round more than once.
+      throw new Error("A reason is required when returning an assessment");
+    }
 
-  const loaded = await loadAssessment(input.assessmentId, input.organisationId);
-  if (!loaded) throw new Error("No such assessment");
-  if (loaded.assessment.status !== "in_review") {
-    throw new Error("Only an assessment in review can be returned");
-  }
+    const loaded = await loadAssessment(input.assessmentId, input.organisationId);
+    if (!loaded) throw new Error("No such assessment");
+    if (loaded.assessment.status !== "in_review") {
+      throw new Error("Only an assessment in review can be returned");
+    }
 
-  const now = new Date();
-  return db.transaction(async (tx) => {
-    const [{ revision }] = await tx
-      .select({ revision: sql<number>`coalesce(max(${assessmentRevisions.revision}), 0) + 1` })
-      .from(assessmentRevisions)
-      .where(eq(assessmentRevisions.assessmentId, input.assessmentId));
+    const now = new Date();
+    return db.transaction(async (tx) => {
+      const [{ revision }] = await tx
+        .select({ revision: sql<number>`coalesce(max(${assessmentRevisions.revision}), 0) + 1` })
+        .from(assessmentRevisions)
+        .where(eq(assessmentRevisions.assessmentId, input.assessmentId));
 
-    await tx.insert(assessmentRevisions).values({
-      assessmentId: input.assessmentId,
-      revision: Number(revision),
-      reason: "returned",
-      answers: loaded.answers as Record<string, AnswerValue>,
-      evaluation: evaluate(loaded.definition.schema, loaded.answers),
-      score: null,
-      createdByUserId: input.actor.actorUserId ?? null,
-      createdByLabel: input.actor.actorLabel,
-      createdAt: now,
+      await tx.insert(assessmentRevisions).values({
+        assessmentId: input.assessmentId,
+        revision: Number(revision),
+        reason: "returned",
+        answers: loaded.answers as Record<string, AnswerValue>,
+        evaluation: evaluate(loaded.definition.schema, loaded.answers),
+        score: null,
+        createdByUserId: input.actor.actorUserId ?? null,
+        createdByLabel: input.actor.actorLabel,
+        createdAt: now,
+      });
+
+      const [updated] = await tx
+        .update(assessments)
+        .set({ status: "returned", updatedAt: now })
+        .where(eq(assessments.id, input.assessmentId))
+        .returning();
+
+      await appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        action: "assessment.returned",
+        subjectType: "assessment",
+        subjectId: input.assessmentId,
+        entityId: loaded.assessment.entityId,
+        before: { status: "in_review" },
+        after: { status: "returned", reason: input.reason },
+      });
+
+      return updated;
     });
-
-    const [updated] = await tx
-      .update(assessments)
-      .set({ status: "returned", updatedAt: now })
-      .where(eq(assessments.id, input.assessmentId))
-      .returning();
-
-    await appendAuditEvent(tx, {
-      ...input.actor,
-      organisationId: input.organisationId,
-      action: "assessment.returned",
-      subjectType: "assessment",
-      subjectId: input.assessmentId,
-      entityId: loaded.assessment.entityId,
-      before: { status: "in_review" },
-      after: { status: "returned", reason: input.reason },
-    });
-
-    return updated;
   });
 }
 
 export async function listAssessments(organisationId: string, entityIds: string[] | null) {
-  return db
-    .select({ assessment: assessments, templateName: templates.name })
-    .from(assessments)
-    .innerJoin(templateVersions, eq(templateVersions.id, assessments.templateVersionId))
-    .innerJoin(templates, eq(templates.id, templateVersions.templateId))
-    .where(
-      entityIds === null
-        ? eq(assessments.organisationId, organisationId)
-        : and(
-            eq(assessments.organisationId, organisationId),
-            inArray(assessments.entityId, entityIds),
-          ),
-    )
-    .orderBy(desc(assessments.updatedAt));
+  return withOrganisation(organisationId, async () => {
+    return db
+      .select({ assessment: assessments, templateName: templates.name })
+      .from(assessments)
+      .innerJoin(templateVersions, eq(templateVersions.id, assessments.templateVersionId))
+      .innerJoin(templates, eq(templates.id, templateVersions.templateId))
+      .where(
+        entityIds === null
+          ? eq(assessments.organisationId, organisationId)
+          : and(
+              eq(assessments.organisationId, organisationId),
+              inArray(assessments.entityId, entityIds),
+            ),
+      )
+      .orderBy(desc(assessments.updatedAt));
+  });
 }
 
 export async function assessmentHistory(assessmentId: string) {
@@ -477,82 +496,84 @@ export async function reviewSchedule(
   entityIds: string[] | null,
   now = new Date(),
 ) {
-  const scope =
-    entityIds === null
-      ? and(eq(assessments.organisationId, organisationId), eq(assessments.status, "approved"))
-      : and(
-          eq(assessments.organisationId, organisationId),
-          eq(assessments.status, "approved"),
-          inArray(assessments.entityId, entityIds),
-        );
+  return withOrganisation(organisationId, async () => {
+    const scope =
+      entityIds === null
+        ? and(eq(assessments.organisationId, organisationId), eq(assessments.status, "approved"))
+        : and(
+            eq(assessments.organisationId, organisationId),
+            eq(assessments.status, "approved"),
+            inArray(assessments.entityId, entityIds),
+          );
 
-  const rows = await db
-    .select({
-      assessment: assessments,
-      entityName: entities.name,
-      templateName: templates.name,
-      kind: templates.kind,
-      ownerEmail: users.email,
-    })
-    .from(assessments)
-    .innerJoin(entities, eq(entities.id, assessments.entityId))
-    .innerJoin(templateVersions, eq(templateVersions.id, assessments.templateVersionId))
-    .innerJoin(templates, eq(templates.id, templateVersions.templateId))
-    .leftJoin(users, eq(users.id, assessments.ownerId))
-    .where(scope)
-    .orderBy(asc(assessments.reviewDueAt));
+    const rows = await db
+      .select({
+        assessment: assessments,
+        entityName: entities.name,
+        templateName: templates.name,
+        kind: templates.kind,
+        ownerEmail: users.email,
+      })
+      .from(assessments)
+      .innerJoin(entities, eq(entities.id, assessments.entityId))
+      .innerJoin(templateVersions, eq(templateVersions.id, assessments.templateVersionId))
+      .innerJoin(templates, eq(templates.id, templateVersions.templateId))
+      .leftJoin(users, eq(users.id, assessments.ownerId))
+      .where(scope)
+      .orderBy(asc(assessments.reviewDueAt));
 
-  // Who signed each one off. Shown because a reassessment needs them back, and
-  // "who approved this" is otherwise a question requiring somebody to dig.
-  const ids = rows.map((r) => r.assessment.id);
-  const signatories = ids.length
-    ? await db
-        .select({
-          assessmentId: approvals.assessmentId,
-          name: approvals.name,
-          label: approvals.decidedByLabel,
-          decidedAt: approvals.decidedAt,
-        })
-        .from(approvals)
-        .where(and(inArray(approvals.assessmentId, ids), eq(approvals.status, "approved")))
-        .orderBy(asc(approvals.position))
-    : [];
+    // Who signed each one off. Shown because a reassessment needs them back, and
+    // "who approved this" is otherwise a question requiring somebody to dig.
+    const ids = rows.map((r) => r.assessment.id);
+    const signatories = ids.length
+      ? await db
+          .select({
+            assessmentId: approvals.assessmentId,
+            name: approvals.name,
+            label: approvals.decidedByLabel,
+            decidedAt: approvals.decidedAt,
+          })
+          .from(approvals)
+          .where(and(inArray(approvals.assessmentId, ids), eq(approvals.status, "approved")))
+          .orderBy(asc(approvals.position))
+      : [];
 
-  const byAssessment = new Map<string, typeof signatories>();
-  for (const s of signatories) {
-    const list = byAssessment.get(s.assessmentId) ?? [];
-    list.push(s);
-    byAssessment.set(s.assessmentId, list);
-  }
+    const byAssessment = new Map<string, typeof signatories>();
+    for (const s of signatories) {
+      const list = byAssessment.get(s.assessmentId) ?? [];
+      list.push(s);
+      byAssessment.set(s.assessmentId, list);
+    }
 
-  const items = rows.map((r) => {
-    const due = r.assessment.reviewDueAt;
-    const days = due ? Math.floor((due.getTime() - now.getTime()) / 86_400_000) : null;
+    const items = rows.map((r) => {
+      const due = r.assessment.reviewDueAt;
+      const days = due ? Math.floor((due.getTime() - now.getTime()) / 86_400_000) : null;
+      return {
+        ...r,
+        approvedBy: byAssessment.get(r.assessment.id) ?? [],
+        daysUntilDue: days,
+        state:
+          due === null
+            ? ("unscheduled" as const)
+            : days! < 0
+              ? ("overdue" as const)
+              : days! <= 60
+                ? ("due_soon" as const)
+                : ("scheduled" as const),
+      };
+    });
+
     return {
-      ...r,
-      approvedBy: byAssessment.get(r.assessment.id) ?? [],
-      daysUntilDue: days,
-      state:
-        due === null
-          ? ("unscheduled" as const)
-          : days! < 0
-            ? ("overdue" as const)
-            : days! <= 60
-              ? ("due_soon" as const)
-              : ("scheduled" as const),
+      overdue: items.filter((i) => i.state === "overdue"),
+      dueSoon: items.filter((i) => i.state === "due_soon"),
+      scheduled: items.filter((i) => i.state === "scheduled"),
+      /**
+       * Approved with no review date. Either the template declares no cycle, or
+       * it was approved before this existed — worth showing rather than hiding,
+       * since an assessment nobody will revisit looks identical to one nobody
+       * needs to.
+       */
+      unscheduled: items.filter((i) => i.state === "unscheduled"),
     };
   });
-
-  return {
-    overdue: items.filter((i) => i.state === "overdue"),
-    dueSoon: items.filter((i) => i.state === "due_soon"),
-    scheduled: items.filter((i) => i.state === "scheduled"),
-    /**
-     * Approved with no review date. Either the template declares no cycle, or
-     * it was approved before this existed — worth showing rather than hiding,
-     * since an assessment nobody will revisit looks identical to one nobody
-     * needs to.
-     */
-    unscheduled: items.filter((i) => i.state === "unscheduled"),
-  };
 }

@@ -1,5 +1,5 @@
 import { and, count, eq, isNotNull, isNull, lt, lte, ne, notExists, sql } from "drizzle-orm";
-import { db } from "@/db/client";
+import { db, withOrganisation } from "@/db/client";
 import {
   aiUseCases,
   assessments,
@@ -314,17 +314,19 @@ export async function guidanceFor(input: {
   organisationId: string;
   chosen: Mode | null;
 }): Promise<Guidance> {
-  const t = await tally(input.organisationId);
-  const stage = input.chosen && input.chosen !== "off" ? input.chosen : derivedStage(t);
-  const steps = STEPS[stage].map((step) => ({ ...step, ...measure(step, t) }));
+  return withOrganisation(input.organisationId, async () => {
+    const t = await tally(input.organisationId);
+    const stage = input.chosen && input.chosen !== "off" ? input.chosen : derivedStage(t);
+    const steps = STEPS[stage].map((step) => ({ ...step, ...measure(step, t) }));
 
-  return {
-    mode: input.chosen ?? stage,
-    chosen: input.chosen !== null,
-    stage,
-    steps,
-    remaining: steps.filter((s) => !s.done).length,
-  };
+    return {
+      mode: input.chosen ?? stage,
+      chosen: input.chosen !== null,
+      stage,
+      steps,
+      remaining: steps.filter((s) => !s.done).length,
+    };
+  });
 }
 
 /** A person's own choice. Grants nothing, so it needs no capability. */

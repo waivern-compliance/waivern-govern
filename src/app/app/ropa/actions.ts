@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { and, eq } from "drizzle-orm";
-import { db } from "@/db/client";
+import { db, scoped } from "@/db/client";
 import { entities } from "@/db/schema";
 import { requireCapability } from "@/lib/session";
 import { createActivity, updateActivity } from "@/services/ropa";
@@ -40,7 +40,7 @@ export async function recordActivity(formData: FormData) {
 
   const active = await requireCapability("record.write", { entityId });
 
-  const [entity] = await db
+  const [entity] = await scoped(active.membership.organisationId, () => db
     .select()
     .from(entities)
     .where(
@@ -48,7 +48,7 @@ export async function recordActivity(formData: FormData) {
         eq(entities.id, entityId),
         eq(entities.organisationId, active.membership.organisationId),
       ),
-    );
+    ));
   if (!entity) throw new Error("No such entity");
 
   const activity = await createActivity({

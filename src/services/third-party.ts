@@ -1,5 +1,5 @@
 import { and, asc, desc, eq, inArray, isNull, lte, ne, or, sql } from "drizzle-orm";
-import { db } from "@/db/client";
+import { db, withOrganisation } from "@/db/client";
 import {
   aiUseCases,
   assessmentRevisions,
@@ -22,6 +22,7 @@ import {
   type AiSupplierGap,
 } from "@/lib/thirdparty/ai-procurement";
 import type { Actor } from "./templates";
+import { assertMemberOf } from "./tenancy-guards";
 
 /**
  * Third parties, and whether Article 28 is actually satisfied for each.
@@ -195,61 +196,63 @@ export type SupplierRow = {
 export async function aiSupplierAssessments(
   organisationId: string,
 ): Promise<Map<string, AiSupplierAssessed>> {
-  const rows = await db
-    .select({ assessment: assessments, definition: templateVersions.definition })
-    .from(assessments)
-    .innerJoin(templateVersions, eq(templateVersions.id, assessments.templateVersionId))
-    .innerJoin(templates, eq(templates.id, templateVersions.templateId))
-    .where(
-      and(
-        eq(assessments.organisationId, organisationId),
-        eq(assessments.subjectType, "supplier"),
-        eq(templates.kind, "supplier_record"),
-        ne(assessments.status, "withdrawn"),
-        ne(assessments.status, "superseded"),
-      ),
-    )
-    .orderBy(desc(assessments.updatedAt));
+  return withOrganisation(organisationId, async () => {
+    const rows = await db
+      .select({ assessment: assessments, definition: templateVersions.definition })
+      .from(assessments)
+      .innerJoin(templateVersions, eq(templateVersions.id, assessments.templateVersionId))
+      .innerJoin(templates, eq(templates.id, templateVersions.templateId))
+      .where(
+        and(
+          eq(assessments.organisationId, organisationId),
+          eq(assessments.subjectType, "supplier"),
+          eq(templates.kind, "supplier_record"),
+          ne(assessments.status, "withdrawn"),
+          ne(assessments.status, "superseded"),
+        ),
+      )
+      .orderBy(desc(assessments.updatedAt));
 
-  const chosen = new Map<string, typeof assessments.$inferSelect>();
-  for (const { assessment, definition } of rows) {
-    if (!isAiSupplierDefinition(definition)) continue;
-    const id = assessment.subjectId!;
-    const held = chosen.get(id);
-    if (!held || (held.status !== "approved" && assessment.status === "approved")) {
-      chosen.set(id, assessment);
+    const chosen = new Map<string, typeof assessments.$inferSelect>();
+    for (const { assessment, definition } of rows) {
+      if (!isAiSupplierDefinition(definition)) continue;
+      const id = assessment.subjectId!;
+      const held = chosen.get(id);
+      if (!held || (held.status !== "approved" && assessment.status === "approved")) {
+        chosen.set(id, assessment);
+      }
     }
-  }
 
-  const approvedIds = [...chosen.values()].filter((a) => a.status === "approved").map((a) => a.id);
-  const answersById = new Map<string, Record<string, unknown>>();
-  if (approvedIds.length > 0) {
-    const revisions = await db
-      .selectDistinctOn([assessmentRevisions.assessmentId], {
-        assessmentId: assessmentRevisions.assessmentId,
-        answers: assessmentRevisions.answers,
-      })
-      .from(assessmentRevisions)
-      .where(inArray(assessmentRevisions.assessmentId, approvedIds))
-      .orderBy(assessmentRevisions.assessmentId, desc(assessmentRevisions.revision));
-    for (const r of revisions) answersById.set(r.assessmentId, r.answers as Record<string, unknown>);
-  }
+    const approvedIds = [...chosen.values()].filter((a) => a.status === "approved").map((a) => a.id);
+    const answersById = new Map<string, Record<string, unknown>>();
+    if (approvedIds.length > 0) {
+      const revisions = await db
+        .selectDistinctOn([assessmentRevisions.assessmentId], {
+          assessmentId: assessmentRevisions.assessmentId,
+          answers: assessmentRevisions.answers,
+        })
+        .from(assessmentRevisions)
+        .where(inArray(assessmentRevisions.assessmentId, approvedIds))
+        .orderBy(assessmentRevisions.assessmentId, desc(assessmentRevisions.revision));
+      for (const r of revisions) answersById.set(r.assessmentId, r.answers as Record<string, unknown>);
+    }
 
-  const result = new Map<string, AiSupplierAssessed>();
-  for (const [supplierId, a] of chosen) {
-    const answers = answersById.get(a.id) ?? {};
-    const text = (key: string) => (typeof answers[key] === "string" ? (answers[key] as string) : null);
-    result.set(supplierId, {
-      reference: a.reference,
-      assessmentId: a.id,
-      approved: a.status === "approved",
-      trainsOnOurData: text("trains_on_our_data"),
-      contractTerms: Array.isArray(answers.contract_terms) ? (answers.contract_terms as string[]) : [],
-      recommendation: text("recommendation"),
-      conditions: text("conditions"),
-    });
-  }
-  return result;
+    const result = new Map<string, AiSupplierAssessed>();
+    for (const [supplierId, a] of chosen) {
+      const answers = answersById.get(a.id) ?? {};
+      const text = (key: string) => (typeof answers[key] === "string" ? (answers[key] as string) : null);
+      result.set(supplierId, {
+        reference: a.reference,
+        assessmentId: a.id,
+        approved: a.status === "approved",
+        trainsOnOurData: text("trains_on_our_data"),
+        contractTerms: Array.isArray(answers.contract_terms) ? (answers.contract_terms as string[]) : [],
+        recommendation: text("recommendation"),
+        conditions: text("conditions"),
+      });
+    }
+    return result;
+  });
 }
 
 /** How many AI systems still in use name each supplier. */
@@ -321,25 +324,31 @@ async function rowsFor(organisationId: string): Promise<SupplierRow[]> {
 }
 
 export async function listSuppliers(organisationId: string) {
-  return rowsFor(organisationId);
+  return withOrganisation(organisationId, async () => {
+    return rowsFor(organisationId);
+  });
 }
 
 export async function loadSupplier(supplierId: string, organisationId: string) {
-  const rows = await rowsFor(organisationId);
-  return rows.find((r) => r.supplier.id === supplierId) ?? null;
+  return withOrganisation(organisationId, async () => {
+    const rows = await rowsFor(organisationId);
+    return rows.find((r) => r.supplier.id === supplierId) ?? null;
+  });
 }
 
 export async function registerHealth(organisationId: string) {
-  const rows = await rowsFor(organisationId);
-  return {
-    total: rows.length,
-    covered: rows.filter((r) => r.hardGaps.length === 0).length,
-    uncovered: rows.filter((r) => r.hardGaps.length > 0).length,
-    expiring: rows.filter((r) => r.gaps.includes("dpa_expiring")).length,
-    untriaged: rows.filter((r) => r.gaps.includes("never_reviewed")).length,
-    fromScan: rows.filter((r) => r.supplier.sourceConnectionId !== null).length,
-    rows,
-  };
+  return withOrganisation(organisationId, async () => {
+    const rows = await rowsFor(organisationId);
+    return {
+      total: rows.length,
+      covered: rows.filter((r) => r.hardGaps.length === 0).length,
+      uncovered: rows.filter((r) => r.hardGaps.length > 0).length,
+      expiring: rows.filter((r) => r.gaps.includes("dpa_expiring")).length,
+      untriaged: rows.filter((r) => r.gaps.includes("never_reviewed")).length,
+      fromScan: rows.filter((r) => r.supplier.sourceConnectionId !== null).length,
+      rows,
+    };
+  });
 }
 
 /** Slug used to keep a supplier unique per organisation. */
@@ -355,31 +364,34 @@ export async function createSupplier(input: {
   ownerId?: string | null;
   actor: Actor;
 }) {
-  return db.transaction(async (tx) => {
-    const [row] = await tx
-      .insert(suppliers)
-      .values({
-        organisationId: input.organisationId,
-        name: input.name,
-        canonicalKey: canonicalise(input.name),
-        description: input.description,
-        categories: input.categories ?? [],
-        ownerId: input.ownerId ?? null,
-        // Typed in by a person, so it needs no separate confirmation.
-        reviewedAt: new Date(),
-        reviewedBy: input.actor.actorUserId ?? null,
-      })
-      .returning();
+  return withOrganisation(input.organisationId, async () => {
+    if (input.ownerId) await assertMemberOf(input.organisationId, input.ownerId);
+    return db.transaction(async (tx) => {
+      const [row] = await tx
+        .insert(suppliers)
+        .values({
+          organisationId: input.organisationId,
+          name: input.name,
+          canonicalKey: canonicalise(input.name),
+          description: input.description,
+          categories: input.categories ?? [],
+          ownerId: input.ownerId ?? null,
+          // Typed in by a person, so it needs no separate confirmation.
+          reviewedAt: new Date(),
+          reviewedBy: input.actor.actorUserId ?? null,
+        })
+        .returning();
 
-    await appendAuditEvent(tx, {
-      ...input.actor,
-      organisationId: input.organisationId,
-      action: "supplier.created",
-      subjectType: "supplier",
-      subjectId: row.id,
-      after: { name: row.name },
+      await appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        action: "supplier.created",
+        subjectType: "supplier",
+        subjectId: row.id,
+        after: { name: row.name },
+      });
+      return row;
     });
-    return row;
   });
 }
 
@@ -397,40 +409,43 @@ export async function updateSupplier(input: {
   confirmBy?: string;
   actor: Actor;
 }) {
-  // A cleared name field arrives as an empty string, and was saved as one.
-  if (input.changes.name !== undefined && !input.changes.name.trim()) {
-    throw new Error("A third party needs a name.");
-  }
-  return db.transaction(async (tx) => {
-    const [before] = await tx
-      .select()
-      .from(suppliers)
-      .where(
-        and(eq(suppliers.id, input.supplierId), eq(suppliers.organisationId, input.organisationId)),
-      );
-    if (!before) throw new Error("No such supplier");
+  return withOrganisation(input.organisationId, async () => {
+    // A cleared name field arrives as an empty string, and was saved as one.
+    if (input.changes.name !== undefined && !input.changes.name.trim()) {
+      throw new Error("A third party needs a name.");
+    }
+    if (input.changes.ownerId) await assertMemberOf(input.organisationId, input.changes.ownerId);
+    return db.transaction(async (tx) => {
+      const [before] = await tx
+        .select()
+        .from(suppliers)
+        .where(
+          and(eq(suppliers.id, input.supplierId), eq(suppliers.organisationId, input.organisationId)),
+        );
+      if (!before) throw new Error("No such supplier");
 
-    const [after] = await tx
-      .update(suppliers)
-      .set({
-        ...input.changes,
-        ...(input.changes.name ? { canonicalKey: canonicalise(input.changes.name) } : {}),
-        ...(input.confirmBy ? { reviewedAt: new Date(), reviewedBy: input.confirmBy } : {}),
-        updatedAt: new Date(),
-      })
-      .where(eq(suppliers.id, input.supplierId))
-      .returning();
+      const [after] = await tx
+        .update(suppliers)
+        .set({
+          ...input.changes,
+          ...(input.changes.name ? { canonicalKey: canonicalise(input.changes.name) } : {}),
+          ...(input.confirmBy ? { reviewedAt: new Date(), reviewedBy: input.confirmBy } : {}),
+          updatedAt: new Date(),
+        })
+        .where(eq(suppliers.id, input.supplierId))
+        .returning();
 
-    await appendAuditEvent(tx, {
-      ...input.actor,
-      organisationId: input.organisationId,
-      action: input.confirmBy ? "supplier.confirmed" : "supplier.updated",
-      subjectType: "supplier",
-      subjectId: input.supplierId,
-      before: { name: before.name, reviewedAt: before.reviewedAt, aiInvolvement: before.aiInvolvement },
-      after: { name: after.name, reviewedAt: after.reviewedAt, aiInvolvement: after.aiInvolvement },
+      await appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        action: input.confirmBy ? "supplier.confirmed" : "supplier.updated",
+        subjectType: "supplier",
+        subjectId: input.supplierId,
+        before: { name: before.name, reviewedAt: before.reviewedAt, aiInvolvement: before.aiInvolvement },
+        after: { name: after.name, reviewedAt: after.reviewedAt, aiInvolvement: after.aiInvolvement },
+      });
+      return after;
     });
-    return after;
   });
 }
 
@@ -445,58 +460,62 @@ export async function recordDpa(input: {
   subProcessors?: string[];
   actor: Actor;
 }) {
-  return db.transaction(async (tx) => {
-    const [supplier] = await tx
-      .select()
-      .from(suppliers)
-      .where(
-        and(eq(suppliers.id, input.supplierId), eq(suppliers.organisationId, input.organisationId)),
-      );
-    if (!supplier) throw new Error("No such supplier");
+  return withOrganisation(input.organisationId, async () => {
+    return db.transaction(async (tx) => {
+      const [supplier] = await tx
+        .select()
+        .from(suppliers)
+        .where(
+          and(eq(suppliers.id, input.supplierId), eq(suppliers.organisationId, input.organisationId)),
+        );
+      if (!supplier) throw new Error("No such supplier");
 
-    const [row] = await tx
-      .insert(dpas)
-      .values({
+      const [row] = await tx
+        .insert(dpas)
+        .values({
+          organisationId: input.organisationId,
+          supplierId: input.supplierId,
+          title: input.title,
+          documentRef: input.documentRef,
+          signedAt: input.signedAt ?? null,
+          expiresAt: input.expiresAt ?? null,
+          transferMechanism: input.transferMechanism,
+          subProcessors: input.subProcessors ?? [],
+        })
+        .returning();
+
+      await appendAuditEvent(tx, {
+        ...input.actor,
         organisationId: input.organisationId,
-        supplierId: input.supplierId,
-        title: input.title,
-        documentRef: input.documentRef,
-        signedAt: input.signedAt ?? null,
-        expiresAt: input.expiresAt ?? null,
-        transferMechanism: input.transferMechanism,
-        subProcessors: input.subProcessors ?? [],
-      })
-      .returning();
-
-    await appendAuditEvent(tx, {
-      ...input.actor,
-      organisationId: input.organisationId,
-      action: "dpa.recorded",
-      subjectType: "dpa",
-      subjectId: row.id,
-      after: { supplier: supplier.name, title: row.title, expiresAt: row.expiresAt },
+        action: "dpa.recorded",
+        subjectType: "dpa",
+        subjectId: row.id,
+        after: { supplier: supplier.name, title: row.title, expiresAt: row.expiresAt },
+      });
+      return row;
     });
-    return row;
   });
 }
 
 /** Agreements past their end date, or close to it. Used by the sweep. */
 export async function dpasNeedingAttention(organisationId: string, within = EXPIRING_WITHIN_DAYS) {
-  const horizon = new Date(Date.now() + within * 86_400_000);
-  return db
-    .select({ dpa: dpas, supplier: suppliers.name })
-    .from(dpas)
-    .innerJoin(suppliers, eq(suppliers.id, dpas.supplierId))
-    .where(
-      and(
-        eq(dpas.organisationId, organisationId),
-        // An archived agreement is not renewed, so nagging about its expiry
-        // is noise that trains people to ignore the reminders that matter.
-        isNull(dpas.archivedAt),
-        or(lte(dpas.expiresAt, horizon), isNull(dpas.signedAt)),
-      ),
-    )
-    .orderBy(asc(dpas.expiresAt));
+  return withOrganisation(organisationId, async () => {
+    const horizon = new Date(Date.now() + within * 86_400_000);
+    return db
+      .select({ dpa: dpas, supplier: suppliers.name })
+      .from(dpas)
+      .innerJoin(suppliers, eq(suppliers.id, dpas.supplierId))
+      .where(
+        and(
+          eq(dpas.organisationId, organisationId),
+          // An archived agreement is not renewed, so nagging about its expiry
+          // is noise that trains people to ignore the reminders that matter.
+          isNull(dpas.archivedAt),
+          or(lte(dpas.expiresAt, horizon), isNull(dpas.signedAt)),
+        ),
+      )
+      .orderBy(asc(dpas.expiresAt));
+  });
 }
 
 
@@ -524,45 +543,47 @@ export async function updateDpa(input: {
   subProcessors?: string[];
   actor: Actor;
 }) {
-  return db.transaction(async (tx) => {
-    const [existing] = await tx
-      .select()
-      .from(dpas)
-      .where(and(eq(dpas.id, input.dpaId), eq(dpas.organisationId, input.organisationId)));
-    if (!existing) throw new Error("No such agreement");
+  return withOrganisation(input.organisationId, async () => {
+    return db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select()
+        .from(dpas)
+        .where(and(eq(dpas.id, input.dpaId), eq(dpas.organisationId, input.organisationId)));
+      if (!existing) throw new Error("No such agreement");
 
-    const next = {
-      title: input.title.trim(),
-      documentRef: input.documentRef?.trim() || null,
-      signedAt: input.signedAt ?? null,
-      expiresAt: input.expiresAt ?? null,
-      transferMechanism: input.transferMechanism?.trim() || null,
-      subProcessors: input.subProcessors ?? existing.subProcessors ?? [],
-    };
+      const next = {
+        title: input.title.trim(),
+        documentRef: input.documentRef?.trim() || null,
+        signedAt: input.signedAt ?? null,
+        expiresAt: input.expiresAt ?? null,
+        transferMechanism: input.transferMechanism?.trim() || null,
+        subProcessors: input.subProcessors ?? existing.subProcessors ?? [],
+      };
 
-    const [row] = await tx
-      .update(dpas)
-      .set({ ...next, updatedAt: new Date() })
-      .where(eq(dpas.id, existing.id))
-      .returning();
+      const [row] = await tx
+        .update(dpas)
+        .set({ ...next, updatedAt: new Date() })
+        .where(eq(dpas.id, existing.id))
+        .returning();
 
-    await appendAuditEvent(tx, {
-      ...input.actor,
-      organisationId: input.organisationId,
-      action: "dpa.updated",
-      subjectType: "dpa",
-      subjectId: row.id,
-      before: {
-        title: existing.title,
-        documentRef: existing.documentRef,
-        signedAt: existing.signedAt,
-        expiresAt: existing.expiresAt,
-        transferMechanism: existing.transferMechanism,
-        subProcessors: existing.subProcessors,
-      },
-      after: next,
+      await appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        action: "dpa.updated",
+        subjectType: "dpa",
+        subjectId: row.id,
+        before: {
+          title: existing.title,
+          documentRef: existing.documentRef,
+          signedAt: existing.signedAt,
+          expiresAt: existing.expiresAt,
+          transferMechanism: existing.transferMechanism,
+          subProcessors: existing.subProcessors,
+        },
+        after: next,
+      });
+      return row;
     });
-    return row;
   });
 }
 
@@ -592,44 +613,46 @@ export async function archiveDpa(input: {
   reason: string;
   actor: Actor;
 }) {
-  const reason = input.reason.trim();
-  if (reason.length < 3) {
-    throw new ArchiveRefused(
-      "Say why this agreement is being archived. An agreement that disappears " +
-        "without a reason is worse than one still listed.",
-    );
-  }
+  return withOrganisation(input.organisationId, async () => {
+    const reason = input.reason.trim();
+    if (reason.length < 3) {
+      throw new ArchiveRefused(
+        "Say why this agreement is being archived. An agreement that disappears " +
+          "without a reason is worse than one still listed.",
+      );
+    }
 
-  return db.transaction(async (tx) => {
-    const [existing] = await tx
-      .select()
-      .from(dpas)
-      .where(and(eq(dpas.id, input.dpaId), eq(dpas.organisationId, input.organisationId)));
-    if (!existing) throw new ArchiveRefused("That agreement no longer exists.");
-    if (existing.archivedAt) return existing;
+    return db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select()
+        .from(dpas)
+        .where(and(eq(dpas.id, input.dpaId), eq(dpas.organisationId, input.organisationId)));
+      if (!existing) throw new ArchiveRefused("That agreement no longer exists.");
+      if (existing.archivedAt) return existing;
 
-    const archivedAt = new Date();
-    const [row] = await tx
-      .update(dpas)
-      .set({
-        archivedAt,
-        archivedBy: input.actor.actorUserId ?? null,
-        archivedReason: reason,
-        updatedAt: archivedAt,
-      })
-      .where(eq(dpas.id, existing.id))
-      .returning();
+      const archivedAt = new Date();
+      const [row] = await tx
+        .update(dpas)
+        .set({
+          archivedAt,
+          archivedBy: input.actor.actorUserId ?? null,
+          archivedReason: reason,
+          updatedAt: archivedAt,
+        })
+        .where(eq(dpas.id, existing.id))
+        .returning();
 
-    await appendAuditEvent(tx, {
-      ...input.actor,
-      organisationId: input.organisationId,
-      action: "dpa.archived",
-      subjectType: "dpa",
-      subjectId: row.id,
-      before: { archivedAt: null },
-      after: { archivedAt, reason, title: existing.title },
+      await appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        action: "dpa.archived",
+        subjectType: "dpa",
+        subjectId: row.id,
+        before: { archivedAt: null },
+        after: { archivedAt, reason, title: existing.title },
+      });
+      return row;
     });
-    return row;
   });
 }
 
@@ -639,29 +662,31 @@ export async function restoreDpa(input: {
   dpaId: string;
   actor: Actor;
 }) {
-  return db.transaction(async (tx) => {
-    const [existing] = await tx
-      .select()
-      .from(dpas)
-      .where(and(eq(dpas.id, input.dpaId), eq(dpas.organisationId, input.organisationId)));
-    if (!existing) throw new ArchiveRefused("That agreement no longer exists.");
-    if (!existing.archivedAt) return existing;
+  return withOrganisation(input.organisationId, async () => {
+    return db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select()
+        .from(dpas)
+        .where(and(eq(dpas.id, input.dpaId), eq(dpas.organisationId, input.organisationId)));
+      if (!existing) throw new ArchiveRefused("That agreement no longer exists.");
+      if (!existing.archivedAt) return existing;
 
-    const [row] = await tx
-      .update(dpas)
-      .set({ archivedAt: null, archivedBy: null, archivedReason: null, updatedAt: new Date() })
-      .where(eq(dpas.id, existing.id))
-      .returning();
+      const [row] = await tx
+        .update(dpas)
+        .set({ archivedAt: null, archivedBy: null, archivedReason: null, updatedAt: new Date() })
+        .where(eq(dpas.id, existing.id))
+        .returning();
 
-    await appendAuditEvent(tx, {
-      ...input.actor,
-      organisationId: input.organisationId,
-      action: "dpa.restored",
-      subjectType: "dpa",
-      subjectId: row.id,
-      before: { archivedAt: existing.archivedAt, reason: existing.archivedReason },
-      after: { archivedAt: null },
+      await appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        action: "dpa.restored",
+        subjectType: "dpa",
+        subjectId: row.id,
+        before: { archivedAt: existing.archivedAt, reason: existing.archivedReason },
+        after: { archivedAt: null },
+      });
+      return row;
     });
-    return row;
   });
 }

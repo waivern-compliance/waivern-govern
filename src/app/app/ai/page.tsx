@@ -2,7 +2,7 @@ import Link from "next/link";
 import { HelpLink } from "@/components/help/HelpLink";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
-import { db } from "@/db/client";
+import { db, scoped } from "@/db/client";
 import { entities } from "@/db/schema";
 import { GapChips } from "@/components/GapChips";
 import { NotPermitted } from "@/components/NotPermitted";
@@ -37,7 +37,7 @@ export default async function AiRegisterPage() {
   const org = active.membership.organisationId;
   const [summary, orgEntities, proposals] = await Promise.all([
     registerSummary(org, visibleEntityIds(active)),
-    db.select().from(entities).where(eq(entities.organisationId, org)),
+    scoped(org, () => db.select().from(entities).where(eq(entities.organisationId, org))),
     awaitingDecision(org),
   ]);
   const mayAdd = can(active.membership.grants, "record.write");

@@ -1,5 +1,5 @@
 import { and, asc, desc, eq, gt, inArray, isNull, or } from "drizzle-orm";
-import { db } from "@/db/client";
+import { db, withOrganisation } from "@/db/client";
 import {
   approvals,
   assessmentRevisions,
@@ -212,307 +212,309 @@ async function resolveEntities(organisationId: string, named?: string[]) {
 }
 
 export async function governanceContext(scope: ExportScope): Promise<GovernanceContext> {
-  const [org] = await db
-    .select()
-    .from(organisations)
-    .where(eq(organisations.id, scope.organisationId));
-  if (!org) throw new Error("No such organisation");
+  return withOrganisation(scope.organisationId, async () => {
+    const [org] = await db
+      .select()
+      .from(organisations)
+      .where(eq(organisations.id, scope.organisationId));
+    if (!org) throw new Error("No such organisation");
 
-  const { all, selected } = await resolveEntities(scope.organisationId, scope.entities);
-  const entityIds = selected.map((e) => e.id);
-  const nameOf = new Map(all.map((e) => [e.id, e.name]));
-  const limit = Math.min(scope.limit ?? DEFAULT_LIMIT, 1000);
-  const inScope = entityIds.length > 0 ? entityIds : [""];
+    const { all, selected } = await resolveEntities(scope.organisationId, scope.entities);
+    const entityIds = selected.map((e) => e.id);
+    const nameOf = new Map(all.map((e) => [e.id, e.name]));
+    const limit = Math.min(scope.limit ?? DEFAULT_LIMIT, 1000);
+    const inScope = entityIds.length > 0 ? entityIds : [""];
 
-  const activityRows = await db
-    .select()
-    .from(processingActivities)
-    .where(
-      and(
-        eq(processingActivities.organisationId, scope.organisationId),
-        inArray(processingActivities.entityId, inScope),
-        scope.since ? gt(processingActivities.updatedAt, scope.since) : undefined,
-      ),
-    )
-    .orderBy(asc(processingActivities.reference))
-    .limit(limit);
-
-  // Only approved assessments. A draft is unfinished work, and a document
-  // generated from one would read as settled when it is not.
-  const assessmentRows = await db
-    .select({ assessment: assessments, template: templates, version: templateVersions })
-    .from(assessments)
-    .innerJoin(templateVersions, eq(templateVersions.id, assessments.templateVersionId))
-    .innerJoin(templates, eq(templates.id, templateVersions.templateId))
-    .where(
-      and(
-        eq(assessments.organisationId, scope.organisationId),
-        inArray(assessments.entityId, inScope),
-        eq(assessments.status, "approved"),
-        scope.since ? gt(assessments.updatedAt, scope.since) : undefined,
-      ),
-    )
-    .orderBy(desc(assessments.completedAt))
-    .limit(limit);
-
-  const contextAssessments: ContextAssessment[] = [];
-  for (const row of assessmentRows) {
-    const [gates, revisions] = await Promise.all([
-      db
-        .select()
-        .from(approvals)
-        .where(eq(approvals.assessmentId, row.assessment.id))
-        .orderBy(asc(approvals.position)),
-      db
-        .select()
-        .from(assessmentRevisions)
-        .where(eq(assessmentRevisions.assessmentId, row.assessment.id))
-        .orderBy(desc(assessmentRevisions.revision))
-        .limit(1),
-    ]);
-
-    // The frozen snapshot, not the live answers: it is what was approved, and
-    // it carries the evaluation so absent questions can be explained.
-    const snapshot = revisions[0];
-    const evaluation = snapshot?.evaluation;
-    const notApplicable = evaluation
-      ? Object.values(evaluation.questions)
-          .filter((q) => !q.visible)
-          .map((q) => q.key)
-      : [];
-
-    contextAssessments.push({
-      reference: row.assessment.reference,
-      entity: nameOf.get(row.assessment.entityId) ?? "",
-      title: row.assessment.title,
-      kind: row.template.kind,
-      templateName: row.template.name,
-      templateVersion: row.version.version,
-      status: row.assessment.status,
-      score:
-        row.assessment.scoreValue !== null && row.assessment.scoreBand && row.assessment.scoreTier
-          ? {
-              value: row.assessment.scoreValue,
-              band: row.assessment.scoreBand,
-              tier: row.assessment.scoreTier,
-            }
-          : null,
-      approvedAt: row.assessment.completedAt?.toISOString() ?? null,
-      approvals: gates.map((g) => ({
-        stage: g.name,
-        decision: g.status,
-        by: g.decidedByLabel,
-        at: g.decidedAt?.toISOString() ?? null,
-        rationale: g.rationale,
-        reason: g.reason,
-      })),
-      answers: (snapshot?.answers ?? {}) as Record<string, unknown>,
-      notApplicable,
-    });
-  }
-
-  const riskRows = await db
-    .select()
-    .from(risks)
-    .where(
-      and(
-        eq(risks.organisationId, scope.organisationId),
-        inArray(risks.entityId, inScope),
-        scope.since ? gt(risks.updatedAt, scope.since) : undefined,
-      ),
-    )
-    .orderBy(asc(risks.reference))
-    .limit(limit);
-
-  const contextRisks: ContextRisk[] = [];
-  for (const r of riskRows) {
-    const [treatments, live, from] = await Promise.all([
-      db.select().from(mitigations).where(eq(mitigations.riskId, r.id)),
-      db
-        .select()
-        .from(riskAcceptances)
-        .where(
-          and(
-            eq(riskAcceptances.riskId, r.id),
-            isNull(riskAcceptances.supersededAt),
-            isNull(riskAcceptances.revokedAt),
-          ),
+    const activityRows = await db
+      .select()
+      .from(processingActivities)
+      .where(
+        and(
+          eq(processingActivities.organisationId, scope.organisationId),
+          inArray(processingActivities.entityId, inScope),
+          scope.since ? gt(processingActivities.updatedAt, scope.since) : undefined,
         ),
-      r.assessmentId
-        ? db
-            .select({ reference: assessments.reference })
-            .from(assessments)
-            .where(eq(assessments.id, r.assessmentId))
-        : Promise.resolve([]),
-    ]);
+      )
+      .orderBy(asc(processingActivities.reference))
+      .limit(limit);
 
-    const acceptance = live[0];
-    contextRisks.push({
-      reference: r.reference,
-      entity: nameOf.get(r.entityId) ?? "",
-      title: r.title,
-      description: r.description,
-      status: r.status,
-      inherent: {
-        likelihood: r.inherentLikelihood,
-        impact: r.inherentImpact,
-        score: r.inherentScore,
-        tier: r.inherentTier,
-      },
-      residual:
-        r.residualLikelihood !== null && r.residualTier
-          ? {
-              likelihood: r.residualLikelihood,
-              impact: r.residualImpact!,
-              score: r.residualScore!,
-              tier: r.residualTier,
-            }
-          : null,
-      mitigations: treatments.map((m) => ({
-        description: m.description,
-        controlRef: m.controlRef,
-        status: m.status,
-        dueAt: m.dueAt?.toISOString() ?? null,
-        verifiedAt: m.verifiedAt?.toISOString() ?? null,
-      })),
-      acceptance: acceptance
-        ? {
-            acceptedBy: acceptance.acceptedByLabel,
-            rationale: acceptance.rationale,
-            residualAtAcceptance: {
-              score: acceptance.residualScoreAtAcceptance,
-              tier: acceptance.residualTierAtAcceptance,
-            },
-            expiresAt: acceptance.expiresAt.toISOString(),
-            // Stated rather than left for the reader to work out, so a document
-            // generated from this cannot present a lapsed acceptance as current.
-            expired: acceptance.expiresAt.getTime() <= Date.now(),
-          }
-        : null,
-      raisedFrom: from[0]?.reference ?? null,
-    });
-  }
+    // Only approved assessments. A draft is unfinished work, and a document
+    // generated from one would read as settled when it is not.
+    const assessmentRows = await db
+      .select({ assessment: assessments, template: templates, version: templateVersions })
+      .from(assessments)
+      .innerJoin(templateVersions, eq(templateVersions.id, assessments.templateVersionId))
+      .innerJoin(templates, eq(templates.id, templateVersions.templateId))
+      .where(
+        and(
+          eq(assessments.organisationId, scope.organisationId),
+          inArray(assessments.entityId, inScope),
+          eq(assessments.status, "approved"),
+          scope.since ? gt(assessments.updatedAt, scope.since) : undefined,
+        ),
+      )
+      .orderBy(desc(assessments.completedAt))
+      .limit(limit);
 
-  const supplierRows = await db
-    .select()
-    .from(suppliers)
-    .where(eq(suppliers.organisationId, scope.organisationId))
-    .orderBy(asc(suppliers.name))
-    .limit(limit);
-  const dpaRows = supplierRows.length
-    ? await db
-        .select()
-        .from(dpas)
-        .where(
-          inArray(
-            dpas.supplierId,
-            supplierRows.map((s) => s.id),
-          ),
-        )
-    : [];
+    const contextAssessments: ContextAssessment[] = [];
+    for (const row of assessmentRows) {
+      const [gates, revisions] = await Promise.all([
+        db
+          .select()
+          .from(approvals)
+          .where(eq(approvals.assessmentId, row.assessment.id))
+          .orderBy(asc(approvals.position)),
+        db
+          .select()
+          .from(assessmentRevisions)
+          .where(eq(assessmentRevisions.assessmentId, row.assessment.id))
+          .orderBy(desc(assessmentRevisions.revision))
+          .limit(1),
+      ]);
 
-  const evidenceRows = await db
-    .select()
-    .from(evidence)
-    .where(
-      and(
-        eq(evidence.organisationId, scope.organisationId),
-        inArray(evidence.entityId, inScope),
-        scope.since ? gt(evidence.createdAt, scope.since) : undefined,
-      ),
-    )
-    .orderBy(desc(evidence.createdAt))
-    .limit(limit);
+      // The frozen snapshot, not the live answers: it is what was approved, and
+      // it carries the evaluation so absent questions can be explained.
+      const snapshot = revisions[0];
+      const evaluation = snapshot?.evaluation;
+      const notApplicable = evaluation
+        ? Object.values(evaluation.questions)
+            .filter((q) => !q.visible)
+            .map((q) => q.key)
+        : [];
 
-  // Resolve each edge to the reference a reader would recognise, rather than
-  // exporting internal ids the Portal has no way to interpret.
-  const links = evidenceRows.length
-    ? await db
-        .select()
-        .from(recordLinks)
-        .where(
-          and(
-            eq(recordLinks.organisationId, scope.organisationId),
-            inArray(
-              recordLinks.fromId,
-              evidenceRows.map((e) => e.id),
+      contextAssessments.push({
+        reference: row.assessment.reference,
+        entity: nameOf.get(row.assessment.entityId) ?? "",
+        title: row.assessment.title,
+        kind: row.template.kind,
+        templateName: row.template.name,
+        templateVersion: row.version.version,
+        status: row.assessment.status,
+        score:
+          row.assessment.scoreValue !== null && row.assessment.scoreBand && row.assessment.scoreTier
+            ? {
+                value: row.assessment.scoreValue,
+                band: row.assessment.scoreBand,
+                tier: row.assessment.scoreTier,
+              }
+            : null,
+        approvedAt: row.assessment.completedAt?.toISOString() ?? null,
+        approvals: gates.map((g) => ({
+          stage: g.name,
+          decision: g.status,
+          by: g.decidedByLabel,
+          at: g.decidedAt?.toISOString() ?? null,
+          rationale: g.rationale,
+          reason: g.reason,
+        })),
+        answers: (snapshot?.answers ?? {}) as Record<string, unknown>,
+        notApplicable,
+      });
+    }
+
+    const riskRows = await db
+      .select()
+      .from(risks)
+      .where(
+        and(
+          eq(risks.organisationId, scope.organisationId),
+          inArray(risks.entityId, inScope),
+          scope.since ? gt(risks.updatedAt, scope.since) : undefined,
+        ),
+      )
+      .orderBy(asc(risks.reference))
+      .limit(limit);
+
+    const contextRisks: ContextRisk[] = [];
+    for (const r of riskRows) {
+      const [treatments, live, from] = await Promise.all([
+        db.select().from(mitigations).where(eq(mitigations.riskId, r.id)),
+        db
+          .select()
+          .from(riskAcceptances)
+          .where(
+            and(
+              eq(riskAcceptances.riskId, r.id),
+              isNull(riskAcceptances.supersededAt),
+              isNull(riskAcceptances.revokedAt),
             ),
           ),
-        )
-    : [];
-  const referenceOf = new Map<string, string>([
-    ...activityRows.map((a) => [a.id, a.reference] as const),
-    ...assessmentRows.map((a) => [a.assessment.id, a.assessment.reference] as const),
-    ...riskRows.map((r) => [r.id, r.reference] as const),
-  ]);
+        r.assessmentId
+          ? db
+              .select({ reference: assessments.reference })
+              .from(assessments)
+              .where(eq(assessments.id, r.assessmentId))
+          : Promise.resolve([]),
+      ]);
 
-  const aiRows = await aiSystemsFor(scope.organisationId, inScope, nameOf, scope.since, limit);
-
-  return {
-    contextVersion: CONTEXT_VERSION,
-    generatedAt: new Date().toISOString(),
-    organisation: { name: org.name, slug: org.slug },
-    entities: selected.map((e) => ({ name: e.name, legalEntityRef: e.legalEntityRef })),
-    scope: {
-      entities: scope.entities?.length ? scope.entities : null,
-      since: scope.since?.toISOString() ?? null,
-    },
-    processingActivities: activityRows.map((a) => ({
-      reference: a.reference,
-      entity: nameOf.get(a.entityId) ?? "",
-      name: a.name,
-      description: a.description,
-      purposes: a.purposes,
-      lawfulBasis: a.lawfulBasis,
-      dataCategories: a.dataCategories,
-      subjectCategories: a.subjectCategories,
-      recipients: a.recipients,
-      systems: a.systems,
-      transfers: a.transfers,
-      retention: a.retention,
-      securityMeasures: a.securityMeasures,
-      controllerRole: a.controllerRole,
-      controllerName: a.controllerName,
-      updatedAt: a.updatedAt.toISOString(),
-    })),
-    assessments: contextAssessments,
-    risks: contextRisks,
-    suppliers: supplierRows.map((s) => ({
-      name: s.name,
-      categories: s.categories,
-      dpas: dpaRows
-        .filter((d) => d.supplierId === s.id)
-        .map((d) => ({
-          title: d.title,
-          documentRef: d.documentRef,
-          signedAt: d.signedAt?.toISOString() ?? null,
-          expiresAt: d.expiresAt?.toISOString() ?? null,
-          transferMechanism: d.transferMechanism,
-          subProcessors: d.subProcessors,
+      const acceptance = live[0];
+      contextRisks.push({
+        reference: r.reference,
+        entity: nameOf.get(r.entityId) ?? "",
+        title: r.title,
+        description: r.description,
+        status: r.status,
+        inherent: {
+          likelihood: r.inherentLikelihood,
+          impact: r.inherentImpact,
+          score: r.inherentScore,
+          tier: r.inherentTier,
+        },
+        residual:
+          r.residualLikelihood !== null && r.residualTier
+            ? {
+                likelihood: r.residualLikelihood,
+                impact: r.residualImpact!,
+                score: r.residualScore!,
+                tier: r.residualTier,
+              }
+            : null,
+        mitigations: treatments.map((m) => ({
+          description: m.description,
+          controlRef: m.controlRef,
+          status: m.status,
+          dueAt: m.dueAt?.toISOString() ?? null,
+          verifiedAt: m.verifiedAt?.toISOString() ?? null,
         })),
-    })),
-    aiSystems: aiRows,
-    evidence: evidenceRows.map((e) => ({
-      title: e.title,
-      kind: e.kind,
-      entity: nameOf.get(e.entityId) ?? "",
-      uri: e.uri,
-      sha256: e.sha256,
-      collectedAt: e.collectedAt?.toISOString() ?? null,
-      supports: links
-        .filter((l) => l.fromId === e.id)
-        .map((l) => referenceOf.get(l.toId))
-        .filter((x): x is string => Boolean(x)),
-    })),
-    counts: {
-      processingActivities: activityRows.length,
-      assessments: contextAssessments.length,
-      risks: contextRisks.length,
-      suppliers: supplierRows.length,
-      evidence: evidenceRows.length,
-      aiSystems: aiRows.length,
-    },
-  };
+        acceptance: acceptance
+          ? {
+              acceptedBy: acceptance.acceptedByLabel,
+              rationale: acceptance.rationale,
+              residualAtAcceptance: {
+                score: acceptance.residualScoreAtAcceptance,
+                tier: acceptance.residualTierAtAcceptance,
+              },
+              expiresAt: acceptance.expiresAt.toISOString(),
+              // Stated rather than left for the reader to work out, so a document
+              // generated from this cannot present a lapsed acceptance as current.
+              expired: acceptance.expiresAt.getTime() <= Date.now(),
+            }
+          : null,
+        raisedFrom: from[0]?.reference ?? null,
+      });
+    }
+
+    const supplierRows = await db
+      .select()
+      .from(suppliers)
+      .where(eq(suppliers.organisationId, scope.organisationId))
+      .orderBy(asc(suppliers.name))
+      .limit(limit);
+    const dpaRows = supplierRows.length
+      ? await db
+          .select()
+          .from(dpas)
+          .where(
+            inArray(
+              dpas.supplierId,
+              supplierRows.map((s) => s.id),
+            ),
+          )
+      : [];
+
+    const evidenceRows = await db
+      .select()
+      .from(evidence)
+      .where(
+        and(
+          eq(evidence.organisationId, scope.organisationId),
+          inArray(evidence.entityId, inScope),
+          scope.since ? gt(evidence.createdAt, scope.since) : undefined,
+        ),
+      )
+      .orderBy(desc(evidence.createdAt))
+      .limit(limit);
+
+    // Resolve each edge to the reference a reader would recognise, rather than
+    // exporting internal ids the Portal has no way to interpret.
+    const links = evidenceRows.length
+      ? await db
+          .select()
+          .from(recordLinks)
+          .where(
+            and(
+              eq(recordLinks.organisationId, scope.organisationId),
+              inArray(
+                recordLinks.fromId,
+                evidenceRows.map((e) => e.id),
+              ),
+            ),
+          )
+      : [];
+    const referenceOf = new Map<string, string>([
+      ...activityRows.map((a) => [a.id, a.reference] as const),
+      ...assessmentRows.map((a) => [a.assessment.id, a.assessment.reference] as const),
+      ...riskRows.map((r) => [r.id, r.reference] as const),
+    ]);
+
+    const aiRows = await aiSystemsFor(scope.organisationId, inScope, nameOf, scope.since, limit);
+
+    return {
+      contextVersion: CONTEXT_VERSION,
+      generatedAt: new Date().toISOString(),
+      organisation: { name: org.name, slug: org.slug },
+      entities: selected.map((e) => ({ name: e.name, legalEntityRef: e.legalEntityRef })),
+      scope: {
+        entities: scope.entities?.length ? scope.entities : null,
+        since: scope.since?.toISOString() ?? null,
+      },
+      processingActivities: activityRows.map((a) => ({
+        reference: a.reference,
+        entity: nameOf.get(a.entityId) ?? "",
+        name: a.name,
+        description: a.description,
+        purposes: a.purposes,
+        lawfulBasis: a.lawfulBasis,
+        dataCategories: a.dataCategories,
+        subjectCategories: a.subjectCategories,
+        recipients: a.recipients,
+        systems: a.systems,
+        transfers: a.transfers,
+        retention: a.retention,
+        securityMeasures: a.securityMeasures,
+        controllerRole: a.controllerRole,
+        controllerName: a.controllerName,
+        updatedAt: a.updatedAt.toISOString(),
+      })),
+      assessments: contextAssessments,
+      risks: contextRisks,
+      suppliers: supplierRows.map((s) => ({
+        name: s.name,
+        categories: s.categories,
+        dpas: dpaRows
+          .filter((d) => d.supplierId === s.id)
+          .map((d) => ({
+            title: d.title,
+            documentRef: d.documentRef,
+            signedAt: d.signedAt?.toISOString() ?? null,
+            expiresAt: d.expiresAt?.toISOString() ?? null,
+            transferMechanism: d.transferMechanism,
+            subProcessors: d.subProcessors,
+          })),
+      })),
+      aiSystems: aiRows,
+      evidence: evidenceRows.map((e) => ({
+        title: e.title,
+        kind: e.kind,
+        entity: nameOf.get(e.entityId) ?? "",
+        uri: e.uri,
+        sha256: e.sha256,
+        collectedAt: e.collectedAt?.toISOString() ?? null,
+        supports: links
+          .filter((l) => l.fromId === e.id)
+          .map((l) => referenceOf.get(l.toId))
+          .filter((x): x is string => Boolean(x)),
+      })),
+      counts: {
+        processingActivities: activityRows.length,
+        assessments: contextAssessments.length,
+        risks: contextRisks.length,
+        suppliers: supplierRows.length,
+        evidence: evidenceRows.length,
+        aiSystems: aiRows.length,
+      },
+    };
+  });
 }
 
 async function aiSystemsFor(

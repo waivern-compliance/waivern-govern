@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { asc, eq } from "drizzle-orm";
-import { db } from "@/db/client";
+import { db, scoped } from "@/db/client";
 import { memberships, users } from "@/db/schema";
 import { GapChips } from "@/components/GapChips";
 import { Discussion } from "@/components/Discussion";
@@ -42,12 +42,12 @@ export default async function ActivityPage({
   }
   const mayEdit = can(active.membership.grants, "record.write", activity.entityId);
 
-  const colleagues = await db
+  const colleagues = await scoped(active.membership.organisationId, () => db
     .select({ id: users.id, email: users.email })
     .from(memberships)
     .innerJoin(users, eq(users.id, memberships.userId))
     .where(eq(memberships.organisationId, active.membership.organisationId))
-    .orderBy(asc(users.email));
+    .orderBy(asc(users.email)));
 
   const transfersText = (activity.transfers ?? [])
     .map((t) => (t.mechanism ? `${t.country}: ${t.mechanism}` : t.country))

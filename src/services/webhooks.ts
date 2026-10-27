@@ -1,5 +1,5 @@
 import { and, eq, inArray, isNull, lte, or, sql } from "drizzle-orm";
-import { db, type Db } from "@/db/client";
+import { db, type Db, withOrganisation } from "@/db/client";
 import { integrationConnections, webhookDeliveries } from "@/db/schema";
 import { openSecret, signRequest } from "@/lib/integration/crypto";
 
@@ -181,14 +181,16 @@ export async function deliverPending(organisationId?: string): Promise<DeliveryR
 }
 
 export async function pendingDeliveries(organisationId: string) {
-  return db
-    .select()
-    .from(webhookDeliveries)
-    .where(
-      and(
-        eq(webhookDeliveries.organisationId, organisationId),
-        inArray(webhookDeliveries.status, ["pending", "failed"]),
-      ),
-    )
-    .orderBy(webhookDeliveries.createdAt);
+  return withOrganisation(organisationId, async () => {
+    return db
+      .select()
+      .from(webhookDeliveries)
+      .where(
+        and(
+          eq(webhookDeliveries.organisationId, organisationId),
+          inArray(webhookDeliveries.status, ["pending", "failed"]),
+        ),
+      )
+      .orderBy(webhookDeliveries.createdAt);
+  });
 }
