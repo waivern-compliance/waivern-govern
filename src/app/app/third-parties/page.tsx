@@ -3,6 +3,7 @@ import { HelpLink } from "@/components/help/HelpLink";
 import { redirect } from "next/navigation";
 import { GapChips } from "@/components/GapChips";
 import { AI_GAP_WORDS, SERIOUS_AI_GAPS } from "@/lib/thirdparty/ai-procurement";
+import { SupplierStandings } from "@/components/thirdparty/SupplierStandings";
 import { NotPermitted } from "@/components/NotPermitted";
 import { can } from "@/lib/rbac";
 import { getActiveSession } from "@/lib/session";
@@ -130,7 +131,7 @@ export default async function ThirdPartiesPage() {
       ) : null}
 
       <ul className="divide-y divide-line overflow-hidden rounded border border-line bg-surface">
-        {health.rows.map(({ supplier, current, ownerEmail, gaps, ai }) => (
+        {health.rows.map(({ supplier, current, ownerEmail, gaps, privacy, ai }) => (
           <li key={supplier.id}>
             <Link
               href={`/app/third-parties/${supplier.id}`}
@@ -160,6 +161,7 @@ export default async function ThirdPartiesPage() {
                   : " · no agreement"}
                 {ownerEmail ? ` · ${ownerEmail}` : " · no owner"}
               </p>
+              <SupplierStandings privacy={privacy} ai={ai.standing} />
               <GapChips
                 gaps={gaps}
                 words={GAP_WORDS}

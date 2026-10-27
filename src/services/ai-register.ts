@@ -134,6 +134,7 @@ export type Gap =
   | "unresolved_harm"
   | "supplier_unrecorded"
   | "supplier_not_assessed"
+  | "supplier_advised_against"
   | "owner_not_trained";
 
 export const GAP_WORDS: Record<Gap, string> = {
@@ -152,6 +153,7 @@ export const GAP_WORDS: Record<Gap, string> = {
   unresolved_harm: "Reported harm unresolved",
   supplier_unrecorded: "Bought in; supplier not on the register",
   supplier_not_assessed: "Supplier's AI never assessed",
+  supplier_advised_against: "Supplier's AI assessment recommends not proceeding",
   owner_not_trained: "Owner's AI learning not current",
 };
 
@@ -291,10 +293,15 @@ export async function createUseCase(input: {
   });
 }
 
-/** Suppliers whose AI supply has an approved assessment. */
-async function approvedAiSuppliers(organisationId: string): Promise<Set<string>> {
-  const assessed = await aiSupplierAssessments(organisationId);
-  return new Set([...assessed].filter(([, a]) => a.approved).map(([id]) => id));
+/** Suppliers whose AI supply has an approved assessment, and those it advised against. */
+async function approvedAiSuppliers(organisationId: string) {
+  const assessed = [...(await aiSupplierAssessments(organisationId))].filter(([, a]) => a.approved);
+  return {
+    approved: new Set(assessed.map(([id]) => id)),
+    advisedAgainst: new Set(
+      assessed.filter(([, a]) => a.recommendation === "do_not_proceed").map(([id]) => id),
+    ),
+  };
 }
 
 /** The fields an update may touch, and which of them the audit record shows. */
@@ -445,6 +452,8 @@ export function gapsFor(
     unresolvedHarm?: boolean;
     /** Suppliers whose AI supply has an approved assessment. */
     assessedSuppliers?: ReadonlySet<string>;
+    /** Of those, the ones whose assessment recommends not proceeding. */
+    advisedAgainstSuppliers?: ReadonlySet<string>;
     /** Owners whose owner-level AI learning is current. */
     trainedOwners?: ReadonlySet<string>;
   } = {},
@@ -455,6 +464,7 @@ export function gapsFor(
     assurance,
     unresolvedHarm,
     assessedSuppliers,
+    advisedAgainstSuppliers,
     trainedOwners,
   } = context;
   const gaps: Gap[] = [];
@@ -522,6 +532,7 @@ export function gapsFor(
   if (assessedSuppliers && suppliedByThirdParty(useCase)) {
     if (!useCase.supplierId) gaps.push("supplier_unrecorded");
     else if (!assessedSuppliers.has(useCase.supplierId)) gaps.push("supplier_not_assessed");
+    else if (advisedAgainstSuppliers?.has(useCase.supplierId)) gaps.push("supplier_advised_against");
   }
 
   // Only where a record is required and the system is reaching people. A
@@ -556,7 +567,7 @@ export async function listRegister(
           ),
     )
     .orderBy(aiUseCases.reference);
-  const [recorded, changed, tested, harmed, assessedSuppliers, trainedOwners] = await Promise.all([
+  const [recorded, changed, tested, harmed, verdicts, trainedOwners] = await Promise.all([
     systemsWithCurrentRecord(organisationId),
     lastMaterialChanges(organisationId),
     assuranceByUseCase(organisationId),
@@ -577,7 +588,8 @@ export async function listRegister(
           lastMaterialChangeAt: changed.get(useCase.id) ?? null,
           assurance: tested.get(useCase.id) ?? null,
           unresolvedHarm: harmed.has(useCase.id),
-          assessedSuppliers,
+          assessedSuppliers: verdicts.approved,
+          advisedAgainstSuppliers: verdicts.advisedAgainst,
           trainedOwners,
         }),
       };
@@ -597,7 +609,7 @@ export async function loadUseCase(useCaseId: string, organisationId: string) {
     );
   if (!row) return null;
 
-  const [assessed, related, recorded, changed, tested, harmed, assessedSuppliers, supplier, trainedOwners] =
+  const [assessed, related, recorded, changed, tested, harmed, verdicts, supplier, trainedOwners] =
     await Promise.all([
     latestAssessment(useCaseId),
     db
@@ -639,7 +651,8 @@ export async function loadUseCase(useCaseId: string, organisationId: string) {
       lastMaterialChangeAt: changed.get(useCaseId) ?? null,
       assurance: tested.get(useCaseId) ?? null,
       unresolvedHarm: harmed.has(useCaseId),
-      assessedSuppliers,
+      assessedSuppliers: verdicts.approved,
+      advisedAgainstSuppliers: verdicts.advisedAgainst,
       trainedOwners,
     }),
   };

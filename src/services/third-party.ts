@@ -12,7 +12,10 @@ import {
 } from "@/db/schema";
 import { appendAuditEvent } from "@/lib/audit";
 import {
+  aiStanding,
   aiSupplierGaps,
+  isAiSupplierDefinition,
+  type AiStanding,
   type AiContractTerm,
   type AiInvolvement,
   type AiSupplierAssessed,
@@ -137,6 +140,28 @@ export function article28Gaps(
   return gaps;
 }
 
+/**
+ * Where a supplier stands on data protection, as one word.
+ *
+ * Read from the Article 28 facts rather than from an approval, because there
+ * is no privacy sign-off of a supplier as such: the contract either governs the
+ * processing or it does not. Kept apart from the AI standing because the two
+ * are judged by different people against different rules, and a supplier can
+ * pass one and fail the other.
+ */
+export type PrivacyStanding = "not_met" | "met_with_gaps" | "met";
+
+export const PRIVACY_STANDING_LABEL: Record<PrivacyStanding, string> = {
+  not_met: "Article 28 not met",
+  met_with_gaps: "Article 28 met, with gaps",
+  met: "Article 28 met",
+};
+
+export function privacyStanding(gaps: readonly Article28Gap[]): PrivacyStanding {
+  if (gaps.some((g) => HARD_GAPS.includes(g))) return "not_met";
+  return gaps.length > 0 ? "met_with_gaps" : "met";
+}
+
 export type SupplierRow = {
   supplier: Supplier;
   dpas: Dpa[];
@@ -144,8 +169,10 @@ export type SupplierRow = {
   ownerEmail: string | null;
   gaps: Article28Gap[];
   hardGaps: Article28Gap[];
+  privacy: PrivacyStanding;
   /** Its AI supply, judged separately from Article 28. */
   ai: {
+    standing: AiStanding;
     assessed: AiSupplierAssessed | null;
     systems: number;
     gaps: AiSupplierGap[];
@@ -160,15 +187,16 @@ export type SupplierRow = {
  * does not make a supplier look unassessed while the new one is in draft.
  * Otherwise the latest of any status, reported as unfinished.
  *
- * Any supplier-record assessment is read, not only ours: a client's own copy
- * of the template keeps the keys, and one that renamed them simply reports
- * nothing known — which is the truth about what the register can see.
+ * Only AI supplier assessments are read — recognised by the questions only
+ * they ask, so a client's own copy of our template counts and a privacy or
+ * security assessment of the same supplier does not. See
+ * `isAiSupplierDefinition`.
  */
 export async function aiSupplierAssessments(
   organisationId: string,
 ): Promise<Map<string, AiSupplierAssessed>> {
   const rows = await db
-    .select({ assessment: assessments })
+    .select({ assessment: assessments, definition: templateVersions.definition })
     .from(assessments)
     .innerJoin(templateVersions, eq(templateVersions.id, assessments.templateVersionId))
     .innerJoin(templates, eq(templates.id, templateVersions.templateId))
@@ -184,7 +212,8 @@ export async function aiSupplierAssessments(
     .orderBy(desc(assessments.updatedAt));
 
   const chosen = new Map<string, typeof assessments.$inferSelect>();
-  for (const { assessment } of rows) {
+  for (const { assessment, definition } of rows) {
+    if (!isAiSupplierDefinition(definition)) continue;
     const id = assessment.subjectId!;
     const held = chosen.get(id);
     if (!held || (held.status !== "approved" && assessment.status === "approved")) {
@@ -217,6 +246,7 @@ export async function aiSupplierAssessments(
       trainsOnOurData: text("trains_on_our_data"),
       contractTerms: Array.isArray(answers.contract_terms) ? (answers.contract_terms as string[]) : [],
       recommendation: text("recommendation"),
+      conditions: text("conditions"),
     });
   }
   return result;
@@ -279,7 +309,9 @@ async function rowsFor(organisationId: string): Promise<SupplierRow[]> {
       ownerEmail,
       gaps,
       hardGaps: gaps.filter((g) => HARD_GAPS.includes(g)),
+      privacy: privacyStanding(gaps),
       ai: {
+        standing: aiStanding(supplier.aiInvolvement as AiInvolvement | null, assessed, systems),
         assessed,
         systems,
         ...aiSupplierGaps(supplier.aiInvolvement as AiInvolvement | null, assessed, systems),

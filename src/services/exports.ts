@@ -28,9 +28,11 @@ import { breachRegister } from "./breaches";
 import { trendFor } from "./trends";
 import {
   GAP_WORDS as SUPPLIER_GAP_WORDS,
+  PRIVACY_STANDING_LABEL,
   listSuppliers,
 } from "./third-party";
 import type { Actor } from "./templates";
+import { AI_STANDING_LABEL } from "@/lib/thirdparty/ai-procurement";
 
 /**
  * Data out, for people rather than machines.
@@ -442,8 +444,9 @@ export async function exportThirdParties(organisationId: string) {
       "Confirmed by a person", "Agreement", "Document reference",
       "Signed", "Expires", "Transfer mechanism", "Sub-processors",
       "Outstanding", "Not under contract",
+      "Privacy standing", "AI standing", "AI conditions",
     ],
-    rows: rows.map(({ supplier, current, ownerEmail, gaps, hardGaps }) => [
+    rows: rows.map(({ supplier, current, ownerEmail, gaps, hardGaps, privacy, ai }) => [
       supplier.name,
       (supplier.categories ?? []).join("; "),
       supplier.description,
@@ -458,6 +461,9 @@ export async function exportThirdParties(organisationId: string) {
       (current?.subProcessors ?? []).join("; "),
       gaps.map((g) => SUPPLIER_GAP_WORDS[g]).join("; ") || "nothing",
       hardGaps.length > 0 ? "yes" : "no",
+      PRIVACY_STANDING_LABEL[privacy],
+      AI_STANDING_LABEL[ai.standing],
+      ai.assessed?.approved ? ai.assessed.conditions : null,
     ]),
   };
 }

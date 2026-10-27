@@ -70,7 +70,7 @@ describe("AI supplier gaps", () => {
   it("reports only that an unfinished assessment is unfinished", () => {
     const { gaps } = aiSupplierGaps("in_delivery", {
       reference: "TPR-1", assessmentId: "a", approved: false,
-      trainsOnOurData: "yes_without_agreement", contractTerms: [], recommendation: null,
+      trainsOnOurData: "yes_without_agreement", contractTerms: [], recommendation: null, conditions: null,
     }, 0);
     assert.deepEqual(gaps, ["ai_assessment_not_approved"]);
   });
@@ -78,7 +78,7 @@ describe("AI supplier gaps", () => {
   it("reads training and contract terms from an approved assessment", () => {
     const { gaps, missingTerms } = aiSupplierGaps("ai_product", {
       reference: "TPR-1", assessmentId: "a", approved: true,
-      trainsOnOurData: "yes_without_agreement", contractTerms: ["ai_use_disclosed"], recommendation: "proceed",
+      trainsOnOurData: "yes_without_agreement", contractTerms: ["ai_use_disclosed"], recommendation: "proceed", conditions: null,
     }, 1);
     assert.ok(gaps.includes("ai_trains_on_our_data"));
     assert.ok(gaps.includes("ai_terms_missing"));

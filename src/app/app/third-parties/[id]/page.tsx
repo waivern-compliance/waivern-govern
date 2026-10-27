@@ -19,10 +19,13 @@ import {
   AI_CONTRACT_TERMS,
   AI_GAP_WORDS,
   AI_INVOLVEMENT_LABEL,
+  RECOMMENDATION_LABEL,
   SERIOUS_AI_GAPS,
   involvesAi,
+  isRecommendation,
   type AiInvolvement,
 } from "@/lib/thirdparty/ai-procurement";
+import { SupplierStandings } from "@/components/thirdparty/SupplierStandings";
 import {
   confirmSupplierAction,
   recordDpaAction,
@@ -53,7 +56,7 @@ export default async function SupplierPage({
   const loaded = await loadSupplier(id, active.membership.organisationId);
   if (!loaded) notFound();
 
-  const { supplier, dpas, current, gaps, hardGaps, ai } = loaded;
+  const { supplier, dpas, current, gaps, hardGaps, privacy, ai } = loaded;
   const mayEdit = can(active.membership.grants, "record.write");
 
   const colleagues = await db
@@ -126,6 +129,7 @@ export default async function SupplierPage({
           {supplier.sourceConnectionId ? "Reported by a connected tool" : "Recorded by a person"}
           {supplier.reviewedAt ? ` · confirmed ${day(supplier.reviewedAt)}` : ""}
         </p>
+        <SupplierStandings privacy={privacy} ai={ai.standing} />
         <GapChips
           gaps={gaps}
           words={GAP_WORDS}
@@ -218,16 +222,32 @@ export default async function SupplierPage({
             </ul>
           </div>
         ) : null}
+        {ai.assessed?.approved && isRecommendation(ai.assessed.recommendation) ? (
+          <div
+            className={`space-y-1 rounded border px-3 py-2 text-sm ${
+              ai.assessed.recommendation === "do_not_proceed"
+                ? "border-red-700 bg-red-50 text-red-900"
+                : ai.assessed.recommendation === "proceed_with_conditions"
+                  ? "border-amber-700 bg-amber-50 text-amber-900"
+                  : "border-emerald-700 bg-emerald-50 text-emerald-900"
+            }`}
+          >
+            <p>
+              <span className="font-semibold">AI assessment recommends:</span>{" "}
+              {RECOMMENDATION_LABEL[ai.assessed.recommendation]}
+            </p>
+            {ai.assessed.conditions ? (
+              <p className="whitespace-pre-line text-xs">{ai.assessed.conditions}</p>
+            ) : null}
+          </div>
+        ) : null}
         {ai.assessed ? (
           <p className="text-xs text-ink-soft">
             Last assessed in{" "}
             <Link href={`/app/assessments/${ai.assessed.assessmentId}`} className="font-mono text-brand hover:underline">
               {ai.assessed.reference}
             </Link>
-            {ai.assessed.approved ? "" : " — not yet approved"}
-            {ai.assessed.recommendation
-              ? ` · recommended: ${ai.assessed.recommendation.replace(/_/g, " ")}`
-              : ""}
+            {ai.assessed.approved ? "" : " — not yet approved, so its answers are not relied on yet"}
           </p>
         ) : null}
         {(involvesAi(supplier.aiInvolvement as AiInvolvement | null) || ai.systems > 0) && mayEdit ? (
