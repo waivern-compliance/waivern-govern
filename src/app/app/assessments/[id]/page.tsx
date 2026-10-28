@@ -14,7 +14,8 @@ import { approvalsFor } from "@/services/workflow";
 import { riskScaleOf, risksForAssessment } from "@/services/risks";
 import { RaiseRiskForm } from "@/components/RaiseRiskForm";
 import { RiskTierBadge } from "@/components/RiskTierBadge";
-import { categoryLabel } from "@/lib/risk/categories";
+import { categoryLabel } from "@/lib/ai-frameworks";
+import { aiFrameworkPackOf } from "@/services/ai-framework";
 import { SCALES } from "@/lib/risk/scale";
 import { Approvals } from "./approvals";
 import { InviteContributor } from "./invite";
@@ -69,13 +70,14 @@ export default async function AssessmentPage({
       />
     );
   }
-  const [refs, history, links, gates, raised, scale] = await Promise.all([
+  const [refs, history, links, gates, raised, scale, framework] = await Promise.all([
     legalRefMap(),
     assessmentHistory(id),
     linksForAssessment(id),
     approvalsFor(id),
     risksForAssessment(id, active.membership.organisationId),
     riskScaleOf(active.membership.organisationId),
+    aiFrameworkPackOf(active.membership.organisationId),
   ]);
   const mayRaise = can(active.membership.grants, "risk.manage", assessment.entityId);
   // What the assessor said belongs on the register, offered first when raising.
@@ -221,6 +223,7 @@ export default async function AssessmentPage({
                 entities={[{ id: assessment.entityId, name: "" }]}
                 assessmentId={id}
                 suggestedCategories={unraised.length > 0 ? unraised : named}
+                categories={framework.categories}
                 likelihood={SCALES[scale].likelihood}
                 impact={SCALES[scale].impact}
               />

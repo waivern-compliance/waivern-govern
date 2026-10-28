@@ -1,7 +1,8 @@
 import { and, eq } from "drizzle-orm";
 import { db, type Db, withOrganisation } from "@/db/client";
 import { riskAppetites } from "@/db/schema";
-import { isScope, type AppetiteInForce, type AppetiteLevel } from "@/lib/risk/appetite";
+import { isKnownCategory } from "@/lib/ai-frameworks";
+import { type AppetiteInForce, type AppetiteLevel } from "@/lib/risk/appetite";
 import type { RiskTier } from "@/lib/risk/scale";
 
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
@@ -25,7 +26,10 @@ export async function appetiteInForce(
       );
     const inForce: AppetiteInForce = {};
     for (const r of rows) {
-      if (!isScope(r.category)) continue;
+      // Every framework's categories, not only the one followed now: a
+      // statement signed off under one framework still holds until its
+      // replacement under the next is approved.
+      if (r.category !== "default" && !isKnownCategory(r.category)) continue;
       inForce[r.category] = {
         id: r.id,
         level: r.level as AppetiteLevel,

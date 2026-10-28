@@ -11,6 +11,7 @@ import {
 } from "@/lib/risk/appetite";
 import { SCALES, TIER_ORDER, type RiskScaleId, type RiskTier } from "@/lib/risk/scale";
 import { appetiteInForce } from "./appetite-in-force";
+import { aiFrameworkPackOf } from "./ai-framework";
 import { SegregationOfDuties, riskScaleOf } from "./risks";
 
 export { appetiteInForce, riskScaleOf };
@@ -119,7 +120,7 @@ export async function proposeAppetite(input: {
   actor: Actor;
 }) {
   return withOrganisation(input.organisationId, async () => {
-    if (!isScope(input.scope)) throw new AppetiteRefused("Unknown category");
+    if (!isScope(input.scope, await aiFrameworkPackOf(input.organisationId))) throw new AppetiteRefused("Unknown category");
     if (!APPETITE_LEVELS.includes(input.level)) throw new AppetiteRefused("Unknown appetite level");
     if (!TIER_ORDER.includes(input.toleratedTier)) throw new AppetiteRefused("Unknown tier");
     const statement = input.statement.trim();

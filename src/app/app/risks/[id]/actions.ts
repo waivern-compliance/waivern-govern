@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireCapability } from "@/lib/session";
 import { isTreatmentType, type TreatmentType } from "@/lib/risk/treatment";
-import { suggestionByKey } from "@/lib/risk/treatment-library";
+import { suggestionByKey } from "@/lib/ai-frameworks";
 import {
   acceptRisk,
   addMitigation,

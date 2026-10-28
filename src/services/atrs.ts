@@ -23,7 +23,7 @@ import {
   type AtrsValues,
 } from "@/lib/atrs/standard";
 import { toCsv } from "@/lib/csv";
-import { categoryLabel } from "@/lib/risk/categories";
+import { categoryLabel } from "@/lib/ai-frameworks";
 import { TREATMENT_LABEL, type TreatmentType } from "@/lib/risk/treatment";
 import { SegregationOfDuties } from "./risks";
 import type { Actor } from "./templates";

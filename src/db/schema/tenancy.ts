@@ -10,7 +10,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import { appRole, guidanceMode, organisationRequestStatus, persona, recordType, riskScale, roleScope } from "./enums";
+import { aiFramework, appRole, guidanceMode, organisationRequestStatus, persona, recordType, riskScale, roleScope } from "./enums";
 
 /** A client of the platform. One organisation, one governance programme. */
 export const organisations = pgTable("organisation", {
@@ -24,6 +24,12 @@ export const organisations = pgTable("organisation", {
    * change by accident. See `lib/risk/scale.ts`.
    */
   riskScale: riskScale("risk_scale").notNull().default("4x4"),
+  /**
+   * The AI governance framework its AI defaults follow. A column for the same
+   * reason as the scale: it decides how AI risk is categorised and judged
+   * across the whole register. See `lib/ai-frameworks`.
+   */
+  aiFramework: aiFramework("ai_framework").notNull().default("uk_dsit"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

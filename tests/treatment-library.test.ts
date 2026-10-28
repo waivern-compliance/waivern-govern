@@ -4,11 +4,8 @@ import { and, eq } from "drizzle-orm";
 import { db, sql as pg } from "@/db/client";
 import { auditEvents, entities, mitigations, organisations } from "@/db/schema";
 import { AI_RISK_CATEGORIES } from "@/lib/risk/categories";
-import {
-  TREATMENT_SUGGESTIONS,
-  suggestionByKey,
-  suggestionsFor,
-} from "@/lib/risk/treatment-library";
+import { suggestionByKey } from "@/lib/ai-frameworks";
+import { TREATMENT_SUGGESTIONS, suggestionsFor } from "@/lib/risk/treatment-library";
 import { addMitigation, createRisk } from "@/services/risks";
 
 const SYSTEM = { actorKind: "system" as const, actorUserId: null, actorLabel: "test" };
@@ -43,18 +40,18 @@ describe("toolkit treatment library", () => {
     assert.equal(new Set(keys).size, keys.length);
     for (const c of AI_RISK_CATEGORIES) {
       assert.ok(
-        suggestionsFor(c.value).matching.length > 0,
+        suggestionsFor(c.value, TREATMENT_SUGGESTIONS).matching.length > 0,
         `nothing suggested for ${c.value}`,
       );
     }
   });
 
   it("splits suggestions by category but never hides any", () => {
-    const { matching, others } = suggestionsFor("security");
+    const { matching, others } = suggestionsFor("security", TREATMENT_SUGGESTIONS);
     assert.ok(matching.every((s) => s.categories.includes("security")));
     assert.equal(matching.length + others.length, TREATMENT_SUGGESTIONS.length);
     // A category of the organisation's own matches nothing, and still sees all.
-    const own = suggestionsFor("Supplier insolvency");
+    const own = suggestionsFor("Supplier insolvency", TREATMENT_SUGGESTIONS);
     assert.equal(own.matching.length, 0);
     assert.equal(own.others.length, TREATMENT_SUGGESTIONS.length);
   });

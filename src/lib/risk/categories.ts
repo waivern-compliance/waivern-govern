@@ -7,6 +7,9 @@
  * a risk filed under one wording would be judged against appetite set under
  * another.
  *
+ * The UK framework's list (`lib/ai-frameworks/uk-dsit.ts`). Labels are read
+ * through `lib/ai-frameworks`, which knows every framework's categories.
+ *
  * `risk.category` stays free text, because risks that are not about AI predate
  * this list and have their own categories. A category outside the list is
  * shown as written and simply has no category-level appetite — it is judged
@@ -61,17 +64,3 @@ export const AI_RISK_CATEGORIES = [
 ] as const;
 
 export type AiRiskCategory = (typeof AI_RISK_CATEGORIES)[number]["value"];
-
-export const AI_RISK_CATEGORY_LABEL: Record<AiRiskCategory, string> = Object.fromEntries(
-  AI_RISK_CATEGORIES.map((c) => [c.value, c.label]),
-) as Record<AiRiskCategory, string>;
-
-export function isAiRiskCategory(value: unknown): value is AiRiskCategory {
-  return typeof value === "string" && value in AI_RISK_CATEGORY_LABEL;
-}
-
-/** How a stored category reads on screen — the label where we know it, as written where we do not. */
-export function categoryLabel(value: string | null | undefined): string | null {
-  if (!value) return null;
-  return isAiRiskCategory(value) ? AI_RISK_CATEGORY_LABEL[value] : value;
-}

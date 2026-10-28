@@ -10,7 +10,8 @@ import {
   users,
 } from "@/db/schema";
 import { judge, scopeLabel, type AppetiteJudgement } from "@/lib/risk/appetite";
-import { AI_RISK_CATEGORIES, categoryLabel } from "@/lib/risk/categories";
+import { categoryLabel } from "@/lib/ai-frameworks";
+import { aiFrameworkPackOf } from "./ai-framework";
 import { tierRank, type RiskTier } from "@/lib/risk/scale";
 import { TREATMENT_LABEL, type TreatmentType } from "@/lib/risk/treatment";
 import { appetiteInForce } from "./appetite-in-force";
@@ -149,10 +150,11 @@ export async function riskProfileFor(useCaseId: string, organisationId: string) 
     );
     const open = profiled.filter((p) => p.risk.status !== "closed");
 
+    const framework = (await aiFrameworkPackOf(organisationId)).categories.map((c) => c.value);
     const categories = [
-      ...AI_RISK_CATEGORIES.map((c) => c.value as string),
-      // Anything filed outside the toolkit's list still has to appear somewhere.
-      ...new Set(open.map((p) => p.risk.category ?? "").filter((c) => !AI_RISK_CATEGORIES.some((k) => k.value === c))),
+      ...framework,
+      // Anything filed outside the framework's list still has to appear somewhere.
+      ...new Set(open.map((p) => p.risk.category ?? "").filter((c) => !framework.includes(c))),
     ];
     const byCategory: CategoryLine[] = categories.map((category) => {
       const here = open.filter((p) => (p.risk.category ?? "") === category);

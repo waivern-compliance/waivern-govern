@@ -11,7 +11,8 @@ import { NotPermitted } from "@/components/NotPermitted";
 import { getActiveSession, visibleEntityIds } from "@/lib/session";
 import { expiredAcceptances, listRisks, riskScaleOf } from "@/services/risks";
 import { RaiseRiskForm } from "@/components/RaiseRiskForm";
-import { categoryLabel } from "@/lib/risk/categories";
+import { categoryLabel } from "@/lib/ai-frameworks";
+import { aiFrameworkPackOf } from "@/services/ai-framework";
 
 export default async function RisksPage() {
   const active = await getActiveSession();
@@ -27,11 +28,12 @@ export default async function RisksPage() {
   }
 
 const org = active.membership.organisationId;
-  const [rows, orgEntities, lapsed, scale] = await Promise.all([
+  const [rows, orgEntities, lapsed, scale, framework] = await Promise.all([
     listRisks(org, visibleEntityIds(active)),
     scoped(org, () => db.select().from(entities).where(eq(entities.organisationId, org))),
     expiredAcceptances(org),
     riskScaleOf(org),
+    aiFrameworkPackOf(org),
   ]);
   const mayManage = can(active.membership.grants, "risk.manage");
   const lapsedIds = new Set(lapsed.map((l) => l.risk.id));
@@ -75,6 +77,7 @@ const org = active.membership.organisationId;
           </summary>
           <RaiseRiskForm
             entities={orgEntities.map((e) => ({ id: e.id, name: e.name }))}
+            categories={framework.categories}
             likelihood={SCALES[scale].likelihood}
             impact={SCALES[scale].impact}
           />
