@@ -1,3 +1,5 @@
+import { NIST_LEGAL_REFERENCES } from "@/lib/ai-frameworks/nist-ai-rmf";
+
 /**
  * The reference library shown beside questions.
  *
@@ -5,7 +7,7 @@
  * checked in two years is a liability in an assessment a regulator may read.
  * The review date is what makes staleness visible.
  */
-export const LEGAL_REFERENCES = [
+const REFERENCES = [
   { code: "ukgdpr.art5", regime: "UK GDPR", citation: "Article 5", title: "Principles relating to processing of personal data", url: "https://www.legislation.gov.uk/eur/2016/679/article/5", jurisdiction: "UK" },
   { code: "ukgdpr.art6", regime: "UK GDPR", citation: "Article 6", title: "Lawfulness of processing", url: "https://www.legislation.gov.uk/eur/2016/679/article/6", jurisdiction: "UK" },
   { code: "ukgdpr.art9", regime: "UK GDPR", citation: "Article 9", title: "Processing of special categories of personal data", url: "https://www.legislation.gov.uk/eur/2016/679/article/9", jurisdiction: "UK" },
@@ -78,3 +80,6 @@ export const LEGAL_REFERENCES = [
   { code: "ehrc.psed", regime: "EHRC", citation: "Public sector equality duty guidance", title: "Technical guidance on meeting the public sector equality duty", url: "https://www.equalityhumanrights.com/guidance/public-sector-equality-duty-psed", jurisdiction: "UK" },
   { code: "uk.hra1998", regime: "Human Rights Act 1998", citation: "Human Rights Act 1998", title: "Convention rights public authorities must act compatibly with", url: "https://www.legislation.gov.uk/ukpga/1998/42/contents", jurisdiction: "UK" },
 ] as const;
+
+/** The whole library: the references above, then NIST AI RMF 1.0's functions, categories and subcategories. */
+export const LEGAL_REFERENCES = [...REFERENCES, ...NIST_LEGAL_REFERENCES];

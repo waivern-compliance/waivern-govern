@@ -1,6 +1,6 @@
 # Plan: choosing the AI governance framework (UK DSIT ↔ NIST AI RMF)
 
-Status: Phase 0 built (branch `feat/ai-framework-pack`); later phases proposed. Written 29 October 2026.
+Status: Phases 0 and 1 built; later phases proposed. Written 29 October 2026.
 
 ## What is asked for
 
@@ -86,21 +86,27 @@ until phase 3 lets someone choose.
   framework is followed. Training and the approval chains keep their shape too. For
   all of these only the wording and citations change under NIST, which is Phase 2.
 
-### Phase 1 — NIST reference library
+### Phase 1 — NIST reference library (built)
 
-- `legal-references.ts` gains the 4 functions, 19 categories and 72 subcategories as
-  codes `nist.airmf.govern.1.1` … (regime "NIST AI RMF 1.0", jurisdiction "US", URL to
-  the AIRC page). They are installed through the existing `ensureLegalReferences`.
-- `src/lib/ai-frameworks/nist-playbook.ts` holds the Playbook's suggested actions and its
-  transparency and documentation questions, per subcategory. These are too long for
-  `legal_reference`, so they live as data that templates and treatments draw from.
-  Source: the AI RMF Playbook PDF. Record its date, because NIST updates the Playbook
-  online.
-- `crosswalk.ts` holds DSIT category ↔ NIST characteristic, plus UK element ↔ NIST
-  subcategory, for example: board stage ↔ GOVERN 2.3, training ↔ GOVERN 2.2, supplier
-  ↔ GOVERN 6.1–6.2 and MANAGE 3.1–3.2, EIA ↔ MEASURE 2.11.
-- Tests: subcategory counts (6/5/4/4 categories; 19/18/22/13 subcategories), and every
-  crosswalk code resolves.
+- `src/lib/ai-frameworks/nist-ai-rmf.ts` holds the 4 functions, 19 categories and 72
+  subcategories in NIST's own words, extracted from NIST AI 100-1 Tables 1–4. It also
+  holds the 7 trustworthiness characteristics, each with the MEASURE 2 subcategory
+  that evaluates it.
+- The reference library gains all 95 as codes `nist.airmf.govern`, `nist.airmf.govern.6`,
+  `nist.airmf.measure.2.11` (regime "NIST AI RMF 1.0", jurisdiction "US", DOI link).
+  They arrive with the existing `ensureLegalReferences`, the next time shipped
+  templates are installed.
+- `nist-playbook.json` and `nist-playbook.ts` hold the Playbook's 607 suggested actions
+  and 294 documentation questions, per subcategory. They come from the Playbook PDF of
+  2 August 2024. The PDF loses nested bullets, so an action ending in a colon
+  introduces the ones after it. The "About" text and reading lists are left out.
+- `crosswalk.ts` is Waivern's reading, since neither publisher offers a crosswalk:
+  - DSIT category → characteristics and subcategories. Financial has no characteristic.
+    Privacy sits under legal and regulatory.
+  - Characteristic → one DSIT category, for moving back.
+  - Govern's features → the subcategories they go towards: the AI register, intake,
+    approval chains, board, lifecycle gates, training, suppliers, incidents and
+    concerns, ATRS, EIA and DPIA.
 
 ### Phase 2 — the NIST pack
 
