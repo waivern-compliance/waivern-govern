@@ -4,9 +4,9 @@ import { revalidatePath } from "next/cache";
 import { SCALES, isScaleId } from "@/lib/risk/scale";
 import { setRiskScale } from "@/services/risk-policy";
 import { PERSONAS, type Persona } from "@/lib/persona";
-import { ROLES, type AppRole } from "@/lib/rbac";
+import { ROLES, mayManageEntities, type AppRole } from "@/lib/rbac";
 import { HandoverRefused, handOver } from "@/services/handover";
-import { requireCapability } from "@/lib/session";
+import { NotPermitted, requireCapability } from "@/lib/session";
 import {
   LastOwnerRemains,
   inviteMember,
@@ -26,6 +26,8 @@ import { unresolvedPlaceholder } from "@/lib/assistant/models";
 import type { ProviderKind } from "@/lib/assistant/providers";
 import { refusable, type EditResult } from "@/lib/edit-result";
 import { DomainRefused, claimDomain, removeDomain, verifyDomain } from "@/services/domains";
+import { EntityRefused, addEntity, makeDefaultEntity, renameEntity } from "@/services/entities";
+import { NotInOrganisation } from "@/services/tenancy-guards";
 
 const text = (v: FormDataEntryValue | null) => String(v ?? "").trim();
 
@@ -330,5 +332,61 @@ export async function removeDomainAction(claimId: string, _prev: AdminResult): P
       actor: actorOf(active),
     });
     return removed ? `${removed.domain} removed. Nobody already in has lost access.` : "Already gone.";
+  });
+}
+
+/**
+ * Legal entities. An owner over the whole organisation only — see
+ * `mayManageEntities`. A new organisation is not made here: that is Waivern's
+ * to approve, at /platform.
+ */
+async function entityResult(work: (active: Awaited<ReturnType<typeof requireCapability>>) => Promise<string>): Promise<AdminResult> {
+  const active = await requireCapability("org.manage");
+  if (!mayManageEntities(active.membership.grants)) throw new NotPermitted("org.manage");
+  try {
+    const message = await work(active);
+    revalidatePath("/app", "layout");
+    return { ok: true, message };
+  } catch (error) {
+    if (error instanceof EntityRefused || error instanceof NotInOrganisation) {
+      return { ok: false, message: error.message };
+    }
+    throw error;
+  }
+}
+
+export async function addEntityAction(_prev: AdminResult, formData: FormData): Promise<AdminResult> {
+  return entityResult(async (active) => {
+    const created = await addEntity({
+      organisationId: active.membership.organisationId,
+      name: text(formData.get("name")),
+      legalEntityRef: text(formData.get("legalEntityRef")),
+      actor: actorOf(active),
+    });
+    return `Added ${created.name}.`;
+  });
+}
+
+export async function renameEntityAction(entityId: string, _prev: AdminResult, formData: FormData): Promise<AdminResult> {
+  return entityResult(async (active) => {
+    const updated = await renameEntity({
+      organisationId: active.membership.organisationId,
+      entityId,
+      name: text(formData.get("name")),
+      legalEntityRef: text(formData.get("legalEntityRef")),
+      actor: actorOf(active),
+    });
+    return `Saved as ${updated.name}.`;
+  });
+}
+
+export async function makeDefaultEntityAction(entityId: string, _prev: AdminResult): Promise<AdminResult> {
+  return entityResult(async (active) => {
+    const chosen = await makeDefaultEntity({
+      organisationId: active.membership.organisationId,
+      entityId,
+      actor: actorOf(active),
+    });
+    return `${chosen.name} is now the default.`;
   });
 }

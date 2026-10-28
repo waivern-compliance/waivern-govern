@@ -170,6 +170,19 @@ export function can(
 }
 
 /**
+ * May this person add legal entities, rename them and choose the default?
+ *
+ * An owner over the whole organisation only. Not `entity.manage`, which a
+ * privacy admin also holds, and not an owner confined to one entity, who passes
+ * `can` for anything not naming an entity: the shape of the organisation is
+ * its owners' to change. New organisations are not made here at all — they are
+ * Waivern's to approve (`lib/platform.ts`).
+ */
+export function mayManageEntities(grants: readonly Grant[]): boolean {
+  return grants.some((g) => g.role === "owner" && g.scope === "organisation");
+}
+
+/**
  * May somebody holding `roles` decide an approval stage that names `requiredRole`?
  *
  * The stage's own role, or an owner. Owners hold every capability, and the
