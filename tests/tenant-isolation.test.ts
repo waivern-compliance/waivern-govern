@@ -67,6 +67,7 @@ import * as sweep from "@/services/sweep";
 import * as trends from "@/services/trends";
 import * as webhooks from "@/services/webhooks";
 import * as domains from "@/services/domains";
+import * as entitiesSvc from "@/services/entities";
 
 const SYSTEM = { actorKind: "system" as const, actorUserId: null, actorLabel: "isolation test" };
 const DAY = 86_400_000;
@@ -477,6 +478,8 @@ describe("changing another organisation's records", () => {
     ["resetWorkflow (A's own kind only)", () => routing.resetWorkflow({ organisationId: A.org.id, templateKind: "dpia", actor: as() })],
     ["verifyDomain", () => domains.verifyDomain({ organisationId: A.org.id, claimId: B.domainClaim.id, actor: as(), lookup: async () => [[`govern-verification=${B.domainClaim.token}`]] })],
     ["removeDomain", () => domains.removeDomain({ organisationId: A.org.id, claimId: B.domainClaim.id, actor: as() })],
+    ["renameEntity", () => entitiesSvc.renameEntity({ organisationId: A.org.id, entityId: B.entity.id, name: "taken", actor: as() })],
+    ["makeDefaultEntity", () => entitiesSvc.makeDefaultEntity({ organisationId: A.org.id, entityId: B.entity.id, actor: as() })],
     ["handOver (from B's person)", () => handover.handOver({ organisationId: A.org.id, fromUserId: B.owner.user.id, toUserId: A.owner.user.id, actor: as() })],
   ];
 
@@ -599,6 +602,7 @@ describe("lists", () => {
       ["webhooks.pendingDeliveries", webhooks.pendingDeliveries(o)] as const,
       ["workflow.tasksDueSoon", workflow.tasksDueSoon(o, 24 * 365)] as const,
       ["domains.domainsFor", domains.domainsFor(o)] as const,
+      ["entitiesSvc.entitiesOf", entitiesSvc.entitiesOf(o)] as const,
     ].map(async ([n, r]) => [n, await r] as [string, unknown]));
     const text = (v: unknown) =>
       JSON.stringify(v, (_k, x) => (x instanceof Map ? [...x] : x instanceof Set ? [...x] : x)) ?? "";
@@ -679,6 +683,7 @@ const NOT_TENANT_SCOPED: Record<string, string> = {
   "templates.createTemplate": "creates a template in the caller's own organisation",
   "templates.updateShippedTemplates": "updates the caller's own system templates",
   "domains.claimDomain": "claims a domain for the caller's own organisation",
+  "entities.addEntity": "adds an entity to the caller's own organisation",
   // Requests for new organisations: the platform's, before any organisation exists.
   "organisation-requests.requestOrganisation": "belongs to no organisation; the requester's own",
   "organisation-requests.requestsBy": "the requester's own requests, which belong to no organisation",

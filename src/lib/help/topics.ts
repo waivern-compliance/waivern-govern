@@ -962,11 +962,11 @@ export const HELP_TOPICS: HelpTopic[] = [
   },
   {
     id: "organisation",
-    title: "Naming the organisation",
+    title: "The organisation and its legal entities",
     summary:
-      "What this organisation is called wherever the platform refers to it, and what renaming does not change.",
+      "What this organisation is called, the legal entities within it, and who may add them.",
     path: "/app/admin/organisation",
-    keywords: ["organisation", "company", "client", "rename", "name", "branding", "tenant"],
+    keywords: ["organisation", "company", "client", "rename", "name", "branding", "tenant", "entity", "legal entity", "subsidiary"],
     sections: [
       {
         heading: "Where the name appears",
@@ -978,7 +978,21 @@ export const HELP_TOPICS: HelpTopic[] = [
         heading: "What renaming leaves alone",
         body: [
           "The short reference — the slug — stays as it is. The `grant` script uses it, and so does anything an administrator has written down. A display name changing should not break either.",
-          "Legal entities are named separately. They scope access and reporting, and are set when the organisation is created.",
+          "Legal entities are named separately, below.",
+        ],
+      },
+      {
+        heading: "Legal entities",
+        body: [
+          "An organisation holds one or more legal entities — for the BBC, BBC Public Service and BBC Studios. They are the companies or bodies records are classified, reported and access-scoped by; services, products and departments are not entities. Records arriving with no entity named land in the default one.",
+          "An owner of the whole organisation adds entities, renames them and chooses the default, on the Organisation page. Nobody else can — not privacy administrators, and not an owner confined to one entity, who sees the list only. Every change is in the audit log.",
+          "Renaming keeps every record with its entity. The Portal and any script that names an entity does so by its name or its reference, so tell them the new one; for the same reason no two entities may share a name or reference. Entities cannot be removed, because records and their history point at them.",
+        ],
+      },
+      {
+        heading: "Who creates what",
+        body: [
+          "Legal entities within an organisation are its owners' to add. A new organisation — a separate account with its own people, registers and audit log — is not: whoever will own it signs in and asks, and Waivern approves the request. No owner, here or elsewhere, can create an organisation.",
         ],
       },
       {

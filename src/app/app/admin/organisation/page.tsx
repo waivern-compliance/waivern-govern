@@ -1,11 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
-import { db, scoped } from "@/db/client";
-import { entities } from "@/db/schema";
 import { HelpLink } from "@/components/help/HelpLink";
 import { NotPermitted } from "@/components/NotPermitted";
-import { can } from "@/lib/rbac";
+import { can, mayManageEntities } from "@/lib/rbac";
 import { PRODUCT_NAME } from "@/lib/product";
 import { getActiveSession } from "@/lib/session";
 import { organisationDetail } from "@/services/access";
@@ -14,7 +11,9 @@ import { riskCount, riskScaleOf } from "@/services/risk-policy";
 import { RenameForm } from "./RenameForm";
 import { ScaleForm } from "./ScaleForm";
 import { DomainsPanel } from "./DomainsPanel";
+import { EntitiesPanel } from "./EntitiesPanel";
 import { domainsFor } from "@/services/domains";
+import { entitiesOf } from "@/services/entities";
 
 export default async function OrganisationPage() {
   const active = await getActiveSession();
@@ -33,7 +32,7 @@ export default async function OrganisationPage() {
   if (!org) redirect("/app");
 
   const [legalEntities, scale, risksHeld, domains] = await Promise.all([
-    scoped(org.id, () => db.select().from(entities).where(eq(entities.organisationId, org.id))),
+    entitiesOf(org.id),
     riskScaleOf(org.id),
     riskCount(org.id),
     domainsFor(org.id),
@@ -54,6 +53,16 @@ export default async function OrganisationPage() {
       <HelpLink topic="organisation" />
 
       <RenameForm current={org.name} />
+
+      <EntitiesPanel
+        mayManage={mayManageEntities(active.membership.grants)}
+        entities={legalEntities.map((e) => ({
+          id: e.id,
+          name: e.name,
+          legalEntityRef: e.legalEntityRef,
+          isDefault: e.isDefault,
+        }))}
+      />
 
       <ScaleForm
         current={scale}
@@ -88,24 +97,13 @@ export default async function OrganisationPage() {
         </p>
       </section>
 
-      <section className="space-y-2">
-        <h2 className="text-sm font-semibold">
-          Legal entities ({legalEntities.length})
-        </h2>
-        <ul className="divide-y divide-line overflow-hidden rounded border border-line bg-surface">
-          {legalEntities.map((e) => (
-            <li key={e.id} className="flex flex-wrap items-baseline justify-between gap-x-4 px-4 py-2.5 text-sm">
-              <span className="font-medium">{e.name}</span>
-              <span className="font-mono text-[11px] text-ink-soft">
-                {e.legalEntityRef ?? "no reference"}
-                {e.isDefault ? " · default" : ""}
-              </span>
-            </li>
-          ))}
-        </ul>
-        <p className="max-w-prose text-xs text-ink-soft">
-          Entities scope access and reporting. Adding or renaming one is not yet
-          possible here — it is done at seeding.
+      <section className="space-y-2 rounded border border-line bg-surface p-5">
+        <h2 className="text-sm font-semibold">A separate organisation</h2>
+        <p className="max-w-prose text-sm text-ink-soft">
+          Legal entities share this organisation&rsquo;s people, templates, workflows and
+          registers. A body that needs its own — its own account, kept apart from this one — is a
+          separate organisation. Those are not made here: whoever will own it signs in and asks,
+          and Waivern approves the request.
         </p>
       </section>
     </main>

@@ -14,7 +14,7 @@ const SETTINGS: Array<{
     href: "/app/admin/organisation",
     title: "Organisation",
     detail:
-      "What this organisation is called wherever the platform refers to it — the masthead, exports, and the audit manifest.",
+      "What this organisation is called, and the legal entities within it. Owners add and rename entities here.",
     capability: "org.manage",
   },
   {

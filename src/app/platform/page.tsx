@@ -38,6 +38,10 @@ export default async function Platform() {
             Approving sets the organisation up straight away: its first legal entity, the person who
             asked as its owner, and the shipped templates, workflows and service levels.
           </p>
+          <p className="max-w-prose text-sm text-ink-soft">
+            Only new organisations come here. Further legal entities within an existing one are its
+            owners&rsquo; to add, from its Organisation settings.
+          </p>
         </header>
 
         <section className="space-y-3">

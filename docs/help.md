@@ -52,7 +52,7 @@ Every help topic the application carries, in the order it presents them.
 - [Assessment templates](#assessment-templates) — The question sets, versioned, so an assessment always shows the questions it was actually answered against.
 - [Who approves what, and changing it](#who-approves-what-and-changing-it) — Approvers are named by role rather than by person, so a departure is handled by moving the role — and both are managed on one screen.
 - [Connected tools](#connected-tools) — Signed endpoints that let the Compliance Portal and scanning tools push records in and pull current state out.
-- [Naming the organisation](#naming-the-organisation) — What this organisation is called wherever the platform refers to it, and what renaming does not change.
+- [The organisation and its legal entities](#the-organisation-and-its-legal-entities) — What this organisation is called, the legal entities within it, and who may add them.
 - [Giving somebody access](#giving-somebody-access) — Grant a role, confine it to one entity, suspend or reinstate. Every change is written to the audit log.
 - [The assistant, and what it may not do](#the-assistant-and-what-it-may-not-do) — Optional help from a model your organisation chooses and controls. It drafts and explains; it never decides.
 
@@ -346,7 +346,7 @@ A risk with no residual rating counts as not within appetite — nobody has meas
 
 Risks are rated on four by four by default, or on the five by five Orange Book scale that DSIT's toolkit uses — chosen on the organisation settings page. The scale can only be changed while the register is empty, so every risk on it is rated the same way.
 
-**See also:** The risk register · Naming the organisation · The AI register
+**See also:** The risk register · The organisation and its legal entities · The AI register
 
 <sub>Also searchable as: appetite, tolerance, orange book, dsit, board, averse, cautious, open, within appetite</sub>
 
@@ -1000,9 +1000,9 @@ The Portal reads the register back, with each system's gaps and its latest appro
 
 <sub>Also searchable as: api, integration, portal, har analyser, webhook, sync, connection</sub>
 
-## Naming the organisation
+## The organisation and its legal entities
 
-*What this organisation is called wherever the platform refers to it, and what renaming does not change.*
+*What this organisation is called, the legal entities within it, and who may add them.*
 
 **Screen:** `/app/admin/organisation`
 
@@ -1014,7 +1014,19 @@ In the masthead on every page, on the provenance header of every export, and in 
 
 The short reference — the slug — stays as it is. The `grant` script uses it, and so does anything an administrator has written down. A display name changing should not break either.
 
-Legal entities are named separately. They scope access and reporting, and are set when the organisation is created.
+Legal entities are named separately, below.
+
+### Legal entities
+
+An organisation holds one or more legal entities — for the BBC, BBC Public Service and BBC Studios. They are the companies or bodies records are classified, reported and access-scoped by; services, products and departments are not entities. Records arriving with no entity named land in the default one.
+
+An owner of the whole organisation adds entities, renames them and chooses the default, on the Organisation page. Nobody else can — not privacy administrators, and not an owner confined to one entity, who sees the list only. Every change is in the audit log.
+
+Renaming keeps every record with its entity. The Portal and any script that names an entity does so by its name or its reference, so tell them the new one; for the same reason no two entities may share a name or reference. Entities cannot be removed, because records and their history point at them.
+
+### Who creates what
+
+Legal entities within an organisation are its owners' to add. A new organisation — a separate account with its own people, registers and audit log — is not: whoever will own it signs in and asks, and Waivern approves the request. No owner, here or elsewhere, can create an organisation.
 
 ### Email domains
 
@@ -1028,7 +1040,7 @@ Google must have verified the address itself, or the sign-in is refused. Joining
 
 **See also:** Giving somebody access · Exports · The audit trail
 
-<sub>Also searchable as: organisation, company, client, rename, name, branding, tenant</sub>
+<sub>Also searchable as: organisation, company, client, rename, name, branding, tenant, entity, legal entity, subsidiary</sub>
 
 ## Giving somebody access
 
