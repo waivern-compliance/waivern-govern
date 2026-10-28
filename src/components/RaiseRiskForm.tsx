@@ -1,5 +1,5 @@
 import { raiseRisk } from "@/app/app/risks/actions";
-import { AI_RISK_CATEGORIES } from "@/lib/risk/categories";
+import type { RiskCategoryDef } from "@/lib/ai-frameworks";
 
 type Point = { value: number; label: string };
 
@@ -16,6 +16,7 @@ export function RaiseRiskForm({
   entities,
   assessmentId,
   suggestedCategories = [],
+  categories,
   likelihood,
   impact,
 }: {
@@ -24,13 +25,15 @@ export function RaiseRiskForm({
   assessmentId?: string;
   /** Categories the assessment named as carrying risk, offered first. */
   suggestedCategories?: string[];
+  /** The organisation's framework's categories (`AiFrameworkPack.categories`). */
+  categories: readonly RiskCategoryDef[];
   likelihood: readonly Point[];
   impact: readonly Point[];
 }) {
   // The middle of the scale, as the register form has always defaulted to.
   const middle = (scale: readonly Point[]) => String(scale[Math.floor(scale.length / 2)].value);
-  const suggested = AI_RISK_CATEGORIES.filter((c) => suggestedCategories.includes(c.value));
-  const others = AI_RISK_CATEGORIES.filter((c) => !suggestedCategories.includes(c.value));
+  const suggested = categories.filter((c) => suggestedCategories.includes(c.value));
+  const others = categories.filter((c) => !suggestedCategories.includes(c.value));
 
   return (
     <form action={raiseRisk} className="space-y-3 border-t border-line p-4">

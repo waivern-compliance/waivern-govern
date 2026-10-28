@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { aiFrameworkPackOf } from "@/services/ai-framework";
 import { APPETITE_LEVELS, SUGGESTED_TOLERANCE, isScope, type AppetiteLevel } from "@/lib/risk/appetite";
 import { TIER_ORDER, type RiskTier } from "@/lib/risk/scale";
 import { scopedEntityIds, type Capability } from "@/lib/rbac";
@@ -47,7 +48,7 @@ export async function proposeAppetiteAction(
   const scope = String(formData.get("scope") ?? "");
   const level = String(formData.get("level") ?? "") as AppetiteLevel;
   const tier = String(formData.get("toleratedTier") ?? "");
-  if (!isScope(scope)) return { ok: false, message: "Choose a category." };
+  if (!isScope(scope, await aiFrameworkPackOf(active.membership.organisationId))) return { ok: false, message: "Choose a category." };
   if (!APPETITE_LEVELS.includes(level)) return { ok: false, message: "Choose an appetite level." };
 
   try {

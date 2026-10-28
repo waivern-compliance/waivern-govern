@@ -393,6 +393,13 @@
       "when": 1793134744498,
       "tag": "0055_organisation_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1793229210669,
+      "tag": "0056_ai_framework",
+      "breakpoints": true
     }
   ]
 }

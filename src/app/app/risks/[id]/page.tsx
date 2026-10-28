@@ -7,9 +7,10 @@ import { can } from "@/lib/rbac";
 import { SCALES, labelFor, type RiskScaleId } from "@/lib/risk/scale";
 import { judge, scopeLabel, APPETITE_LEVEL_LABEL } from "@/lib/risk/appetite";
 import { TREATMENT_LABEL, type TreatmentType } from "@/lib/risk/treatment";
-import { suggestionByKey, suggestionsFor } from "@/lib/risk/treatment-library";
+import { suggestionsFor } from "@/lib/risk/treatment-library";
+import { aiFrameworkPackOf } from "@/services/ai-framework";
 import { appetiteInForce } from "@/services/risk-policy";
-import { categoryLabel } from "@/lib/risk/categories";
+import { categoryLabel, suggestionByKey } from "@/lib/ai-frameworks";
 import { getActiveSession } from "@/lib/session";
 import { loadRisk } from "@/services/risks";
 import { AcceptPanel } from "./accept";
@@ -35,6 +36,7 @@ export default async function RiskPage({ params }: { params: Promise<{ id: strin
     { category: risk.category, residualTier: risk.residualTier, status: risk.status },
     await appetiteInForce(active.membership.organisationId),
   );
+  const framework = await aiFrameworkPackOf(active.membership.organisationId);
   const grants = active.membership.grants;
 
   if (!can(grants, "record.read", risk.entityId)) {
@@ -172,7 +174,7 @@ export default async function RiskPage({ params }: { params: Promise<{ id: strin
           <MitigationForm
             action={addMitigationAction.bind(null, id)}
             categoryLabel={categoryLabel(risk.category)}
-            {...suggestionsFor(risk.category)}
+            {...suggestionsFor(risk.category, framework.treatments)}
           />
         ) : null}
       </section>

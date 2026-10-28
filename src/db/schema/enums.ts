@@ -210,6 +210,14 @@ export const riskSource = pgEnum("risk_source", ["assessment", "manual", "integr
 export const riskScale = pgEnum("risk_scale", ["4x4", "5x5"]);
 
 /**
+ * The AI governance framework an organisation's AI defaults follow: its risk
+ * categories, the appetite guidance per category, and the treatments offered.
+ * See `lib/ai-frameworks`. Only the UK set exists so far; NIST AI RMF is to
+ * follow as a second value.
+ */
+export const aiFramework = pgEnum("ai_framework", ["uk_dsit"]);
+
+/**
  * How much risk of a kind the organisation is prepared to carry, in the
  * Orange Book's terms as DSIT's AI Risk Management Toolkit uses them.
  */

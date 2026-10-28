@@ -22,11 +22,11 @@ import type { TreatmentType } from "./treatment";
  *
  * Contains public sector information licensed under the Open Government Licence v3.0.
  */
-export type TreatmentSuggestion = {
+export type TreatmentSuggestion<C extends string = string> = {
   key: string;
-  /** The appendix's own heading. */
+  /** The source's own heading. */
   theme: string;
-  categories: readonly AiRiskCategory[];
+  categories: readonly C[];
   text: string;
   treatment: TreatmentType | null;
   /** As the toolkit classes it, where that differs from what `treatment` can say. */
@@ -45,7 +45,7 @@ const LEGAL = "Legal compliance";
 const BENEFITS = "Does not deliver expected benefits";
 const THIRD_PARTY = "Failure of third-party elements";
 
-export const TREATMENT_SUGGESTIONS: readonly TreatmentSuggestion[] = [
+export const TREATMENT_SUGGESTIONS: readonly TreatmentSuggestion<AiRiskCategory>[] = [
   { key: "accuracy.human_involvement", theme: ACCURACY, categories: ["technical_robustness", "accountability_governance"], treatment: "limitation",
     text: "Set out in policy the level of human involvement required in decisions the system informs." },
   { key: "accuracy.monitoring", theme: ACCURACY, categories: ["technical_robustness"], treatment: "limitation",
@@ -136,27 +136,25 @@ export const TREATMENT_SUGGESTIONS: readonly TreatmentSuggestion[] = [
     text: "Keep a way to bypass the system with a backup that keeps the service running, and make sure contracts and licences carry robust warranties and indemnities." },
 ];
 
-const BY_KEY = new Map(TREATMENT_SUGGESTIONS.map((s) => [s.key, s]));
-
-export function suggestionByKey(key: unknown): TreatmentSuggestion | null {
-  return typeof key === "string" ? (BY_KEY.get(key) ?? null) : null;
-}
-
 /**
  * The suggestions for one risk, those for its category first.
  *
  * Everything is returned, split, rather than only the matches: a risk filed
  * under a category of the organisation's own has no match, and a person
- * looking for a treatment should still be able to find the toolkit's.
+ * looking for a treatment should still be able to find the framework's.
+ * `treatments` is the organisation's framework's (`AiFrameworkPack.treatments`).
  */
-export function suggestionsFor(category: string | null | undefined): {
+export function suggestionsFor(
+  category: string | null | undefined,
+  treatments: readonly TreatmentSuggestion[],
+): {
   matching: TreatmentSuggestion[];
   others: TreatmentSuggestion[];
 } {
   const matching: TreatmentSuggestion[] = [];
   const others: TreatmentSuggestion[] = [];
-  for (const s of TREATMENT_SUGGESTIONS) {
-    (category && s.categories.includes(category as AiRiskCategory) ? matching : others).push(s);
+  for (const s of treatments) {
+    (category && s.categories.includes(category) ? matching : others).push(s);
   }
   return { matching, others };
 }

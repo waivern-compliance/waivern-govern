@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { NotPermitted } from "@/components/NotPermitted";
 import { RiskTierBadge } from "@/components/RiskTierBadge";
 import { can } from "@/lib/rbac";
-import { categoryLabel } from "@/lib/risk/categories";
+import { categoryLabel } from "@/lib/ai-frameworks";
 import { TREATMENT_LABEL, type TreatmentType } from "@/lib/risk/treatment";
 import { getActiveSession } from "@/lib/session";
 import { STAGE_LABEL, loadUseCase, type LifecycleStage } from "@/services/ai-register";

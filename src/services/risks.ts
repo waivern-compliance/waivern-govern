@@ -11,7 +11,7 @@ import {
 import { appendAuditEvent } from "@/lib/audit";
 import { judge } from "@/lib/risk/appetite";
 import { DEFAULT_SCALE, rate, type RiskScaleId, type RiskTier } from "@/lib/risk/scale";
-import { suggestionByKey } from "@/lib/risk/treatment-library";
+import { suggestionByKey } from "@/lib/ai-frameworks";
 import { appetiteInForce } from "./appetite-in-force";
 import type { Actor } from "./templates";
 import { queueEvent } from "./webhooks";

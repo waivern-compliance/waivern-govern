@@ -22,7 +22,7 @@ import { questionsOf } from "@/lib/templates/logic";
 import { libraryFor } from "./countries";
 import { gapsFor } from "./ai-register";
 import { aiRiskLog, treatmentWords } from "./ai-risk-profile";
-import { categoryLabel } from "@/lib/risk/categories";
+import { categoryLabel } from "@/lib/ai-frameworks";
 import { GAP_WORDS, listActivities } from "./ropa";
 import { breachRegister } from "./breaches";
 import { trendFor } from "./trends";

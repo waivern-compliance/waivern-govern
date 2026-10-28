@@ -4,24 +4,18 @@ import { HelpLink } from "@/components/help/HelpLink";
 import { NotPermitted } from "@/components/NotPermitted";
 import { can, scopedEntityIds } from "@/lib/rbac";
 import {
-  APPETITE_GUIDANCE,
   APPETITE_LEVELS,
   APPETITE_LEVEL_LABEL,
   PLATFORM_TOLERANCE,
-  SCOPES,
+  scopesFor,
   SUGGESTED_TOLERANCE,
   scopeLabel,
   type AppetiteLevel,
-  type AppetiteScope,
 } from "@/lib/risk/appetite";
-import { AI_RISK_CATEGORIES } from "@/lib/risk/categories";
+import { aiFrameworkPackOf } from "@/services/ai-framework";
 import { getActiveSession } from "@/lib/session";
 import { appetiteHistory } from "@/services/risk-policy";
 import { DecideAppetiteForm, ProposeAppetiteForm } from "./forms";
-
-const SUMMARY: Record<string, string> = Object.fromEntries(
-  AI_RISK_CATEGORIES.map((c) => [c.value, c.summary]),
-);
 
 export default async function AppetitePage() {
   const active = await getActiveSession();
@@ -39,7 +33,13 @@ export default async function AppetitePage() {
   const mayPropose = scopedEntityIds(grants, "risk.manage") === null && can(grants, "risk.manage");
   const mayDecide = scopedEntityIds(grants, "risk.accept") === null && can(grants, "risk.accept");
 
-  const rows = await appetiteHistory(active.membership.organisationId);
+  const [rows, framework] = await Promise.all([
+    appetiteHistory(active.membership.organisationId),
+    aiFrameworkPackOf(active.membership.organisationId),
+  ]);
+  const summary: Record<string, string> = Object.fromEntries(
+    framework.categories.map((c) => [c.value, c.summary]),
+  );
   const now = new Date();
 
   return (
@@ -62,7 +62,7 @@ export default async function AppetitePage() {
       <HelpLink topic="risk-appetite" />
 
       <ul className="space-y-3">
-        {SCOPES.map((scope) => {
+        {scopesFor(framework).map((scope) => {
           const forScope = rows.filter((r) => r.category === scope);
           const current = forScope.find((r) => r.status === "approved") ?? null;
           const pending = forScope.find((r) => r.status === "proposed") ?? null;
@@ -88,7 +88,7 @@ export default async function AppetitePage() {
                 <p className="text-xs text-ink-soft">
                   {scope === "default"
                     ? "Applies to any risk whose category has no appetite of its own."
-                    : SUMMARY[scope]}
+                    : summary[scope]}
                 </p>
 
                 {current ? (
@@ -152,7 +152,7 @@ export default async function AppetitePage() {
                       guidance:
                         scope === "default"
                           ? null
-                          : APPETITE_GUIDANCE[scope as Exclude<AppetiteScope, "default">][level],
+                          : (framework.appetiteGuidance[scope]?.[level] ?? null),
                       suggestedTier: SUGGESTED_TOLERANCE[level],
                     }))}
                   />
