@@ -19,6 +19,7 @@ import {
 import { can } from "@/lib/rbac";
 import { savedKey } from "@/lib/saved-key";
 import { getActiveSession } from "@/lib/session";
+import { complaintsAboutRequest } from "@/services/complaints";
 import { loadRequest } from "@/services/data-subject-requests";
 import { ActionForm } from "../ActionForm";
 import { RequestDecisionForm } from "../RequestDecisionForm";
@@ -53,6 +54,7 @@ export default async function RequestPage({ params }: { params: Promise<{ id: st
   }
 
   const open = !request.respondedAt && !request.closedAt;
+  const complaints = await complaintsAboutRequest(request.id, active.membership.organisationId);
   const colleagues = await scoped(active.membership.organisationId, () => db
     .select({ id: users.id, email: users.email })
     .from(memberships)
@@ -352,6 +354,31 @@ export default async function RequestPage({ params }: { params: Promise<{ id: st
           <p className="max-w-prose text-sm text-ink-soft">{request.closureRationale}</p>
         </section>
       )}
+
+      <section className="space-y-2">
+        <h2 className="text-sm font-semibold">Complaints about this request ({complaints.length})</h2>
+        {complaints.length > 0 ? (
+          <ul className="divide-y divide-line overflow-hidden rounded border border-line bg-surface">
+            {complaints.map((c) => (
+              <li key={c.id} className="flex flex-wrap items-baseline justify-between gap-2 px-4 py-2.5 text-sm">
+                <Link href={`/app/complaints/${c.id}`} className="font-mono text-xs text-brand underline">
+                  {c.reference}
+                </Link>
+                <span className="font-mono text-[11px] text-ink-soft">
+                  received {c.receivedAt.toISOString().slice(0, 10)} · {c.status.replace(/_/g, " ")}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        <p className="max-w-prose text-xs text-ink-soft">
+          If the person complains to you about how this request was handled, record it as a
+          complaint: the 30 days to acknowledge it run separately from this request&apos;s month.{" "}
+          <Link href={`/app/complaints?request=${request.id}`} className="text-brand underline">
+            Record a complaint about this request
+          </Link>
+        </p>
+      </section>
 
       <EditForm
         key={savedKey(request)}

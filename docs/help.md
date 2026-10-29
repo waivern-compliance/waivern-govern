@@ -31,6 +31,7 @@ Every help topic the application carries, in the order it presents them.
 - [Third parties and processor agreements (Article 28)](#third-parties-and-processor-agreements-article-28) — Every processor you rely on, whether or not anybody procured it, and whether a contract actually covers them.
 - [Personal data breaches](#personal-data-breaches) — Record every breach, decide the two statutory questions separately, and keep the reasoning for both.
 - [Data subject requests](#data-subject-requests) — Record every request from a person exercising their rights, run the month to answer it, and keep the reasoning for each decision.
+- [Data protection complaints](#data-protection-complaints) — Record each complaint a person makes to you about how their data was handled, acknowledge it within 30 days, and keep what you looked into and what you told them.
 - [The AI register](#the-ai-register) — Every AI system the organisation is accountable for, including the ones nobody has assessed.
 - [Proposals to use AI](#proposals-to-use-ai) — Ideas for using AI, captured before anything is built or bought, scored on value and feasibility, and decided with a reason.
 - [The AI assurance chain](#the-ai-assurance-chain) — Each AI system drawn through to what was done about it — and, more usefully, where that chain stops.
@@ -663,9 +664,63 @@ A week before a request falls due, and again once it is overdue, the scheduler r
 
 It will not answer the request, search your systems, or redact anything. It counts the month, lists where to look, refuses what the law does not allow, and keeps the record of who looked where, who decided what, and why.
 
-**See also:** Personal data breaches · The processing register (Article 30) · Tasks, and being mentioned · The audit trail
+**See also:** Data protection complaints · Personal data breaches · The processing register (Article 30) · Tasks, and being mentioned · The audit trail
 
 <sub>Also searchable as: dsar, sar, subject access, access request, article 15, erasure, right to be forgotten, article 17, objection, object, article 21, rectification, portability, restriction, one month, extension, article 12, direct marketing, rights request, article 19, recipients, search, reasonable and proportionate, processor, article 28, article 18(1)(d), lia, legitimate interests assessment, balancing test, timeliness, on time, response times, export, metrics, web form, intake, public form, privacy notice</sub>
+
+## Data protection complaints
+
+*Record each complaint a person makes to you about how their data was handled, acknowledge it within 30 days, and keep what you looked into and what you told them.*
+
+**Screen:** `/app/complaints`
+
+### What the law requires
+
+Section 164A of the Data Protection Act 2018, inserted by the Data (Use and Access) Act 2025 and in force from 19 June 2026, lets a person complain to you if they think their personal data has been handled in breach of the UK GDPR. You must make complaining easy, acknowledge each complaint within 30 days of receiving it, take appropriate steps to respond without undue delay, and tell them the outcome.
+
+Appropriate steps include making enquiries into what they complained about, as far as is appropriate, and keeping them informed of progress. The register keeps a dated record of both.
+
+The EU GDPR has no equivalent duty. A complaint recorded under EU law shows no statutory period, but the register still holds it and measures it against your own targets.
+
+### Record it the day it arrives
+
+A complaint can come by any route, and need not use the word. It often arrives inside a reply about a request: if the person is unhappy with how you handled it, that is a complaint as well as part of the request. Record it separately, linked to the request, because the 30 days to acknowledge it run on their own.
+
+Record only what you need: who is complaining, how to reach them, what it is about and what they said. The register is restricted to the people who handle requests, for the same reason.
+
+The right is the data subject's own. Somebody acting for them is recorded as their representative, with whether their authority was checked.
+
+### How the 30 days are counted
+
+The Act says the period begins when the complaint is received, so the day it arrives is the first day. A complaint received on 1 July must be acknowledged by the end of 30 July. These are calendar days: unlike the month for a request, nothing moves off a weekend or a bank holiday.
+
+An acknowledgement after the 30 days is still recorded, with the reason it was late. Sending the outcome within the 30 days counts as the acknowledgement if nothing else did.
+
+### Your own targets
+
+The Act sets no figure for "without undue delay" or for how often to update the complainant. On the complaints page an owner or privacy administrator sets the organisation's own: by default an outcome within 30 days of acknowledging, and an update at least every 30 days while it is open. The register measures against these and says they are yours, not the law's.
+
+Telling the complainant the outcome after your target needs a reason. That reason is how the record shows the delay was not undue.
+
+### The outcome
+
+Write the letter in whatever you normally use. Record here whether the complaint was upheld, partly upheld or not upheld, what they were told, anything you are changing because of it, and where the letter is kept.
+
+The Act does not require you to tell them they may complain to the Information Commission, but the Commission will expect it, and the form asks.
+
+A complaint cannot be closed without an outcome unless the complainant withdrew it.
+
+### When you are the processor
+
+The duty is the controller's. As the processor, pass the complaint to the controller without delay, as your data processing agreement requires, and record that as the outcome. A joint controller can do the same for a part another controller is responsible for.
+
+### What the platform will not do
+
+It will not decide whether a complaint is justified, write to the complainant, or report to the Commission. Regulations could one day require controllers to report how many complaints they receive (section 164B); none have been made, and the register keeps the counts that would be needed.
+
+**See also:** Data subject requests · Personal data breaches · The audit trail
+
+<sub>Also searchable as: complaint, complaints, 164a, section 164a, dpa 2018, data use and access act, duaa, acknowledge, acknowledgement, 30 days, thirty days, undue delay, outcome, grievance, information commission, ico, regulator, progress update</sub>
 
 ## The AI register
 

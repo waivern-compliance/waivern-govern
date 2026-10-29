@@ -63,10 +63,12 @@ export const CAPABILITIES = [
   /** See who raised a confidential concern. Whistleblowing depends on few people holding this. */
   "concern.confidential",
   /**
-   * Read and handle requests from data subjects. Separate from `record.read`
-   * because each request is the requester's own personal data — sometimes
+   * Read and handle requests and complaints from data subjects. Separate from
+   * `record.read` because each is the person's own personal data — sometimes
    * about their health or a grievance — and an auditor or approver reading the
-   * registers has no need to see who asked for what.
+   * registers has no need to see who asked for what. One capability for both,
+   * because a complaint is often about a request and the same people answer
+   * them.
    */
   "dsr.handle",
 ] as const;

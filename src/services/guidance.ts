@@ -292,6 +292,7 @@ function measure(step: Step, t: Tally): { done: boolean; measure: string } {
       return { done: false, measure: "an ongoing judgement, not a box to tick" };
     case "breach":
     case "requests":
+    case "complaints":
       return { done: false, measure: "read it before you need it" };
     case "evidence":
       return { done: false, measure: "worth doing before somebody asks" };

@@ -22,6 +22,8 @@ const PATHS: Record<string, (id: string) => string> = {
   breach_decision: () => "/app/breaches",
   data_subject_request: (id) => `/app/requests/${id}`,
   data_subject_request_decision: () => "/app/requests",
+  data_protection_complaint: (id) => `/app/complaints/${id}`,
+  data_protection_complaint_event: () => "/app/complaints",
   risk_appetite: () => "/app/risks/appetite",
   ai_incident: (id) => `/app/ai/incidents/${id}`,
   ai_use_case_request: (id) => `/app/ai/intake/${id}`,

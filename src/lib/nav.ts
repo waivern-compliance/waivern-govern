@@ -88,6 +88,12 @@ export const NAV: NavItem[] = [
     capability: "dsr.handle",
   },
   {
+    href: "/app/complaints",
+    label: "Data protection complaints",
+    hint: "complaints made to you, and the 30 days to acknowledge them",
+    capability: "dsr.handle",
+  },
+  {
     href: "/app/risks",
     label: "Risk register",
     hint: "mitigations, residual rating, acceptance",

@@ -64,6 +64,9 @@ export const recordType = pgEnum("record_type", [
   // Added with the register of requests from data subjects.
   "data_subject_request",
   "data_subject_request_decision",
+  // Added with the register of data protection complaints.
+  "data_protection_complaint",
+  "data_protection_complaint_event",
 ]);
 
 /**
@@ -314,6 +317,47 @@ export const dsrRecipientNotice = pgEnum("dsr_recipient_notice", [
   "notified",
   "impossible",
   "disproportionate",
+]);
+
+/**
+ * Where a complaint to the controller is in its handling (DPA 2018 s.164A).
+ *
+ * Acknowledged within thirty days, looked into, then the outcome told to the
+ * complainant. Withdrawn is an ending in its own right: nothing more is owed.
+ */
+export const complaintStatus = pgEnum("complaint_status", [
+  "received",
+  "acknowledged",
+  "investigating",
+  "outcome_sent",
+  "withdrawn",
+  "closed",
+]);
+
+/** What the complainant was told the complaint came to. */
+export const complaintOutcome = pgEnum("complaint_outcome", [
+  "upheld",
+  "partly_upheld",
+  "not_upheld",
+  /** A processor, or a joint controller not responsible for this part, sends it on. */
+  "passed_to_controller",
+]);
+
+/**
+ * A dated step in handling a complaint, kept rather than overwritten.
+ *
+ * s.164A(5) says what responding includes: making enquiries into the subject
+ * of the complaint, and keeping the complainant informed of progress. Each is
+ * a step here, so the record shows both were done and when.
+ */
+export const complaintEventKind = pgEnum("complaint_event_kind", [
+  "acknowledged",
+  "enquiry",
+  "progress_update",
+  "outcome_sent",
+  "withdrawn",
+  /** The Information Commission asking about the same matter. */
+  "regulator_contact",
 ]);
 
 /**

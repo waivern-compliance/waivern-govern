@@ -43,6 +43,15 @@ export const organisations = pgTable("organisation", {
    * front of somebody. Zero turns it off.
    */
   objectionReviewThreshold: integer("objection_review_threshold").notNull().default(3),
+  /**
+   * The organisation's own standard for "without undue delay" (DPA 2018
+   * s.164A(4)): days from acknowledging a complaint to telling the complainant
+   * the outcome. The Act sets no figure, so this is never shown as the law.
+   * Zero turns it off.
+   */
+  complaintOutcomeTargetDays: integer("complaint_outcome_target_days").notNull().default(30),
+  /** How often a complainant is told how things stand while it is open (s.164A(5)(b)). Zero turns it off. */
+  complaintUpdateIntervalDays: integer("complaint_update_interval_days").notNull().default(30),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
