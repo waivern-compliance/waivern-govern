@@ -27,6 +27,7 @@ import { notificationDeadline } from "@/lib/breach/statutory";
 import { breachesNeedingAttention } from "./breaches";
 import { objectionCounts, objectionReviewThreshold, requestsNeedingAttention } from "./data-subject-requests";
 import { pruneIntakeAttempts } from "./dsr-intake";
+import { complaintsNeedingAttention } from "./complaints";
 import { objectionReviewDue } from "@/lib/dsr/statutory";
 import { EXPIRING_WITHIN_LABEL, dpasNeedingAttention } from "./third-party";
 import { appetitesDueForReview } from "./risk-policy";
@@ -64,6 +65,7 @@ export type SweepResult = {
   conversationsForgotten: number;
   breachDeadlinesRaised: number;
   requestDeadlinesRaised: number;
+  complaintDeadlinesRaised: number;
   objectionReviewsRaised: number;
   intakeAttemptsForgotten: number;
   lapsedReviewsRaised: number;
@@ -518,6 +520,65 @@ async function raiseRequestDeadlines(organisationId: string): Promise<number> {
   return raised;
 }
 
+const COMPLAINT_DIAL = {
+  acknowledgement: {
+    soon: "acknowledgement due",
+    over: "acknowledgement past the 30 days",
+    next: "Acknowledge it, as DPA 2018 s.164A(3) requires.",
+    late: "It is still owed. Acknowledge it, and record why it was late.",
+  },
+  outcome: {
+    soon: "outcome target close",
+    over: "past your target for the outcome",
+    next: "Tell the complainant the outcome, or tell them how it stands and when to expect it.",
+    late: "The Act requires the outcome without undue delay. Send it, or update them and record why it is taking longer.",
+  },
+  update: {
+    soon: "progress update due",
+    over: "progress update overdue",
+    next: "Tell the complainant how it stands (s.164A(5)(b)).",
+    late: "Tell the complainant how it stands (s.164A(5)(b)), and record the update.",
+  },
+} as const;
+
+/**
+ * Complaints whose acknowledgement, outcome or next update is due or past.
+ *
+ * One task per complaint, per dial and per due date, so a new update interval
+ * after each update raises its own reminder while the same deadline is never
+ * raised twice. Only the acknowledgement is the Act's; the others are the
+ * organisation's own targets, and the task says so.
+ */
+async function raiseComplaintDeadlines(organisationId: string): Promise<number> {
+  const pressing = await complaintsNeedingAttention(organisationId);
+  if (pressing.length === 0) return 0;
+
+  let raised = 0;
+  for (const { complaint, pressing: dials } of pressing) {
+    for (const dial of dials) {
+      const words = COMPLAINT_DIAL[dial.which];
+      const overdue = dial.state === "overdue";
+      await db.transaction(async (tx) => {
+        const task = await raiseTask(tx, {
+          organisationId,
+          entityId: complaint.entityId,
+          type: "complaint_deadline",
+          title: `${complaint.reference}: ${overdue ? words.over : words.soon}`,
+          description: `${dial.words} ${overdue ? words.late : words.next}`,
+          subjectType: "data_protection_complaint",
+          subjectId: complaint.id,
+          ...(complaint.ownerId ? { assigneeUserId: complaint.ownerId } : { assigneeRole: "privacy_admin" as const }),
+          dueAt: dial.dueAt,
+          idempotencyKey: `complaint-deadline:${complaint.id}:${dial.which}:${dial.dueAt.toISOString().slice(0, 10)}:${dial.state}`,
+          actor: SYSTEM,
+        });
+        if (task) raised += 1;
+      });
+    }
+  }
+  return raised;
+}
+
 /**
  * Activities people keep objecting to.
  *
@@ -762,6 +823,7 @@ export async function sweepOrganisation(organisationId: string): Promise<SweepRe
     conversationsForgotten: await forgetExpiredConversations(organisationId),
     breachDeadlinesRaised: await raiseBreachDeadlines(organisationId),
     requestDeadlinesRaised: await raiseRequestDeadlines(organisationId),
+    complaintDeadlinesRaised: await raiseComplaintDeadlines(organisationId),
     objectionReviewsRaised: await raiseObjectionReviews(organisationId),
     // Kept a day for rate limiting, then forgotten.
     intakeAttemptsForgotten: await pruneIntakeAttempts(organisationId),

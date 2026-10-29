@@ -1,6 +1,6 @@
 # Plan: a register for data protection complaints
 
-Status: decisions settled as recommended; Phase 1 built. Written 29 October 2026.
+Status: decisions settled as recommended; Phases 1 and 2 built. Written 29 October 2026.
 
 ## What is asked for
 
@@ -183,7 +183,7 @@ These are the dated steps, each recorded by a named person with a note:
   - A request's page lists the complaints about it, and links to a complaint form
     pre-filled from the request.
 
-### Phase 2: deadlines and reporting
+### Phase 2: deadlines and reporting (built)
 - **Sweep:** `raiseComplaintDeadlines`, using task type `complaint_deadline`, keyed on the
   complaint and clock state, the same way as requests.
 - **Dashboard:** "complaints to acknowledge this week".
@@ -192,6 +192,18 @@ These are the dated steps, each recorded by a named person with a note:
   yet.
 - **Integration API:** add complaint counts to `export/requests-summary`, or a sibling
   `export/complaints-summary`, documented first in `integration-api.md`.
+- **As built:**
+  - One `complaint_deadline` task per complaint, per dial (acknowledgement, outcome,
+    update) and per due date, raised a week before and again once overdue. Keying on
+    the due date means each new update interval gets its own reminder. Tasks go to the
+    handler, or to privacy admins when there isn't one.
+  - The dashboard shows complaints to acknowledge this week, and those past the 30
+    days.
+  - `lib/complaints/metrics.ts` is pure. `complaintMetrics` drives the panel on the
+    complaints page.
+  - The API endpoint is a sibling, `GET /api/v1/export/complaints-summary`. It has the
+    same query rules as the requests summary, and also returns the organisation's
+    targets so "within target" can be read.
 
 ### Phase 3: public intake
 Only if decision 2 is yes. The form gets the request-or-complaint choice; a per-form

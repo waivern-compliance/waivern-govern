@@ -28,6 +28,7 @@ async function main() {
       r.conversationsForgotten +
       r.breachDeadlinesRaised +
       r.requestDeadlinesRaised +
+      r.complaintDeadlinesRaised +
       r.objectionReviewsRaised +
       r.lapsedReviewsRaised +
       r.aiReviewsRaised +
@@ -52,6 +53,7 @@ async function main() {
           r.dpaReviewsRaised && `${r.dpaReviewsRaised} processor agreement(s) flagged`,
           r.breachDeadlinesRaised && `${r.breachDeadlinesRaised} breach deadline(s) flagged`,
           r.requestDeadlinesRaised && `${r.requestDeadlinesRaised} data subject request deadline(s) flagged`,
+          r.complaintDeadlinesRaised && `${r.complaintDeadlinesRaised} complaint deadline(s) flagged`,
           r.objectionReviewsRaised && `${r.objectionReviewsRaised} LIA review(s) raised by objections`,
           r.lapsedReviewsRaised && `${r.lapsedReviewsRaised} assessment(s) past review`,
           r.aiReviewsRaised && `${r.aiReviewsRaised} AI system(s) past review`,

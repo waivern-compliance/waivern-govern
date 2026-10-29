@@ -14,7 +14,7 @@ import {
 } from "@/lib/complaints/statutory";
 import { can, mayConfigureRequests } from "@/lib/rbac";
 import { getActiveSession, visibleEntityIds } from "@/lib/session";
-import { complaintRegister, complaintTargets } from "@/services/complaints";
+import { complaintMetrics, complaintRegister, complaintTargets } from "@/services/complaints";
 import { defaultJurisdiction, loadRequest } from "@/services/data-subject-requests";
 import { ActionForm } from "../requests/ActionForm";
 import { CHANNEL_LABEL, ChannelSelect, Label, inputClass } from "../requests/fields";
@@ -35,12 +35,13 @@ export default async function ComplaintsPage({ searchParams }: { searchParams: P
 
   const org = active.membership.organisationId;
   const { request: requestId } = await searchParams;
-  const [register, orgEntities, jurisdiction, targets, about] = await Promise.all([
+  const [register, orgEntities, jurisdiction, targets, about, metrics] = await Promise.all([
     complaintRegister(org, visibleEntityIds(active, "dsr.handle")),
     scoped(org, () => db.select().from(entities).where(eq(entities.organisationId, org))),
     defaultJurisdiction(org),
     complaintTargets(org),
     requestId && /^[0-9a-f-]{36}$/i.test(requestId) ? loadRequest(requestId, org) : null,
+    complaintMetrics(org, visibleEntityIds(active, "dsr.handle")),
   ]);
   const mayRecordIn = orgEntities.filter((e) => can(active.membership.grants, "dsr.handle", e.id));
   // A complaint about a request is made to the entity the request was.
@@ -170,6 +171,38 @@ export default async function ComplaintsPage({ searchParams }: { searchParams: P
         </details>
       ) : null}
 
+      {metrics.totals.received > 0 ? (
+        <details className="rounded border border-line bg-surface">
+          <summary className="cursor-pointer px-4 py-3 text-sm font-medium">
+            How they were handled, last twelve months
+            <span className="ml-2 font-mono text-[11px] font-normal text-ink-soft">
+              {metrics.totals.received} received · {metrics.totals.acknowledgedInTime} acknowledged in time ·{" "}
+              {metrics.totals.acknowledgedLate} late
+              {metrics.totals.medianDaysToOutcome !== null ? ` · median ${metrics.totals.medianDaysToOutcome} days to outcome` : ""}
+            </span>
+          </summary>
+          <div className="space-y-5 border-t border-line p-4">
+            <p className="max-w-prose text-xs text-ink-soft">
+              Complaints received since {metrics.from.toISOString().slice(0, 10)}. {metrics.totals.outcomesSent} outcome
+              {metrics.totals.outcomesSent === 1 ? "" : "s"} sent — {metrics.outcomes.upheld} upheld,{" "}
+              {metrics.outcomes.partlyUpheld} partly upheld, {metrics.outcomes.notUpheld} not upheld
+              {metrics.outcomes.passedToController > 0 ? `, ${metrics.outcomes.passedToController} passed to the controller` : ""}.{" "}
+              {metrics.totals.outcomeWithinTarget} within your target, {metrics.totals.outcomeAfterTarget} after it.{" "}
+              {metrics.totals.withdrawn} withdrawn, {metrics.totals.open} still open. In time and late count only
+              complaints s.164A applies to.
+            </p>
+            <CountTable
+              head="About"
+              rows={metrics.bySubject.map((s) => ({ ...s, key: s.subject }))}
+            />
+            <CountTable
+              head="Month"
+              rows={metrics.byMonth.map((m) => ({ ...m, key: m.period, label: m.period }))}
+            />
+          </div>
+        </details>
+      ) : null}
+
       <ul className="space-y-3">
         {register.rows.map(({ complaint, entityName, clock }) => (
           <li key={complaint.id}>
@@ -247,6 +280,51 @@ export default async function ComplaintsPage({ searchParams }: { searchParams: P
         ) : null}
       </section>
     </main>
+  );
+}
+
+function CountTable({
+  head,
+  rows,
+}: {
+  head: string;
+  rows: Array<{
+    key: string;
+    label: string;
+    received: number;
+    acknowledged: number;
+    acknowledgedInTime: number;
+    acknowledgedLate: number;
+    outcomesSent: number;
+  }>;
+}) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-left text-xs">
+        <thead className="text-ink-soft">
+          <tr>
+            <th className="py-1 pr-3 font-medium">{head}</th>
+            <th className="py-1 pr-3 text-right font-medium">Received</th>
+            <th className="py-1 pr-3 text-right font-medium">Acknowledged</th>
+            <th className="py-1 pr-3 text-right font-medium">In time</th>
+            <th className="py-1 pr-3 text-right font-medium">Late</th>
+            <th className="py-1 text-right font-medium">Outcomes</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-line tabular-nums">
+          {rows.map((r) => (
+            <tr key={r.key}>
+              <td className="py-1 pr-3">{r.label}</td>
+              <td className="py-1 pr-3 text-right">{r.received}</td>
+              <td className="py-1 pr-3 text-right">{r.acknowledged}</td>
+              <td className="py-1 pr-3 text-right">{r.acknowledgedInTime}</td>
+              <td className={`py-1 pr-3 text-right ${r.acknowledgedLate > 0 ? "text-red-800" : ""}`}>{r.acknowledgedLate}</td>
+              <td className="py-1 text-right">{r.outcomesSent}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 

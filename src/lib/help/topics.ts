@@ -733,6 +733,7 @@ export const HELP_TOPICS: HelpTopic[] = [
       "complaint", "complaints", "164a", "section 164a", "dpa 2018", "data use and access act", "duaa",
       "acknowledge", "acknowledgement", "30 days", "thirty days", "undue delay", "outcome", "grievance",
       "information commission", "ico", "regulator", "progress update",
+      "deadline", "task", "timeliness", "metrics", "164b", "return", "counts",
     ],
     sections: [
       {
@@ -774,6 +775,20 @@ export const HELP_TOPICS: HelpTopic[] = [
         ],
       },
       {
+        heading: "Deadlines and tasks",
+        body: [
+          "The scheduler raises a task for whoever is handling a complaint — or the privacy administrators, if nobody is — a week before the acknowledgement is due and again once it is overdue. It does the same for your outcome target and your update interval, saying that those are your own targets rather than the Act's. Each task is due on the date itself, not on a service level.",
+          "The dashboard shows complaints to acknowledge this week, and any past the 30 days, to the people who handle them.",
+        ],
+      },
+      {
+        heading: "How well you are handling them",
+        body: [
+          "The complaints page shows the last twelve months: how many arrived and about what, how many were acknowledged within the 30 days and how many late, how many outcomes were sent and how they came out, and the median days to the outcome. In time and late count only complaints s.164A applies to; outcomes are measured against your own target.",
+          "The Waivern Compliance Portal can read the same counts — never the complaints — so a procedure it writes can state real figures. They are also what a return under section 164B would ask for, if one is ever required.",
+        ],
+      },
+      {
         heading: "When you are the processor",
         body: [
           "The duty is the controller's. As the processor, pass the complaint to the controller without delay, as your data processing agreement requires, and record that as the outcome. A joint controller can do the same for a part another controller is responsible for.",
@@ -782,7 +797,7 @@ export const HELP_TOPICS: HelpTopic[] = [
       {
         heading: "What the platform will not do",
         body: [
-          "It will not decide whether a complaint is justified, write to the complainant, or report to the Commission. Regulations could one day require controllers to report how many complaints they receive (section 164B); none have been made, and the register keeps the counts that would be needed.",
+          "It will not decide whether a complaint is justified, write to the complainant, or report to the Commission. Regulations could one day require controllers to report how many complaints they receive (section 164B); none have been made, and the counts above are what would be needed.",
         ],
       },
     ],

@@ -436,6 +436,12 @@ export const taskType = pgEnum("task_type", [
   "dsr_deadline",
   /** A request arrived through the public web form and nobody has picked it up yet. */
   "dsr_intake",
+  /**
+   * A complaint's acknowledgement under DPA 2018 s.164A(3) is due or past, or
+   * the organisation's own target for the outcome or the next progress update
+   * is. Due from the complaint, like the other deadlines from statute.
+   */
+  "complaint_deadline",
 ]);
 
 export const taskStatus = pgEnum("task_status", [
