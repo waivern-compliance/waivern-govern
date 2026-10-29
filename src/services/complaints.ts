@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import { db, withOrganisation } from "@/db/client";
 import {
   dataProtectionComplaintEvents,
@@ -10,14 +10,18 @@ import {
   users,
 } from "@/db/schema";
 import { appendAuditEvent } from "@/lib/audit";
+import { complaintCounts, type ComplaintCounts } from "@/lib/complaints/metrics";
 import {
   COMPLAINT_SUBJECT_KEYS,
   complaintClock,
+  pressingDials,
   type ComplaintClock,
   type ComplaintOutcome,
 } from "@/lib/complaints/statutory";
 import type { Jurisdiction } from "@/lib/dsr/statutory";
+import { BadQuery } from "@/lib/integration/query";
 import { CHANNELS, defaultJurisdiction, type ControllerRole } from "./data-subject-requests";
+import { monthsEnding } from "./trends";
 import type { Actor } from "./templates";
 import { assertEntityIn, assertMemberOf } from "./tenancy-guards";
 
@@ -693,12 +697,14 @@ export async function complaintRegister(organisationId: string, entityIds: strin
       const ev = byComplaint.get(r.complaint.id) ?? [];
       return { ...r, events: ev, clock: clockOf(r.complaint, ev, targets, now) };
     });
-    const open = loaded.filter((c) => !c.complaint.closedAt && c.complaint.status !== "withdrawn");
+    // Open means still owed an outcome: once it is sent, only closing the file remains.
+    const open = loaded.filter((c) => !c.complaint.outcomeAt && !c.complaint.closedAt && c.complaint.status !== "withdrawn");
 
     return {
       total: loaded.length,
       open: open.length,
       toAcknowledge: open.filter((c) => c.clock.acknowledgement.state === "running" || c.clock.acknowledgement.state === "due_soon").length,
+      acknowledgeSoon: open.filter((c) => c.clock.acknowledgement.state === "due_soon").length,
       acknowledgementOverdue: open.filter((c) => c.clock.acknowledgement.state === "overdue").length,
       outcomeOverdue: open.filter((c) => c.clock.outcome.state === "overdue").length,
       updateOverdue: open.filter((c) => c.clock.update.state === "overdue").length,
@@ -726,4 +732,125 @@ export async function complaintsAboutRequest(requestId: string, organisationId: 
       )
       .orderBy(asc(dataProtectionComplaints.receivedAt)),
   );
+}
+
+/**
+ * Open complaints with something due soon or past: the acknowledgement, the
+ * outcome target or the next update. Used by the sweep.
+ */
+export async function complaintsNeedingAttention(organisationId: string) {
+  return withOrganisation(organisationId, async () => {
+    const open = await db
+      .select()
+      .from(dataProtectionComplaints)
+      .where(
+        and(
+          eq(dataProtectionComplaints.organisationId, organisationId),
+          isNull(dataProtectionComplaints.outcomeAt),
+          isNull(dataProtectionComplaints.closedAt),
+          ne(dataProtectionComplaints.status, "withdrawn"),
+        ),
+      );
+    if (open.length === 0) return [];
+
+    const [events, targets] = await Promise.all([
+      eventsFor(open.map((c) => c.id)),
+      complaintTargets(organisationId),
+    ]);
+    const byComplaint = groupEvents(events);
+    const now = new Date();
+    return open
+      .map((complaint) => ({
+        complaint,
+        pressing: pressingDials(clockOf(complaint, byComplaint.get(complaint.id) ?? [], targets, now)),
+      }))
+      .filter((c) => c.pressing.length > 0);
+  });
+}
+
+/**
+ * Counts over the complaints received in the last `months` months, by subject
+ * and by month. Counts only, so they can go on a page or over the Integration
+ * API without any complainant going with them.
+ */
+export async function complaintMetrics(
+  organisationId: string,
+  entityIds: string[] | null,
+  months = 12,
+  now = new Date(),
+): Promise<ComplaintCounts & { months: number; from: Date; to: Date }> {
+  const periods = monthsEnding(now, months);
+  const from = periods[0].start;
+  const register = await complaintRegister(organisationId, entityIds);
+  const inWindow = register.rows.filter((r) => r.complaint.receivedAt >= from && r.complaint.receivedAt <= now);
+  return {
+    months,
+    from,
+    to: now,
+    ...complaintCounts(
+      inWindow.map((r) => ({
+        subject: r.complaint.subject,
+        receivedAt: r.complaint.receivedAt,
+        acknowledgedAt: r.complaint.acknowledgedAt,
+        acknowledgementState: r.clock.acknowledgement.state,
+        outcome: r.complaint.outcome,
+        outcomeAt: r.complaint.outcomeAt,
+        outcomeState: r.clock.outcome.state,
+        status: r.complaint.status,
+      })),
+      periods,
+    ),
+  };
+}
+
+/**
+ * The Integration API's summary of complaints: counts only.
+ *
+ * Entities are named as the requests summary names them, and one that matches
+ * nothing is refused for the same reason: a summary of nothing reads exactly
+ * like a clean record.
+ */
+export async function complaintsSummary(input: { organisationId: string; entities?: string[]; months?: number }) {
+  const months = input.months ?? 12;
+  return withOrganisation(input.organisationId, async () => {
+    const [org] = await db
+      .select({
+        name: organisations.name,
+        slug: organisations.slug,
+        jurisdiction: organisations.dataProtectionJurisdiction,
+        outcomeTargetDays: organisations.complaintOutcomeTargetDays,
+        updateIntervalDays: organisations.complaintUpdateIntervalDays,
+      })
+      .from(organisations)
+      .where(eq(organisations.id, input.organisationId));
+    if (!org) throw new Error("No such organisation");
+
+    let entityIds: string[] | null = null;
+    if (input.entities?.length) {
+      const all = await db.select().from(entities).where(eq(entities.organisationId, input.organisationId));
+      const named = (e: (typeof all)[number]) =>
+        input.entities!.includes(e.name) || (e.legalEntityRef !== null && input.entities!.includes(e.legalEntityRef));
+      const unknown = input.entities.filter((n) => !all.some((e) => e.name === n || e.legalEntityRef === n));
+      if (unknown.length) throw new BadQuery(`No entity named ${unknown.map((n) => `\`${n}\``).join(", ")}`);
+      entityIds = all.filter(named).map((e) => e.id);
+    }
+
+    const m = await complaintMetrics(input.organisationId, entityIds, months);
+    return {
+      summaryVersion: "1.0",
+      generatedAt: new Date().toISOString(),
+      organisation: { name: org.name, slug: org.slug, defaultJurisdiction: org.jurisdiction },
+      targets: { outcomeTargetDays: org.outcomeTargetDays, updateIntervalDays: org.updateIntervalDays },
+      scope: {
+        entities: input.entities?.length ? input.entities : null,
+        months,
+        from: m.from.toISOString(),
+        to: m.to.toISOString(),
+      },
+      totals: m.totals,
+      outcomes: m.outcomes,
+      bySubject: m.bySubject,
+      byMonth: m.byMonth,
+    };
+  });
 }

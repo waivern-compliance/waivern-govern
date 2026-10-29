@@ -233,3 +233,30 @@ export function complaintClock(input: {
 
   return { statutory, acknowledgement, outcome, update };
 }
+
+export type DialName = "acknowledgement" | "outcome" | "update";
+
+export type PressingDial = {
+  which: DialName;
+  state: "due_soon" | "overdue";
+  dueAt: Date;
+  words: string;
+  /** Whether the deadline is the Act's or the organisation's own. */
+  statutory: boolean;
+};
+
+/**
+ * The parts of a complaint's clock somebody needs to act on now.
+ *
+ * Due soon or overdue, for each of the three. Only the acknowledgement is ever
+ * statutory, and only where s.164A applies; the outcome and the next update
+ * are the organisation's own targets.
+ */
+export function pressingDials(clock: ComplaintClock): PressingDial[] {
+  const names: DialName[] = ["acknowledgement", "outcome", "update"];
+  return names.flatMap((which) => {
+    const d = clock[which];
+    if (d.state !== "due_soon" && d.state !== "overdue") return [];
+    return [{ which, state: d.state, dueAt: d.dueAt, words: d.words, statutory: which === "acknowledgement" && clock.statutory }];
+  });
+}

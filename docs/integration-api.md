@@ -101,6 +101,7 @@ from facts rather than from events it may have missed.
 | `GET /api/v1/export/ropa` | Article 30 records plus the assessments covering them |
 | `GET /api/v1/export/ai-profile` | The organisation's NIST AI RMF profile, current against target |
 | `GET /api/v1/export/requests-summary` | How data subject requests were answered: counts only, no requests |
+| `GET /api/v1/export/complaints-summary` | How data protection complaints were handled: counts only, no complaints |
 
 `context` and `ropa` accept `entity` (repeatable), `since` (ISO-8601, for incremental sync) and
 `limit` (1–1000). A malformed query returns `400` with the reason rather than
@@ -347,6 +348,68 @@ first N requests, would read as a summary of everything.
 - **Small numbers are not suppressed.** Three erasure requests in a month is
   three. Whether a figure is fit to publish is the Portal's decision when it
   writes a document, not something this endpoint decides by hiding it.
+- `summaryVersion` versions this shape; additive changes bump the minor version.
+
+### Data protection complaints, summarised
+
+`GET /api/v1/export/complaints-summary` says how the organisation has handled
+complaints made to it under DPA 2018 s.164A: how many arrived, about what, how
+many were acknowledged within the 30 days, how many outcomes were sent and how
+they came out. It is what lets the Portal's complaints procedure, or its data
+subject rights procedure, state real figures — and they are the counts a return
+under s.164B would ask for, if regulations under it are ever made.
+
+**Counts only**, as for requests: no reference, complainant, description, date
+of an individual complaint or note leaves Govern through this endpoint.
+
+It accepts `entity` (repeatable) and `months` (1–24, default 12), exactly as
+the requests summary does, and refuses `since` and `limit` with `400` for the
+same reason. The window covers complaints **received** in it.
+
+```json
+{
+  "summaryVersion": "1.0",
+  "generatedAt": "2026-10-30T09:14:02.881Z",
+  "organisation": { "name": "BBC Group", "slug": "bbc-group", "defaultJurisdiction": "uk" },
+  "targets": { "outcomeTargetDays": 30, "updateIntervalDays": 30 },
+  "scope": { "entities": null, "months": 12, "from": "2025-11-01T00:00:00.000Z", "to": "2026-10-30T09:14:02.881Z" },
+  "totals": {
+    "received": 9, "acknowledged": 8, "acknowledgedInTime": 7, "acknowledgedLate": 1,
+    "outcomesSent": 6, "outcomeWithinTarget": 5, "outcomeAfterTarget": 1,
+    "withdrawn": 1, "open": 2, "acknowledgementOverdue": 0,
+    "medianDaysToAcknowledge": 3, "medianDaysToOutcome": 24
+  },
+  "outcomes": { "upheld": 2, "partlyUpheld": 2, "notUpheld": 2, "passedToController": 0 },
+  "bySubject": [
+    { "subject": "request_handling", "label": "How a request about their data was handled",
+      "received": 4, "acknowledged": 4, "acknowledgedInTime": 4, "acknowledgedLate": 0,
+      "outcomesSent": 3, "upheld": 2 }
+  ],
+  "byMonth": [
+    { "period": "2026-10", "received": 1, "acknowledged": 1, "acknowledgedInTime": 1,
+      "acknowledgedLate": 0, "outcomesSent": 0 }
+  ]
+}
+```
+
+- `acknowledgedInTime` and `acknowledgedLate` count only complaints s.164A
+  applies to: UK, received from 19 June 2026, and not received as processor. The
+  30 days count the day of receipt as the first, and do not move off weekends or
+  bank holidays. An outcome sent before any acknowledgement counts as one.
+  `acknowledged` counts every complaint acknowledged, whatever the law.
+- `outcomeWithinTarget` and `outcomeAfterTarget` are measured against the
+  organisation's **own** target, given in `targets`, not a statutory period: the
+  Act requires the outcome "without undue delay" and sets no figure. Where the
+  target is `0` (off), neither is counted.
+- `upheld` in `bySubject` counts outcomes upheld or partly upheld.
+- `byMonth` puts each event in the month it happened: `received` when the
+  complaint arrived, `acknowledged` (and in time or late) when the
+  acknowledgement went, `outcomesSent` when the outcome did. Every month in the
+  window is present, including empty ones. Subjects nobody complained about are
+  left out of `bySubject`.
+- `medianDaysToAcknowledge` and `medianDaysToOutcome` are calendar days from
+  receipt, or `null` when nothing in the window got that far.
+- Small numbers are not suppressed, as for requests.
 - `summaryVersion` versions this shape; additive changes bump the minor version.
 
 ## Idempotency

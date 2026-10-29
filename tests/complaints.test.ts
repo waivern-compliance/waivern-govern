@@ -2,14 +2,17 @@ import assert from "node:assert/strict";
 import { after, describe, it } from "node:test";
 import { and, eq } from "drizzle-orm";
 import { db, sql as pg } from "@/db/client";
-import { auditEvents, entities, memberships, organisations, users } from "@/db/schema";
+import { auditEvents, entities, memberships, organisations, tasks, users } from "@/db/schema";
 import { verifyAuditChain } from "@/lib/audit";
+import { acknowledgementDeadline } from "@/lib/complaints/statutory";
 import {
   ComplaintRefused,
   closeComplaint,
   complaintRegister,
+  complaintMetrics,
   complaintTargets,
   complaintsAboutRequest,
+  complaintsNeedingAttention,
   loadComplaint,
   recordComplaint,
   recordComplaintEvent,
@@ -18,6 +21,7 @@ import {
   updateComplaint,
 } from "@/services/complaints";
 import { recordRequest } from "@/services/data-subject-requests";
+import { sweepOrganisation } from "@/services/sweep";
 
 const SYSTEM = { actorKind: "system" as const, actorUserId: null, actorLabel: "complaints test" };
 const DAY = 86_400_000;
@@ -251,6 +255,12 @@ describe("the register and the organisation's targets", () => {
     assert.equal(reg.toAcknowledge, 1);
     assert.equal(reg.acknowledgementOverdue, 1);
     assert.equal((await complaintRegister(w.org.id, [w.other.id])).total, 0);
+
+    const answered = await aComplaint(w);
+    await recordComplaintOutcome({
+      complaintId: answered.id, organisationId: w.org.id, outcome: "upheld", channel: "email", summary: "Sorted.", actor: SYSTEM,
+    });
+    assert.equal((await complaintRegister(w.org.id, null)).open, 2, "an outcome sent is no longer open");
   });
 
   it("sets the targets, refuses nonsense, and turns them off at zero", async () => {
@@ -265,5 +275,55 @@ describe("the register and the organisation's targets", () => {
     const loaded = await loadComplaint(c.id, w.org.id);
     assert.equal(loaded?.clock.outcome.state, "off");
     assert.deepEqual(await complaintTargets(w.org.id), { outcomeTargetDays: 0, updateIntervalDays: 14 });
+  });
+});
+
+describe("deadlines in the sweep", () => {
+  it("raises one task per pressing dial, due on the deadline, and only once", async () => {
+    const w = await world("sweep");
+    const late = await aComplaint(w, { receivedAt: daysAgo(40), ownerId: w.handler.id });
+    const fresh = await aComplaint(w);
+    const pressing = await complaintsNeedingAttention(w.org.id);
+    assert.deepEqual(pressing.map((p) => p.complaint.id), [late.id]);
+    assert.deepEqual(pressing[0].pressing.map((d) => d.which), ["acknowledgement", "outcome"]);
+
+    const first = await sweepOrganisation(w.org.id);
+    assert.equal(first.complaintDeadlinesRaised, 2);
+    assert.equal((await sweepOrganisation(w.org.id)).complaintDeadlinesRaised, 0, "idempotent");
+
+    const raised = await db
+      .select()
+      .from(tasks)
+      .where(and(eq(tasks.organisationId, w.org.id), eq(tasks.type, "complaint_deadline")));
+    assert.equal(raised.length, 2);
+    assert.ok(raised.every((t) => t.subjectId === late.id && t.assigneeUserId === w.handler.id));
+    const ack = raised.find((t) => /30 days/.test(t.title))!;
+    assert.equal(ack.dueAt?.toISOString(), acknowledgementDeadline(late.receivedAt).toISOString());
+    assert.ok(!raised.some((t) => t.subjectId === fresh.id));
+  });
+
+  it("stops raising once the outcome is sent", async () => {
+    const w = await world("sweep-done");
+    const c = await aComplaint(w, { receivedAt: daysAgo(40) });
+    await recordComplaintOutcome({
+      complaintId: c.id, organisationId: w.org.id, outcome: "upheld", channel: "email", summary: "Sorted.",
+      lateReason: "Lost in a shared inbox.", actor: SYSTEM,
+    });
+    assert.equal((await complaintsNeedingAttention(w.org.id)).length, 0);
+    assert.equal((await sweepOrganisation(w.org.id)).complaintDeadlinesRaised, 0);
+  });
+});
+
+describe("metrics", () => {
+  it("counts the window's complaints, with no complainant in them", async () => {
+    const w = await world("metrics");
+    const c = await aComplaint(w);
+    await recordComplaintEvent({ complaintId: c.id, organisationId: w.org.id, kind: "acknowledged", note: "", channel: "email", actor: SYSTEM });
+    await aComplaint(w, { subject: "security" });
+    const m = await complaintMetrics(w.org.id, null);
+    assert.equal(m.totals.received, 2);
+    assert.equal(m.totals.acknowledgedInTime, 1);
+    assert.equal(m.byMonth.length, 12);
+    assert.doesNotMatch(JSON.stringify(m), /Pat Example|pat@example\.com/);
   });
 });

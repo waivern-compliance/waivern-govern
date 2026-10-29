@@ -7,6 +7,7 @@ import { can } from "@/lib/rbac";
 import { NotPermitted } from "@/components/NotPermitted";
 import { getActiveSession, visibleEntityIds } from "@/lib/session";
 import { dashboardMetrics } from "@/services/metrics";
+import { complaintRegister } from "@/services/complaints";
 import { requestRegister } from "@/services/data-subject-requests";
 
 export default async function Dashboard() {
@@ -31,6 +32,10 @@ const m = await dashboardMetrics(
   // only to the people who handle them.
   const requests = can(active.membership.grants, "dsr.handle")
     ? await requestRegister(active.membership.organisationId, visibleEntityIds(active, "dsr.handle"))
+    : null;
+  // Complaints likewise: the complainant's own data, behind the same capability.
+  const complaints = can(active.membership.grants, "dsr.handle")
+    ? await complaintRegister(active.membership.organisationId, visibleEntityIds(active, "dsr.handle"))
     : null;
 
   const treated = m.riskPosture.reduce((n, r) => n + r.residual, 0);
@@ -112,6 +117,24 @@ const m = await dashboardMetrics(
               href="/app/requests"
               tone={requests.overdue > 0 ? "critical" : "good"}
               note="the response is still owed"
+            />
+          </>
+        ) : null}
+        {complaints ? (
+          <>
+            <Tile
+              label="Complaints to acknowledge this week"
+              value={complaints.acknowledgeSoon}
+              href="/app/complaints"
+              tone={complaints.acknowledgeSoon > 0 ? "warning" : "good"}
+              note="within the 30 days in DPA 2018 s.164A"
+            />
+            <Tile
+              label="Complaints past the 30 days"
+              value={complaints.acknowledgementOverdue}
+              href="/app/complaints"
+              tone={complaints.acknowledgementOverdue > 0 ? "critical" : "good"}
+              note="the acknowledgement is still owed"
             />
           </>
         ) : null}
