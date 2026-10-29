@@ -102,7 +102,7 @@ describe("approving", () => {
     const grants = await db.select().from(roleAssignments).where(eq(roleAssignments.membershipId, membership.id));
     assert.deepEqual(grants.map((g) => g.role), ["owner"]);
 
-    assert.equal((await db.select().from(templates).where(eq(templates.organisationId, org))).length, SYSTEM_TEMPLATES.length);
+    assert.equal((await db.select().from(templates).where(eq(templates.organisationId, org))).length, SYSTEM_TEMPLATES.filter((t) => !t.aiFramework || t.aiFramework === "uk_dsit").length, "everything for the UK framework, which it starts on");
     assert.equal((await db.select().from(workflowDefinitions).where(eq(workflowDefinitions.organisationId, org))).length, DEFAULT_WORKFLOWS.length);
     assert.equal((await db.select().from(slaPolicies).where(eq(slaPolicies.organisationId, org))).length, DEFAULT_SLA.length);
     assert.equal((await db.select().from(retentionProfiles).where(eq(retentionProfiles.organisationId, org))).length, RETENTION_DEFAULTS.length);

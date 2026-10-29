@@ -1,0 +1,1 @@
+ALTER TYPE "public"."ai_framework" ADD VALUE 'nist_ai_rmf';
