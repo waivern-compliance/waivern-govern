@@ -25,7 +25,7 @@ import {
   type RequestDecision,
   type ScopeEntry,
 } from "@/services/data-subject-requests";
-import { issueIntakeLink, revokeIntakeLink } from "@/services/dsr-intake";
+import { issueIntakeLink, revokeIntakeLink, setIntakeLinkComplaints } from "@/services/dsr-intake";
 
 const text = (v: FormDataEntryValue | null) => String(v ?? "").trim();
 const lines = (v: FormDataEntryValue | null) =>
@@ -378,5 +378,30 @@ export async function revokeIntakeLinkAction(linkId: string, _prev: RequestResul
     "Withdrawn. The address now says the form is not taking requests.",
   );
   revalidatePath("/app/requests");
+  return result;
+}
+
+export async function setIntakeComplaintsAction(
+  linkId: string,
+  takesComplaints: boolean,
+  _prev: RequestResult,
+): Promise<RequestResult> {
+  const active = await requireCapability("dsr.handle");
+  if (!mayConfigureRequests(active.membership.grants)) {
+    return { ok: false, message: "Only somebody who configures the whole organisation can change a form." };
+  }
+  const result = await refused(
+    async () => {
+      await setIntakeLinkComplaints({
+        linkId,
+        organisationId: active.membership.organisationId,
+        takesComplaints,
+        actor: actorOf(active),
+      });
+    },
+    takesComplaints ? "The form now takes complaints too." : "The form now takes requests only.",
+  );
+  revalidatePath("/app/requests");
+  revalidatePath("/app/complaints");
   return result;
 }

@@ -1,7 +1,7 @@
 import { relations } from "drizzle-orm";
 import { boolean, index, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { complaintEventKind, complaintOutcome, complaintStatus, dataProtectionJurisdiction } from "./enums";
-import { dataSubjectRequests } from "./requests";
+import { dataSubjectRequests, dsrIntakeLinks } from "./requests";
 import { entities, organisations, users } from "./tenancy";
 
 /**
@@ -48,6 +48,9 @@ export const dataProtectionComplaints = pgTable(
 
     /** The request it is about, where it is about one: late, refused or incomplete. */
     requestId: uuid("request_id").references(() => dataSubjectRequests.id, { onDelete: "set null" }),
+
+    /** The published web form it came through, if it did. */
+    intakeLinkId: uuid("intake_link_id").references(() => dsrIntakeLinks.id, { onDelete: "set null" }),
 
     status: complaintStatus("status").notNull().default("received"),
     ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),

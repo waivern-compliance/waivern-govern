@@ -22,6 +22,7 @@ import {
   issueIntakeLinkAction,
   recordRequestAction,
   revokeIntakeLinkAction,
+  setIntakeComplaintsAction,
   setJurisdictionAction,
   setObjectionThresholdAction,
 } from "./actions";
@@ -257,8 +258,8 @@ export default async function RequestsPage() {
       <section className="space-y-3 rounded border border-line bg-surface p-5">
         <h2 className="text-sm font-semibold">Public request form</h2>
         <p className="max-w-prose text-xs text-ink-soft">
-          A web form people can use to make a request without an account, one per entity. Publish its
-          address in your privacy notice. Each submission lands in this register as received by web
+          A web form people can use to make a request without an account, one per entity, and — unless
+          you switch it off — a complaint under DPA 2018 s.164A. Publish its address in your privacy notice. Each submission lands in this register as received by web
           form, and raises a task for the privacy team. The form shows nothing back except a reference
           and the deadline, takes no identity documents, and limits how often one address can submit.
           It is one route among many: requests by email, post or in person still count.
@@ -280,14 +281,26 @@ export default async function RequestsPage() {
                 {!link.revokedAt ? (
                   <>
                     <p className="break-all font-mono text-xs">{`${origin}/request/${link.slug}`}</p>
+                    <p className="text-xs text-ink-soft">
+                      {link.takesComplaints ? "Takes requests and complaints." : "Takes requests only."}
+                    </p>
                     {mayConfigure ? (
-                      <ActionForm
-                        action={revokeIntakeLinkAction.bind(null, link.id)}
-                        submit="Withdraw this form"
-                        className="pt-1"
-                      >
-                        <span className="sr-only">Withdraw {link.label}</span>
-                      </ActionForm>
+                      <div className="flex flex-wrap gap-3 pt-1">
+                        <ActionForm
+                          action={setIntakeComplaintsAction.bind(null, link.id, !link.takesComplaints)}
+                          submit={link.takesComplaints ? "Stop taking complaints" : "Take complaints too"}
+                          className="space-y-2"
+                        >
+                          <span className="sr-only">For {link.label}</span>
+                        </ActionForm>
+                        <ActionForm
+                          action={revokeIntakeLinkAction.bind(null, link.id)}
+                          submit="Withdraw this form"
+                          className="space-y-2"
+                        >
+                          <span className="sr-only">Withdraw {link.label}</span>
+                        </ActionForm>
+                      </div>
                     ) : null}
                   </>
                 ) : null}

@@ -72,6 +72,8 @@ const DEFAULT_SLA_HOURS: Record<TaskType, number> = {
   dsr_intake: 24,
   /** Placeholder, as for the other statutory deadlines: the sweep sets the due date from the complaint. */
   complaint_deadline: 24 * 7,
+  // The 30 days to acknowledge are already running; somebody should know within a day.
+  complaint_intake: 24,
 };
 
 async function slaHoursFor(tx: Tx, organisationId: string, type: TaskType) {
