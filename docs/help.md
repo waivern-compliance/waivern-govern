@@ -34,6 +34,7 @@ Every help topic the application carries, in the order it presents them.
 - [Proposals to use AI](#proposals-to-use-ai) — Ideas for using AI, captured before anything is built or bought, scored on value and feasibility, and decided with a reason.
 - [The AI assurance chain](#the-ai-assurance-chain) — Each AI system drawn through to what was done about it — and, more usefully, where that chain stops.
 - [AI incidents and concerns](#ai-incidents-and-concerns) — Reports about AI systems — failures, harm, challenges to outcomes and concerns — each handled by a named person.
+- [NIST AI RMF profile](#nist-ai-rmf-profile) — Where the organisation stands against each of NIST AI RMF's 72 subcategories, where it means to be, and the gap between.
 - [Algorithmic transparency records](#algorithmic-transparency-records) — The public record of how an AI system is used, in the Algorithmic Transparency Recording Standard's own fields.
 - [Countries, adequacy and transfers](#countries-adequacy-and-transfers) — One shared library of destinations, with adequacy and transfer risk, and a date showing when each was last checked by a person.
 - [Scan findings](#scan-findings) — Observations pushed in by scanning tools, waiting for a person to decide whether each is a risk.
@@ -693,6 +694,38 @@ Resolving needs an outcome. For a challenge, that is the decision a person reach
 
 <sub>Also searchable as: incident, harm, complaint, challenge, appeal, redress, whistleblowing, concern, contest</sub>
 
+## NIST AI RMF profile
+
+*Where the organisation stands against each of NIST AI RMF's 72 subcategories, where it means to be, and the gap between.*
+
+**Screen:** `/app/ai/profile`
+
+### Current and target
+
+NIST describes an organisation's position as a current profile and a target profile. Here they sit side by side: for each subcategory, where the organisation is now and where it means to be, each as not started, partly, achieved or not applicable.
+
+A subcategory is short of target when the target is partly or achieved and the organisation is not there yet. Not assessed counts as not started, because nobody can show it is met.
+
+### Evidence in Govern
+
+Under each subcategory are the parts of Govern that go towards it, with how many records each holds: the AI register towards GOVERN 1.6, approved equality impact assessments towards MEASURE 2.11, and so on.
+
+They are counted, not judged. Holding records shows the means are in place; whether the outcome is met is for whoever sets the status to say, and the profile records who did.
+
+### The Playbook
+
+Each subcategory carries the NIST AI RMF Playbook's suggested actions and the questions it suggests documenting, as a starting point for deciding what achieved means here. The Playbook is voluntary; borrow what fits.
+
+### Who sets it, and who sees it
+
+AI governance, the AI governance lead, privacy administrators and owners, holding their role across the whole organisation, set statuses and notes. Every change is in the audit log. Anyone who can read records can see the profile and download it as a spreadsheet.
+
+The profile is there whichever framework the organisation follows, so an organisation on the UK framework can still show where it stands against NIST.
+
+**See also:** AI governance framework · The AI register · Exports
+
+<sub>Also searchable as: nist, ai rmf, profile, current, target, gap, subcategory, govern, map, measure, manage, playbook</sub>
+
 ## Algorithmic transparency records
 
 *The public record of how an AI system is used, in the Algorithmic Transparency Recording Standard's own fields.*
@@ -1009,7 +1042,7 @@ The new framework's template is installed. Templates already held stay available
 
 Nothing is deleted, so switching back is the same operation the other way: risks are re-filed again, and appetite statements already signed off for the old categories still stand.
 
-**See also:** Risk appetite · The risk register · Assessment templates · Who approves what, and changing it
+**See also:** Risk appetite · The risk register · Assessment templates · Who approves what, and changing it · NIST AI RMF profile
 
 <sub>Also searchable as: framework, nist, ai rmf, dsit, playbook, trustworthy, characteristics, crosswalk, switch</sub>
 

@@ -60,6 +60,7 @@ export const recordType = pgEnum("record_type", [
   "ai_incident",
   "ai_use_case_request",
   "training_record",
+  "framework_profile_item",
 ]);
 
 /**
@@ -215,6 +216,12 @@ export const riskScale = pgEnum("risk_scale", ["4x4", "5x5"]);
  * See `lib/ai-frameworks`.
  */
 export const aiFramework = pgEnum("ai_framework", ["uk_dsit", "nist_ai_rmf"]);
+
+/**
+ * How far an organisation meets one outcome in a framework profile, now or as
+ * its target. See `lib/ai-frameworks/profile.ts`.
+ */
+export const profileStatus = pgEnum("profile_status", ["not_started", "partial", "achieved", "not_applicable"]);
 
 /**
  * How much risk of a kind the organisation is prepared to carry, in the

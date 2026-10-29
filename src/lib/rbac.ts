@@ -195,6 +195,18 @@ export function mayChooseAiFramework(grants: readonly Grant[]): boolean {
 }
 
 /**
+ * May this person record where the organisation stands against NIST AI RMF?
+ *
+ * The people who do and direct AI governance — AI governance, its lead, a
+ * privacy administrator or an owner — across the whole organisation, since a
+ * profile speaks for all of it. Everyone who can read records can see it.
+ */
+export function mayEditAiProfile(grants: readonly Grant[]): boolean {
+  const roles: readonly AppRole[] = ["owner", "privacy_admin", "ai_governance_lead", "ai_governance"];
+  return grants.some((g) => g.scope === "organisation" && roles.includes(g.role));
+}
+
+/**
  * May somebody holding `roles` decide an approval stage that names `requiredRole`?
  *
  * The stage's own role, or an owner. Owners hold every capability, and the

@@ -1265,7 +1265,45 @@ export const HELP_TOPICS: HelpTopic[] = [
         ],
       },
     ],
-    related: ["risk-appetite", "risks", "templates", "approval-workflows"],
+    related: ["risk-appetite", "risks", "templates", "approval-workflows", "ai-profile"],
+  },
+  {
+    id: "ai-profile",
+    title: "NIST AI RMF profile",
+    summary:
+      "Where the organisation stands against each of NIST AI RMF's 72 subcategories, where it means to be, and the gap between.",
+    path: "/app/ai/profile",
+    keywords: ["nist", "ai rmf", "profile", "current", "target", "gap", "subcategory", "govern", "map", "measure", "manage", "playbook"],
+    sections: [
+      {
+        heading: "Current and target",
+        body: [
+          "NIST describes an organisation's position as a current profile and a target profile. Here they sit side by side: for each subcategory, where the organisation is now and where it means to be, each as not started, partly, achieved or not applicable.",
+          "A subcategory is short of target when the target is partly or achieved and the organisation is not there yet. Not assessed counts as not started, because nobody can show it is met.",
+        ],
+      },
+      {
+        heading: "Evidence in Govern",
+        body: [
+          "Under each subcategory are the parts of Govern that go towards it, with how many records each holds: the AI register towards GOVERN 1.6, approved equality impact assessments towards MEASURE 2.11, and so on.",
+          "They are counted, not judged. Holding records shows the means are in place; whether the outcome is met is for whoever sets the status to say, and the profile records who did.",
+        ],
+      },
+      {
+        heading: "The Playbook",
+        body: [
+          "Each subcategory carries the NIST AI RMF Playbook's suggested actions and the questions it suggests documenting, as a starting point for deciding what achieved means here. The Playbook is voluntary; borrow what fits.",
+        ],
+      },
+      {
+        heading: "Who sets it, and who sees it",
+        body: [
+          "AI governance, the AI governance lead, privacy administrators and owners, holding their role across the whole organisation, set statuses and notes. Every change is in the audit log. Anyone who can read records can see the profile and download it as a spreadsheet.",
+          "The profile is there whichever framework the organisation follows, so an organisation on the UK framework can still show where it stands against NIST.",
+        ],
+      },
+    ],
+    related: ["ai-framework", "ai-register", "exports"],
   },
 ];
 
@@ -1289,7 +1327,7 @@ export const HELP_GROUPS: Array<{ heading: string; ids: string[] }> = [
   },
   {
     heading: "The registers",
-    ids: ["ropa", "third-parties", "breaches", "ai-register", "ai-intake", "ai-chain", "ai-incidents", "transparency-records", "transfers", "findings"],
+    ids: ["ropa", "third-parties", "breaches", "ai-register", "ai-intake", "ai-chain", "ai-incidents", "ai-profile", "transparency-records", "transfers", "findings"],
   },
   {
     heading: "Seeing where you stand",
