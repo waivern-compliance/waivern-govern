@@ -24,6 +24,23 @@ import { BANK_HOLIDAYS_ENGLAND_AND_WALES } from "./bank-holidays";
  */
 export type Jurisdiction = "uk" | "eu";
 
+/**
+ * When the DUAA 2025's changes to the data subject rights came into force: the
+ * clarification pause, and searches that need only be reasonable and
+ * proportionate. All of them commenced on 19 June 2026.
+ */
+export const DUAA_RIGHTS_IN_FORCE = new Date("2026-06-19T00:00:00Z");
+
+/**
+ * Does waiting for clarification stop this request's clock?
+ *
+ * Only under UK law, and only for a request received once the DUAA's changes
+ * were in force. One received before then runs on the rules it arrived under.
+ */
+export function clarificationStopsClock(jurisdiction: Jurisdiction, receivedAt: Date): boolean {
+  return jurisdiction === "uk" && receivedAt >= DUAA_RIGHTS_IN_FORCE;
+}
+
 export const JURISDICTION_LABEL: Record<Jurisdiction, string> = {
   uk: "UK GDPR and the Data Protection Act 2018",
   eu: "EU GDPR",
@@ -305,7 +322,7 @@ export function requestClock(input: {
     };
   }
 
-  const pauses = input.pauses ?? [];
+  const pauses = clarificationStopsClock(input.jurisdiction, input.receivedAt) ? (input.pauses ?? []) : [];
   const dueAt = responseDeadline({
     startsAt,
     jurisdiction: input.jurisdiction,
@@ -326,7 +343,7 @@ export function requestClock(input: {
   }
 
   const open = pauses.some((p) => p.to === null);
-  if (open && input.jurisdiction === "uk") {
+  if (open) {
     return {
       state: "paused",
       dueAt,

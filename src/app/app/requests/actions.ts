@@ -8,15 +8,21 @@ import type { Jurisdiction, ProcessingBasis } from "@/lib/dsr/statutory";
 import { refusable, type EditResult } from "@/lib/edit-result";
 import {
   RequestRefused,
+  addScopeEntry,
   closeRequest,
+  passToController,
   recordIdentity,
+  recordRecipientNotice,
   recordRequest,
   recordRequestDecision,
+  recordScopeResult,
   respondToRequest,
+  seedRequestScope,
   setDefaultJurisdiction,
   updateRequest,
   type ControllerRole,
   type RequestDecision,
+  type ScopeEntry,
 } from "@/services/data-subject-requests";
 
 const text = (v: FormDataEntryValue | null) => String(v ?? "").trim();
@@ -73,6 +79,7 @@ export async function recordRequestAction(_prev: RequestResult, formData: FormDa
       representative: text(formData.get("representative")) || null,
       controllerRole: (text(formData.get("controllerRole")) || "controller") as ControllerRole,
       jurisdiction: (text(formData.get("jurisdiction")) || undefined) as Jurisdiction | undefined,
+      subjectCategories: lines(formData.get("subjectCategories")),
       ownerId: formData.get("ownMe") === "on" ? active.userId : null,
       actor: actorOf(active),
     });
@@ -220,6 +227,99 @@ export async function closeRequestAction(
       actor: actorOf(active),
     });
   }, "Closed.");
+  revalidatePath(`/app/requests/${requestId}`);
+  revalidatePath("/app/requests");
+  return result;
+}
+
+export async function seedScopeAction(requestId: string, _prev: RequestResult): Promise<RequestResult> {
+  const active = await requireCapability("dsr.handle");
+  let added = 0;
+  const result = await refused(async () => {
+    added = await seedRequestScope({ requestId, organisationId: active.membership.organisationId, actor: actorOf(active) });
+  }, "");
+  revalidatePath(`/app/requests/${requestId}`);
+  if (!result?.ok) return result;
+  return { ok: true, message: added === 0 ? "Nothing new in the ROPA for who they are." : `Added ${added} from the ROPA.` };
+}
+
+export async function addScopeAction(
+  requestId: string,
+  _prev: RequestResult,
+  formData: FormData,
+): Promise<RequestResult> {
+  const active = await requireCapability("dsr.handle");
+  const kind = text(formData.get("kind"));
+  const result = await refused(async () => {
+    await addScopeEntry({
+      requestId,
+      organisationId: active.membership.organisationId,
+      kind: kind === "recipient" || kind === "system" ? kind : "other",
+      label: text(formData.get("label")),
+      actor: actorOf(active),
+    });
+  }, "Added.");
+  revalidatePath(`/app/requests/${requestId}`);
+  return result;
+}
+
+export async function scopeResultAction(
+  requestId: string,
+  scopeId: string,
+  _prev: RequestResult,
+  formData: FormData,
+): Promise<RequestResult> {
+  const active = await requireCapability("dsr.handle");
+  const result = await refused(async () => {
+    await recordScopeResult({
+      scopeId,
+      organisationId: active.membership.organisationId,
+      status: text(formData.get("status")) as ScopeEntry["status"],
+      note: text(formData.get("note")) || null,
+      actor: actorOf(active),
+    });
+  }, "Saved.");
+  revalidatePath(`/app/requests/${requestId}`);
+  return result;
+}
+
+export async function recipientNoticeAction(
+  requestId: string,
+  scopeId: string,
+  _prev: RequestResult,
+  formData: FormData,
+): Promise<RequestResult> {
+  const active = await requireCapability("dsr.handle");
+  const result = await refused(async () => {
+    await recordRecipientNotice({
+      scopeId,
+      organisationId: active.membership.organisationId,
+      notice: text(formData.get("notice")) as NonNullable<ScopeEntry["recipientNotice"]>,
+      at: when(formData.get("at")) ?? undefined,
+      note: text(formData.get("note")) || null,
+      actor: actorOf(active),
+    });
+  }, "Recorded.");
+  revalidatePath(`/app/requests/${requestId}`);
+  return result;
+}
+
+export async function passToControllerAction(
+  requestId: string,
+  _prev: RequestResult,
+  formData: FormData,
+): Promise<RequestResult> {
+  const active = await requireCapability("dsr.handle");
+  const result = await refused(async () => {
+    await passToController({
+      requestId,
+      organisationId: active.membership.organisationId,
+      controllerName: text(formData.get("controllerName")),
+      at: when(formData.get("at")) ?? undefined,
+      assistance: text(formData.get("assistance")) || null,
+      actor: actorOf(active),
+    });
+  }, "Recorded.");
   revalidatePath(`/app/requests/${requestId}`);
   revalidatePath("/app/requests");
   return result;

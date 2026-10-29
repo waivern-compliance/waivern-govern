@@ -428,6 +428,13 @@
       "when": 1793299801751,
       "tag": "0060_data_subject_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1793308925288,
+      "tag": "0061_dsr_scope",
+      "breakpoints": true
     }
   ]
 }

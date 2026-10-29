@@ -181,6 +181,9 @@ async function populated() {
     receivedAt: new Date(), description: "B's requester's secret request.", requesterName: "B's requester",
     actor: SYSTEM,
   });
+  const requestScope = await dsr.addScopeEntry({
+    requestId: subjectRequest.id, organisationId: id, kind: "recipient", label: "B's recipient", actor: SYSTEM,
+  });
 
   const useCase = await aiRegister.createUseCase({
     organisationId: id, entityId: o.entity.id, name: "B's model", purpose: "Secret purpose.",
@@ -257,7 +260,7 @@ async function populated() {
 
   return {
     ...o, template, dpiaVersion, workflow: workflows[0], stage, risk, mitigation, acceptance, appetite,
-    supplier, dpa, activity, breach, subjectRequest, useCase, change, assurance, incident, atrsRecord, request,
+    supplier, dpa, activity, breach, subjectRequest, requestScope, useCase, change, assurance, incident, atrsRecord, request,
     trainingRecord, assessment, approval, link, comment, document, scanner, finding: finding.finding,
     conversation, task, draft, domainClaim,
   };
@@ -462,6 +465,11 @@ describe("changing another organisation's records", () => {
     ["recordIdentity", () => dsr.recordIdentity({ requestId: B.subjectRequest.id, organisationId: A.org.id, step: "requested", actor: as() })],
     ["recordRequestDecision", () => dsr.recordRequestDecision({ organisationId: A.org.id, requestId: B.subjectRequest.id, kind: "other", rationale: "x", actor: as() })],
     ["respondToRequest", () => dsr.respondToRequest({ requestId: B.subjectRequest.id, organisationId: A.org.id, outcome: "complied", channel: "email", summary: "x", actor: as() })],
+    ["seedRequestScope", () => dsr.seedRequestScope({ requestId: B.subjectRequest.id, organisationId: A.org.id, actor: as() })],
+    ["addScopeEntry", () => dsr.addScopeEntry({ requestId: B.subjectRequest.id, organisationId: A.org.id, kind: "other", label: "taken", actor: as() })],
+    ["recordScopeResult", () => dsr.recordScopeResult({ scopeId: B.requestScope.id, organisationId: A.org.id, status: "not_held", actor: as() })],
+    ["recordRecipientNotice", () => dsr.recordRecipientNotice({ scopeId: B.requestScope.id, organisationId: A.org.id, notice: "notified", actor: as() })],
+    ["passToController", () => dsr.passToController({ requestId: B.subjectRequest.id, organisationId: A.org.id, controllerName: "taken", actor: as() })],
     ["closeRequest", () => dsr.closeRequest({ requestId: B.subjectRequest.id, organisationId: A.org.id, rationale: "x", withdrawn: true, actor: as() })],
     ["linkAssessment (B's breach)", () => breachesSvc.linkAssessment({ breachId: B.breach.id, organisationId: A.org.id, assessmentId: null, actor: as() })],
     ["withdrawComment", () => collaboration.withdrawComment({ commentId: B.comment.id, organisationId: A.org.id, actor: as() })],

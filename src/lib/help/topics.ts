@@ -620,6 +620,7 @@ export const HELP_TOPICS: HelpTopic[] = [
       "dsar", "sar", "subject access", "access request", "article 15", "erasure", "right to be forgotten",
       "article 17", "objection", "object", "article 21", "rectification", "portability", "restriction",
       "one month", "extension", "article 12", "direct marketing", "rights request",
+      "article 19", "recipients", "search", "reasonable and proportionate", "processor", "article 28",
     ],
     sections: [
       {
@@ -637,8 +638,28 @@ export const HELP_TOPICS: HelpTopic[] = [
         ],
         points: [
           "Extension: up to two more months, for complexity or number of requests, decided and explained to the person within the first month. Only once.",
-          "Pausing for clarification: UK only, since the Data (Use and Access) Act 2025. Where you hold a lot about somebody and genuinely need to know what they want, the month stops until they answer. The EU GDPR has no such pause, and a request recorded under EU law is not paused.",
+          "Pausing for clarification: UK only, for requests received from 19 June 2026, when the Data (Use and Access) Act 2025's changes came into force. Where you hold a lot about somebody and genuinely need to know what they want, the month stops until they answer. The EU GDPR has no such pause, and a request recorded under EU law is not paused.",
           "Each request keeps the law it was recorded under. Changing the organisation's default never moves a deadline already running.",
+        ],
+      },
+      {
+        heading: "Where to look",
+        body: [
+          "Say who the requester is to you — customer, employee, applicant — and the request lists, from the ROPA, the processing activities about people like them, the systems those activities run on, and the suppliers and other recipients they disclose to. A recipient with the same name as a supplier on the register is listed as that supplier.",
+          "Record what each search found: nothing held, found, found and acted on, or found and deliberately not acted on — which needs a reason. Add anywhere the ROPA does not mention, and consider whether the ROPA should. Under UK law the search need only be reasonable and proportionate; this list is how you show it was.",
+        ],
+      },
+      {
+        heading: "Telling recipients",
+        body: [
+          "Once data has been rectified, erased or restricted, Article 19 requires each recipient that holds it to be told, unless that proves impossible or involves disproportionate effort. Record each one as told, or why not. A recipient found not to hold this person's data needs nothing.",
+          "The platform will not close a request while a recipient is still to be recorded. If the person asks, tell them who the recipients are.",
+        ],
+      },
+      {
+        heading: "When you are the processor",
+        body: [
+          "A processor does not answer the person. Pass the request to the controller without delay and help them answer it, as Article 28(3)(e) and your data processing agreement require. Record who it went to, when, and what help was given; the request can then be closed.",
         ],
       },
       {
@@ -666,7 +687,7 @@ export const HELP_TOPICS: HelpTopic[] = [
       {
         heading: "What the platform will not do",
         body: [
-          "It will not answer the request, search your systems, or redact anything. It counts the month, refuses what the law does not allow, and keeps the record of who decided what and why.",
+          "It will not answer the request, search your systems, or redact anything. It counts the month, lists where to look, refuses what the law does not allow, and keeps the record of who looked where, who decided what, and why.",
         ],
       },
     ],

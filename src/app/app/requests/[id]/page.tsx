@@ -13,8 +13,9 @@ import { getActiveSession } from "@/lib/session";
 import { loadRequest } from "@/services/data-subject-requests";
 import { ActionForm } from "../ActionForm";
 import { RequestDecisionForm } from "../RequestDecisionForm";
-import { closeRequestAction, identityAction, respondAction, updateRequestAction } from "../actions";
+import { closeRequestAction, identityAction, passToControllerAction, respondAction, updateRequestAction } from "../actions";
 import { CHANNEL_LABEL, ChannelSelect, Label, RightsField, inputClass, stamp } from "../fields";
+import { Scope } from "./Scope";
 
 const OUTCOME_LABEL: Record<string, string> = {
   done: "done",
@@ -31,7 +32,7 @@ export default async function RequestPage({ params }: { params: Promise<{ id: st
 
   const loaded = await loadRequest(id, active.membership.organisationId);
   if (!loaded) notFound();
-  const { request, entityName, decisions, clock, extended, ownerEmail } = loaded;
+  const { request, entityName, decisions, clock, extended, ownerEmail, scope } = loaded;
 
   if (!can(active.membership.grants, "dsr.handle", request.entityId)) {
     return (
@@ -74,7 +75,7 @@ export default async function RequestPage({ params }: { params: Promise<{ id: st
           {CHANNEL_LABEL[request.channel]?.toLowerCase() ?? request.channel}
         </p>
         <RequestClock clock={clock} />
-        {request.controllerRole === "processor" ? (
+        {request.controllerRole === "processor" && !request.passedToControllerAt ? (
           <p className="max-w-prose rounded border border-amber-700 bg-amber-50 px-3 py-2 text-xs text-amber-900">
             You are the processor. Article 28(3)(e): pass the request to the
             controller without delay and help them answer it — do not answer
@@ -132,6 +133,44 @@ export default async function RequestPage({ params }: { params: Promise<{ id: st
           </ActionForm>
         ) : null}
       </section>
+
+      {request.controllerRole === "processor" ? (
+        request.passedToControllerAt ? (
+          <section className="space-y-1 rounded border border-line bg-surface p-5">
+            <h2 className="text-sm font-semibold">
+              Passed to {request.controllerName} {stamp(request.passedToControllerAt)}
+            </h2>
+            {request.assistanceSummary ? (
+              <p className="max-w-prose text-sm">{request.assistanceSummary}</p>
+            ) : null}
+            <p className="text-xs text-ink-soft">The controller answers the person. This request can be closed.</p>
+          </section>
+        ) : !request.closedAt ? (
+          <ActionForm action={passToControllerAction.bind(null, request.id)} submit="Record the hand-over">
+            <h2 className="text-sm font-semibold">Pass it to the controller</h2>
+            <p className="max-w-prose text-xs text-ink-soft">
+              Article 28(3)(e). Check the data processing agreement for how
+              quickly, and to whom.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block space-y-1">
+                <Label text="Controller" />
+                <input name="controllerName" required className={inputClass} />
+              </label>
+              <label className="block space-y-1">
+                <Label text="When" hint="Leave blank for now." />
+                <input name="at" type="datetime-local" className={inputClass} />
+              </label>
+            </div>
+            <label className="block space-y-1">
+              <Label text="Help given" hint="Data extracted, records searched, anything the controller asked for." />
+              <textarea name="assistance" rows={2} className={inputClass} />
+            </label>
+          </ActionForm>
+        ) : null
+      ) : null}
+
+      <Scope request={request} scope={scope} decisions={decisions} />
 
       <section className="space-y-2">
         <h2 className="text-sm font-semibold">Decisions ({decisions.length})</h2>

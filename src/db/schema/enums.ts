@@ -287,6 +287,31 @@ export const dsrDecisionOutcome = pgEnum("dsr_decision_outcome", [
 ]);
 
 /**
+ * Where to look for a requester's data, and who it went to.
+ *
+ * An activity or a system is searched; a supplier or another recipient was
+ * given the data, so is both searched and, after a correction, erasure or
+ * restriction, told (Article 19).
+ */
+export const dsrScopeKind = pgEnum("dsr_scope_kind", ["activity", "system", "supplier", "recipient", "other"]);
+
+/** How far one place in scope got: looked at, then acted on or not. */
+export const dsrScopeStatus = pgEnum("dsr_scope_status", [
+  "to_search",
+  "not_held",
+  "found",
+  "actioned",
+  "not_actioned",
+]);
+
+/** Article 19: told, or not told because it proved impossible or disproportionate. */
+export const dsrRecipientNotice = pgEnum("dsr_recipient_notice", [
+  "notified",
+  "impossible",
+  "disproportionate",
+]);
+
+/**
  * How far an organisation meets one outcome in a framework profile, now or as
  * its target. See `lib/ai-frameworks/profile.ts`.
  */

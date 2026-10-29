@@ -4,8 +4,12 @@ import {
   dataProtectionJurisdiction,
   dsrDecisionKind,
   dsrDecisionOutcome,
+  dsrRecipientNotice,
+  dsrScopeKind,
+  dsrScopeStatus,
   dsrStatus,
 } from "./enums";
+import { processingActivities, suppliers } from "./integration";
 import { entities, organisations, users } from "./tenancy";
 
 /**
@@ -79,6 +83,14 @@ export const dataSubjectRequests = pgTable(
     toldOfComplaintRight: boolean("told_of_complaint_right"),
     lateReason: text("late_reason"),
 
+    /**
+     * Where this organisation is the processor: the controller the request was
+     * passed to, when, and what help was given (Article 28(3)(e)).
+     */
+    controllerName: text("controller_name"),
+    passedToControllerAt: timestamp("passed_to_controller_at", { withTimezone: true }),
+    assistanceSummary: text("assistance_summary"),
+
     closedAt: timestamp("closed_at", { withTimezone: true }),
     closureRationale: text("closure_rationale"),
 
@@ -138,8 +150,61 @@ export const dataSubjectRequestDecisions = pgTable(
   ],
 );
 
+/**
+ * One place a request's data might be, and what happened there.
+ *
+ * Seeded from the ROPA when the request is recorded: the activities whose
+ * data subjects match who the requester is, the systems those activities use,
+ * and the suppliers and other recipients they disclose to. It is what makes a
+ * reasonable and proportionate search something the handler can show, and it
+ * is the Article 19 list of whom to tell after a correction, erasure or
+ * restriction.
+ *
+ * The label is copied in, so the record still reads after the activity or
+ * supplier it came from is renamed or removed.
+ */
+export const dataSubjectRequestScope = pgTable(
+  "data_subject_request_scope",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organisationId: uuid("organisation_id")
+      .notNull()
+      .references(() => organisations.id, { onDelete: "cascade" }),
+    requestId: uuid("request_id")
+      .notNull()
+      .references(() => dataSubjectRequests.id, { onDelete: "cascade" }),
+
+    kind: dsrScopeKind("kind").notNull(),
+    /** What makes the entry unique within the request, so seeding twice adds nothing. */
+    key: text("key").notNull(),
+    processingActivityId: uuid("processing_activity_id").references(() => processingActivities.id, {
+      onDelete: "set null",
+    }),
+    supplierId: uuid("supplier_id").references(() => suppliers.id, { onDelete: "set null" }),
+    label: text("label").notNull(),
+    /** Why it is in scope: "customer in PA-0003", "recipient in PA-0003", "added by hand". */
+    reason: text("reason").notNull(),
+    /** Given the data, so told under Article 19 after a correction, erasure or restriction. */
+    isRecipient: boolean("is_recipient").notNull().default(false),
+
+    status: dsrScopeStatus("status").notNull().default("to_search"),
+    note: text("note"),
+    checkedBy: uuid("checked_by").references(() => users.id, { onDelete: "set null" }),
+    checkedByLabel: text("checked_by_label"),
+    checkedAt: timestamp("checked_at", { withTimezone: true }),
+
+    recipientNotice: dsrRecipientNotice("recipient_notice"),
+    recipientNoticeAt: timestamp("recipient_notice_at", { withTimezone: true }),
+    recipientNoticeNote: text("recipient_notice_note"),
+
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("data_subject_request_scope_key").on(t.requestId, t.key)],
+);
+
 export const dataSubjectRequestRelations = relations(dataSubjectRequests, ({ many, one }) => ({
   decisions: many(dataSubjectRequestDecisions),
+  scope: many(dataSubjectRequestScope),
   entity: one(entities, { fields: [dataSubjectRequests.entityId], references: [entities.id] }),
   owner: one(users, { fields: [dataSubjectRequests.ownerId], references: [users.id] }),
 }));
@@ -147,6 +212,13 @@ export const dataSubjectRequestRelations = relations(dataSubjectRequests, ({ man
 export const dataSubjectRequestDecisionRelations = relations(dataSubjectRequestDecisions, ({ one }) => ({
   request: one(dataSubjectRequests, {
     fields: [dataSubjectRequestDecisions.requestId],
+    references: [dataSubjectRequests.id],
+  }),
+}));
+
+export const dataSubjectRequestScopeRelations = relations(dataSubjectRequestScope, ({ one }) => ({
+  request: one(dataSubjectRequests, {
+    fields: [dataSubjectRequestScope.requestId],
     references: [dataSubjectRequests.id],
   }),
 }));

@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { BANK_HOLIDAYS_KNOWN_THROUGH } from "@/lib/dsr/bank-holidays";
 import {
+  DUAA_RIGHTS_IN_FORCE,
   RIGHT_KEYS,
   RIGHTS,
+  clarificationStopsClock,
   clockStartsAt,
   extensionNoticeDeadline,
   isWorkingDay,
@@ -68,37 +70,50 @@ describe("when the clock starts", () => {
 });
 
 describe("pausing for clarification", () => {
-  const startsAt = at("2026-05-01T09:00:00Z");
-  const pauses = [{ from: at("2026-05-05T09:00:00Z"), to: at("2026-05-15T16:00:00Z") }];
+  // After the DUAA's changes came into force on 19 June 2026.
+  const startsAt = at("2026-07-01T09:00:00Z");
+  const pauses = [{ from: at("2026-07-05T09:00:00Z"), to: at("2026-07-15T16:00:00Z") }];
 
   it("adds back the days paused, in the UK", () => {
     assert.equal(pausedDays(pauses, "uk"), 10);
-    // 1 June + 10 days = 11 June 2026, a Thursday.
-    assert.equal(day(responseDeadline({ startsAt, jurisdiction: "uk", pauses })), "2026-06-11");
+    // 1 August + 10 days = 11 August 2026, a Tuesday.
+    assert.equal(day(responseDeadline({ startsAt, jurisdiction: "uk", pauses })), "2026-08-11");
   });
 
   it("is ignored under the EU GDPR, which has no such pause", () => {
     assert.equal(pausedDays(pauses, "eu"), 0);
-    assert.equal(day(responseDeadline({ startsAt, jurisdiction: "eu", pauses })), "2026-06-01");
+    // 1 August 2026 is a Saturday.
+    assert.equal(day(responseDeadline({ startsAt, jurisdiction: "eu", pauses })), "2026-08-03");
   });
 
   it("does not count a pause that began and ended the same day", () => {
-    assert.equal(pausedDays([{ from: at("2026-05-05T09:00:00Z"), to: at("2026-05-05T17:00:00Z") }], "uk"), 0);
+    assert.equal(pausedDays([{ from: at("2026-07-05T09:00:00Z"), to: at("2026-07-05T17:00:00Z") }], "uk"), 0);
   });
 
   it("keeps moving the deadline while the pause lasts", () => {
-    const open = [{ from: at("2026-05-05T09:00:00Z"), to: null }];
-    const clock = requestClock({ jurisdiction: "uk", receivedAt: startsAt, pauses: open, now: at("2026-05-20T09:00:00Z") });
+    const open = [{ from: at("2026-07-05T09:00:00Z"), to: null }];
+    const clock = requestClock({ jurisdiction: "uk", receivedAt: startsAt, pauses: open, now: at("2026-07-20T09:00:00Z") });
     assert.equal(clock.state, "paused");
     assert.ok("dueAt" in clock);
-    // 1 June + 15 days paused so far = 16 June.
-    assert.equal(day(clock.dueAt), "2026-06-16");
+    // 1 August + 15 days paused so far = Sunday 16 August, so Monday 17th.
+    assert.equal(day(clock.dueAt), "2026-08-17");
   });
 
   it("does not stop an EU clock", () => {
-    const open = [{ from: at("2026-05-05T09:00:00Z"), to: null }];
-    const clock = requestClock({ jurisdiction: "eu", receivedAt: startsAt, pauses: open, now: at("2026-05-20T09:00:00Z") });
+    const open = [{ from: at("2026-07-05T09:00:00Z"), to: null }];
+    const clock = requestClock({ jurisdiction: "eu", receivedAt: startsAt, pauses: open, now: at("2026-07-20T09:00:00Z") });
     assert.equal(clock.state, "running");
+  });
+
+  it("does not stop a UK clock for a request received before the DUAA's changes came into force", () => {
+    assert.equal(clarificationStopsClock("uk", at("2026-06-18T23:59:00Z")), false);
+    assert.equal(clarificationStopsClock("uk", DUAA_RIGHTS_IN_FORCE), true);
+    const receivedAt = at("2026-06-01T09:00:00Z");
+    const open = [{ from: at("2026-06-05T09:00:00Z"), to: null }];
+    const clock = requestClock({ jurisdiction: "uk", receivedAt, pauses: open, now: at("2026-06-20T09:00:00Z") });
+    assert.equal(clock.state, "running");
+    assert.ok("dueAt" in clock);
+    assert.equal(day(clock.dueAt), "2026-07-01");
   });
 });
 

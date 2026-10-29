@@ -97,6 +97,13 @@ export default async function RequestsPage() {
               <textarea name="description" required rows={3} className={inputClass} />
             </label>
             <RightsField />
+            <label className="block space-y-1">
+              <Label
+                text="Who are they to you?"
+                hint="Customer, employee, applicant — one per line. Matched against the ROPA to list where to look."
+              />
+              <textarea name="subjectCategories" rows={2} className={inputClass} />
+            </label>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block space-y-1">
                 <Label text="When did it arrive?" hint="This starts the month — not when it was noticed." />

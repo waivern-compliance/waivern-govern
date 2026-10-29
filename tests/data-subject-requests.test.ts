@@ -5,18 +5,26 @@ import { db, sql as pg } from "@/db/client";
 import { auditEvents, entities, memberships, organisations, tasks, users } from "@/db/schema";
 import { verifyAuditChain } from "@/lib/audit";
 import { can } from "@/lib/rbac";
+import { createSupplier } from "@/services/third-party";
+import { createActivity } from "@/services/ropa";
 import {
   RequestRefused,
+  addScopeEntry,
   closeRequest,
   defaultJurisdiction,
   loadRequest,
+  passToController,
   recordIdentity,
+  recordRecipientNotice,
   recordRequest,
   recordRequestDecision,
   requestRegister,
   requestsNeedingAttention,
+  recordScopeResult,
   respondToRequest,
+  seedRequestScope,
   setDefaultJurisdiction,
+  updateRequest,
 } from "@/services/data-subject-requests";
 import { sweepOrganisation } from "@/services/sweep";
 
@@ -281,5 +289,108 @@ describe("who may handle requests", () => {
       [org("owner"), org("privacy_admin"), org("privacy_analyst"), org("auditor"), org("approver")],
       [true, true, true, false, false],
     );
+  });
+});
+
+describe("where to look", () => {
+  async function withRopa(label: string) {
+    const w = await world(label);
+    await createSupplier({ organisationId: w.org.id, name: "Mailchimp", actor: SYSTEM });
+    await createActivity({
+      organisationId: w.org.id, entityId: w.entity.id, name: "Newsletter",
+      subjectCategories: ["Customers", "Prospects"], systems: ["CRM"], recipients: ["Mailchimp Ltd", "Auditors"],
+      actor: SYSTEM,
+    });
+    await createActivity({
+      organisationId: w.org.id, entityId: w.entity.id, name: "Payroll",
+      subjectCategories: ["Employees"], systems: ["Sage"], actor: SYSTEM,
+    });
+    return w;
+  }
+
+  it("is seeded from the ROPA activities about who the requester is, their systems and recipients", async () => {
+    const w = await withRopa("seed");
+    const request = await aRequest(w, { subjectCategories: ["customer"], rights: ["erasure"] });
+    const loaded = (await loadRequest(request.id, w.org.id))!;
+    const byKind = (k: string) => loaded.scope.filter((e) => e.kind === k).map((e) => e.label);
+
+    assert.deepEqual(byKind("activity").map((l) => l.replace(/^\S+ /, "")), ["Newsletter"], "payroll is not about customers");
+    assert.deepEqual(byKind("system"), ["CRM"]);
+    assert.deepEqual(byKind("supplier"), ["Mailchimp"], "a recipient on the supplier register becomes that supplier");
+    assert.deepEqual(byKind("recipient"), ["Auditors"]);
+    assert.ok(loaded.scope.filter((e) => e.isRecipient).length === 2);
+  });
+
+  it("looks again when who they are changes, without duplicating what is there", async () => {
+    const w = await withRopa("reseed");
+    const request = await aRequest(w, { subjectCategories: ["customer"] });
+    await updateRequest({
+      requestId: request.id, organisationId: w.org.id, changes: { subjectCategories: ["customer", "employee"] }, actor: SYSTEM,
+    });
+    const again = await seedRequestScope({ requestId: request.id, organisationId: w.org.id, actor: SYSTEM });
+    assert.equal(again, 0);
+    const labels = (await loadRequest(request.id, w.org.id))!.scope.map((e) => e.label);
+    assert.ok(labels.some((l) => l.endsWith("Payroll")) && labels.includes("Sage"));
+    assert.equal(new Set(labels).size, labels.length);
+
+    const bare = await aRequest(w);
+    await assert.rejects(seedRequestScope({ requestId: bare.id, organisationId: w.org.id, actor: SYSTEM }), RequestRefused);
+  });
+
+  it("needs a reason for leaving found data alone", async () => {
+    const w = await withRopa("result");
+    const request = await aRequest(w, { subjectCategories: ["customer"] });
+    const entry = await addScopeEntry({ requestId: request.id, organisationId: w.org.id, kind: "other", label: "Shared inbox", actor: SYSTEM });
+    await assert.rejects(addScopeEntry({ requestId: request.id, organisationId: w.org.id, kind: "other", label: "shared inbox", actor: SYSTEM }), RequestRefused);
+    await assert.rejects(recordScopeResult({ scopeId: entry.id, organisationId: w.org.id, status: "not_actioned", actor: SYSTEM }), RequestRefused);
+    const done = await recordScopeResult({ scopeId: entry.id, organisationId: w.org.id, status: "found", note: "Three emails", actor: SYSTEM });
+    assert.equal(done.status, "found");
+    assert.equal(done.checkedByLabel, "dsr test");
+  });
+
+  it("will not close an erasure until every recipient holding the data was told, or why not is recorded", async () => {
+    const w = await withRopa("art19");
+    const request = await aRequest(w, { subjectCategories: ["customer"], rights: ["erasure"] });
+    const { scope } = (await loadRequest(request.id, w.org.id))!;
+    const mailchimp = scope.find((e) => e.label === "Mailchimp")!;
+    const auditors = scope.find((e) => e.label === "Auditors")!;
+    const crm = scope.find((e) => e.label === "CRM")!;
+
+    await assert.rejects(
+      recordRecipientNotice({ scopeId: mailchimp.id, organisationId: w.org.id, notice: "notified", actor: SYSTEM }),
+      /Record that decision first/,
+    );
+    await recordRequestDecision({ organisationId: w.org.id, requestId: request.id, kind: "erasure", outcome: "complied", rationale: "No exception applies.", actor: SYSTEM });
+    await respondToRequest({ requestId: request.id, organisationId: w.org.id, outcome: "complied", channel: "email", summary: "Erased.", actor: SYSTEM });
+
+    await assert.rejects(recordRecipientNotice({ scopeId: crm.id, organisationId: w.org.id, notice: "notified", actor: SYSTEM }), /not a recipient/);
+    await assert.rejects(closeRequest({ requestId: request.id, organisationId: w.org.id, rationale: "Done", actor: SYSTEM }), /Auditors, Mailchimp have not been told/);
+
+    await recordRecipientNotice({ scopeId: mailchimp.id, organisationId: w.org.id, notice: "notified", actor: SYSTEM });
+    await assert.rejects(recordRecipientNotice({ scopeId: auditors.id, organisationId: w.org.id, notice: "disproportionate", actor: SYSTEM }), RequestRefused);
+    await recordScopeResult({ scopeId: auditors.id, organisationId: w.org.id, status: "not_held", actor: SYSTEM });
+
+    const closed = await closeRequest({ requestId: request.id, organisationId: w.org.id, rationale: "Done", actor: SYSTEM });
+    assert.equal(closed.status, "closed");
+    assert.equal((await verifyAuditChain(w.org.id)).ok, true);
+  });
+});
+
+describe("as processor", () => {
+  it("passes the request to the controller, and closes once it has", async () => {
+    const w = await world("processor");
+    const request = await aRequest(w, { controllerRole: "processor" });
+    await assert.rejects(closeRequest({ requestId: request.id, organisationId: w.org.id, rationale: "Ours to pass on", actor: SYSTEM }), /passed to the controller/);
+    await assert.rejects(passToController({ requestId: request.id, organisationId: w.org.id, controllerName: " ", actor: SYSTEM }), RequestRefused);
+
+    const passed = await passToController({
+      requestId: request.id, organisationId: w.org.id, controllerName: "Acme Retail Ltd", assistance: "Exported their records from our platform.", actor: SYSTEM,
+    });
+    assert.ok(passed.passedToControllerAt);
+    const closed = await closeRequest({ requestId: request.id, organisationId: w.org.id, rationale: "Passed on; controller answers.", actor: SYSTEM });
+    assert.equal(closed.status, "closed");
+
+    const own = await aRequest(w);
+    await assert.rejects(passToController({ requestId: own.id, organisationId: w.org.id, controllerName: "Someone", actor: SYSTEM }), /As controller, you answer it/);
   });
 });
