@@ -99,8 +99,9 @@ from facts rather than from events it may have missed.
 | --- | --- |
 | `GET /api/v1/export/context` | The whole governance picture in one document |
 | `GET /api/v1/export/ropa` | Article 30 records plus the assessments covering them |
+| `GET /api/v1/export/ai-profile` | The organisation's NIST AI RMF profile, current against target |
 
-Both accept `entity` (repeatable), `since` (ISO-8601, for incremental sync) and
+`context` and `ropa` accept `entity` (repeatable), `since` (ISO-8601, for incremental sync) and
 `limit` (1–1000). A malformed query returns `400` with the reason rather than
 being silently ignored — dropping an unparseable `since` would hand back a full
 export when a delta was asked for, and the caller would have no way to tell.
@@ -204,6 +205,81 @@ the system, so it can match its records to ours:
   "gaps": ["transparency_record_missing", "supplier_not_assessed"]
 }
 ```
+
+### The AI RMF profile
+
+`GET /api/v1/export/ai-profile` returns the organisation's profile against the
+NIST AI Risk Management Framework 1.0 (NIST AI 100-1): for each of the 72
+subcategories, where the organisation stands now, where it means to be, and
+what Govern holds towards it. It is what the Portal writes an "AI RMF profile"
+document from.
+
+It takes **no query parameters**, and refuses any it is given with `400`:
+
+- **No `entity`.** The profile is organisation-wide. An organisation sets one
+  current and one target per subcategory, not one per legal entity, so there is
+  nothing to narrow — and silently ignoring `entity` would hand back the whole
+  organisation's profile to a caller who believed it had asked for one entity's.
+- **No `since` or `limit`.** It is always 72 rows, and a profile document must
+  describe all of them: an unassessed subcategory is a finding, not an absence.
+  A partial profile would read as a complete one with fewer gaps.
+
+```json
+{
+  "profileVersion": "1.0",
+  "generatedAt": "2026-10-29T09:14:02.881Z",
+  "organisation": { "name": "BBC Group", "slug": "bbc-group", "aiFramework": "nist_ai_rmf" },
+  "framework": {
+    "id": "nist_ai_rmf", "name": "NIST AI Risk Management Framework",
+    "edition": "1.0", "publication": "NIST AI 100-1",
+    "source": "https://doi.org/10.6028/NIST.AI.100-1"
+  },
+  "summary": { "subcategories": 72, "achieved": 9, "partial": 20, "not_started": 11,
+               "not_applicable": 2, "unassessed": 30, "targetsSet": 44, "gaps": 23 },
+  "functions": [
+    { "function": "MEASURE", "label": "Measure", "summary": "...",
+      "tally": { "achieved": 2, "partial": 6, "...": 0 } }
+  ],
+  "subcategories": [
+    {
+      "id": "MEASURE 2.11", "function": "MEASURE", "category": "MEASURE 2",
+      "outcome": "Fairness and bias – as identified in the MAP function – are evaluated and results are documented.",
+      "current": "partial", "target": "achieved", "gap": true,
+      "notes": "Bias tested on two of five models.",
+      "evidence": [
+        { "feature": "eia", "label": "Equality impact assessment", "count": 3 }
+      ],
+      "updatedBy": "ai.lead@example.bbc.co.uk", "updatedAt": "2026-10-28T16:40:12.000Z"
+    }
+  ]
+}
+```
+
+- `current` and `target` are `not_started`, `partial`, `achieved` or
+  `not_applicable`, or `null` when nobody has said. `null` for `current` means
+  **not assessed**, and must not be written up as "not started".
+- `gap` is computed here, so the Portal and Govern agree on it: true when the
+  target is `partial` or `achieved` and the current status falls short of it.
+  Not assessed counts as short, since nobody can show the outcome is met.
+- `outcome` and the subcategory ids are NIST's own wording, verbatim.
+- `evidence` counts the records Govern holds under the features the crosswalk
+  maps to that subcategory. **A count is never a status**: twenty systems on the
+  AI register go towards GOVERN 1.6, but whether that inventory is adequate is a
+  person's judgement, recorded in `current`. A document may cite the counts; it
+  must not infer achievement from them.
+- `updatedBy` and `updatedAt` are `null` for a subcategory nobody has set.
+- `profileVersion` versions this shape, as `contextVersion` versions the
+  context document; additive changes bump the minor version.
+
+The profile is returned whatever AI governance framework the organisation
+currently follows (`organisation.aiFramework`), because an organisation moving
+from the UK framework to NIST may build its profile before it switches.
+
+Unlike the context and RoPA feeds, each call is **recorded in the audit trail**
+as `data.exported` (dataset `nist-ai-rmf-profile`, format `json`), with the
+connection as the actor — the same event a person's CSV download of the profile
+records. The profile carries people's own assessments of where the organisation
+falls short, and who took them out of Govern should be on the record.
 
 Exports are `cache-control: no-store`. Governance state changes when people
 decide things, and a cached export could hand back a decision that has since

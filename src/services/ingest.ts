@@ -15,7 +15,7 @@ import {
   suppliers,
 } from "@/db/schema";
 import { appendAuditEvent } from "@/lib/audit";
-import type { AuthedConnection } from "@/lib/integration/auth";
+import { connectionActor, type AuthedConnection } from "@/lib/integration/auth";
 import type {
   AiUseCaseIn,
   DpaIn,
@@ -31,15 +31,6 @@ import { createUseCase } from "./ai-register";
 import { canonicalise as canonicaliseByHand } from "./third-party";
 
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
-
-/** Integrations act as themselves in the audit trail, never as a person. */
-function actorFor(connection: AuthedConnection) {
-  return {
-    actorKind: "integration" as const,
-    actorUserId: null,
-    actorLabel: `${connection.kind}:${connection.name}`,
-  };
-}
 
 /**
  * Resolve the entity a record belongs to.
@@ -103,7 +94,7 @@ export async function ingestProcessingActivities(
 ): Promise<IngestOutcome> {
   return withOrganisation(connection.organisationId, async () => {
     const outcome: IngestOutcome = { received: records.length, created: 0, updated: 0, skipped: [] };
-    const actor = actorFor(connection);
+    const actor = connectionActor(connection);
     const year = new Date().getUTCFullYear();
 
     for (const r of records) {
@@ -196,7 +187,7 @@ export async function ingestVendors(
 ): Promise<IngestOutcome> {
   return withOrganisation(connection.organisationId, async () => {
     const outcome: IngestOutcome = { received: records.length, created: 0, updated: 0, skipped: [] };
-    const actor = actorFor(connection);
+    const actor = connectionActor(connection);
 
     for (const r of records) {
       const key = canonicalise(r.name);
@@ -265,7 +256,7 @@ export async function ingestAiUseCases(
 ): Promise<IngestOutcome> {
   return withOrganisation(connection.organisationId, async () => {
     const outcome: IngestOutcome = { received: records.length, created: 0, updated: 0, skipped: [] };
-    const actor = actorFor(connection);
+    const actor = connectionActor(connection);
 
     for (const r of records) {
       const entity = await resolveEntity(connection.organisationId, connection, r.entity);
@@ -367,7 +358,7 @@ export async function ingestDpas(
 ): Promise<IngestOutcome> {
   return withOrganisation(connection.organisationId, async () => {
     const outcome: IngestOutcome = { received: records.length, created: 0, updated: 0, skipped: [] };
-    const actor = actorFor(connection);
+    const actor = connectionActor(connection);
 
     for (const r of records) {
       const key = canonicalise(r.vendorName);
@@ -474,7 +465,7 @@ export async function ingestEvidence(
 ): Promise<IngestOutcome> {
   return withOrganisation(connection.organisationId, async () => {
     const outcome: IngestOutcome = { received: records.length, created: 0, updated: 0, skipped: [] };
-    const actor = actorFor(connection);
+    const actor = connectionActor(connection);
 
     for (const r of records) {
       const entity = await resolveEntity(connection.organisationId, connection, r.entity);
@@ -585,7 +576,7 @@ export async function ingestScan(
       };
     }
 
-    const actor = actorFor(connection);
+    const actor = connectionActor(connection);
     const outcome: ScanIngestOutcome = {
       received: batch.findings.length,
       created: 0,
