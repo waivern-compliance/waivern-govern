@@ -25,6 +25,7 @@ import {
   type RequestDecision,
   type ScopeEntry,
 } from "@/services/data-subject-requests";
+import { issueIntakeLink, revokeIntakeLink } from "@/services/dsr-intake";
 
 const text = (v: FormDataEntryValue | null) => String(v ?? "").trim();
 const lines = (v: FormDataEntryValue | null) =>
@@ -340,6 +341,41 @@ export async function setObjectionThresholdAction(_prev: RequestResult, formData
         actor: actorOf(active),
       }),
     "Saved.",
+  );
+  revalidatePath("/app/requests");
+  return result;
+}
+
+export async function issueIntakeLinkAction(_prev: RequestResult, formData: FormData): Promise<RequestResult> {
+  const active = await requireCapability("dsr.handle");
+  if (!mayConfigureRequests(active.membership.grants)) {
+    return { ok: false, message: "Only somebody who configures the whole organisation can publish a form." };
+  }
+  const result = await refused(
+    async () => {
+      await issueIntakeLink({
+        organisationId: active.membership.organisationId,
+        entityId: text(formData.get("entityId")),
+        label: text(formData.get("label")),
+        actor: actorOf(active),
+      });
+    },
+    "Created. Copy the address into your privacy notice.",
+  );
+  revalidatePath("/app/requests");
+  return result;
+}
+
+export async function revokeIntakeLinkAction(linkId: string, _prev: RequestResult): Promise<RequestResult> {
+  const active = await requireCapability("dsr.handle");
+  if (!mayConfigureRequests(active.membership.grants)) {
+    return { ok: false, message: "Only somebody who configures the whole organisation can withdraw a form." };
+  }
+  const result = await refused(
+    async () => {
+      await revokeIntakeLink({ linkId, organisationId: active.membership.organisationId, actor: actorOf(active) });
+    },
+    "Withdrawn. The address now says the form is not taking requests.",
   );
   revalidatePath("/app/requests");
   return result;

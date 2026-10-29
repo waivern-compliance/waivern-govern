@@ -583,6 +583,14 @@ A request can come by any route — email, a letter, a phone call, a message on 
 
 Record only what you need: who is asking, how to reach them, and what they asked for. The register is restricted to the people who handle requests, because each entry is the requester's own personal data.
 
+### A public form, if you want one
+
+On the requests page, an owner or privacy administrator can create a web form for an entity and publish its address in the privacy notice. People can then make a request without an account. Each submission is recorded here as arriving by web form, the month starts at once, and a task goes to the privacy team.
+
+The form shows nothing back except a reference and the deadline, so nobody can use it to find out about anybody's request. It takes no identity documents: if you reasonably doubt who is asking, ask afterwards, as for any request. It limits how often one address can submit, keeping only a scrambled form of the address for a day.
+
+It is one route among many. The form says so, and so must you: a request by email, by post or in person counts the same. Withdraw a form and its address says it is no longer taking requests.
+
 ### How the month is counted
 
 From the day the clock starts to the same date next month. Where next month has no such date, the last day of the month. Where that falls on a weekend or a bank holiday, the next working day. That is how the ICO counts it, and the deadline shown is worked out that way.
@@ -655,7 +663,7 @@ It will not answer the request, search your systems, or redact anything. It coun
 
 **See also:** Personal data breaches · The processing register (Article 30) · Tasks, and being mentioned · The audit trail
 
-<sub>Also searchable as: dsar, sar, subject access, access request, article 15, erasure, right to be forgotten, article 17, objection, object, article 21, rectification, portability, restriction, one month, extension, article 12, direct marketing, rights request, article 19, recipients, search, reasonable and proportionate, processor, article 28, article 18(1)(d), lia, legitimate interests assessment, balancing test, timeliness, on time, response times, export, metrics</sub>
+<sub>Also searchable as: dsar, sar, subject access, access request, article 15, erasure, right to be forgotten, article 17, objection, object, article 21, rectification, portability, restriction, one month, extension, article 12, direct marketing, rights request, article 19, recipients, search, reasonable and proportionate, processor, article 28, article 18(1)(d), lia, legitimate interests assessment, balancing test, timeliness, on time, response times, export, metrics, web form, intake, public form, privacy notice</sub>
 
 ## The AI register
 

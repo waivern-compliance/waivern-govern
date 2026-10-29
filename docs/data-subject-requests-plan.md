@@ -1,7 +1,6 @@
 # Plan: a register for data subject requests (access, objection and the other rights)
 
-Status: Phases 0–4 built, and Phase 5's reporting and Integration API. The optional public
-intake form is not built. Written 29 October 2026.
+Status: all phases built, including the optional public intake form. Written 29 October 2026.
 
 ## What is asked for
 
@@ -233,7 +232,16 @@ provisions, to `legal-references.ts`.
   `GET /api/v1/export/requests-summary` serves counts only, with `entity` and `months`.
   The Portal's DSRP document can then state real response times; the Portal side is not
   built.
-- **Optional:** a public intake form (decision 5).
+- **Public intake form (built):** `/request/[slug]`, one published form per entity
+  (`dsr_intake_link`, a random slug stored as is, since the address is meant to be
+  published). Built on the contributor-link idea — the address is the only authority, no
+  session is read — but not its table, since a form is not tied to an assessment or an
+  email. Submissions go through `recordRequest` (channel `web_form`, actor kind
+  `public_form`, labelled with the form, never the person) and raise a `dsr_intake` task for
+  privacy admins. Nothing is shown back except the reference and the deadline. No identity
+  documents. Bots are held off by a hidden trap field, a signed start time (at least 3
+  seconds, at most a day), and limits of 5 per address and 50 per form an hour, counted in
+  `dsr_intake_attempt` with addresses HMAC-hashed and pruned by the sweep after a day.
 
 ## Rough size
 

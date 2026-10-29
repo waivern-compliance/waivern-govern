@@ -26,6 +26,7 @@ import { forgetExpiredConversations } from "./assistant";
 import { notificationDeadline } from "@/lib/breach/statutory";
 import { breachesNeedingAttention } from "./breaches";
 import { objectionCounts, objectionReviewThreshold, requestsNeedingAttention } from "./data-subject-requests";
+import { pruneIntakeAttempts } from "./dsr-intake";
 import { objectionReviewDue } from "@/lib/dsr/statutory";
 import { EXPIRING_WITHIN_LABEL, dpasNeedingAttention } from "./third-party";
 import { appetitesDueForReview } from "./risk-policy";
@@ -64,6 +65,7 @@ export type SweepResult = {
   breachDeadlinesRaised: number;
   requestDeadlinesRaised: number;
   objectionReviewsRaised: number;
+  intakeAttemptsForgotten: number;
   lapsedReviewsRaised: number;
   aiReviewsRaised: number;
   appetiteReviewsRaised: number;
@@ -761,6 +763,8 @@ export async function sweepOrganisation(organisationId: string): Promise<SweepRe
     breachDeadlinesRaised: await raiseBreachDeadlines(organisationId),
     requestDeadlinesRaised: await raiseRequestDeadlines(organisationId),
     objectionReviewsRaised: await raiseObjectionReviews(organisationId),
+    // Kept a day for rate limiting, then forgotten.
+    intakeAttemptsForgotten: await pruneIntakeAttempts(organisationId),
     lapsedReviewsRaised: await raiseLapsedReviews(organisationId),
     aiReviewsRaised: await raiseAiReviews(organisationId),
     appetiteReviewsRaised: await raiseAppetiteReviews(organisationId),

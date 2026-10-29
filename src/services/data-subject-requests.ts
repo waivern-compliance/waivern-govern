@@ -346,6 +346,8 @@ export async function recordRequest(input: {
   jurisdiction?: Jurisdiction;
   subjectCategories?: string[];
   ownerId?: string | null;
+  /** The published web form it came through, if it did. */
+  intakeLinkId?: string | null;
   actor: Actor;
 }) {
   const rights = validRights(input.rights);
@@ -379,6 +381,7 @@ export async function recordRequest(input: {
           representative: input.representative?.trim() || null,
           subjectCategories: input.subjectCategories ?? [],
           ownerId: input.ownerId ?? null,
+          intakeLinkId: input.intakeLinkId ?? null,
           status: "in_progress",
         })
         .returning();

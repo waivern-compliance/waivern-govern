@@ -38,6 +38,7 @@ import * as aiLifecycle from "@/services/ai-lifecycle";
 import * as aiRegister from "@/services/ai-register";
 import * as aiRiskProfile from "@/services/ai-risk-profile";
 import * as dsr from "@/services/data-subject-requests";
+import * as dsrIntake from "@/services/dsr-intake";
 import * as routing from "@/services/approval-routing";
 import * as assessmentsSvc from "@/services/assessments";
 import * as assistant from "@/services/assistant";
@@ -181,6 +182,9 @@ async function populated() {
     receivedAt: new Date(), description: "B's requester's secret request.", requesterName: "B's requester",
     actor: SYSTEM,
   });
+  const intakeLink = await dsrIntake.issueIntakeLink({
+    organisationId: id, entityId: o.entity.id, label: "B's form", actor: SYSTEM,
+  });
   const requestScope = await dsr.addScopeEntry({
     requestId: subjectRequest.id, organisationId: id, kind: "recipient", label: "B's recipient", actor: SYSTEM,
   });
@@ -260,7 +264,7 @@ async function populated() {
 
   return {
     ...o, template, dpiaVersion, workflow: workflows[0], stage, risk, mitigation, acceptance, appetite,
-    supplier, dpa, activity, breach, subjectRequest, requestScope, useCase, change, assurance, incident, atrsRecord, request,
+    supplier, dpa, activity, breach, subjectRequest, requestScope, intakeLink, useCase, change, assurance, incident, atrsRecord, request,
     trainingRecord, assessment, approval, link, comment, document, scanner, finding: finding.finding,
     conversation, task, draft, domainClaim,
   };
@@ -469,6 +473,7 @@ describe("changing another organisation's records", () => {
     ["addScopeEntry", () => dsr.addScopeEntry({ requestId: B.subjectRequest.id, organisationId: A.org.id, kind: "other", label: "taken", actor: as() })],
     ["recordScopeResult", () => dsr.recordScopeResult({ scopeId: B.requestScope.id, organisationId: A.org.id, status: "not_held", actor: as() })],
     ["recordRecipientNotice", () => dsr.recordRecipientNotice({ scopeId: B.requestScope.id, organisationId: A.org.id, notice: "notified", actor: as() })],
+    ["revokeIntakeLink", () => dsrIntake.revokeIntakeLink({ linkId: B.intakeLink.id, organisationId: A.org.id, actor: as() })],
     ["passToController", () => dsr.passToController({ requestId: B.subjectRequest.id, organisationId: A.org.id, controllerName: "taken", actor: as() })],
     ["closeRequest", () => dsr.closeRequest({ requestId: B.subjectRequest.id, organisationId: A.org.id, rationale: "x", withdrawn: true, actor: as() })],
     ["linkAssessment (B's breach)", () => breachesSvc.linkAssessment({ breachId: B.breach.id, organisationId: A.org.id, assessmentId: null, actor: as() })],
@@ -532,6 +537,7 @@ describe("linking one's own records to another organisation's", () => {
     ["an AI system owned by B's person", () => aiRegister.updateUseCase({ useCaseId: mine.useCase.id, organisationId: A.org.id, changes: { ownerId: B.owner.user.id }, actor: as() })],
     ["a breach linked to B's assessment", () => breachesSvc.linkAssessment({ breachId: mine.breach.id, organisationId: A.org.id, assessmentId: B.assessment.id, actor: as() })],
     ["a data subject request in B's entity", () => dsr.recordRequest({ organisationId: A.org.id, entityId: B.entity.id, rights: ["access"], channel: "email", receivedAt: new Date(), description: "x", requesterName: "x", actor: as() })],
+    ["a request form for B's entity", () => dsrIntake.issueIntakeLink({ organisationId: A.org.id, entityId: B.entity.id, label: "x", actor: as() })],
     ["an objection about B's processing activity", () => dsr.recordRequestDecision({ organisationId: A.org.id, requestId: mine.subjectRequest.id, kind: "objection", processingBasis: "legitimate_interests", processingActivityId: B.activity.id, rationale: "x", actor: as() })],
     ["a data subject request handled by B's person", () => dsr.updateRequest({ requestId: mine.subjectRequest.id, organisationId: A.org.id, changes: { ownerId: B.owner.user.id }, actor: as() })],
     ["a breach in B's entity", () => breachesSvc.recordBreach({ organisationId: A.org.id, entityId: B.entity.id, title: "x", description: "x", discoveredAt: new Date(), actor: as() })],
@@ -618,6 +624,7 @@ describe("lists", () => {
       ["exportsSvc.exportRequests", exportsSvc.exportRequests(o, null)] as const,
       ["dsr.requestMetrics", dsr.requestMetrics(o, null)] as const,
       ["dsr.requestsSummary", dsr.requestsSummary({ organisationId: o })] as const,
+      ["dsrIntake.intakeLinksFor", dsrIntake.intakeLinksFor(o, null)] as const,
       ["exportsSvc.exportAiRiskLog", exportsSvc.exportAiRiskLog(o, null)] as const,
       ["graph.aiChains", graph.aiChains(o, null)] as const,
       ["guidance.guidanceFor", guidance.guidanceFor({ organisationId: o, chosen: null })] as const,
@@ -644,7 +651,7 @@ describe("lists", () => {
       B.org.id, B.entity.id, B.owner.user.id, B.approver.user.id, B.risk.id, B.supplier.id, B.dpa.id,
       B.activity.id, B.breach.id, B.subjectRequest.id, B.useCase.id, B.incident.id, B.request.id, B.assessment.id,
       B.template, B.dpiaVersion, B.workflow.id, B.scanner.id, B.finding.id, B.appetite.id,
-      B.domainClaim.id, B.domainClaim.domain,
+      B.domainClaim.id, B.domainClaim.domain, B.intakeLink.id, B.intakeLink.slug,
     ];
     const leaks = results.flatMap(([name, r]) => bIds.filter((id) => text(r).includes(id)).map((id) => `${name}: ${id}`));
     assert.deepEqual(leaks, [], "lists showed A something of B's");
@@ -723,6 +730,9 @@ const NOT_TENANT_SCOPED: Record<string, string> = {
   "risk-policy.setRiskScale": "configures the caller's own organisation",
   "data-subject-requests.setDefaultJurisdiction": "configures the caller's own organisation",
   "data-subject-requests.defaultJurisdiction": "reads the caller's own organisation",
+  "dsr-intake.openIntakeLink": "the published address is the authority, and carries its organisation",
+  "dsr-intake.submitIntake": "the published address is the authority, and carries its organisation",
+  "dsr-intake.pruneIntakeAttempts": "acts only on the organisation it is given; run by the sweep",
   "data-subject-requests.setObjectionReviewThreshold": "configures the caller's own organisation",
   "data-subject-requests.objectionReviewThreshold": "reads the caller's own organisation",
   "risk-policy.riskCount": "counts the caller's own risks",

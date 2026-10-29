@@ -111,6 +111,11 @@ export const actorKind = pgEnum("actor_kind", [
    */
   "assistant",
   "integration",
+  /**
+   * Somebody without an account using a published form: a data subject
+   * making a request. The label names the form, never the person.
+   */
+  "public_form",
 ]);
 
 export const assistantRole = pgEnum("assistant_role", ["user", "assistant"]);
@@ -385,6 +390,8 @@ export const taskType = pgEnum("task_type", [
    * rather than from when the task was raised.
    */
   "dsr_deadline",
+  /** A request arrived through the public web form and nobody has picked it up yet. */
+  "dsr_intake",
 ]);
 
 export const taskStatus = pgEnum("task_status", [

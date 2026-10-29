@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db, scoped } from "@/db/client";
@@ -15,8 +16,15 @@ import {
   requestMetrics,
   requestRegister,
 } from "@/services/data-subject-requests";
+import { intakeLinksFor } from "@/services/dsr-intake";
 import { ActionForm } from "./ActionForm";
-import { recordRequestAction, setJurisdictionAction, setObjectionThresholdAction } from "./actions";
+import {
+  issueIntakeLinkAction,
+  recordRequestAction,
+  revokeIntakeLinkAction,
+  setJurisdictionAction,
+  setObjectionThresholdAction,
+} from "./actions";
 import { CHANNEL_LABEL, ChannelSelect, Label, RightsField, inputClass } from "./fields";
 
 export default async function RequestsPage() {
@@ -33,13 +41,17 @@ export default async function RequestsPage() {
   }
 
   const org = active.membership.organisationId;
-  const [register, orgEntities, jurisdiction, threshold, metrics] = await Promise.all([
+  const [register, orgEntities, jurisdiction, threshold, metrics, intakeLinks] = await Promise.all([
     requestRegister(org, visibleEntityIds(active, "dsr.handle")),
     scoped(org, () => db.select().from(entities).where(eq(entities.organisationId, org))),
     defaultJurisdiction(org),
     objectionReviewThreshold(org),
     requestMetrics(org, visibleEntityIds(active, "dsr.handle")),
+    intakeLinksFor(org, visibleEntityIds(active, "dsr.handle")),
   ]);
+  const h = await headers();
+  const origin = `${h.get("x-forwarded-proto") ?? "http"}://${h.get("host")}`;
+  const mayConfigure = mayConfigureRequests(active.membership.grants);
   const mayRecordIn = orgEntities.filter((e) => can(active.membership.grants, "dsr.handle", e.id));
 
   return (
@@ -238,6 +250,65 @@ export default async function RequestsPage() {
               <option value="uk">{JURISDICTION_LABEL.uk}</option>
               <option value="eu">{JURISDICTION_LABEL.eu}</option>
             </select>
+          </ActionForm>
+        ) : null}
+      </section>
+
+      <section className="space-y-3 rounded border border-line bg-surface p-5">
+        <h2 className="text-sm font-semibold">Public request form</h2>
+        <p className="max-w-prose text-xs text-ink-soft">
+          A web form people can use to make a request without an account, one per entity. Publish its
+          address in your privacy notice. Each submission lands in this register as received by web
+          form, and raises a task for the privacy team. The form shows nothing back except a reference
+          and the deadline, takes no identity documents, and limits how often one address can submit.
+          It is one route among many: requests by email, post or in person still count.
+        </p>
+        {intakeLinks.length > 0 ? (
+          <ul className="divide-y divide-line overflow-hidden rounded border border-line">
+            {intakeLinks.map(({ link, entityName }) => (
+              <li key={link.id} className="space-y-1 px-3 py-2.5 text-sm">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <span className="font-medium">
+                    {link.label} <span className="text-xs font-normal text-ink-soft">· {entityName}</span>
+                  </span>
+                  <span className="font-mono text-[11px] text-ink-soft">
+                    {link.revokedAt
+                      ? `withdrawn ${link.revokedAt.toISOString().slice(0, 10)}`
+                      : `${link.submissions} submission${link.submissions === 1 ? "" : "s"}`}
+                  </span>
+                </div>
+                {!link.revokedAt ? (
+                  <>
+                    <p className="break-all font-mono text-xs">{`${origin}/request/${link.slug}`}</p>
+                    {mayConfigure ? (
+                      <ActionForm
+                        action={revokeIntakeLinkAction.bind(null, link.id)}
+                        submit="Withdraw this form"
+                        className="pt-1"
+                      >
+                        <span className="sr-only">Withdraw {link.label}</span>
+                      </ActionForm>
+                    ) : null}
+                  </>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {mayConfigure && mayRecordIn.length > 0 ? (
+          <ActionForm action={issueIntakeLinkAction} submit="Create a form" className="flex flex-wrap items-end gap-3">
+            <label className="block space-y-1">
+              <Label text="Entity" />
+              <select name="entityId" className="rounded border border-line bg-ground px-3 py-2 text-sm">
+                {mayRecordIn.map((e) => (
+                  <option key={e.id} value={e.id}>{e.name}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block flex-1 space-y-1">
+              <Label text="Where it will be published" />
+              <input name="label" placeholder="Website privacy notice" className={inputClass} />
+            </label>
           </ActionForm>
         ) : null}
       </section>
