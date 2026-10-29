@@ -5,6 +5,8 @@ import {
   DUAA_RIGHTS_IN_FORCE,
   RIGHT_KEYS,
   RIGHTS,
+  basisSuggestedBy,
+  objectionReviewDue,
   clarificationStopsClock,
   clockStartsAt,
   extensionNoticeDeadline,
@@ -176,5 +178,21 @@ describe("reference data", () => {
     assert.ok(BANK_HOLIDAYS_KNOWN_THROUGH >= new Date().getUTCFullYear() + 1);
     assert.equal(isWorkingDay(at("2026-12-28T12:00:00Z"), "uk"), false, "substitute Boxing Day");
     assert.equal(isWorkingDay(at("2026-12-29T12:00:00Z"), "uk"), true);
+  });
+});
+
+describe("objections against the ROPA", () => {
+  it("suggests the basis from the ROPA, with direct marketing read from the purposes", () => {
+    assert.equal(basisSuggestedBy({ lawfulBasis: "Art 6(1)(f) legitimate interests", purposes: [] }), "legitimate_interests");
+    assert.equal(basisSuggestedBy({ lawfulBasis: "Legitimate interests", purposes: ["Email marketing"] }), "direct_marketing");
+    assert.equal(basisSuggestedBy({ lawfulBasis: "Task in the public interest", purposes: [] }), "public_task");
+    assert.equal(basisSuggestedBy({ lawfulBasis: "Performance of a contract", purposes: [] }), "contract");
+    assert.equal(basisSuggestedBy({ lawfulBasis: null, purposes: [] }), null);
+  });
+
+  it("sends the LIA back at the threshold, never when the threshold is zero", () => {
+    assert.equal(objectionReviewDue(2, 3), false);
+    assert.equal(objectionReviewDue(3, 3), true);
+    assert.equal(objectionReviewDue(50, 0), false);
   });
 });

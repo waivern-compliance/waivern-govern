@@ -7,11 +7,11 @@ import { HelpLink } from "@/components/help/HelpLink";
 import { NotPermitted } from "@/components/NotPermitted";
 import { RequestClock } from "@/components/dsr/RequestClock";
 import { JURISDICTION_LABEL, RIGHTS, type Right } from "@/lib/dsr/statutory";
-import { can, mayChooseDsrJurisdiction } from "@/lib/rbac";
+import { can, mayConfigureRequests } from "@/lib/rbac";
 import { getActiveSession, visibleEntityIds } from "@/lib/session";
-import { defaultJurisdiction, requestRegister } from "@/services/data-subject-requests";
+import { defaultJurisdiction, objectionReviewThreshold, requestRegister } from "@/services/data-subject-requests";
 import { ActionForm } from "./ActionForm";
-import { recordRequestAction, setJurisdictionAction } from "./actions";
+import { recordRequestAction, setJurisdictionAction, setObjectionThresholdAction } from "./actions";
 import { CHANNEL_LABEL, ChannelSelect, Label, RightsField, inputClass } from "./fields";
 
 export default async function RequestsPage() {
@@ -28,10 +28,11 @@ export default async function RequestsPage() {
   }
 
   const org = active.membership.organisationId;
-  const [register, orgEntities, jurisdiction] = await Promise.all([
+  const [register, orgEntities, jurisdiction, threshold] = await Promise.all([
     requestRegister(org, visibleEntityIds(active, "dsr.handle")),
     scoped(org, () => db.select().from(entities).where(eq(entities.organisationId, org))),
     defaultJurisdiction(org),
+    objectionReviewThreshold(org),
   ]);
   const mayRecordIn = orgEntities.filter((e) => can(active.membership.grants, "dsr.handle", e.id));
 
@@ -195,12 +196,38 @@ export default async function RequestsPage() {
           GDPR does not. Each request keeps the law it was recorded under, so
           changing this never moves a deadline already running.
         </p>
-        {mayChooseDsrJurisdiction(active.membership.grants) ? (
+        {mayConfigureRequests(active.membership.grants) ? (
           <ActionForm action={setJurisdictionAction} submit="Save" className="flex flex-wrap items-end gap-3">
             <select name="jurisdiction" defaultValue={jurisdiction} className="rounded border border-line bg-ground px-3 py-2 text-sm">
               <option value="uk">{JURISDICTION_LABEL.uk}</option>
               <option value="eu">{JURISDICTION_LABEL.eu}</option>
             </select>
+          </ActionForm>
+        ) : null}
+      </section>
+
+      <section className="space-y-2 rounded border border-line bg-surface p-5">
+        <h2 className="text-sm font-semibold">When objections reopen a legitimate interests assessment</h2>
+        <p className="max-w-prose text-xs text-ink-soft">
+          {threshold === 0
+            ? "Off. Objections are decided one by one and never counted against the processing."
+            : `After ${threshold} objection${threshold === 1 ? "" : "s"} to one processing activity in twelve months, upheld or overridden, its LIA goes back to its owner for review — or, where there is none, a task asks for one.`}{" "}
+          A run of objections is evidence that people do not expect the processing,
+          which is what the balancing test is meant to weigh.
+        </p>
+        {mayConfigureRequests(active.membership.grants) ? (
+          <ActionForm action={setObjectionThresholdAction} submit="Save" className="flex flex-wrap items-end gap-3">
+            <label className="block space-y-1">
+              <Label text="Objections in twelve months" hint="0 turns it off." />
+              <input
+                name="threshold"
+                type="number"
+                min={0}
+                max={100}
+                defaultValue={threshold}
+                className="w-28 rounded border border-line bg-ground px-3 py-2 text-sm"
+              />
+            </label>
           </ActionForm>
         ) : null}
       </section>

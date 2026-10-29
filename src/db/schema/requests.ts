@@ -135,6 +135,14 @@ export const dataSubjectRequestDecisions = pgTable(
      * and legitimate interests, and not engaged at all otherwise.
      */
     processingBasis: text("processing_basis"),
+    /**
+     * The processing activity an objection is about. One decision per
+     * activity, so each can be counted against it and the balancing test
+     * behind it revisited when people keep objecting.
+     */
+    processingActivityId: uuid("processing_activity_id").references(() => processingActivities.id, {
+      onDelete: "set null",
+    }),
     /** Never optional. */
     rationale: text("rationale").notNull(),
     /** When it took effect, which for a pause is when the clock stopped. */
@@ -147,6 +155,7 @@ export const dataSubjectRequestDecisions = pgTable(
   (t) => [
     index("data_subject_request_decision_request_idx").on(t.requestId, t.decidedAt),
     index("data_subject_request_decision_kind_idx").on(t.organisationId, t.kind, t.outcome),
+    index("data_subject_request_decision_activity_idx").on(t.processingActivityId, t.effectiveAt),
   ],
 );
 

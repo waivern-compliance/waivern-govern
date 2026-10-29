@@ -167,6 +167,41 @@ export function objectionTest(basis: ProcessingBasis): {
   };
 }
 
+/**
+ * What the ROPA suggests an objection is about, read from an activity's
+ * free-text lawful basis and its purposes.
+ *
+ * Only a suggestion: the handler confirms it, because the ROPA may be wrong
+ * and the answer decides whether the objection can be refused at all. Direct
+ * marketing is a purpose rather than a basis, so it wins wherever it appears.
+ */
+export function basisSuggestedBy(activity: { lawfulBasis: string | null; purposes: readonly string[] }): ProcessingBasis | null {
+  if (activity.purposes.some((p) => /\bmarketing\b/i.test(p))) return "direct_marketing";
+  const b = (activity.lawfulBasis ?? "").toLowerCase();
+  if (/legitimate/.test(b)) return "legitimate_interests";
+  if (/public (task|interest)|official authority/.test(b)) return "public_task";
+  if (/consent/.test(b)) return "consent";
+  if (/contract/.test(b)) return "contract";
+  if (/legal obligation/.test(b)) return "legal_obligation";
+  if (/vital/.test(b)) return "vital_interests";
+  return null;
+}
+
+/** How far back objections to one activity are counted. */
+export const OBJECTION_WINDOW_MONTHS = 12;
+
+/**
+ * Whether the objections to one activity should send its legitimate
+ * interests assessment back for review. A threshold of zero turns it off.
+ */
+export function objectionReviewDue(count: number, threshold: number): boolean {
+  return threshold > 0 && count >= threshold;
+}
+
+/** Article 18(1)(d), said where an objection is still being weighed. */
+export const RESTRICT_WHILE_WEIGHED =
+  "Article 18(1)(d): while you weigh an objection to processing on public task or legitimate interests, the person may have it restricted — kept, but not otherwise used — until you decide.";
+
 /** How many days before the deadline a request counts as due soon. */
 export const DUE_SOON_DAYS = 7;
 

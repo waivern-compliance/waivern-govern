@@ -621,6 +621,7 @@ export const HELP_TOPICS: HelpTopic[] = [
       "article 17", "objection", "object", "article 21", "rectification", "portability", "restriction",
       "one month", "extension", "article 12", "direct marketing", "rights request",
       "article 19", "recipients", "search", "reasonable and proportionate", "processor", "article 28",
+      "article 18(1)(d)", "lia", "legitimate interests assessment", "balancing test",
     ],
     sections: [
       {
@@ -668,6 +669,16 @@ export const HELP_TOPICS: HelpTopic[] = [
           "An objection to direct marketing is absolute: the processing stops, and there are no grounds on which to refuse. The platform will not record one as overridden.",
           "An objection to processing on public task or legitimate interests can be overridden only on compelling legitimate grounds that outweigh the person's interests, or for legal claims — and the burden is yours. Record the grounds in the decision. Consider restricting the processing while you decide.",
           "Processing on any other basis is not open to objection under Article 21. Processing on consent stops when consent is withdrawn; anything else may be an erasure or restriction request in different words.",
+          "Decide an objection once for each processing activity it is about. The form offers the activities found in where to look, and suggests the basis from the ROPA; if the ROPA is wrong, correct it there.",
+          "While you weigh an objection to public task or legitimate interests, the person may have the processing restricted (Article 18(1)(d)). If they asked, the platform will not record the restriction as refused until the objection is decided.",
+          "An upheld objection means the processing stops for this person. The request will not close until that activity is recorded as acted on in where to look.",
+        ],
+      },
+      {
+        heading: "When people keep objecting",
+        body: [
+          "Each objection upheld or overridden counts against its activity, one per request, over twelve months. The count shows on the activity's ROPA record — numbers only, never who objected.",
+          "Past the organisation's threshold — three by default, set on the requests page — the scheduler sends the activity's legitimate interests assessment back to its owner for review. Where there is no LIA, the task asks for one. A run of objections is evidence the people affected do not expect the processing, which is what the balancing test is meant to weigh.",
         ],
       },
       {

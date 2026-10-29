@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { db, withOrganisation } from "@/db/client";
 import {
   dataSubjectRequestDecisions,
@@ -13,6 +13,7 @@ import {
 } from "@/db/schema";
 import { appendAuditEvent } from "@/lib/audit";
 import {
+  OBJECTION_WINDOW_MONTHS,
   RIGHT_KEYS,
   clarificationStopsClock,
   clockStartsAt,
@@ -26,7 +27,7 @@ import {
 } from "@/lib/dsr/statutory";
 import { canonicalise } from "./ingest";
 import type { Actor } from "./templates";
-import { assertEntityIn, assertMemberOf } from "./tenancy-guards";
+import { assertEntityIn, assertMemberOf, assertRecordIn } from "./tenancy-guards";
 
 /**
  * The register of requests from data subjects, and the decisions taken about each.
@@ -130,6 +131,17 @@ export function recipientsMustBeTold(decisions: readonly RequestDecision[]): boo
 export function recipientsStillToTell(scope: readonly ScopeEntry[], decisions: readonly RequestDecision[]): ScopeEntry[] {
   if (!recipientsMustBeTold(decisions)) return [];
   return scope.filter((e) => e.isRecipient && e.status !== "not_held" && e.recipientNotice === null);
+}
+
+/**
+ * Activities where an objection was upheld but the processing has not been
+ * recorded as stopped for this person.
+ */
+export function processingStillToStop(scope: readonly ScopeEntry[], decisions: readonly RequestDecision[]): ScopeEntry[] {
+  const upheld = new Set(
+    decisions.filter((d) => d.kind === "objection" && d.outcome === "complied" && d.processingActivityId).map((d) => d.processingActivityId!),
+  );
+  return scope.filter((e) => e.processingActivityId && upheld.has(e.processingActivityId) && e.status !== "actioned");
 }
 
 export type LoadedRequest = {
@@ -564,6 +576,8 @@ export async function recordRequestDecision(input: {
   right?: string | null;
   statutoryBasis?: string | null;
   processingBasis?: ProcessingBasis | null;
+  /** For an objection: the processing activity it is about. */
+  processingActivityId?: string | null;
   rationale: string;
   /** When it took effect. Defaults to now; a pause counts from here. */
   effectiveAt?: Date;
@@ -588,7 +602,13 @@ export async function recordRequestDecision(input: {
     }
   }
 
+  const processingActivityId = input.processingActivityId || null;
+  if (processingActivityId && input.kind !== "objection") {
+    throw new RequestRefused("Only an objection is recorded against a processing activity.");
+  }
+
   return withOrganisation(input.organisationId, async () => {
+    if (processingActivityId) await assertRecordIn(input.organisationId, "processing_activity", processingActivityId);
     return db.transaction(async (tx) => {
       const request = await lockedRequest(tx, input.requestId, input.organisationId);
       if (request.closedAt) throw new RequestRefused("This request is closed.");
@@ -613,6 +633,21 @@ export async function recordRequestDecision(input: {
           throw new RequestRefused("Too late to extend. Article 12(3) requires the person to be told within the first month, with the reasons for the delay.");
         }
       }
+      // Article 18(1)(d): asked for restriction while an objection is weighed,
+      // the person is entitled to it. Refusing it is open only once the
+      // objection has been decided.
+      if (
+        input.kind === "restriction" &&
+        outcome === "refused" &&
+        request.rights.includes("objection") &&
+        request.rights.includes("restriction") &&
+        !earlier.some((d) => d.kind === "objection")
+      ) {
+        throw new RequestRefused(
+          "They objected and asked for restriction meanwhile. Article 18(1)(d) entitles them to it until the objection is decided: restrict now, and decide the objection.",
+        );
+      }
+
       const open = pausesFrom(earlier).some((p) => p.to === null);
       if (input.kind === "clarification_requested" && open) {
         throw new RequestRefused("Clarification has already been asked for and not yet received.");
@@ -631,6 +666,7 @@ export async function recordRequestDecision(input: {
           right: input.right ?? null,
           statutoryBasis: input.statutoryBasis ?? null,
           processingBasis: input.processingBasis ?? null,
+          processingActivityId,
           rationale,
           effectiveAt,
           decidedBy: input.actor.actorUserId ?? null,
@@ -669,6 +705,7 @@ export async function recordRequestDecision(input: {
           right: input.right ?? null,
           basis: input.statutoryBasis ?? null,
           processingBasis: input.processingBasis ?? null,
+          processingActivity: processingActivityId,
           effectiveAt: effectiveAt.toISOString(),
           rationale,
         },
@@ -799,6 +836,12 @@ export async function closeRequest(input: {
           tx.select().from(dataSubjectRequestDecisions).where(eq(dataSubjectRequestDecisions.requestId, input.requestId)),
           tx.select().from(dataSubjectRequestScope).where(eq(dataSubjectRequestScope.requestId, input.requestId)),
         ]);
+        const notStopped = processingStillToStop(scope, decisions);
+        if (notStopped.length > 0) {
+          throw new RequestRefused(
+            `An upheld objection means the processing stops for this person. Record it as acted on in where to look: ${notStopped.map((e) => e.label).sort().join(", ")}.`,
+          );
+        }
         const untold = recipientsStillToTell(scope, decisions);
         if (untold.length > 0) {
           throw new RequestRefused(
@@ -1067,6 +1110,88 @@ export async function passToController(input: {
       });
       return after;
     });
+  });
+}
+
+/** How many objections to one activity send its LIA back for review. */
+export async function objectionReviewThreshold(organisationId: string): Promise<number> {
+  return withOrganisation(organisationId, async () => {
+    const [org] = await db
+      .select({ threshold: organisations.objectionReviewThreshold })
+      .from(organisations)
+      .where(eq(organisations.id, organisationId));
+    return org?.threshold ?? 3;
+  });
+}
+
+export async function setObjectionReviewThreshold(input: { organisationId: string; threshold: number; actor: Actor }) {
+  if (!Number.isInteger(input.threshold) || input.threshold < 0 || input.threshold > 100) {
+    throw new RequestRefused("A whole number from 0, which turns it off, to 100.");
+  }
+  return withOrganisation(input.organisationId, async () => {
+    return db.transaction(async (tx) => {
+      const [before] = await tx
+        .select({ threshold: organisations.objectionReviewThreshold })
+        .from(organisations)
+        .where(eq(organisations.id, input.organisationId));
+      if (!before) throw new Error("No such organisation");
+      if (before.threshold === input.threshold) return;
+      await tx
+        .update(organisations)
+        .set({ objectionReviewThreshold: input.threshold })
+        .where(eq(organisations.id, input.organisationId));
+      await appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        action: "organisation.objection_review_threshold_set",
+        subjectType: "organisation",
+        subjectId: input.organisationId,
+        before: { threshold: before.threshold },
+        after: { threshold: input.threshold },
+      });
+    });
+  });
+}
+
+/**
+ * Objections decided against each activity in the last twelve months, upheld
+ * or overridden, one per request.
+ *
+ * Counts only: no requester, no request. An objection found not to apply is
+ * left out, because it says nothing about the balance struck.
+ */
+export async function objectionCounts(
+  organisationId: string,
+  activityIds?: string[],
+  now = new Date(),
+): Promise<Map<string, { upheld: number; overridden: number; total: number }>> {
+  if (activityIds && activityIds.length === 0) return new Map();
+  const since = new Date(now);
+  since.setUTCMonth(since.getUTCMonth() - OBJECTION_WINDOW_MONTHS);
+  return withOrganisation(organisationId, async () => {
+    const rows = await db
+      .select({
+        activityId: dataSubjectRequestDecisions.processingActivityId,
+        upheld: sql<number>`count(distinct ${dataSubjectRequestDecisions.requestId}) filter (where ${dataSubjectRequestDecisions.outcome} = 'complied')`,
+        overridden: sql<number>`count(distinct ${dataSubjectRequestDecisions.requestId}) filter (where ${dataSubjectRequestDecisions.outcome} = 'refused')`,
+        total: sql<number>`count(distinct ${dataSubjectRequestDecisions.requestId})`,
+      })
+      .from(dataSubjectRequestDecisions)
+      .where(
+        and(
+          eq(dataSubjectRequestDecisions.organisationId, organisationId),
+          eq(dataSubjectRequestDecisions.kind, "objection"),
+          inArray(dataSubjectRequestDecisions.outcome, ["complied", "refused"]),
+          gte(dataSubjectRequestDecisions.effectiveAt, since),
+          activityIds
+            ? inArray(dataSubjectRequestDecisions.processingActivityId, activityIds)
+            : sql`${dataSubjectRequestDecisions.processingActivityId} is not null`,
+        ),
+      )
+      .groupBy(dataSubjectRequestDecisions.processingActivityId);
+    return new Map(
+      rows.map((r) => [r.activityId!, { upheld: Number(r.upheld), overridden: Number(r.overridden), total: Number(r.total) }]),
+    );
   });
 }
 

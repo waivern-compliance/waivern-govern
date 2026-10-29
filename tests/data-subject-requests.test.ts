@@ -5,6 +5,9 @@ import { db, sql as pg } from "@/db/client";
 import { auditEvents, entities, memberships, organisations, tasks, users } from "@/db/schema";
 import { verifyAuditChain } from "@/lib/audit";
 import { can } from "@/lib/rbac";
+import { SYSTEM_TEMPLATES } from "@/lib/templates/library";
+import { createAssessment } from "@/services/assessments";
+import { createTemplate, publishVersion } from "@/services/templates";
 import { createSupplier } from "@/services/third-party";
 import { createActivity } from "@/services/ropa";
 import {
@@ -13,6 +16,7 @@ import {
   closeRequest,
   defaultJurisdiction,
   loadRequest,
+  objectionCounts,
   passToController,
   recordIdentity,
   recordRecipientNotice,
@@ -24,6 +28,7 @@ import {
   respondToRequest,
   seedRequestScope,
   setDefaultJurisdiction,
+  setObjectionReviewThreshold,
   updateRequest,
 } from "@/services/data-subject-requests";
 import { sweepOrganisation } from "@/services/sweep";
@@ -392,5 +397,85 @@ describe("as processor", () => {
 
     const own = await aRequest(w);
     await assert.rejects(passToController({ requestId: own.id, organisationId: w.org.id, controllerName: "Someone", actor: SYSTEM }), /As controller, you answer it/);
+  });
+});
+
+describe("objections against the ROPA", () => {
+  async function marketing(label: string) {
+    const w = await world(label);
+    const activity = await createActivity({
+      organisationId: w.org.id, entityId: w.entity.id, name: "Audience profiling",
+      subjectCategories: ["Customers"], purposes: ["Personalised offers"], lawfulBasis: "Legitimate interests",
+      actor: SYSTEM,
+    });
+    return { ...w, activity };
+  }
+  const object = (w: Awaited<ReturnType<typeof marketing>>, requestId: string, outcome: "complied" | "refused") =>
+    recordRequestDecision({
+      organisationId: w.org.id, requestId, kind: "objection", outcome, processingBasis: "legitimate_interests",
+      processingActivityId: w.activity.id, rationale: outcome === "refused" ? "Fraud prevention outweighs it." : "No compelling grounds.", actor: SYSTEM,
+    });
+
+  it("is recorded against the activity, and only an objection is", async () => {
+    const w = await marketing("obj-link");
+    const request = await aRequest(w, { rights: ["objection"], subjectCategories: ["customer"] });
+    const d = await object(w, request.id, "complied");
+    assert.equal(d.processingActivityId, w.activity.id);
+    await assert.rejects(
+      recordRequestDecision({ organisationId: w.org.id, requestId: request.id, kind: "erasure", outcome: "complied", processingActivityId: w.activity.id, rationale: "x", actor: SYSTEM }),
+      RequestRefused,
+    );
+  });
+
+  it("restricts on request while the objection is weighed (Article 18(1)(d))", async () => {
+    const w = await marketing("obj-restrict");
+    const request = await aRequest(w, { rights: ["objection", "restriction"], subjectCategories: ["customer"] });
+    const restrict = (outcome: "complied" | "refused") =>
+      recordRequestDecision({ organisationId: w.org.id, requestId: request.id, kind: "restriction", outcome, rationale: "Weighing the objection.", actor: SYSTEM });
+    await assert.rejects(restrict("refused"), /Article 18\(1\)\(d\)/);
+    await restrict("complied");
+    await object(w, request.id, "refused");
+    await restrict("refused");
+  });
+
+  it("will not close an upheld objection until the processing is recorded as stopped", async () => {
+    const w = await marketing("obj-stop");
+    const request = await aRequest(w, { rights: ["objection"], subjectCategories: ["customer"] });
+    await object(w, request.id, "complied");
+    await respondToRequest({ requestId: request.id, organisationId: w.org.id, outcome: "complied", channel: "email", summary: "Stopped.", actor: SYSTEM });
+    await assert.rejects(closeRequest({ requestId: request.id, organisationId: w.org.id, rationale: "Done", actor: SYSTEM }), /processing stops/);
+    const entry = (await loadRequest(request.id, w.org.id))!.scope.find((e) => e.processingActivityId === w.activity.id)!;
+    await recordScopeResult({ scopeId: entry.id, organisationId: w.org.id, status: "actioned", note: "Suppressed from profiling.", actor: SYSTEM });
+    assert.equal((await closeRequest({ requestId: request.id, organisationId: w.org.id, rationale: "Done", actor: SYSTEM })).status, "closed");
+  });
+
+  it("counts against the activity and sends its LIA back past the threshold", async () => {
+    const w = await marketing("obj-lia");
+    await setObjectionReviewThreshold({ organisationId: w.org.id, threshold: 2, actor: SYSTEM });
+    await assert.rejects(setObjectionReviewThreshold({ organisationId: w.org.id, threshold: -1, actor: SYSTEM }), RequestRefused);
+
+    const liaTemplate = SYSTEM_TEMPLATES.find((t) => t.kind === "lia")!;
+    const { version } = await createTemplate({ organisationId: w.org.id, kind: "lia", name: liaTemplate.name, definition: liaTemplate.definition, actor: SYSTEM });
+    const published = await publishVersion({ organisationId: w.org.id, versionId: version.id, actor: SYSTEM });
+    const lia = await createAssessment({
+      organisationId: w.org.id, entityId: w.entity.id, templateVersionId: published.id, title: "LIA: profiling",
+      subjectType: "processing_activity", subjectId: w.activity.id, actor: SYSTEM,
+    });
+
+    const first = await aRequest(w, { rights: ["objection"] });
+    await object(w, first.id, "complied");
+    await object(w, first.id, "complied"); // the same request twice counts once
+    assert.equal((await sweepOrganisation(w.org.id)).objectionReviewsRaised, 0);
+
+    const second = await aRequest(w, { rights: ["objection"] });
+    await object(w, second.id, "refused");
+    const counts = (await objectionCounts(w.org.id)).get(w.activity.id)!;
+    assert.deepEqual(counts, { upheld: 1, overridden: 1, total: 2 });
+
+    assert.equal((await sweepOrganisation(w.org.id)).objectionReviewsRaised, 1);
+    assert.equal((await sweepOrganisation(w.org.id)).objectionReviewsRaised, 0, "raised once per threshold crossed");
+    const [task] = await db.select().from(tasks).where(and(eq(tasks.organisationId, w.org.id), eq(tasks.type, "reassess")));
+    assert.equal(task.subjectId, lia.id);
+    assert.match(task.title, /people keep objecting/);
   });
 });

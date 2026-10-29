@@ -204,14 +204,16 @@ export function mayChooseAiFramework(grants: readonly Grant[]): boolean {
 }
 
 /**
- * May this person choose which law new data subject requests are handled under?
+ * May this person change how data subject requests are handled across the
+ * organisation: which law new requests follow, and how many objections send
+ * an LIA back for review?
  *
  * Somebody who both handles requests and configures the organisation's
  * workflows, across the whole organisation: an owner or a privacy
- * administrator. The choice sets how every new deadline is counted, so a grant
- * confined to one entity is not enough.
+ * administrator. These settings apply to every entity, so a grant confined to
+ * one entity is not enough.
  */
-export function mayChooseDsrJurisdiction(grants: readonly Grant[]): boolean {
+export function mayConfigureRequests(grants: readonly Grant[]): boolean {
   return grants.some(
     (g) =>
       g.scope === "organisation" &&

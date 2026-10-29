@@ -127,13 +127,31 @@ const BASES = Object.keys(PROCESSING_BASIS_LABEL) as ProcessingBasis[];
  * decisions move the deadline, so they are entered here too, with when they
  * took effect, rather than as a date edited on the request.
  */
-export function RequestDecisionForm({ requestId, rights }: { requestId: string; rights: string[] }) {
+export type ObjectableActivity = {
+  id: string;
+  label: string;
+  lawfulBasis: string | null;
+  suggested: ProcessingBasis | null;
+};
+
+export function RequestDecisionForm({
+  requestId,
+  rights,
+  activities = [],
+}: {
+  requestId: string;
+  rights: string[];
+  /** The processing activities in this request's scope, for an objection to be about. */
+  activities?: ObjectableActivity[];
+}) {
   const [result, action, pending] = useActionState<RequestResult, FormData>(
     recordRequestDecisionAction.bind(null, requestId),
     null,
   );
   const [kind, setKind] = useState(KINDS[0].value);
-  const [basis, setBasis] = useState<ProcessingBasis>("legitimate_interests");
+  const [activityId, setActivityId] = useState(activities[0]?.id ?? "");
+  const activity = activities.find((a) => a.id === activityId);
+  const [basis, setBasis] = useState<ProcessingBasis>(activities[0]?.suggested ?? "legitimate_interests");
   const chosen = KINDS.find((k) => k.value === kind)!;
   const test = kind === "objection" ? objectionTest(basis) : null;
   // An objection offers only what Article 21 allows on that basis: upheld
@@ -158,6 +176,37 @@ export function RequestDecisionForm({ requestId, rights }: { requestId: string; 
 
       {kind === "objection" ? (
         <div className="space-y-2">
+          <label className="block space-y-1">
+            <Label
+              text="Which processing is objected to?"
+              hint="Record one decision for each activity, so objections can be counted against it."
+            />
+            <select
+              name="processingActivityId"
+              value={activityId}
+              onChange={(e) => {
+                setActivityId(e.target.value);
+                const next = activities.find((a) => a.id === e.target.value);
+                if (next?.suggested) setBasis(next.suggested);
+              }}
+              className={inputClass}
+            >
+              {activities.map((a) => (
+                <option key={a.id} value={a.id}>{a.label}</option>
+              ))}
+              <option value="">Not on the ROPA</option>
+            </select>
+          </label>
+          {activity ? (
+            <p className="text-xs text-ink-soft">
+              The ROPA records its lawful basis as {activity.lawfulBasis ? `“${activity.lawfulBasis}”` : "nothing"}
+              {activity.suggested && activity.suggested !== basis
+                ? ` — which reads as ${PROCESSING_BASIS_LABEL[activity.suggested].toLowerCase()}, not what is chosen below. If the ROPA is wrong, correct it.`
+                : "."}
+            </p>
+          ) : (
+            <p className="text-xs text-amber-900">Processing that is not on the ROPA should be. Record it there too.</p>
+          )}
           <label className="block space-y-1">
             <Label text="What does the processing objected to rely on?" />
             <select
@@ -189,7 +238,7 @@ export function RequestDecisionForm({ requestId, rights }: { requestId: string; 
         {outcomes ? (
           <label className="block space-y-1">
             <Label text="Outcome" />
-            <select name="outcome" className={inputClass} key={`${kind}-${basis}`}>
+            <select name="outcome" className={inputClass} key={`${kind}-${basis}-${activityId}`}>
               {outcomes.map(([value, label]) => (
                 <option key={value} value={value}>{label}</option>
               ))}

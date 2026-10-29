@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireCapability } from "@/lib/session";
-import { mayChooseDsrJurisdiction } from "@/lib/rbac";
+import { mayConfigureRequests } from "@/lib/rbac";
 import type { Jurisdiction, ProcessingBasis } from "@/lib/dsr/statutory";
 import { refusable, type EditResult } from "@/lib/edit-result";
 import {
@@ -19,6 +19,7 @@ import {
   respondToRequest,
   seedRequestScope,
   setDefaultJurisdiction,
+  setObjectionReviewThreshold,
   updateRequest,
   type ControllerRole,
   type RequestDecision,
@@ -94,7 +95,7 @@ export async function recordRequestAction(_prev: RequestResult, formData: FormDa
 export async function setJurisdictionAction(_prev: RequestResult, formData: FormData): Promise<RequestResult> {
   const active = await requireCapability("dsr.handle");
   // Organisation-wide, so a grant confined to one entity is not enough.
-  if (!mayChooseDsrJurisdiction(active.membership.grants)) {
+  if (!mayConfigureRequests(active.membership.grants)) {
     return { ok: false, message: "Only somebody who configures the whole organisation can change this." };
   }
   const jurisdiction = text(formData.get("jurisdiction")) as Jurisdiction;
@@ -177,6 +178,7 @@ export async function recordRequestDecisionAction(
       right: text(formData.get("right")) || null,
       statutoryBasis: text(formData.get("statutoryBasis")) || null,
       processingBasis: (text(formData.get("processingBasis")) || null) as ProcessingBasis | null,
+      processingActivityId: text(formData.get("processingActivityId")) || null,
       rationale: text(formData.get("rationale")),
       effectiveAt: when(formData.get("effectiveAt")) ?? undefined,
       actor: actorOf(active),
@@ -321,6 +323,24 @@ export async function passToControllerAction(
     });
   }, "Recorded.");
   revalidatePath(`/app/requests/${requestId}`);
+  revalidatePath("/app/requests");
+  return result;
+}
+
+export async function setObjectionThresholdAction(_prev: RequestResult, formData: FormData): Promise<RequestResult> {
+  const active = await requireCapability("dsr.handle");
+  if (!mayConfigureRequests(active.membership.grants)) {
+    return { ok: false, message: "Only somebody who configures the whole organisation can change this." };
+  }
+  const result = await refused(
+    () =>
+      setObjectionReviewThreshold({
+        organisationId: active.membership.organisationId,
+        threshold: Number(text(formData.get("threshold"))),
+        actor: actorOf(active),
+      }),
+    "Saved.",
+  );
   revalidatePath("/app/requests");
   return result;
 }

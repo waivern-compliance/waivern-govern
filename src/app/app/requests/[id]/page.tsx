@@ -1,12 +1,21 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { db, scoped } from "@/db/client";
-import { memberships, users } from "@/db/schema";
+import { memberships, processingActivities, users } from "@/db/schema";
 import { EditForm } from "@/components/EditForm";
 import { NotPermitted } from "@/components/NotPermitted";
 import { RequestClock } from "@/components/dsr/RequestClock";
-import { JURISDICTION_LABEL, PROCESSING_BASIS_LABEL, REFUSAL_MUST_SAY, RIGHTS, type ProcessingBasis, type Right } from "@/lib/dsr/statutory";
+import {
+  JURISDICTION_LABEL,
+  PROCESSING_BASIS_LABEL,
+  REFUSAL_MUST_SAY,
+  RESTRICT_WHILE_WEIGHED,
+  RIGHTS,
+  basisSuggestedBy,
+  type ProcessingBasis,
+  type Right,
+} from "@/lib/dsr/statutory";
 import { can } from "@/lib/rbac";
 import { savedKey } from "@/lib/saved-key";
 import { getActiveSession } from "@/lib/session";
@@ -50,6 +59,23 @@ export default async function RequestPage({ params }: { params: Promise<{ id: st
     .innerJoin(users, eq(users.id, memberships.userId))
     .where(eq(memberships.organisationId, active.membership.organisationId))
     .orderBy(asc(users.email)));
+
+  // The activities in scope, for an objection to be decided against each.
+  const activityIds = scope.flatMap((e) => (e.processingActivityId ? [e.processingActivityId] : []));
+  const scopedActivities = activityIds.length
+    ? await scoped(active.membership.organisationId, () => db
+        .select()
+        .from(processingActivities)
+        .where(
+          and(
+            eq(processingActivities.organisationId, active.membership.organisationId),
+            inArray(processingActivities.id, activityIds),
+          ),
+        )
+        .orderBy(asc(processingActivities.reference)))
+    : [];
+  const activityLabel = new Map(scopedActivities.map((a) => [a.id, `${a.reference} ${a.name}`]));
+  const objectionPending = request.rights.includes("objection") && !decisions.some((d) => d.kind === "objection");
 
   return (
     <main className="mx-auto max-w-3xl space-y-9 px-6 py-12">
@@ -185,6 +211,11 @@ export default async function RequestPage({ params }: { params: Promise<{ id: st
                 </span>
                 <span className="font-mono text-[11px] text-ink-soft">{d.statutoryBasis ?? "no provision cited"}</span>
               </div>
+              {d.processingActivityId ? (
+                <p className="text-xs text-ink-soft">
+                  About {activityLabel.get(d.processingActivityId) ?? "a processing activity no longer in scope"}
+                </p>
+              ) : null}
               {d.processingBasis ? (
                 <p className="text-xs text-ink-soft">
                   Processing relies on {PROCESSING_BASIS_LABEL[d.processingBasis as ProcessingBasis]?.toLowerCase() ?? d.processingBasis}
@@ -206,7 +237,27 @@ export default async function RequestPage({ params }: { params: Promise<{ id: st
         </ul>
       </section>
 
-      {!request.closedAt ? <RequestDecisionForm requestId={request.id} rights={request.rights} /> : null}
+      {objectionPending && !request.closedAt ? (
+        <p className="max-w-prose rounded border border-line bg-surface px-3 py-2 text-xs text-ink-soft">
+          {RESTRICT_WHILE_WEIGHED}{" "}
+          {request.rights.includes("restriction")
+            ? "They have asked for it, so restrict now and record that as a decision."
+            : "Consider offering it, or restricting anyway while you decide."}
+        </p>
+      ) : null}
+
+      {!request.closedAt ? (
+        <RequestDecisionForm
+          requestId={request.id}
+          rights={request.rights}
+          activities={scopedActivities.map((a) => ({
+            id: a.id,
+            label: `${a.reference} ${a.name}`,
+            lawfulBasis: a.lawfulBasis,
+            suggested: basisSuggestedBy(a),
+          }))}
+        />
+      ) : null}
 
       {request.respondedAt ? (
         <section className="space-y-1 rounded border border-line bg-surface p-5">

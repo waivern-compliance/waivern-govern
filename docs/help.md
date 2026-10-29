@@ -617,6 +617,18 @@ An objection to processing on public task or legitimate interests can be overrid
 
 Processing on any other basis is not open to objection under Article 21. Processing on consent stops when consent is withdrawn; anything else may be an erasure or restriction request in different words.
 
+Decide an objection once for each processing activity it is about. The form offers the activities found in where to look, and suggests the basis from the ROPA; if the ROPA is wrong, correct it there.
+
+While you weigh an objection to public task or legitimate interests, the person may have the processing restricted (Article 18(1)(d)). If they asked, the platform will not record the restriction as refused until the objection is decided.
+
+An upheld objection means the processing stops for this person. The request will not close until that activity is recorded as acted on in where to look.
+
+### When people keep objecting
+
+Each objection upheld or overridden counts against its activity, one per request, over twelve months. The count shows on the activity's ROPA record — numbers only, never who objected.
+
+Past the organisation's threshold — three by default, set on the requests page — the scheduler sends the activity's legitimate interests assessment back to its owner for review. Where there is no LIA, the task asks for one. A run of objections is evidence the people affected do not expect the processing, which is what the balancing test is meant to weigh.
+
 ### Responding
 
 Write the response in whatever you normally use for letters. Record here what was sent, when and how, and link to it if it is kept somewhere linkable.
@@ -635,7 +647,7 @@ It will not answer the request, search your systems, or redact anything. It coun
 
 **See also:** Personal data breaches · The processing register (Article 30) · Tasks, and being mentioned · The audit trail
 
-<sub>Also searchable as: dsar, sar, subject access, access request, article 15, erasure, right to be forgotten, article 17, objection, object, article 21, rectification, portability, restriction, one month, extension, article 12, direct marketing, rights request, article 19, recipients, search, reasonable and proportionate, processor, article 28</sub>
+<sub>Also searchable as: dsar, sar, subject access, access request, article 15, erasure, right to be forgotten, article 17, objection, object, article 21, rectification, portability, restriction, one month, extension, article 12, direct marketing, rights request, article 19, recipients, search, reasonable and proportionate, processor, article 28, article 18(1)(d), lia, legitimate interests assessment, balancing test</sub>
 
 ## The AI register
 

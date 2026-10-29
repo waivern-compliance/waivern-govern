@@ -1,7 +1,7 @@
 # Plan: a register for data subject requests (access, objection and the other rights)
 
-Status: Phases 0–3 built (statutory module, register, deadlines, scope from the ROPA, Article 19,
-processor hand-over). Phases 4–5 not started. Written 29 October 2026.
+Status: Phases 0–4 built (statutory module, register, deadlines, scope from the ROPA, Article 19,
+processor hand-over, objections against activities and the LIA loop). Phase 5 not started. Written 29 October 2026.
 
 ## What is asked for
 
@@ -208,10 +208,19 @@ provisions, to `legal-references.ts`.
 - For processor-role requests, record when the request went to the controller and what
   help was given. Once passed on, the request can close without a response.
 
-### Phase 4: objections
-- The lawful-basis-aware objection decision.
-- Restriction while an objection is weighed.
-- The per-activity objection count and the LIA reassessment trigger.
+### Phase 4: objections (built)
+- The lawful-basis-aware objection decision, now recorded against a processing activity
+  (`data_subject_request_decision.processing_activity_id`, one decision per activity). The
+  form suggests the basis from the activity's free-text lawful basis, and direct marketing
+  from its purposes; the handler confirms it.
+- Restriction while an objection is weighed: prompted, and where the person asked for it,
+  refusing restriction is refused until the objection is decided (Art. 18(1)(d)).
+- An upheld objection keeps the request open until the activity's scope entry is
+  `actioned`.
+- The per-activity objection count (upheld or overridden, one per request, rolling twelve
+  months) shows on the ROPA record. Past `organisation.objection_review_threshold`
+  (default 3, 0 = off) the sweep raises a `reassess` task on the activity's current LIA,
+  or on the activity itself where it has none; re-raised at each multiple of the threshold.
 
 ### Phase 5: reporting and integration
 - **Reporting:** timeliness metrics (on time, extended, late, by right) in `metrics.ts`,
