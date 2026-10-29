@@ -68,6 +68,8 @@ const DEFAULT_SLA_HOURS: Record<TaskType, number> = {
    * the request itself — see lib/dsr/statutory.
    */
   dsr_deadline: 24 * 7,
+  // The month is already running; somebody should know about it within a day.
+  dsr_intake: 24,
 };
 
 async function slaHoursFor(tx: Tx, organisationId: string, type: TaskType) {

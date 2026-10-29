@@ -12,7 +12,8 @@ export type ActorKind =
   | "system"
   /** Authored a suggestion. Never the actor on a decision. */
   | "assistant"
-  | "integration";
+  | "integration"
+  | "public_form";
 
 export type AuditInput = {
   organisationId: string;

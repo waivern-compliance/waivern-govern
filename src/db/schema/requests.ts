@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm";
-import { boolean, index, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { boolean, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import {
   dataProtectionJurisdiction,
   dsrDecisionKind,
@@ -24,6 +24,59 @@ import { entities, organisations, users } from "./tenancy";
  * as will do: who they are and how to reach them, and how their identity was
  * checked — never a copy of the document they proved it with.
  */
+/**
+ * A published web form for making a request, one per entity.
+ *
+ * The slug is random and stored as it is, unlike a contributor link's token:
+ * this address is meant to be published in a privacy notice, so it is not a
+ * secret, only unguessable. Withdrawing it stops the form; a new one gets a
+ * new address.
+ */
+export const dsrIntakeLinks = pgTable(
+  "dsr_intake_link",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organisationId: uuid("organisation_id")
+      .notNull()
+      .references(() => organisations.id, { onDelete: "cascade" }),
+    entityId: uuid("entity_id")
+      .notNull()
+      .references(() => entities.id, { onDelete: "restrict" }),
+    slug: text("slug").notNull().unique(),
+    /** Where it is published, for the handler: "Studios privacy notice". */
+    label: text("label").notNull(),
+    submissions: integer("submissions").notNull().default(0),
+    lastSubmittedAt: timestamp("last_submitted_at", { withTimezone: true }),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    revokedBy: uuid("revoked_by").references(() => users.id, { onDelete: "set null" }),
+  },
+  (t) => [index("dsr_intake_link_org_idx").on(t.organisationId, t.entityId)],
+);
+
+/**
+ * One submission attempt through a web form, kept for a day to limit how
+ * often one address can submit. The address is hashed with a secret, so the
+ * row cannot be turned back into somebody's IP, and nothing ties it to the
+ * request that may have resulted.
+ */
+export const dsrIntakeAttempts = pgTable(
+  "dsr_intake_attempt",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organisationId: uuid("organisation_id")
+      .notNull()
+      .references(() => organisations.id, { onDelete: "cascade" }),
+    linkId: uuid("link_id")
+      .notNull()
+      .references(() => dsrIntakeLinks.id, { onDelete: "cascade" }),
+    ipHash: text("ip_hash").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("dsr_intake_attempt_link_idx").on(t.linkId, t.createdAt)],
+);
+
 export const dataSubjectRequests = pgTable(
   "data_subject_request",
   {
@@ -82,6 +135,9 @@ export const dataSubjectRequests = pgTable(
     /** Article 12(4): required in any response that does not do what was asked. */
     toldOfComplaintRight: boolean("told_of_complaint_right"),
     lateReason: text("late_reason"),
+
+    /** The published web form it came through, if it did. */
+    intakeLinkId: uuid("intake_link_id").references(() => dsrIntakeLinks.id, { onDelete: "set null" }),
 
     /**
      * Where this organisation is the processor: the controller the request was

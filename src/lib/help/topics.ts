@@ -623,6 +623,7 @@ export const HELP_TOPICS: HelpTopic[] = [
       "article 19", "recipients", "search", "reasonable and proportionate", "processor", "article 28",
       "article 18(1)(d)", "lia", "legitimate interests assessment", "balancing test",
       "timeliness", "on time", "response times", "export", "metrics",
+      "web form", "intake", "public form", "privacy notice",
     ],
     sections: [
       {
@@ -630,6 +631,14 @@ export const HELP_TOPICS: HelpTopic[] = [
         body: [
           "A request can come by any route — email, a letter, a phone call, a message on social media, a comment to a member of staff — and need not name the law or the right. The month runs from when it arrived, not from when it reached the right person, so record it as soon as anybody recognises it.",
           "Record only what you need: who is asking, how to reach them, and what they asked for. The register is restricted to the people who handle requests, because each entry is the requester's own personal data.",
+        ],
+      },
+      {
+        heading: "A public form, if you want one",
+        body: [
+          "On the requests page, an owner or privacy administrator can create a web form for an entity and publish its address in the privacy notice. People can then make a request without an account. Each submission is recorded here as arriving by web form, the month starts at once, and a task goes to the privacy team.",
+          "The form shows nothing back except a reference and the deadline, so nobody can use it to find out about anybody's request. It takes no identity documents: if you reasonably doubt who is asking, ask afterwards, as for any request. It limits how often one address can submit, keeping only a scrambled form of the address for a day.",
+          "It is one route among many. The form says so, and so must you: a request by email, by post or in person counts the same. Withdraw a form and its address says it is no longer taking requests.",
         ],
       },
       {
