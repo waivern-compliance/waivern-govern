@@ -8,6 +8,7 @@ import { TREATMENT_LABEL, type TreatmentType } from "@/lib/risk/treatment";
 import { getActiveSession } from "@/lib/session";
 import { STAGE_LABEL, loadUseCase, type LifecycleStage } from "@/services/ai-register";
 import { riskProfileFor } from "@/services/ai-risk-profile";
+import { aiFrameworkPackOf } from "@/services/ai-framework";
 
 /**
  * One AI system's risk profile, as DSIT's AI risk monitoring dashboard frames
@@ -31,7 +32,10 @@ export default async function RiskProfilePage({ params }: { params: Promise<{ id
     );
   }
 
-  const { risks, byCategory, totals } = await riskProfileFor(id, active.membership.organisationId);
+  const [{ risks, byCategory, totals }, framework] = await Promise.all([
+    riskProfileFor(id, active.membership.organisationId),
+    aiFrameworkPackOf(active.membership.organisationId),
+  ]);
   const shown = byCategory.filter((c) => c.open > 0 || !c.label.startsWith("No "));
 
   return (
@@ -46,7 +50,7 @@ export default async function RiskProfilePage({ params }: { params: Promise<{ id
         </p>
         <p className="max-w-prose text-sm text-ink-soft">
           Every risk raised from this system&rsquo;s assessments, or tied to it by an
-          incident, in DSIT&rsquo;s nine categories and against the appetite signed off
+          incident, in {framework.categoriesName} and against the appetite signed off
           for each.
         </p>
       </header>

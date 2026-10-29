@@ -21,7 +21,7 @@ export const COURSES = [
   { key: "ai_fundamentals", title: "Fundamentals of AI and generative AI", summary: "What AI can and cannot do, and its risks.", refreshMonths: 24 },
   { key: "genai_use", title: "Using generative AI tools safely", summary: "Prompting, checking outputs, and what not to put in.", refreshMonths: 12 },
   { key: "ai_ethics", title: "AI ethics", summary: "Fairness, transparency, accountability and redress.", refreshMonths: 24 },
-  { key: "ai_risk", title: "Managing AI risk", summary: "Identifying, scoring and treating AI risk, following DSIT's toolkit.", refreshMonths: 24 },
+  { key: "ai_risk", title: "Managing AI risk", summary: "Identifying, scoring and treating AI risk, following the organisation's AI governance framework.", refreshMonths: 24 },
   { key: "data_protection_ai", title: "Data protection and AI", summary: "UK GDPR applied to AI, following the ICO's guidance.", refreshMonths: 24 },
   { key: "ai_leadership", title: "AI for decision makers", summary: "Governance, culture, strategy and accountability for AI.", refreshMonths: 24 },
 ] as const;

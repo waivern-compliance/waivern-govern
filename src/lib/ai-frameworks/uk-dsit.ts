@@ -82,4 +82,13 @@ export const UK_DSIT: AiFrameworkPack = {
   categories: AI_RISK_CATEGORIES,
   appetiteGuidance: APPETITE_GUIDANCE,
   treatments: TREATMENT_SUGGESTIONS,
+  treatmentSource: {
+    name: "DSIT's toolkit",
+    detail: "From Appendix 4 of DSIT's AI Risk Management Toolkit.",
+    tag: "from DSIT toolkit",
+  },
+  categoriesName: "DSIT's nine categories",
+  appetiteIntro:
+    "DSIT's AI Risk Management Toolkit asks for appetite to be set per category and signed off at board level, so a fairness risk and a financial risk are not held to the same standard by default.",
+  identificationTemplate: "AI risk identification (DSIT toolkit)",
 };

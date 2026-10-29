@@ -51,6 +51,7 @@ Every help topic the application carries, in the order it presents them.
 
 - [Assessment templates](#assessment-templates) — The question sets, versioned, so an assessment always shows the questions it was actually answered against.
 - [Who approves what, and changing it](#who-approves-what-and-changing-it) — Approvers are named by role rather than by person, so a departure is handled by moving the role — and both are managed on one screen.
+- [AI governance framework](#ai-governance-framework) — Whether AI risk follows the UK framework or NIST AI RMF, and what changes when the organisation moves from one to the other.
 - [Connected tools](#connected-tools) — Signed endpoints that let the Compliance Portal and scanning tools push records in and pull current state out.
 - [The organisation and its legal entities](#the-organisation-and-its-legal-entities) — What this organisation is called, the legal entities within it, and who may add them.
 - [Giving somebody access](#giving-somebody-access) — Grant a role, confine it to one entity, suspend or reinstate. Every change is written to the audit log.
@@ -346,7 +347,7 @@ A risk with no residual rating counts as not within appetite — nobody has meas
 
 Risks are rated on four by four by default, or on the five by five Orange Book scale that DSIT's toolkit uses — chosen on the organisation settings page. The scale can only be changed while the register is empty, so every risk on it is rated the same way.
 
-**See also:** The risk register · The organisation and its legal entities · The AI register
+**See also:** The risk register · The organisation and its legal entities · The AI register · AI governance framework
 
 <sub>Also searchable as: appetite, tolerance, orange book, dsit, board, averse, cautious, open, within appetite</sub>
 
@@ -975,6 +976,42 @@ When a new kind of assessment ships with its own workflow, organisations created
 **See also:** Approving, returning and rejecting · Giving somebody access · Roles, and why you cannot see something · Service levels and things that come round again
 
 <sub>Also searchable as: approver, approval, workflow, stage, gate, sign-off, who approves, leaver, left the company, moved teams, handover, reassign, sla</sub>
+
+## AI governance framework
+
+*Whether AI risk follows the UK framework or NIST AI RMF, and what changes when the organisation moves from one to the other.*
+
+**Screen:** `/app/admin/ai-framework`
+
+### What the framework decides
+
+The categories AI risks are filed under and appetite is set against, the appetite guidance shown beside each level, the treatments suggested on a risk, and the AI risk identification template offered.
+
+The UK framework uses the nine categories of DSIT's AI Risk Management Toolkit. NIST AI RMF uses its seven characteristics of trustworthy AI, plus Financial and Legal and regulatory compliance, which keep the same meaning in both. Its template follows Map and Measure, and every question cites the NIST subcategory it serves.
+
+UK law applies whichever is followed. The NIST template still asks about the DPIA, solely automated decisions, the equality duty and transparency records.
+
+### Who can change it
+
+An owner, a privacy administrator or an AI governance lead, holding the role across the whole organisation. A role confined to one legal entity can see which framework is followed but not change it.
+
+### What a switch does
+
+Choose a framework and the page shows what would change before anything does. Confirming then does three things.
+
+Risks are re-filed. Each risk under one of the old framework's categories moves to the nearest category in the new one, and the move is recorded against the risk. Risks under Financial, Legal, or a category of the organisation's own stay where they are.
+
+Appetite is proposed, not carried over. An appetite statement is a decision an approver signed, so for each new category the old statements map into, the most cautious of them is proposed again for an approver to decide. Until one is signed off, risks in that category are judged against the organisation default.
+
+The new framework's template is installed. Templates already held stay available, and assessments under way keep the template version they started on.
+
+### Moving back
+
+Nothing is deleted, so switching back is the same operation the other way: risks are re-filed again, and appetite statements already signed off for the old categories still stand.
+
+**See also:** Risk appetite · The risk register · Assessment templates · Who approves what, and changing it
+
+<sub>Also searchable as: framework, nist, ai rmf, dsit, playbook, trustworthy, characteristics, crosswalk, switch</sub>
 
 ## Connected tools
 

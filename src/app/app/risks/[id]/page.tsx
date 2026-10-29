@@ -10,7 +10,7 @@ import { TREATMENT_LABEL, type TreatmentType } from "@/lib/risk/treatment";
 import { suggestionsFor } from "@/lib/risk/treatment-library";
 import { aiFrameworkPackOf } from "@/services/ai-framework";
 import { appetiteInForce } from "@/services/risk-policy";
-import { categoryLabel, suggestionByKey } from "@/lib/ai-frameworks";
+import { categoryLabel, frameworkOfSuggestion } from "@/lib/ai-frameworks";
 import { getActiveSession } from "@/lib/session";
 import { loadRisk } from "@/services/risks";
 import { AcceptPanel } from "./accept";
@@ -159,7 +159,7 @@ export default async function RiskPage({ params }: { params: Promise<{ id: strin
                   dueAt: m.dueAt?.toISOString().slice(0, 10) ?? null,
                   evidenceRef: m.evidenceRef,
                   verifiedAt: m.verifiedAt?.toISOString().slice(0, 10) ?? null,
-                  fromToolkit: suggestionByKey(m.suggestionKey)?.theme ?? null,
+                  fromSource: frameworkOfSuggestion(m.suggestionKey)?.treatmentSource.tag ?? null,
                   ownedByViewer: m.ownerId !== null && m.ownerId === active.userId,
                 }}
                 editable={mayManage}
@@ -175,6 +175,7 @@ export default async function RiskPage({ params }: { params: Promise<{ id: strin
             action={addMitigationAction.bind(null, id)}
             categoryLabel={categoryLabel(risk.category)}
             {...suggestionsFor(risk.category, framework.treatments)}
+            source={framework.treatmentSource}
           />
         ) : null}
       </section>

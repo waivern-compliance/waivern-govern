@@ -648,6 +648,8 @@ const NOT_TENANT_SCOPED: Record<string, string> = {
   "workflow.raiseTask": "called inside a caller's transaction, with that caller's organisation",
   "workflow.queueNotification": "called inside a caller's transaction, with that caller's organisation",
   // Read by id alone, and only after the caller loaded the record within its organisation.
+  "ai-framework-switch.previewAiFrameworkSwitch": "reads the caller's own organisation",
+  "ai-framework-switch.switchAiFramework": "acts on the caller's own organisation",
   "ai-framework.aiFrameworkOf": "reads the caller's own organisation",
   "ai-framework.aiFrameworkPackOf": "reads the caller's own organisation",
   "ai-lifecycle.icoConsultationOutstanding": "called from gateContext after it loads the system within the organisation",

@@ -4,6 +4,7 @@ import { GapChips } from "@/components/GapChips";
 import { Discussion } from "@/components/Discussion";
 import { NotPermitted } from "@/components/NotPermitted";
 import { can } from "@/lib/rbac";
+import { aiFrameworkPackOf } from "@/services/ai-framework";
 import { getActiveSession } from "@/lib/session";
 import {
   DEPLOYMENT_PATTERN_LABEL,
@@ -255,7 +256,7 @@ export default async function UseCasePage({
             organisationId={active.membership.organisationId}
             subjectType="ai_use_case"
             subjectId={id}
-            prefer="AI risk identification (DSIT toolkit)"
+            prefer={(await aiFrameworkPackOf(active.membership.organisationId)).identificationTemplate}
           />
         ) : null}
       </section>

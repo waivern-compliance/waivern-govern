@@ -1,5 +1,6 @@
 import type { AiRiskCategory } from "@/lib/risk/categories";
 import type { TrustworthyCharacteristic } from "./nist-ai-rmf";
+import type { AiFrameworkId } from "./types";
 
 /**
  * How the UK set and NIST AI RMF 1.0 line up.
@@ -90,3 +91,31 @@ export const GOVERN_FEATURES_TO_NIST: ReadonlyArray<{ feature: string; label: st
   { feature: "eia", label: "Equality impact assessment", subcategories: ["MEASURE 2.11", "MAP 5.1"] },
   { feature: "dpia", label: "Data protection impact assessment", subcategories: ["MEASURE 2.10", "GOVERN 1.1"] },
 ];
+
+/**
+ * The category a risk is re-filed under when the organisation moves to
+ * another framework, or `null` to leave it where it is.
+ *
+ * One category each way, because a risk sits in one. Financial and legal risk
+ * keep their values in both frameworks and stay put; so does anything filed
+ * under a category of the organisation's own. Where a UK category spans two
+ * characteristics, the risk goes to the closer: transparency and explainability
+ * to explainable and interpretable, since accountability and governance already
+ * brings the transparency of who answers for a system. Each move is recorded
+ * against the risk, so a wrong guess is visible and can be put right.
+ */
+const UK_TO_NIST_REFILE: Partial<Record<AiRiskCategory, TrustworthyCharacteristic>> = {
+  transparency_explainability: "explainable_interpretable",
+  fairness: "fair_bias_managed",
+  accountability_governance: "accountable_transparent",
+  contestability_redress: "accountable_transparent",
+  technical_robustness: "valid_reliable",
+  security: "secure_resilient",
+  environment_people: "safe",
+};
+
+export function refileCategory(category: string | null, to: AiFrameworkId): string | null {
+  if (!category) return null;
+  if (to === "nist_ai_rmf") return UK_TO_NIST_REFILE[category as AiRiskCategory] ?? null;
+  return NIST_TO_DSIT[category as TrustworthyCharacteristic] ?? null;
+}

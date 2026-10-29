@@ -23,4 +23,12 @@ export type AiFrameworkPack = {
   appetiteGuidance: Readonly<Record<string, Record<AppetiteLevel, string>>>;
   /** Treatments offered beside a risk, by the categories they treat. */
   treatments: readonly TreatmentSuggestion[];
+  /** Where the treatments come from: a short name, a fuller line, and a tag for a mitigation started from one. */
+  treatmentSource: { name: string; detail: string; tag: string };
+  /** How the categories are described in a sentence: "DSIT's nine categories". */
+  categoriesName: string;
+  /** Why appetite is set per category, in the framework's own terms. */
+  appetiteIntro: string;
+  /** The shipped AI risk identification template this framework offers first. */
+  identificationTemplate: string;
 };
