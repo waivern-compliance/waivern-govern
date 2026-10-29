@@ -42,7 +42,7 @@ export function clarificationStopsClock(jurisdiction: Jurisdiction, receivedAt: 
 }
 
 export const JURISDICTION_LABEL: Record<Jurisdiction, string> = {
-  uk: "UK GDPR and the Data Protection Act 2018",
+  uk: "UK GDPR and the Data Protection Act 2018, as amended by the Data (Use and Access) Act 2025",
   eu: "EU GDPR",
 };
 

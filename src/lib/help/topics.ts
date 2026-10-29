@@ -677,6 +677,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         heading: "Objections",
         body: [
           "An objection to direct marketing is absolute: the processing stops, and there are no grounds on which to refuse. The platform will not record one as overridden.",
+          "Where the marketing is by email, text or phone, stopping it also meets the opt-out rules in PECR (regulations 21 and 22), or for an EU request the national law implementing the ePrivacy Directive. Keep the person on a suppression list rather than deleting them, even if they also asked for erasure, so they are not marketed to again. The platform records the objection; the marketing consents themselves are outside it.",
           "An objection to processing on public task or legitimate interests can be overridden only on compelling legitimate grounds that outweigh the person's interests, or for legal claims — and the burden is yours. Record the grounds in the decision. Consider restricting the processing while you decide.",
           "Processing on any other basis is not open to objection under Article 21. Processing on consent stops when consent is withdrawn; anything else may be an erasure or restriction request in different words.",
           "Decide an objection once for each processing activity it is about. The form offers the activities found in where to look, and suggests the basis from the ROPA; if the ROPA is wrong, correct it there.",
