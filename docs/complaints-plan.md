@@ -1,6 +1,6 @@
 # Plan: a register for data protection complaints
 
-Status: plan only, awaiting decisions. Written 29 October 2026.
+Status: decisions settled as recommended; Phase 1 built. Written 29 October 2026.
 
 ## What is asked for
 
@@ -68,7 +68,7 @@ Nothing records a complaint. What is already there:
   personal data can be recorded again as a complaint and linked, but the two registers
   are not merged.
 
-## Decisions for you before building
+## Decisions (all settled as recommended, 30 October 2026)
 
 1. **Linking to a data subject request.** Many complaints will be about a request:
    that it was late, refused or incomplete. *Recommendation:* a complaint can have an
@@ -114,7 +114,7 @@ Nothing records a complaint. What is already there:
 
 | Column | Notes |
 |---|---|
-| `organisation_id`, `entity_id`, `reference` | `CMP-2026-001` from `reference_counters` |
+| `organisation_id`, `entity_id`, `reference` | `CMP-2026-0001` from `reference_counters` |
 | `jurisdiction` | `uk` \| `eu` (decision 3) |
 | `controller_role` | As on requests. A processor passes the complaint on to its controller |
 | `channel` | The request channel list (email, web form, post, phone…) |
@@ -137,7 +137,6 @@ These are the dated steps, each recorded by a named person with a note:
 - `enquiry`: what was looked into and with whom, which is the s.164A(5)(a) record
 - `progress_update`: when the complainant was told how it stands, under s.164A(5)(b)
 - `outcome_sent`
-- `reopened`
 - `withdrawn`
 - `regulator_contact`: when the Commission makes enquiries about the same matter
 
@@ -152,7 +151,7 @@ These are the dated steps, each recorded by a named person with a note:
 
 ## Phases
 
-### Phase 1: the register
+### Phase 1: the register (built)
 - **Data:** migration and enums; `lib/complaints/statutory.ts` with tests covering:
   - receipt on the 1st;
   - receipt at month end;
@@ -172,6 +171,17 @@ These are the dated steps, each recorded by a named person with a note:
 - **Rules the service enforces:**
   - a complaint cannot close without an outcome, or a withdrawal, recorded;
   - an acknowledgement after the deadline needs a `late_reason`.
+- **As built:**
+  - The targets are organisation columns `complaint_outcome_target_days` and
+    `complaint_update_interval_days`, set on the complaints page by the people who may
+    configure requests.
+  - An outcome sent with no acknowledgement recorded counts as the acknowledgement.
+  - Only a processor or joint controller can record "passed to the controller". A
+    processor's complaint shows no statutory clock.
+  - The request link is a column. Links to breaches through `record_link` are left for
+    later, because the new record types are not yet linkable.
+  - A request's page lists the complaints about it, and links to a complaint form
+    pre-filled from the request.
 
 ### Phase 2: deadlines and reporting
 - **Sweep:** `raiseComplaintDeadlines`, using task type `complaint_deadline`, keyed on the

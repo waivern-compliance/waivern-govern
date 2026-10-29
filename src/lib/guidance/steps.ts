@@ -307,6 +307,23 @@ export const MAINTAIN: Step[] = [
       "An objection to direct marketing must always be upheld.",
   },
   {
+    id: "complaints",
+    title: "Know what to do when somebody complains about their data",
+    what:
+      "Read this before the first one arrives. When a person complains to you about how their " +
+      "personal data has been handled, it is recorded here, the tool counts the 30 days to " +
+      "acknowledge it, and each enquiry and update is kept.",
+    why:
+      "Since 19 June 2026, section 164A of the Data Protection Act 2018 requires you to make " +
+      "complaining easy, acknowledge each complaint within 30 days, look into it, keep the person " +
+      "informed and tell them the outcome without undue delay.",
+    finishedWhen: "You know where complaints are recorded, and who in your team handles them.",
+    href: "/app/complaints",
+    watchOut:
+      "A complaint need not use the word, and can arrive inside a reply to a request. The 30 days " +
+      "run from when it arrived, wherever it landed.",
+  },
+  {
     id: "evidence",
     title: "Take an export when you need to show your work",
     what:

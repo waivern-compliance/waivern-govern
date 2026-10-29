@@ -38,6 +38,7 @@ import * as aiLifecycle from "@/services/ai-lifecycle";
 import * as aiRegister from "@/services/ai-register";
 import * as aiRiskProfile from "@/services/ai-risk-profile";
 import * as dsr from "@/services/data-subject-requests";
+import * as complaintsSvc from "@/services/complaints";
 import * as dsrIntake from "@/services/dsr-intake";
 import * as routing from "@/services/approval-routing";
 import * as assessmentsSvc from "@/services/assessments";
@@ -188,6 +189,11 @@ async function populated() {
   const requestScope = await dsr.addScopeEntry({
     requestId: subjectRequest.id, organisationId: id, kind: "recipient", label: "B's recipient", actor: SYSTEM,
   });
+  const complaint = await complaintsSvc.recordComplaint({
+    organisationId: id, entityId: o.entity.id, channel: "email", receivedAt: new Date(), subject: "request_handling",
+    description: "B's complainant's secret grievance.", complainantName: "B's complainant", requestId: subjectRequest.id,
+    actor: SYSTEM,
+  });
 
   const useCase = await aiRegister.createUseCase({
     organisationId: id, entityId: o.entity.id, name: "B's model", purpose: "Secret purpose.",
@@ -264,7 +270,7 @@ async function populated() {
 
   return {
     ...o, template, dpiaVersion, workflow: workflows[0], stage, risk, mitigation, acceptance, appetite,
-    supplier, dpa, activity, breach, subjectRequest, requestScope, intakeLink, useCase, change, assurance, incident, atrsRecord, request,
+    supplier, dpa, activity, breach, subjectRequest, requestScope, complaint, intakeLink, useCase, change, assurance, incident, atrsRecord, request,
     trainingRecord, assessment, approval, link, comment, document, scanner, finding: finding.finding,
     conversation, task, draft, domainClaim,
   };
@@ -277,6 +283,7 @@ let mine: {
   risk: { id: string };
   breach: { id: string };
   subjectRequest: { id: string };
+  complaint: { id: string };
   useCase: { id: string };
   incident: { id: string };
   document: { id: string };
@@ -300,6 +307,10 @@ before(async () => {
     organisationId: A.org.id, entityId: A.entity.id, rights: ["access"], channel: "email",
     receivedAt: new Date(), description: "Mine.", requesterName: "A's requester", actor: SYSTEM,
   });
+  const complaint = await complaintsSvc.recordComplaint({
+    organisationId: A.org.id, entityId: A.entity.id, channel: "email", receivedAt: new Date(), subject: "other",
+    description: "Mine.", complainantName: "A's complainant", actor: SYSTEM,
+  });
   const useCase = await aiRegister.createUseCase({
     organisationId: A.org.id, entityId: A.entity.id, name: "A's model", purpose: "Mine.",
     systemType: "predictive", provenance: "built_in_house", actor: SYSTEM,
@@ -313,7 +324,7 @@ before(async () => {
     organisationId: A.org.id, entityId: null, subjectType: "risk", subjectId: risk.id,
     filename: "a.pdf", contentType: "application/pdf", content: PDF, actor: SYSTEM,
   });
-  mine = { risk, breach, subjectRequest, useCase, incident, document, dpiaVersion: dpia.version.id };
+  mine = { risk, breach, subjectRequest, complaint, useCase, incident, document, dpiaVersion: dpia.version.id };
 });
 after(() => pg.end());
 
@@ -404,6 +415,7 @@ describe("reading another organisation's records", () => {
     ["recordsFor", () => atrs.recordsFor(B.useCase.id, A.org.id)],
     ["loadBreach", () => breachesSvc.loadBreach(B.breach.id, A.org.id)],
     ["dsr.loadRequest", () => dsr.loadRequest(B.subjectRequest.id, A.org.id)],
+    ["complaintsSvc.loadComplaint", () => complaintsSvc.loadComplaint(B.complaint.id, A.org.id)],
     ["documentsFor", () => documentsSvc.documentsFor(A.org.id, "supplier", B.supplier.id)],
     ["readDocument", () => documentsSvc.readDocument(B.document.id, A.org.id)],
     ["latestExtraction", () => extraction.latestExtraction(A.org.id, B.dpa.id)],
@@ -475,6 +487,10 @@ describe("changing another organisation's records", () => {
     ["recordRecipientNotice", () => dsr.recordRecipientNotice({ scopeId: B.requestScope.id, organisationId: A.org.id, notice: "notified", actor: as() })],
     ["revokeIntakeLink", () => dsrIntake.revokeIntakeLink({ linkId: B.intakeLink.id, organisationId: A.org.id, actor: as() })],
     ["passToController", () => dsr.passToController({ requestId: B.subjectRequest.id, organisationId: A.org.id, controllerName: "taken", actor: as() })],
+    ["updateComplaint", () => complaintsSvc.updateComplaint({ complaintId: B.complaint.id, organisationId: A.org.id, changes: { description: "taken" }, actor: as() })],
+    ["recordComplaintEvent", () => complaintsSvc.recordComplaintEvent({ complaintId: B.complaint.id, organisationId: A.org.id, kind: "acknowledged", note: "", channel: "email", actor: as() })],
+    ["recordComplaintOutcome", () => complaintsSvc.recordComplaintOutcome({ complaintId: B.complaint.id, organisationId: A.org.id, outcome: "upheld", channel: "email", summary: "x", actor: as() })],
+    ["closeComplaint", () => complaintsSvc.closeComplaint({ complaintId: B.complaint.id, organisationId: A.org.id, rationale: "x", withdrawn: true, actor: as() })],
     ["closeRequest", () => dsr.closeRequest({ requestId: B.subjectRequest.id, organisationId: A.org.id, rationale: "x", withdrawn: true, actor: as() })],
     ["linkAssessment (B's breach)", () => breachesSvc.linkAssessment({ breachId: B.breach.id, organisationId: A.org.id, assessmentId: null, actor: as() })],
     ["withdrawComment", () => collaboration.withdrawComment({ commentId: B.comment.id, organisationId: A.org.id, actor: as() })],
@@ -539,6 +555,10 @@ describe("linking one's own records to another organisation's", () => {
     ["a data subject request in B's entity", () => dsr.recordRequest({ organisationId: A.org.id, entityId: B.entity.id, rights: ["access"], channel: "email", receivedAt: new Date(), description: "x", requesterName: "x", actor: as() })],
     ["a request form for B's entity", () => dsrIntake.issueIntakeLink({ organisationId: A.org.id, entityId: B.entity.id, label: "x", actor: as() })],
     ["an objection about B's processing activity", () => dsr.recordRequestDecision({ organisationId: A.org.id, requestId: mine.subjectRequest.id, kind: "objection", processingBasis: "legitimate_interests", processingActivityId: B.activity.id, rationale: "x", actor: as() })],
+    ["a complaint in B's entity", () => complaintsSvc.recordComplaint({ organisationId: A.org.id, entityId: B.entity.id, channel: "email", receivedAt: new Date(), subject: "other", description: "x", complainantName: "x", actor: as() })],
+    ["a complaint about B's request", () => complaintsSvc.recordComplaint({ organisationId: A.org.id, entityId: A.entity.id, channel: "email", receivedAt: new Date(), subject: "other", description: "x", complainantName: "x", requestId: B.subjectRequest.id, actor: as() })],
+    ["a complaint linked to B's request", () => complaintsSvc.updateComplaint({ complaintId: mine.complaint.id, organisationId: A.org.id, changes: { requestId: B.subjectRequest.id }, actor: as() })],
+    ["a complaint handled by B's person", () => complaintsSvc.updateComplaint({ complaintId: mine.complaint.id, organisationId: A.org.id, changes: { ownerId: B.owner.user.id }, actor: as() })],
     ["a data subject request handled by B's person", () => dsr.updateRequest({ requestId: mine.subjectRequest.id, organisationId: A.org.id, changes: { ownerId: B.owner.user.id }, actor: as() })],
     ["a breach in B's entity", () => breachesSvc.recordBreach({ organisationId: A.org.id, entityId: B.entity.id, title: "x", description: "x", discoveredAt: new Date(), actor: as() })],
     ["an incident about B's AI system", () => aiIncidents.reportIncident({ organisationId: A.org.id, useCaseId: B.useCase.id, kind: "challenge", source: "public", summary: "x", harm: "potential", confidential: false, reportedByLabel: "x", actor: as() })],
@@ -582,6 +602,8 @@ describe("lists", () => {
       ["breachesSvc.breachRegister", breachesSvc.breachRegister(o, null)] as const,
       ["breachesSvc.breachesNeedingAttention", breachesSvc.breachesNeedingAttention(o)] as const,
       ["dsr.requestRegister", dsr.requestRegister(o, null)] as const,
+      ["complaintsSvc.complaintRegister", complaintsSvc.complaintRegister(o, null)] as const,
+      ["complaintsSvc.complaintsAboutRequest", complaintsSvc.complaintsAboutRequest(B.subjectRequest.id, o)] as const,
       ["dsr.requestsNeedingAttention", dsr.requestsNeedingAttention(o)] as const,
       ["collaboration.organisationMembers", collaboration.organisationMembers(o)] as const,
       ["connections.listConnections", connections.listConnections(o)] as const,
@@ -649,7 +671,7 @@ describe("lists", () => {
       JSON.stringify(v, (_k, x) => (x instanceof Map ? [...x] : x instanceof Set ? [...x] : x)) ?? "";
     const bIds = [
       B.org.id, B.entity.id, B.owner.user.id, B.approver.user.id, B.risk.id, B.supplier.id, B.dpa.id,
-      B.activity.id, B.breach.id, B.subjectRequest.id, B.useCase.id, B.incident.id, B.request.id, B.assessment.id,
+      B.activity.id, B.breach.id, B.subjectRequest.id, B.complaint.id, B.useCase.id, B.incident.id, B.request.id, B.assessment.id,
       B.template, B.dpiaVersion, B.workflow.id, B.scanner.id, B.finding.id, B.appetite.id,
       B.domainClaim.id, B.domainClaim.domain, B.intakeLink.id, B.intakeLink.slug,
     ];
@@ -730,6 +752,8 @@ const NOT_TENANT_SCOPED: Record<string, string> = {
   "risk-policy.setRiskScale": "configures the caller's own organisation",
   "data-subject-requests.setDefaultJurisdiction": "configures the caller's own organisation",
   "data-subject-requests.defaultJurisdiction": "reads the caller's own organisation",
+  "complaints.setComplaintTargets": "configures the caller's own organisation",
+  "complaints.complaintTargets": "reads the caller's own organisation",
   "dsr-intake.openIntakeLink": "the published address is the authority, and carries its organisation",
   "dsr-intake.submitIntake": "the published address is the authority, and carries its organisation",
   "dsr-intake.pruneIntakeAttempts": "acts only on the organisation it is given; run by the sweep",
