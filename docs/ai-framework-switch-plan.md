@@ -1,6 +1,6 @@
 # Plan: choosing the AI governance framework (UK DSIT ↔ NIST AI RMF)
 
-Status: Phases 0–3 built; Phase 4 proposed. Written 29 October 2026.
+Status: Phases 0–4 built (Phase 4 as a first version). Written 29 October 2026.
 
 ## What is asked for
 
@@ -170,20 +170,40 @@ until phase 3 lets someone choose.
   - stage names and lifecycle gates were already neutral
 - **Help:** topic `ai-framework`.
 
-### Phase 4 — NIST profile (current vs target)
+### Phase 4 — NIST profile (built: first version)
 
-This is the biggest gap and is what NIST users will expect. Govern has no coverage
-concept today.
-
-- Tables `framework_profile` (organisation, framework, name, e.g. "Current" or "Target
-  2027") and `framework_profile_item` (subcategory code, status: not started / partial /
-  achieved / not applicable, owner, notes, linked records: assessments, risks, policies,
-  evidence from the Portal).
-- A view grouped by function and category, with gaps (target ≠ current), exportable.
-  It is also a natural Integration API export for the Portal to generate an "AI RMF
-  profile" document from. That keeps the split: Govern records, the Portal writes.
-- It could later serve ISO 42001 Annex A the same way. That is a reason to build it
-  generically, not NIST-only.
+- **Storage:** `framework_profile_item` (migrations 0058–0059, with row-level security).
+  - One row per organisation, framework and subcategory, holding current status,
+    target status (`profile_status`: not started / partly / achieved / not
+    applicable) and notes, with who last set it.
+  - No row means not assessed.
+  - The framework is a column, so ISO 42001 Annex A can use the same table.
+- **Rules:** `lib/ai-frameworks/profile.ts`.
+  - A subcategory is short of target when the target is partly or achieved and
+    current is below it. Not assessed and not applicable both count as not started.
+- **Service:** `services/ai-profile.ts`, with `nistProfile`, `setProfileItem` (audited
+  as `ai_profile.item_set`, with unchanged saves not recorded), `featureEvidence` and
+  `exportNistProfile` (CSV, audited as `data.exported`).
+- **Evidence:** live counts of what Govern holds for each feature in
+  `GOVERN_FEATURES_TO_NIST`.
+  - Includes a new `ai_assurance` feature for tests, evaluations and model cards.
+  - Counted, never turned into a status.
+- **Page:** `/app/ai/profile`, linked from the AI register, and available whichever
+  framework is followed.
+  - Tiles: assessed, achieved, targets set, short of target.
+  - Filters: all, short of target, not assessed.
+  - Grouped by function and category. Each subcategory shows its evidence, the edit
+    form, and the Playbook's suggested actions and questions.
+  - Download as CSV.
+- **Who can edit:** `mayEditAiProfile`, meaning AI governance, AI governance lead,
+  privacy admin or owner across the whole organisation. Anyone with `record.read`
+  can view and download.
+- **Not in this version:**
+  - named target profiles ("Target 2027")
+  - an owner per subcategory
+  - links to specific records
+  - an Integration API export for the Portal, which needs the contract in
+    `docs/integration-api.md` changed first
 
 ## Rough size
 

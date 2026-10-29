@@ -650,6 +650,10 @@ const NOT_TENANT_SCOPED: Record<string, string> = {
   // Read by id alone, and only after the caller loaded the record within its organisation.
   "ai-framework-switch.previewAiFrameworkSwitch": "reads the caller's own organisation",
   "ai-framework-switch.switchAiFramework": "acts on the caller's own organisation",
+  "ai-profile.featureEvidence": "reads the caller's own organisation",
+  "ai-profile.nistProfile": "reads the caller's own organisation",
+  "ai-profile.setProfileItem": "writes the caller's own organisation's profile; the subcategory is NIST's, not a record",
+  "ai-profile.exportNistProfile": "reads the caller's own organisation",
   "ai-framework.aiFrameworkOf": "reads the caller's own organisation",
   "ai-framework.aiFrameworkPackOf": "reads the caller's own organisation",
   "ai-lifecycle.icoConsultationOutstanding": "called from gateContext after it loads the system within the organisation",

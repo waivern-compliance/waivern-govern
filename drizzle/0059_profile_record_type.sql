@@ -1,0 +1,1 @@
+ALTER TYPE "public"."record_type" ADD VALUE 'framework_profile_item';

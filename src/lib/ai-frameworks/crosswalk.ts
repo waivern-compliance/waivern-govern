@@ -78,6 +78,11 @@ export const GOVERN_FEATURES_TO_NIST: ReadonlyArray<{ feature: string; label: st
   { feature: "risk_appetite", label: "Risk appetite per category", subcategories: ["GOVERN 1.3", "MAP 1.5"] },
   { feature: "approval_chains", label: "Approval chains, with responsible AI review", subcategories: ["GOVERN 1.4", "GOVERN 2.1", "MEASURE 1.3"] },
   { feature: "ai_board", label: "AI governance board stage", subcategories: ["GOVERN 2.3", "MANAGE 1.1"] },
+  {
+    feature: "ai_assurance",
+    label: "Assurance records: tests, evaluations and model cards",
+    subcategories: ["MEASURE 1.3", "MEASURE 2.1", "MEASURE 2.3", "MEASURE 2.5", "MEASURE 2.7", "MEASURE 2.11"],
+  },
   { feature: "lifecycle_gates", label: "Lifecycle gates before going live", subcategories: ["MANAGE 1.1", "MEASURE 2.5", "GOVERN 1.5"] },
   { feature: "retirement", label: "Retiring an AI system", subcategories: ["GOVERN 1.7", "MANAGE 2.4"] },
   { feature: "training", label: "AI training requirements by role", subcategories: ["GOVERN 2.2", "MAP 3.4"] },

@@ -60,6 +60,9 @@ export default async function AiRegisterPage() {
             <Link href="/app/ai/graph" className="text-xs text-ink-soft hover:text-brand">
               See the assurance chain →
             </Link>
+            <Link href="/app/ai/profile" className="text-xs text-ink-soft hover:text-brand">
+              NIST AI RMF profile →
+            </Link>
           </span>
         </div>
         <p className="max-w-prose text-sm text-ink-soft">
