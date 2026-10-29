@@ -291,6 +291,7 @@ function measure(step: Step, t: Tally): { done: boolean; measure: string } {
       // tick would suggest risk work is a thing you finish.
       return { done: false, measure: "an ongoing judgement, not a box to tick" };
     case "breach":
+    case "requests":
       return { done: false, measure: "read it before you need it" };
     case "evidence":
       return { done: false, measure: "worth doing before somebody asks" };

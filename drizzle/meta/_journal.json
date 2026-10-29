@@ -421,6 +421,13 @@
       "when": 1793234054508,
       "tag": "0059_profile_record_type",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1793299801751,
+      "tag": "0060_data_subject_requests",
+      "breakpoints": true
     }
   ]
 }

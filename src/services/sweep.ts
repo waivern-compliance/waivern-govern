@@ -22,6 +22,7 @@ import { countriesDueForReview } from "./countries";
 import { forgetExpiredConversations } from "./assistant";
 import { notificationDeadline } from "@/lib/breach/statutory";
 import { breachesNeedingAttention } from "./breaches";
+import { requestsNeedingAttention } from "./data-subject-requests";
 import { EXPIRING_WITHIN_LABEL, dpasNeedingAttention } from "./third-party";
 import { appetitesDueForReview } from "./risk-policy";
 import { scopeLabel } from "@/lib/risk/appetite";
@@ -57,6 +58,7 @@ export type SweepResult = {
   dpaReviewsRaised: number;
   conversationsForgotten: number;
   breachDeadlinesRaised: number;
+  requestDeadlinesRaised: number;
   lapsedReviewsRaised: number;
   aiReviewsRaised: number;
   appetiteReviewsRaised: number;
@@ -464,6 +466,52 @@ async function raiseBreachDeadlines(organisationId: string): Promise<number> {
 }
 
 /**
+ * Requests from data subjects whose month is running out, or has run out.
+ *
+ * One task per request, keyed on the request and the clock state, for the same
+ * reason as breaches: each is a statutory deadline owed to a named person.
+ * Due soon covers the extension as well as the response, because Article 12(3)
+ * requires an extension to be decided and explained within the same month.
+ */
+async function raiseRequestDeadlines(organisationId: string): Promise<number> {
+  const pressing = await requestsNeedingAttention(organisationId);
+  if (pressing.length === 0) return 0;
+
+  let raised = 0;
+  for (const { request, extended, clock } of pressing) {
+    if (!("dueAt" in clock)) continue;
+    const overdue = clock.state === "overdue";
+    await db.transaction(async (tx) => {
+      const task = await raiseTask(tx, {
+        organisationId,
+        entityId: request.entityId,
+        type: "dsr_deadline",
+        title: overdue
+          ? `${request.reference}: past the deadline to respond`
+          : `${request.reference}: deadline to respond is close`,
+        description:
+          `${clock.words} ` +
+          (overdue
+            ? "The response is still owed. Send it, and record why it was late."
+            : extended
+              ? "The time has already been extended; there is no further extension."
+              : "Respond, or extend by up to two months and tell the person why, before the deadline."),
+        subjectType: "data_subject_request",
+        subjectId: request.id,
+        // The owner is who knows the request; with none, the privacy team.
+        ...(request.ownerId ? { assigneeUserId: request.ownerId } : { assigneeRole: "privacy_admin" as const }),
+        // The statutory deadline, not a service level counted from now.
+        dueAt: clock.dueAt,
+        idempotencyKey: `dsr-deadline:${request.id}:${clock.state}:${extended ? "extended" : "original"}`,
+        actor: SYSTEM,
+      });
+      if (task) raised += 1;
+    });
+  }
+  return raised;
+}
+
+/**
  * Approved assessments whose review date has passed.
  *
  * Separate from the schedule that raised the reassessment, because the two say
@@ -630,6 +678,7 @@ export async function sweepOrganisation(organisationId: string): Promise<SweepRe
     // Retention is a promise, and a promise nothing enforces is a claim.
     conversationsForgotten: await forgetExpiredConversations(organisationId),
     breachDeadlinesRaised: await raiseBreachDeadlines(organisationId),
+    requestDeadlinesRaised: await raiseRequestDeadlines(organisationId),
     lapsedReviewsRaised: await raiseLapsedReviews(organisationId),
     aiReviewsRaised: await raiseAiReviews(organisationId),
     appetiteReviewsRaised: await raiseAppetiteReviews(organisationId),

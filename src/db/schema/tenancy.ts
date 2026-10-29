@@ -10,7 +10,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import { aiFramework, appRole, guidanceMode, organisationRequestStatus, persona, recordType, riskScale, roleScope } from "./enums";
+import { aiFramework, appRole, dataProtectionJurisdiction, guidanceMode, organisationRequestStatus, persona, recordType, riskScale, roleScope } from "./enums";
 
 /** A client of the platform. One organisation, one governance programme. */
 export const organisations = pgTable("organisation", {
@@ -30,6 +30,13 @@ export const organisations = pgTable("organisation", {
    * across the whole register. See `lib/ai-frameworks`.
    */
   aiFramework: aiFramework("ai_framework").notNull().default("uk_dsit"),
+  /**
+   * The law requests from data subjects are handled under by default. A column,
+   * like the risk scale, because it sets how every deadline is counted; each
+   * request carries its own copy so changing this never moves one already
+   * received.
+   */
+  dataProtectionJurisdiction: dataProtectionJurisdiction("data_protection_jurisdiction").notNull().default("uk"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

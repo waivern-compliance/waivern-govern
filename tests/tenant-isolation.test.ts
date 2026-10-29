@@ -37,6 +37,7 @@ import * as aiIntake from "@/services/ai-intake";
 import * as aiLifecycle from "@/services/ai-lifecycle";
 import * as aiRegister from "@/services/ai-register";
 import * as aiRiskProfile from "@/services/ai-risk-profile";
+import * as dsr from "@/services/data-subject-requests";
 import * as routing from "@/services/approval-routing";
 import * as assessmentsSvc from "@/services/assessments";
 import * as assistant from "@/services/assistant";
@@ -175,6 +176,11 @@ async function populated() {
     organisationId: id, entityId: o.entity.id, title: "B's breach", description: "Secret.",
     discoveredAt: new Date(), actor: SYSTEM,
   });
+  const subjectRequest = await dsr.recordRequest({
+    organisationId: id, entityId: o.entity.id, rights: ["access"], channel: "email",
+    receivedAt: new Date(), description: "B's requester's secret request.", requesterName: "B's requester",
+    actor: SYSTEM,
+  });
 
   const useCase = await aiRegister.createUseCase({
     organisationId: id, entityId: o.entity.id, name: "B's model", purpose: "Secret purpose.",
@@ -251,7 +257,7 @@ async function populated() {
 
   return {
     ...o, template, dpiaVersion, workflow: workflows[0], stage, risk, mitigation, acceptance, appetite,
-    supplier, dpa, activity, breach, useCase, change, assurance, incident, atrsRecord, request,
+    supplier, dpa, activity, breach, subjectRequest, useCase, change, assurance, incident, atrsRecord, request,
     trainingRecord, assessment, approval, link, comment, document, scanner, finding: finding.finding,
     conversation, task, draft, domainClaim,
   };
@@ -263,6 +269,7 @@ let B: Awaited<ReturnType<typeof populated>>;
 let mine: {
   risk: { id: string };
   breach: { id: string };
+  subjectRequest: { id: string };
   useCase: { id: string };
   incident: { id: string };
   document: { id: string };
@@ -282,6 +289,10 @@ before(async () => {
     organisationId: A.org.id, entityId: A.entity.id, title: "A's breach", description: "Mine.",
     discoveredAt: new Date(), actor: SYSTEM,
   });
+  const subjectRequest = await dsr.recordRequest({
+    organisationId: A.org.id, entityId: A.entity.id, rights: ["access"], channel: "email",
+    receivedAt: new Date(), description: "Mine.", requesterName: "A's requester", actor: SYSTEM,
+  });
   const useCase = await aiRegister.createUseCase({
     organisationId: A.org.id, entityId: A.entity.id, name: "A's model", purpose: "Mine.",
     systemType: "predictive", provenance: "built_in_house", actor: SYSTEM,
@@ -295,7 +306,7 @@ before(async () => {
     organisationId: A.org.id, entityId: null, subjectType: "risk", subjectId: risk.id,
     filename: "a.pdf", contentType: "application/pdf", content: PDF, actor: SYSTEM,
   });
-  mine = { risk, breach, useCase, incident, document, dpiaVersion: dpia.version.id };
+  mine = { risk, breach, subjectRequest, useCase, incident, document, dpiaVersion: dpia.version.id };
 });
 after(() => pg.end());
 
@@ -385,6 +396,7 @@ describe("reading another organisation's records", () => {
     ["loadRecord", () => atrs.loadRecord(B.atrsRecord.id, A.org.id)],
     ["recordsFor", () => atrs.recordsFor(B.useCase.id, A.org.id)],
     ["loadBreach", () => breachesSvc.loadBreach(B.breach.id, A.org.id)],
+    ["dsr.loadRequest", () => dsr.loadRequest(B.subjectRequest.id, A.org.id)],
     ["documentsFor", () => documentsSvc.documentsFor(A.org.id, "supplier", B.supplier.id)],
     ["readDocument", () => documentsSvc.readDocument(B.document.id, A.org.id)],
     ["latestExtraction", () => extraction.latestExtraction(A.org.id, B.dpa.id)],
@@ -446,6 +458,11 @@ describe("changing another organisation's records", () => {
     ["updateBreach", () => breachesSvc.updateBreach({ breachId: B.breach.id, organisationId: A.org.id, changes: { title: "taken" }, actor: as() })],
     ["recordDecision", () => breachesSvc.recordDecision({ organisationId: A.org.id, breachId: B.breach.id, kind: "insurer", outcome: "not_required", rationale: "x", actor: as() })],
     ["closeBreach", () => breachesSvc.closeBreach({ breachId: B.breach.id, organisationId: A.org.id, rationale: "x", actor: as() })],
+    ["updateRequest", () => dsr.updateRequest({ requestId: B.subjectRequest.id, organisationId: A.org.id, changes: { description: "taken" }, actor: as() })],
+    ["recordIdentity", () => dsr.recordIdentity({ requestId: B.subjectRequest.id, organisationId: A.org.id, step: "requested", actor: as() })],
+    ["recordRequestDecision", () => dsr.recordRequestDecision({ organisationId: A.org.id, requestId: B.subjectRequest.id, kind: "other", rationale: "x", actor: as() })],
+    ["respondToRequest", () => dsr.respondToRequest({ requestId: B.subjectRequest.id, organisationId: A.org.id, outcome: "complied", channel: "email", summary: "x", actor: as() })],
+    ["closeRequest", () => dsr.closeRequest({ requestId: B.subjectRequest.id, organisationId: A.org.id, rationale: "x", withdrawn: true, actor: as() })],
     ["linkAssessment (B's breach)", () => breachesSvc.linkAssessment({ breachId: B.breach.id, organisationId: A.org.id, assessmentId: null, actor: as() })],
     ["withdrawComment", () => collaboration.withdrawComment({ commentId: B.comment.id, organisationId: A.org.id, actor: as() })],
     ["rotateSecret", () => connections.rotateSecret({ connectionId: B.scanner.id, organisationId: A.org.id, actor: as() })],
@@ -506,6 +523,8 @@ describe("linking one's own records to another organisation's", () => {
     ["an AI system supplied by B's supplier", () => aiRegister.createUseCase({ organisationId: A.org.id, entityId: A.entity.id, name: "x", purpose: "x", systemType: "predictive", provenance: "third_party_api", supplierId: B.supplier.id, actor: as() })],
     ["an AI system owned by B's person", () => aiRegister.updateUseCase({ useCaseId: mine.useCase.id, organisationId: A.org.id, changes: { ownerId: B.owner.user.id }, actor: as() })],
     ["a breach linked to B's assessment", () => breachesSvc.linkAssessment({ breachId: mine.breach.id, organisationId: A.org.id, assessmentId: B.assessment.id, actor: as() })],
+    ["a data subject request in B's entity", () => dsr.recordRequest({ organisationId: A.org.id, entityId: B.entity.id, rights: ["access"], channel: "email", receivedAt: new Date(), description: "x", requesterName: "x", actor: as() })],
+    ["a data subject request handled by B's person", () => dsr.updateRequest({ requestId: mine.subjectRequest.id, organisationId: A.org.id, changes: { ownerId: B.owner.user.id }, actor: as() })],
     ["a breach in B's entity", () => breachesSvc.recordBreach({ organisationId: A.org.id, entityId: B.entity.id, title: "x", description: "x", discoveredAt: new Date(), actor: as() })],
     ["an incident about B's AI system", () => aiIncidents.reportIncident({ organisationId: A.org.id, useCaseId: B.useCase.id, kind: "challenge", source: "public", summary: "x", harm: "potential", confidential: false, reportedByLabel: "x", actor: as() })],
     ["an incident assigned to B's person", () => aiIncidents.triageIncident({ incidentId: mine.incident.id, organisationId: A.org.id, severity: "low", harm: "potential", assignedToUserId: B.owner.user.id, note: "x", actor: as() })],
@@ -547,6 +566,8 @@ describe("lists", () => {
       ["assessmentsSvc.reviewSchedule", assessmentsSvc.reviewSchedule(o, null)] as const,
       ["breachesSvc.breachRegister", breachesSvc.breachRegister(o, null)] as const,
       ["breachesSvc.breachesNeedingAttention", breachesSvc.breachesNeedingAttention(o)] as const,
+      ["dsr.requestRegister", dsr.requestRegister(o, null)] as const,
+      ["dsr.requestsNeedingAttention", dsr.requestsNeedingAttention(o)] as const,
       ["collaboration.organisationMembers", collaboration.organisationMembers(o)] as const,
       ["connections.listConnections", connections.listConnections(o)] as const,
       ["ingest.openFindings", ingest.openFindings(o, null)] as const,
@@ -608,7 +629,7 @@ describe("lists", () => {
       JSON.stringify(v, (_k, x) => (x instanceof Map ? [...x] : x instanceof Set ? [...x] : x)) ?? "";
     const bIds = [
       B.org.id, B.entity.id, B.owner.user.id, B.approver.user.id, B.risk.id, B.supplier.id, B.dpa.id,
-      B.activity.id, B.breach.id, B.useCase.id, B.incident.id, B.request.id, B.assessment.id,
+      B.activity.id, B.breach.id, B.subjectRequest.id, B.useCase.id, B.incident.id, B.request.id, B.assessment.id,
       B.template, B.dpiaVersion, B.workflow.id, B.scanner.id, B.finding.id, B.appetite.id,
       B.domainClaim.id, B.domainClaim.domain,
     ];
@@ -687,6 +708,8 @@ const NOT_TENANT_SCOPED: Record<string, string> = {
   "countries.needingSafeguards": "reads the shared library and the caller's own overrides",
   "exports.recordExport": "records an export in the caller's own audit trail",
   "risk-policy.setRiskScale": "configures the caller's own organisation",
+  "data-subject-requests.setDefaultJurisdiction": "configures the caller's own organisation",
+  "data-subject-requests.defaultJurisdiction": "reads the caller's own organisation",
   "risk-policy.riskCount": "counts the caller's own risks",
   "risks.riskScaleOf": "reads the caller's own organisation",
   "templates.createTemplate": "creates a template in the caller's own organisation",

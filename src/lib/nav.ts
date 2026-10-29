@@ -82,6 +82,12 @@ export const NAV: NavItem[] = [
     capability: "record.read",
   },
   {
+    href: "/app/requests",
+    label: "Data subject requests",
+    hint: "access, objection and the other rights, and the month to answer",
+    capability: "dsr.handle",
+  },
+  {
     href: "/app/risks",
     label: "Risk register",
     hint: "mitigations, residual rating, acceptance",

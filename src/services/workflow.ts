@@ -62,6 +62,12 @@ const DEFAULT_SLA_HOURS: Record<TaskType, number> = {
    * organisation; it should not sit in a queue for a fortnight.
    */
   triage_incident: 48,
+  /**
+   * The month under Article 12(3). Like the breach deadline, the figure here is
+   * only a placeholder every task type needs: the sweep sets the due date from
+   * the request itself — see lib/dsr/statutory.
+   */
+  dsr_deadline: 24 * 7,
 };
 
 async function slaHoursFor(tx: Tx, organisationId: string, type: TaskType) {

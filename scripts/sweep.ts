@@ -27,6 +27,7 @@ async function main() {
       r.dpaReviewsRaised +
       r.conversationsForgotten +
       r.breachDeadlinesRaised +
+      r.requestDeadlinesRaised +
       r.lapsedReviewsRaised +
       r.aiReviewsRaised +
       r.appetiteReviewsRaised +
@@ -49,6 +50,7 @@ async function main() {
           r.countryReviewsRaised && `${r.countryReviewsRaised} country review(s) raised`,
           r.dpaReviewsRaised && `${r.dpaReviewsRaised} processor agreement(s) flagged`,
           r.breachDeadlinesRaised && `${r.breachDeadlinesRaised} breach deadline(s) flagged`,
+          r.requestDeadlinesRaised && `${r.requestDeadlinesRaised} data subject request deadline(s) flagged`,
           r.lapsedReviewsRaised && `${r.lapsedReviewsRaised} assessment(s) past review`,
           r.aiReviewsRaised && `${r.aiReviewsRaised} AI system(s) past review`,
           r.appetiteReviewsRaised && `${r.appetiteReviewsRaised} risk appetite statement(s) past review`,

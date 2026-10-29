@@ -13,3 +13,4 @@ export * from "./breach";
 export * from "./documents";
 export * from "./extraction";
 export * from "./profiles";
+export * from "./requests";

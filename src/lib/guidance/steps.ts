@@ -290,6 +290,23 @@ export const MAINTAIN: Step[] = [
       "Record it early and update it as you learn more.",
   },
   {
+    id: "requests",
+    title: "Know what to do when somebody asks for their data",
+    what:
+      "Read this before the first one arrives. When a person asks for a copy of their data, " +
+      "asks you to delete it or objects to how you use it, it is recorded here and the tool " +
+      "counts the month you have to answer.",
+    why:
+      "UK GDPR Article 12(3) gives you one calendar month from receipt to respond to a request " +
+      "under Articles 15 to 22, extendable by two more only if you say why within the first " +
+      "month. A request can arrive by any route, to anybody, without naming the law.",
+    finishedWhen: "You know where requests are recorded, and who in your team handles them.",
+    href: "/app/requests",
+    watchOut:
+      "The month starts when the request arrives, wherever it lands — not when it reaches you. " +
+      "An objection to direct marketing must always be upheld.",
+  },
+  {
     id: "evidence",
     title: "Take an export when you need to show your work",
     what:
