@@ -1,6 +1,6 @@
 # Plan: choosing the AI governance framework (UK DSIT ↔ NIST AI RMF)
 
-Status: Phases 0 and 1 built; later phases proposed. Written 29 October 2026.
+Status: Phases 0–2 built; Phases 3–4 proposed. Written 29 October 2026.
 
 ## What is asked for
 
@@ -108,26 +108,33 @@ until phase 3 lets someone choose.
     approval chains, board, lifecycle gates, training, suppliers, incidents and
     concerns, ATRS, EIA and DPIA.
 
-### Phase 2 — the NIST pack
+### Phase 2 — the NIST pack (built)
 
-- **Categories:** decision 2.
-- **Identification template**, "AI risk assessment (NIST AI RMF)": sections following
-  MAP 1–5 (context, categorisation, capabilities and costs, third-party risks, impacts)
-  and MEASURE 2 (each trustworthiness characteristic). Each section cites its
-  subcategory codes. Shipped beside the DSIT one, with `jurisdiction: "US"`.
-- **Treatments:** drawn from MANAGE 1–4, plus the Playbook's suggested actions, in the
-  same shape as `treatment-library.ts`.
-- **Workflow defaults:** the same chain shape and triggers as today, because the stages
-  are Govern's own. The stage labels and help cite GOVERN 2.1/2.3 instead of the
-  Playbook.
-- **Lifecycle:** keep the `ai_lifecycle_stage` enum. Map NIST's lifecycle (plan and
-  design → collect and process data → build and use model → verify and validate →
-  deploy and use → operate and monitor) onto its gates, and re-express each gate's
-  conditions as MEASURE and MANAGE subcategories.
-- **Training:** headings from GOVERN 2.2 and 4.1. **Intake:** MAP 1.1, 1.4, 3.1–3.2
-  (purpose, benefits and costs).
-- **Supplier:** the PPN 02/24 questions stay, because they are a UK procurement mandate.
-  Add GOVERN 6 and MANAGE 3 sections when NIST is primary.
+- Migration 0057 adds `nist_ai_rmf` to the `ai_framework` enum. Nothing sets it yet;
+  that is Phase 3.
+- **The pack**, `src/lib/ai-frameworks/nist-pack.ts`:
+  - **Categories:** the seven trustworthiness characteristics, plus *Financial* and
+    *Legal and regulatory compliance*. Those two keep the UK values, so their risks
+    stay put across a switch. Privacy has its own category here.
+  - **Appetite guidance:** at the same four levels, Waivern-written for the seven,
+    since NIST gives no examples. The UK wording is reused for the two kept categories.
+  - **Treatments:** 34, condensed from Playbook suggested actions. Each one's `theme`
+    is the subcategory it comes from.
+- **Template:** "AI risk identification (NIST AI RMF)"
+  (`templates/library/nist-ai-risk.ts`).
+  - Sections: Map (context, categorisation and oversight, benefits and costs, third
+    parties and law, impacts), then one section per characteristic, then monitoring,
+    then a MANAGE 1.1 go/no-go determination.
+  - Every key the register, workflows, ATRS and review sweep read keeps the DSIT
+    template's options.
+  - Score bands are DSIT's, scaled to the higher maximum score (158 vs 131).
+  - UK legal questions (DPIA, Article 22, PSED, ATRS) stay.
+- **Shipped by framework:** `SYSTEM_TEMPLATES` entries take an optional `aiFramework`.
+  The DSIT and NIST identification templates are each offered only to organisations
+  following their framework. Everything else goes to all.
+- **Moved to Phase 3:** the NIST wording for approval-chain stages, lifecycle gates
+  and training headings. These only change in wording, and only matter once an
+  organisation can follow NIST.
 
 ### Phase 3 — the switch
 
@@ -151,6 +158,8 @@ until phase 3 lets someone choose.
   appetite fallback, permissions (lead yes, analyst no, entity-confined owner per
   `canForKind`), and tenant isolation (add to the attack suite or `NOT_TENANT_SCOPED`).
 - Help topic "AI governance framework", then `pnpm help:md`.
+- NIST wording for the AI approval-chain stages, lifecycle gate descriptions and
+  training headings, chosen by the organisation's framework (carried over from Phase 2).
 
 ### Phase 4 — NIST profile (current vs target)
 

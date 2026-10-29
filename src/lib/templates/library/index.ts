@@ -1,3 +1,4 @@
+import type { AiFrameworkId } from "@/lib/ai-frameworks";
 import type { TemplateKind } from "@/services/templates";
 import type { TemplateDefinition } from "../schema";
 import { AI_RISK } from "./ai-risk";
@@ -8,6 +9,7 @@ import { DPIA } from "./dpia";
 import { DSIT_AI_RISK } from "./dsit-ai-risk";
 import { EIA } from "./eia";
 import { LIA } from "./lia";
+import { NIST_AI_RISK } from "./nist-ai-risk";
 import { SCREENING } from "./screening";
 import { TIA_EU, TRA_UK } from "./transfers";
 
@@ -23,6 +25,11 @@ export const SYSTEM_TEMPLATES: Array<{
   name: string;
   description: string;
   jurisdiction?: string;
+  /**
+   * Installed only for an organisation following this AI governance
+   * framework. Templates without one go to everyone.
+   */
+  aiFramework?: AiFrameworkId;
   definition: TemplateDefinition;
 }> = [
   {
@@ -90,7 +97,17 @@ export const SYSTEM_TEMPLATES: Array<{
     description:
       "The nine risk categories of DSIT's AI Risk Management Toolkit, with the UK government AI Playbook's expectations on transparency, oversight and security.",
     jurisdiction: "UK",
+    aiFramework: "uk_dsit",
     definition: DSIT_AI_RISK,
+  },
+  {
+    kind: "ai_risk",
+    name: "AI risk identification (NIST AI RMF)",
+    description:
+      "NIST AI RMF 1.0: context, categorisation, benefits, third parties and impacts from Map, each characteristic of trustworthy AI from Measure, and the go or no-go determination from Manage.",
+    jurisdiction: "US",
+    aiFramework: "nist_ai_rmf",
+    definition: NIST_AI_RISK,
   },
   {
     kind: "supplier_record",

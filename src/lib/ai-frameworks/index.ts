@@ -1,4 +1,5 @@
 import type { AiFrameworkId, AiFrameworkPack, RiskCategoryDef } from "./types";
+import { NIST_AI_RMF } from "./nist-pack";
 import { UK_DSIT } from "./uk-dsit";
 
 export type { AiFrameworkId, AiFrameworkPack, RiskCategoryDef } from "./types";
@@ -15,6 +16,7 @@ export type { AiFrameworkId, AiFrameworkPack, RiskCategoryDef } from "./types";
  */
 export const AI_FRAMEWORKS: Record<AiFrameworkId, AiFrameworkPack> = {
   uk_dsit: UK_DSIT,
+  nist_ai_rmf: NIST_AI_RMF,
 };
 
 export const DEFAULT_AI_FRAMEWORK: AiFrameworkId = "uk_dsit";

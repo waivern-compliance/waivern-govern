@@ -5,6 +5,7 @@ import type { templateKind } from "@/db/schema";
 import { appendAuditEvent, type AuditInput } from "@/lib/audit";
 import { canonicalise } from "@/lib/canonical";
 import { LEGAL_REFERENCES, SYSTEM_TEMPLATES } from "@/lib/templates/library";
+import { aiFrameworkOf } from "./ai-framework";
 import { templateDefinition, type TemplateDefinition } from "@/lib/templates/schema";
 import { validateTemplate, type TemplateProblem } from "@/lib/templates/validate";
 
@@ -299,16 +300,20 @@ export async function publishVersion(input: {
  *
  * Matched by name among its system templates. A client who copied one of ours
  * and renamed the copy still has the original under its own name, so this
- * never offers to install something they already hold.
+ * never offers to install something they already hold. A template tied to an
+ * AI governance framework is offered only to organisations following it.
  */
 export async function shippedTemplatesMissing(organisationId: string) {
+  const framework = await aiFrameworkOf(organisationId);
   return withOrganisation(organisationId, async () => {
     const held = await db
       .select({ name: templates.name })
       .from(templates)
       .where(and(eq(templates.organisationId, organisationId), eq(templates.isSystem, true)));
     const names = new Set(held.map((h) => h.name));
-    return SYSTEM_TEMPLATES.filter((t) => !names.has(t.name));
+    return SYSTEM_TEMPLATES.filter(
+      (t) => !names.has(t.name) && (t.aiFramework === undefined || t.aiFramework === framework),
+    );
   });
 }
 
