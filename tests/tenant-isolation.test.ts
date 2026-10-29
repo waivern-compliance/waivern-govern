@@ -640,6 +640,7 @@ const NOT_TENANT_SCOPED: Record<string, string> = {
   "ingest.ingestDpas": "the authenticated connection carries the organisation",
   "ingest.ingestEvidence": "the authenticated connection carries the organisation",
   "ingest.ingestScan": "the authenticated connection carries the organisation",
+  "ai-profile.aiProfileExport": "the authenticated connection carries the organisation",
   // The signed-in person's own settings.
   "guidance.setOwnGuidance": "acts on the signed-in person's own membership",
   "persona.setOwnPersona": "acts on the signed-in person's own membership",

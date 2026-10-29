@@ -8,6 +8,7 @@ import {
   assessments,
   atrsRecords,
   frameworkProfileItems,
+  organisations,
   riskAppetites,
   risks,
   templates,
@@ -19,6 +20,7 @@ import {
 import { appendAuditEvent } from "@/lib/audit";
 import { GOVERN_FEATURES_TO_NIST } from "@/lib/ai-frameworks/crosswalk";
 import {
+  NIST_AI_RMF_SOURCE,
   NIST_CATEGORIES,
   NIST_FUNCTIONS,
   NIST_SUBCATEGORIES,
@@ -288,4 +290,68 @@ export async function exportNistProfile(input: { organisationId: string; organis
     ),
   );
   return { body, filename: exportFilename("nist-ai-rmf-profile", input.organisationName, new Date()) };
+}
+
+/** The shape of the Integration API's profile export; bump on any change, minor when additive. */
+export const PROFILE_EXPORT_VERSION = "1.0";
+
+/**
+ * The profile for the Integration API (`GET /api/v1/export/ai-profile`), for
+ * the Portal to write an AI RMF profile document from.
+ *
+ * Recorded like the CSV download: the profile is people's own account of where
+ * the organisation falls short, and who took it out of Govern belongs on the
+ * record whether that was a person or a connection.
+ */
+export async function aiProfileExport(input: { organisationId: string; actor: Actor }) {
+  const [profile, [org]] = await Promise.all([
+    nistProfile(input.organisationId),
+    withOrganisation(input.organisationId, () =>
+      db
+        .select({ name: organisations.name, slug: organisations.slug, aiFramework: organisations.aiFramework })
+        .from(organisations)
+        .where(eq(organisations.id, input.organisationId)),
+    ),
+  ]);
+
+  await withOrganisation(input.organisationId, () =>
+    db.transaction((tx) =>
+      appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        action: "data.exported",
+        subjectType: "organisation",
+        subjectId: input.organisationId,
+        after: { dataset: "nist-ai-rmf-profile", format: "json", rows: profile.rows.length },
+      }),
+    ),
+  );
+
+  return {
+    profileVersion: PROFILE_EXPORT_VERSION,
+    generatedAt: new Date().toISOString(),
+    organisation: { name: org.name, slug: org.slug, aiFramework: org.aiFramework },
+    framework: {
+      id: FRAMEWORK,
+      name: "NIST AI Risk Management Framework",
+      edition: "1.0",
+      publication: "NIST AI 100-1",
+      source: NIST_AI_RMF_SOURCE,
+    },
+    summary: { subcategories: profile.rows.length, ...profile.tally },
+    functions: profile.functions.map((f) => ({ function: f.fn, label: f.label, summary: f.summary, tally: f.tally })),
+    subcategories: profile.rows.map((r) => ({
+      id: r.id,
+      function: r.fn,
+      category: `${r.fn} ${r.category}`,
+      outcome: r.text,
+      current: r.current,
+      target: r.target,
+      gap: isGap(r.current, r.target),
+      notes: r.notes,
+      evidence: r.evidence,
+      updatedBy: r.updatedBy,
+      updatedAt: r.updatedAt ? r.updatedAt.toISOString() : null,
+    })),
+  };
 }

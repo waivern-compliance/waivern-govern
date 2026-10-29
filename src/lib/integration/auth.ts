@@ -22,6 +22,15 @@ export type AuthedConnection = {
   defaultEntityId: string | null;
 };
 
+/** Integrations act as themselves in the audit trail, never as a person. */
+export function connectionActor(connection: AuthedConnection) {
+  return {
+    actorKind: "integration" as const,
+    actorUserId: null,
+    actorLabel: `${connection.kind}:${connection.name}`,
+  };
+}
+
 export type AuthFailure = {
   status: 401 | 403 | 413;
   /**
