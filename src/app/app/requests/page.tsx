@@ -9,7 +9,12 @@ import { RequestClock } from "@/components/dsr/RequestClock";
 import { JURISDICTION_LABEL, RIGHTS, type Right } from "@/lib/dsr/statutory";
 import { can, mayConfigureRequests } from "@/lib/rbac";
 import { getActiveSession, visibleEntityIds } from "@/lib/session";
-import { defaultJurisdiction, objectionReviewThreshold, requestRegister } from "@/services/data-subject-requests";
+import {
+  defaultJurisdiction,
+  objectionReviewThreshold,
+  requestMetrics,
+  requestRegister,
+} from "@/services/data-subject-requests";
 import { ActionForm } from "./ActionForm";
 import { recordRequestAction, setJurisdictionAction, setObjectionThresholdAction } from "./actions";
 import { CHANNEL_LABEL, ChannelSelect, Label, RightsField, inputClass } from "./fields";
@@ -28,11 +33,12 @@ export default async function RequestsPage() {
   }
 
   const org = active.membership.organisationId;
-  const [register, orgEntities, jurisdiction, threshold] = await Promise.all([
+  const [register, orgEntities, jurisdiction, threshold, metrics] = await Promise.all([
     requestRegister(org, visibleEntityIds(active, "dsr.handle")),
     scoped(org, () => db.select().from(entities).where(eq(entities.organisationId, org))),
     defaultJurisdiction(org),
     objectionReviewThreshold(org),
+    requestMetrics(org, visibleEntityIds(active, "dsr.handle")),
   ]);
   const mayRecordIn = orgEntities.filter((e) => can(active.membership.grants, "dsr.handle", e.id));
 
@@ -152,6 +158,36 @@ export default async function RequestsPage() {
         </details>
       ) : null}
 
+      {metrics.totals.received > 0 ? (
+        <details className="rounded border border-line bg-surface">
+          <summary className="cursor-pointer px-4 py-3 text-sm font-medium">
+            Timeliness, last twelve months
+            <span className="ml-2 font-mono text-[11px] font-normal text-ink-soft">
+              {metrics.totals.received} received · {metrics.totals.onTime} on time · {metrics.totals.late} late
+              {metrics.totals.medianDaysToRespond !== null ? ` · median ${metrics.totals.medianDaysToRespond} days` : ""}
+            </span>
+          </summary>
+          <div className="space-y-5 border-t border-line p-4">
+            <p className="max-w-prose text-xs text-ink-soft">
+              Requests received since {metrics.from.toISOString().slice(0, 10)}. {metrics.totals.extended} extended,{" "}
+              {metrics.totals.refused} refused, {metrics.totals.withdrawn} withdrawn, {metrics.totals.open} still open
+              {metrics.totals.overdue > 0 ? `, ${metrics.totals.overdue} of them overdue` : ""}. A request invoking
+              several rights counts under each.{" "}
+              The register and these counts are on{" "}
+              <Link href="/app/exports" className="text-brand underline">Exports</Link>.
+            </p>
+            <TallyTable
+              head="Right"
+              rows={metrics.byRight.map((r) => ({ ...r, key: r.right, label: `${r.label} (${r.article})` }))}
+            />
+            <TallyTable
+              head="Month"
+              rows={metrics.byMonth.map((m) => ({ ...m, key: m.period, label: m.period }))}
+            />
+          </div>
+        </details>
+      ) : null}
+
       <ul className="space-y-3">
         {register.rows.map(({ request, entityName, clock, decisions }) => (
           <li key={request.id}>
@@ -232,6 +268,41 @@ export default async function RequestsPage() {
         ) : null}
       </section>
     </main>
+  );
+}
+
+function TallyTable({
+  head,
+  rows,
+}: {
+  head: string;
+  rows: Array<{ key: string; label: string; received: number; answered: number; onTime: number; late: number }>;
+}) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-left text-xs">
+        <thead className="text-ink-soft">
+          <tr>
+            <th className="py-1 pr-3 font-medium">{head}</th>
+            <th className="py-1 pr-3 text-right font-medium">Received</th>
+            <th className="py-1 pr-3 text-right font-medium">Answered</th>
+            <th className="py-1 pr-3 text-right font-medium">On time</th>
+            <th className="py-1 text-right font-medium">Late</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-line tabular-nums">
+          {rows.map((r) => (
+            <tr key={r.key}>
+              <td className="py-1 pr-3">{r.label}</td>
+              <td className="py-1 pr-3 text-right">{r.received}</td>
+              <td className="py-1 pr-3 text-right">{r.answered}</td>
+              <td className="py-1 pr-3 text-right">{r.onTime}</td>
+              <td className={`py-1 text-right ${r.late > 0 ? "text-red-800" : ""}`}>{r.late}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 

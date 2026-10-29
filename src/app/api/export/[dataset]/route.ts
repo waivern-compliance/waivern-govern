@@ -15,6 +15,7 @@ import {
   exportThirdParties,
   exportTrends,
   exportBreaches,
+  exportRequests,
   recordExport,
   verificationManifest,
   type Dataset,
@@ -45,7 +46,9 @@ export async function GET(
   }
   const key = dataset as Dataset;
 
-  const needed = key === "audit" ? "audit.export" : "record.read";
+  // Requests are the requesters' own personal data, held by the people who
+  // handle them; everything else follows record access.
+  const needed = key === "audit" ? "audit.export" : key === "requests" ? "dsr.handle" : "record.read";
   if (!can(active.membership.grants, needed)) {
     return NextResponse.json(
       {
@@ -104,7 +107,9 @@ export async function GET(
                   ? await exportTrends(org, entityIds)
                   : key === "breaches"
                     ? await exportBreaches(org, entityIds)
-                    : await exportCountries(org);
+                    : key === "requests"
+                      ? await exportRequests(org, entityIds)
+                      : await exportCountries(org);
     rows = result.rows.length;
     body = toCsv(result.columns, result.rows);
   }

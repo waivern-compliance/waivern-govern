@@ -25,6 +25,7 @@ import { aiRiskLog, treatmentWords } from "./ai-risk-profile";
 import { categoryLabel } from "@/lib/ai-frameworks";
 import { GAP_WORDS, listActivities } from "./ropa";
 import { breachRegister } from "./breaches";
+import { requestMetrics, requestRegister } from "./data-subject-requests";
 import { trendFor } from "./trends";
 import {
   GAP_WORDS as SUPPLIER_GAP_WORDS,
@@ -56,6 +57,7 @@ export type Dataset =
   | "ropa"
   | "third-parties"
   | "breaches"
+  | "requests"
   | "trends"
   | "countries"
   | "audit";
@@ -68,6 +70,7 @@ export const DATASET_LABEL: Record<Dataset, string> = {
   ropa: "Processing register (Article 30)",
   "third-parties": "Third parties (Article 28)",
   breaches: "Breach register (Article 33(5))",
+  requests: "Data subject requests",
   trends: "Trends by month",
   countries: "Country library",
   audit: "Audit log",
@@ -487,19 +490,27 @@ export async function exportThirdParties(organisationId: string) {
 /** The trend figures, for a board pack that needs numbers rather than a screenshot. */
 export async function exportTrends(organisationId: string, entityIds: string[] | null) {
   return withOrganisation(organisationId, async () => {
-    const { points } = await trendFor(organisationId, entityIds, 12);
+    const [{ points }, requests] = await Promise.all([
+      trendFor(organisationId, entityIds, 12),
+      requestMetrics(organisationId, entityIds, 12),
+    ]);
     return {
       columns: [
         "Month", "Risks open at month end", "Risks raised", "Risks closed",
         "Assessments started", "Assessments decided", "Median days to decide",
         "Tasks completed", "Tasks breached", "Acceptances granted",
         "Acceptances lapsed",
+        "Data subject requests received", "Requests answered", "Answered on time", "Answered late",
       ],
-      rows: points.map((p) => [
+      // Counts only, so they ride along with the rest of the posture for
+      // anybody who may read records; the register itself needs dsr.handle.
+      rows: points.map((p, i) => [
         p.period, p.risksOpen, p.risksOpened, p.risksClosed,
         p.assessmentsStarted, p.assessmentsApproved, p.daysToDecide,
         p.tasksCompleted, p.tasksBreached, p.acceptancesGranted,
         p.acceptancesExpired,
+        requests.byMonth[i]?.received ?? 0, requests.byMonth[i]?.answered ?? 0,
+        requests.byMonth[i]?.onTime ?? 0, requests.byMonth[i]?.late ?? 0,
       ]),
     };
   });
@@ -564,6 +575,41 @@ export async function exportBreaches(organisationId: string, entityIds: string[]
           others, b.status, b.closedAt, b.closureRationale,
         ];
       }),
+    };
+  });
+}
+
+/**
+ * The register of data subject requests.
+ *
+ * Who asked, how to reach them and what they wrote stay behind: the reference
+ * finds the record in Govern for anybody entitled to it, and a spreadsheet
+ * sent to an auditor should not become a second copy of every requester's
+ * personal data. What is kept is what an auditor asks about — the dates, the
+ * deadline, and each decision with its reasoning.
+ */
+export async function exportRequests(organisationId: string, entityIds: string[] | null) {
+  return withOrganisation(organisationId, async () => {
+    const register = await requestRegister(organisationId, entityIds);
+    return {
+      columns: [
+        "Reference", "Entity", "Law", "Our role", "Rights", "Arrived by", "Received",
+        "Identity asked for", "Identity confirmed", "Clock", "Extended",
+        "Decisions", "Responded", "Response sent by", "On time",
+        "Told of the right to complain", "Late because", "Status", "Closed", "Closure reasoning",
+      ],
+      rows: register.rows.map(({ request: r, entityName, clock, extended, decisions }) => [
+        r.reference, entityName, r.jurisdiction.toUpperCase(), r.controllerRole,
+        r.rights.join("; "), r.channel, r.receivedAt,
+        r.identityRequestedAt, r.identityVerifiedAt, clock.words, extended ? "yes" : "no",
+        decisions
+          .map((d) => `${d.kind.replace(/_/g, " ")}: ${d.outcome.replace(/_/g, " ")}${d.statutoryBasis ? ` (${d.statutoryBasis})` : ""} — ${d.rationale}`)
+          .join(" | "),
+        r.respondedAt, r.responseChannel,
+        clock.state === "met" ? "yes" : clock.state === "late" ? "no" : "",
+        r.toldOfComplaintRight === null ? "" : r.toldOfComplaintRight ? "yes" : "no",
+        r.lateReason, r.status, r.closedAt, r.closureRationale,
+      ]),
     };
   });
 }

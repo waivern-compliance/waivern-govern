@@ -1,7 +1,7 @@
 # Plan: a register for data subject requests (access, objection and the other rights)
 
-Status: Phases 0–4 built (statutory module, register, deadlines, scope from the ROPA, Article 19,
-processor hand-over, objections against activities and the LIA loop). Phase 5 not started. Written 29 October 2026.
+Status: Phases 0–4 built, and Phase 5's reporting and Integration API. The optional public
+intake form is not built. Written 29 October 2026.
 
 ## What is asked for
 
@@ -223,11 +223,16 @@ provisions, to `legal-references.ts`.
   or on the activity itself where it has none; re-raised at each multiple of the threshold.
 
 ### Phase 5: reporting and integration
-- **Reporting:** timeliness metrics (on time, extended, late, by right) in `metrics.ts`,
-  `trends` and the export.
-- **Integration API:** change the contract in `integration-api.md` first, then build
-  `GET /api/v1/export/requests-summary` (counts only, no personal data). The Portal's
-  DSRP document can then state real response times.
+- **Reporting (built):** timeliness (received, answered, on time, late, extended, refused,
+  withdrawn, open, overdue, median days; by right and by month) is a pure
+  `lib/dsr/metrics.ts`, served by `requestMetrics`. It sits there rather than in the general
+  dashboard `metrics.ts` because the requests page is restricted to `dsr.handle`. Shown on
+  the requests page; the counts are added to the `trends` export; a `requests` export
+  (behind `dsr.handle`) carries the register without who asked or what they wrote.
+- **Integration API (built):** the contract is in `integration-api.md`, and
+  `GET /api/v1/export/requests-summary` serves counts only, with `entity` and `months`.
+  The Portal's DSRP document can then state real response times; the Portal side is not
+  built.
 - **Optional:** a public intake form (decision 5).
 
 ## Rough size

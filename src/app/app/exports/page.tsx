@@ -14,7 +14,8 @@ const BLURB: Record<Dataset, string> = {
   ropa: "Every processing activity in Article 30 order, with the gaps in each record named so you can see what an inspection would find.",
   "third-parties": "Every processor with the agreement in force, its expiry, and what is missing against Article 28.",
   breaches: "Every breach with both statutory decisions and the reasoning for each, including the ones judged not notifiable.",
-  trends: "Twelve months of posture: risks raised and closed, assessments decided, how long decisions took.",
+  requests: "Every request from a data subject: rights, dates, the deadline, each decision with its reasoning, and whether it was answered on time. Who asked and what they wrote stay in Govern.",
+  trends: "Twelve months of posture: risks raised and closed, assessments decided, how long decisions took, data subject requests answered on time and late.",
   countries: "Adequacy and transfer risk per destination, with when each was last checked.",
   audit: "The complete record of who did what, with the hash chain, so a recipient can verify it themselves.",
 };
@@ -33,6 +34,7 @@ export default async function ExportsPage() {
   }
 
   const mayExportAudit = can(active.membership.grants, "audit.export");
+  const mayExportRequests = can(active.membership.grants, "dsr.handle");
   // A complete chain is what makes an audit export verifiable, and an
   // entity-scoped viewer cannot have one.
   const wholeChain = visibleEntityIds(active, "audit.export") === null;
@@ -54,7 +56,7 @@ export default async function ExportsPage() {
 
       <ul className="divide-y divide-line overflow-hidden rounded border border-line bg-surface">
         {(Object.keys(DATASET_LABEL) as Dataset[])
-          .filter((d) => d !== "audit" || mayExportAudit)
+          .filter((d) => (d !== "audit" || mayExportAudit) && (d !== "requests" || mayExportRequests))
           .map((d) => (
             <li key={d} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3.5">
               <div className="min-w-0">
