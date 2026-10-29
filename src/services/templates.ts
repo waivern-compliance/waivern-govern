@@ -5,6 +5,7 @@ import type { templateKind } from "@/db/schema";
 import { appendAuditEvent, type AuditInput } from "@/lib/audit";
 import { canonicalise } from "@/lib/canonical";
 import { LEGAL_REFERENCES, SYSTEM_TEMPLATES } from "@/lib/templates/library";
+import type { AiFrameworkId } from "@/lib/ai-frameworks";
 import { aiFrameworkOf } from "./ai-framework";
 import { templateDefinition, type TemplateDefinition } from "@/lib/templates/schema";
 import { validateTemplate, type TemplateProblem } from "@/lib/templates/validate";
@@ -347,6 +348,8 @@ export async function installShippedTemplates(input: {
   organisationId: string;
   /** Install only these kinds: what a role limited to some kinds may add. */
   kinds?: KindLimit;
+  /** Install only the templates tied to this AI governance framework. */
+  aiFramework?: AiFrameworkId;
   actor: Actor;
 }) {
   return withOrganisation(input.organisationId, async () => {
@@ -355,6 +358,7 @@ export async function installShippedTemplates(input: {
     const installed: string[] = [];
     for (const t of await shippedTemplatesMissing(input.organisationId)) {
       if (input.kinds && !input.kinds.includes(t.kind)) continue;
+      if (input.aiFramework && t.aiFramework !== input.aiFramework) continue;
       const { version } = await createTemplate({
         organisationId: input.organisationId,
         kind: t.kind,

@@ -51,10 +51,7 @@ export default async function AppetitePage() {
         <h1 className="text-2xl font-semibold tracking-tight">Risk appetite</h1>
         <p className="max-w-prose text-sm text-ink-soft">
           How much risk of each kind the organisation is prepared to carry for
-          the benefit it is after. DSIT&rsquo;s AI Risk Management Toolkit asks for
-          appetite to be set per category and signed off at board level, so a
-          fairness risk and a financial risk are not held to the same standard
-          by default. Every risk on the register is judged against the appetite
+          the benefit it is after. {framework.appetiteIntro} Every risk on the register is judged against the appetite
           for its category, or the organisation default where there is none.
         </p>
       </header>

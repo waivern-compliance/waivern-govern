@@ -183,6 +183,18 @@ export function mayManageEntities(grants: readonly Grant[]): boolean {
 }
 
 /**
+ * May this person choose the AI governance framework the organisation follows?
+ *
+ * Whoever configures how AI risk is assessed and approved, across the whole
+ * organisation: an owner, a privacy administrator, or an AI governance lead.
+ * The choice re-files every AI risk and changes which templates are offered,
+ * so a grant confined to one entity is not enough, as it is not for appetite.
+ */
+export function mayChooseAiFramework(grants: readonly Grant[]): boolean {
+  return grants.some((g) => g.scope === "organisation" && canForKind([g], "workflow.configure", "ai_risk"));
+}
+
+/**
  * May somebody holding `roles` decide an approval stage that names `requiredRole`?
  *
  * The stage's own role, or an owner. Owners hold every capability, and the

@@ -48,11 +48,14 @@ export function MitigationForm({
   categoryLabel,
   matching,
   others,
+  source,
 }: {
   action: (formData: FormData) => Promise<void>;
   categoryLabel: string | null;
   matching: TreatmentSuggestion[];
   others: TreatmentSuggestion[];
+  /** Where the organisation's framework's suggestions come from. */
+  source: { name: string; detail: string };
 }) {
   const [description, setDescription] = useState("");
   const [treatment, setTreatment] = useState<TreatmentType>("limitation");
@@ -123,7 +126,7 @@ export function MitigationForm({
         </div>
         {suggestion ? (
           <p className="text-xs text-ink-soft">
-            Started from the toolkit&rsquo;s suggestion under &ldquo;{suggestion.theme}&rdquo;.
+            Started from the suggestion under &ldquo;{suggestion.theme}&rdquo;.
             Change the wording to what you will actually do.
             {suggestion.treatment === null
               ? " The toolkit calls this acceptance; here it is recorded as a mitigation, so choose the treatment that fits."
@@ -135,8 +138,8 @@ export function MitigationForm({
       <details className="space-y-2">
         <summary className="cursor-pointer text-sm text-brand">
           {matching.length > 0
-            ? `Treatments DSIT's toolkit suggests for ${categoryLabel ?? "this category"} (${matching.length})`
-            : "Treatments DSIT's toolkit suggests"}
+            ? `Treatments ${source.name} suggests for ${categoryLabel ?? "this category"} (${matching.length})`
+            : `Treatments ${source.name} suggests`}
         </summary>
         <div className="space-y-3 pt-2">
           {matching.length > 0 ? <SuggestionList suggestions={matching} onUse={use} /> : null}
@@ -151,8 +154,7 @@ export function MitigationForm({
             </details>
           ) : null}
           <p className="text-xs text-ink-soft">
-            From Appendix 4 of DSIT&rsquo;s AI Risk Management Toolkit. Nothing is
-            added until you press Add.
+            {source.detail} Nothing is added until you press Add.
           </p>
         </div>
       </details>

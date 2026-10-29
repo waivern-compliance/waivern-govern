@@ -53,3 +53,9 @@ const ALL_TREATMENTS = new Map(
 export function suggestionByKey(key: unknown) {
   return typeof key === "string" ? (ALL_TREATMENTS.get(key) ?? null) : null;
 }
+
+/** The framework a treatment suggestion comes from, whichever the organisation follows now. */
+export function frameworkOfSuggestion(key: unknown): AiFrameworkPack | null {
+  if (typeof key !== "string") return null;
+  return Object.values(AI_FRAMEWORKS).find((p) => p.treatments.some((t) => t.key === key)) ?? null;
+}

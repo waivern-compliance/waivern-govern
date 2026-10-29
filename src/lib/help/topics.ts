@@ -1225,7 +1225,47 @@ export const HELP_TOPICS: HelpTopic[] = [
         ],
       },
     ],
-    related: ["risks", "organisation", "ai-register"],
+    related: ["risks", "organisation", "ai-register", "ai-framework"],
+  },
+  {
+    id: "ai-framework",
+    title: "AI governance framework",
+    summary:
+      "Whether AI risk follows the UK framework or NIST AI RMF, and what changes when the organisation moves from one to the other.",
+    path: "/app/admin/ai-framework",
+    keywords: ["framework", "nist", "ai rmf", "dsit", "playbook", "trustworthy", "characteristics", "crosswalk", "switch"],
+    sections: [
+      {
+        heading: "What the framework decides",
+        body: [
+          "The categories AI risks are filed under and appetite is set against, the appetite guidance shown beside each level, the treatments suggested on a risk, and the AI risk identification template offered.",
+          "The UK framework uses the nine categories of DSIT's AI Risk Management Toolkit. NIST AI RMF uses its seven characteristics of trustworthy AI, plus Financial and Legal and regulatory compliance, which keep the same meaning in both. Its template follows Map and Measure, and every question cites the NIST subcategory it serves.",
+          "UK law applies whichever is followed. The NIST template still asks about the DPIA, solely automated decisions, the equality duty and transparency records.",
+        ],
+      },
+      {
+        heading: "Who can change it",
+        body: [
+          "An owner, a privacy administrator or an AI governance lead, holding the role across the whole organisation. A role confined to one legal entity can see which framework is followed but not change it.",
+        ],
+      },
+      {
+        heading: "What a switch does",
+        body: [
+          "Choose a framework and the page shows what would change before anything does. Confirming then does three things.",
+          "Risks are re-filed. Each risk under one of the old framework's categories moves to the nearest category in the new one, and the move is recorded against the risk. Risks under Financial, Legal, or a category of the organisation's own stay where they are.",
+          "Appetite is proposed, not carried over. An appetite statement is a decision an approver signed, so for each new category the old statements map into, the most cautious of them is proposed again for an approver to decide. Until one is signed off, risks in that category are judged against the organisation default.",
+          "The new framework's template is installed. Templates already held stay available, and assessments under way keep the template version they started on.",
+        ],
+      },
+      {
+        heading: "Moving back",
+        body: [
+          "Nothing is deleted, so switching back is the same operation the other way: risks are re-filed again, and appetite statements already signed off for the old categories still stand.",
+        ],
+      },
+    ],
+    related: ["risk-appetite", "risks", "templates", "approval-workflows"],
   },
 ];
 
@@ -1257,7 +1297,7 @@ export const HELP_GROUPS: Array<{ heading: string; ids: string[] }> = [
   },
   {
     heading: "Setting it up",
-    ids: ["templates", "approval-workflows", "integrations", "organisation", "managing-people", "assistant"],
+    ids: ["templates", "approval-workflows", "ai-framework", "integrations", "organisation", "managing-people", "assistant"],
   },
 ];
 

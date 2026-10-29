@@ -25,6 +25,13 @@ const SETTINGS: Array<{
     capability: "member.manage",
   },
   {
+    href: "/app/admin/ai-framework",
+    title: "AI governance framework",
+    detail:
+      "Whether AI risk follows the UK framework (DSIT and the AI Playbook) or NIST AI RMF: the categories risks are filed under, appetite, treatments and the AI risk template.",
+    capability: "workflow.configure",
+  },
+  {
     href: "/app/admin/assistant",
     title: "Assistant",
     detail:

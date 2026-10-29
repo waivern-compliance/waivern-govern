@@ -177,4 +177,13 @@ export const NIST_AI_RMF: AiFrameworkPack = {
   categories: CATEGORIES,
   appetiteGuidance: APPETITE_GUIDANCE,
   treatments: TREATMENTS,
+  treatmentSource: {
+    name: "the NIST Playbook",
+    detail: "Condensed from the NIST AI RMF Playbook's suggested actions; each names the subcategory it comes from.",
+    tag: "from NIST Playbook",
+  },
+  categoriesName: "NIST's characteristics of trustworthy AI, with financial and legal risk",
+  appetiteIntro:
+    "NIST AI RMF asks for risk tolerance to be determined and documented (MAP 1.5) and for risk management to be scaled to it (GOVERN 1.3), so a fairness risk and a financial risk are not held to the same standard by default.",
+  identificationTemplate: "AI risk identification (NIST AI RMF)",
 };

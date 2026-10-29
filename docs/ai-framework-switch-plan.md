@@ -1,6 +1,6 @@
 # Plan: choosing the AI governance framework (UK DSIT ↔ NIST AI RMF)
 
-Status: Phases 0–2 built; Phases 3–4 proposed. Written 29 October 2026.
+Status: Phases 0–3 built; Phase 4 proposed. Written 29 October 2026.
 
 ## What is asked for
 
@@ -136,30 +136,39 @@ until phase 3 lets someone choose.
   and training headings. These only change in wording, and only matter once an
   organisation can follow NIST.
 
-### Phase 3 — the switch
+### Phase 3 — the switch (built)
 
-- A section "AI governance framework" on the Organisation page (or Templates, if you
-  prefer it near workflows), with two radio buttons and a description of each.
-- **Preview before confirming**, computed and not written:
-  - templates to be installed, and which become the default for new AI assessments
-  - default AI workflows to be replaced. Workflows the organisation has customised are
-    listed and left alone.
-  - risks to be re-filed, per old category → new category, using the crosswalk
-  - appetite statements to be proposed for approval (decision 3)
-  - assessments in flight, which are unaffected
-- **Confirm:** one transaction. Set `organisation.ai_framework`, install the pack's
-  templates through `installShippedTemplates`, swap uncustomised workflows, re-file
-  risk categories (keeping the old value in the audit `before`), and propose the
-  appetite statements. Audit event `organisation.ai_framework_set`, with the whole
-  preview as `after`.
-- **Switching back** is the same operation the other way round. Nothing is deleted, so
-  it is lossless apart from the appetite approvals.
-- Tests: the switch and switch-back round trip, customised workflows untouched, the
-  appetite fallback, permissions (lead yes, analyst no, entity-confined owner per
-  `canForKind`), and tenant isolation (add to the attack suite or `NOT_TENANT_SCOPED`).
-- Help topic "AI governance framework", then `pnpm help:md`.
-- NIST wording for the AI approval-chain stages, lifecycle gate descriptions and
-  training headings, chosen by the organisation's framework (carried over from Phase 2).
+- **Page:** Settings → "AI governance framework" (`/app/admin/ai-framework`).
+  - Radio buttons, then "See what would change", a preview, then "Switch to …".
+  - After switching it says what changed.
+  - Choosing needs `mayChooseAiFramework`: an organisation-wide owner, privacy admin
+    or AI governance lead. Anyone else with `workflow.configure` sees the framework
+    read-only.
+- **Service:** `services/ai-framework-switch.ts`, with `previewAiFrameworkSwitch` and
+  `switchAiFramework`. The switch runs in one transaction with the organisation row
+  locked:
+  - It sets `organisation.ai_framework`.
+  - It re-files risks through `crosswalk.refileCategory`, recording a
+    `risk.recategorised` audit event per risk.
+  - For each new category that approved statements map into, it proposes the most
+    cautious of them for an approver. It skips any category that already has an
+    approved or pending statement.
+  - It records `organisation.ai_framework_set`.
+- **Templates:** the framework's templates are installed after the switch commits.
+  Installing is idempotent, so a failure can be retried by installing missing
+  templates.
+- **Re-filing:** one target each way. UK *Transparency and explainability* →
+  *Explainable and interpretable*. *Accountability* and *Contestability* both →
+  *Accountable and transparent*, which comes back as *Accountability* on a return
+  trip. Financial, Legal and the organisation's own categories stay.
+- **Wording that follows the framework:**
+  - each pack has `treatmentSource`, `categoriesName`, `appetiteIntro` and
+    `identificationTemplate`
+  - they're used by the appetite page, the risk treatment suggestions and their tag
+    on a mitigation, the AI risk profile, and the template an AI system prefers
+  - the training summary is now framework-neutral
+  - stage names and lifecycle gates were already neutral
+- **Help:** topic `ai-framework`.
 
 ### Phase 4 — NIST profile (current vs target)
 
