@@ -181,6 +181,9 @@ async function populated() {
     receivedAt: new Date(), description: "B's requester's secret request.", requesterName: "B's requester",
     actor: SYSTEM,
   });
+  const requestScope = await dsr.addScopeEntry({
+    requestId: subjectRequest.id, organisationId: id, kind: "recipient", label: "B's recipient", actor: SYSTEM,
+  });
 
   const useCase = await aiRegister.createUseCase({
     organisationId: id, entityId: o.entity.id, name: "B's model", purpose: "Secret purpose.",
@@ -257,7 +260,7 @@ async function populated() {
 
   return {
     ...o, template, dpiaVersion, workflow: workflows[0], stage, risk, mitigation, acceptance, appetite,
-    supplier, dpa, activity, breach, subjectRequest, useCase, change, assurance, incident, atrsRecord, request,
+    supplier, dpa, activity, breach, subjectRequest, requestScope, useCase, change, assurance, incident, atrsRecord, request,
     trainingRecord, assessment, approval, link, comment, document, scanner, finding: finding.finding,
     conversation, task, draft, domainClaim,
   };
@@ -462,6 +465,11 @@ describe("changing another organisation's records", () => {
     ["recordIdentity", () => dsr.recordIdentity({ requestId: B.subjectRequest.id, organisationId: A.org.id, step: "requested", actor: as() })],
     ["recordRequestDecision", () => dsr.recordRequestDecision({ organisationId: A.org.id, requestId: B.subjectRequest.id, kind: "other", rationale: "x", actor: as() })],
     ["respondToRequest", () => dsr.respondToRequest({ requestId: B.subjectRequest.id, organisationId: A.org.id, outcome: "complied", channel: "email", summary: "x", actor: as() })],
+    ["seedRequestScope", () => dsr.seedRequestScope({ requestId: B.subjectRequest.id, organisationId: A.org.id, actor: as() })],
+    ["addScopeEntry", () => dsr.addScopeEntry({ requestId: B.subjectRequest.id, organisationId: A.org.id, kind: "other", label: "taken", actor: as() })],
+    ["recordScopeResult", () => dsr.recordScopeResult({ scopeId: B.requestScope.id, organisationId: A.org.id, status: "not_held", actor: as() })],
+    ["recordRecipientNotice", () => dsr.recordRecipientNotice({ scopeId: B.requestScope.id, organisationId: A.org.id, notice: "notified", actor: as() })],
+    ["passToController", () => dsr.passToController({ requestId: B.subjectRequest.id, organisationId: A.org.id, controllerName: "taken", actor: as() })],
     ["closeRequest", () => dsr.closeRequest({ requestId: B.subjectRequest.id, organisationId: A.org.id, rationale: "x", withdrawn: true, actor: as() })],
     ["linkAssessment (B's breach)", () => breachesSvc.linkAssessment({ breachId: B.breach.id, organisationId: A.org.id, assessmentId: null, actor: as() })],
     ["withdrawComment", () => collaboration.withdrawComment({ commentId: B.comment.id, organisationId: A.org.id, actor: as() })],
@@ -524,6 +532,7 @@ describe("linking one's own records to another organisation's", () => {
     ["an AI system owned by B's person", () => aiRegister.updateUseCase({ useCaseId: mine.useCase.id, organisationId: A.org.id, changes: { ownerId: B.owner.user.id }, actor: as() })],
     ["a breach linked to B's assessment", () => breachesSvc.linkAssessment({ breachId: mine.breach.id, organisationId: A.org.id, assessmentId: B.assessment.id, actor: as() })],
     ["a data subject request in B's entity", () => dsr.recordRequest({ organisationId: A.org.id, entityId: B.entity.id, rights: ["access"], channel: "email", receivedAt: new Date(), description: "x", requesterName: "x", actor: as() })],
+    ["an objection about B's processing activity", () => dsr.recordRequestDecision({ organisationId: A.org.id, requestId: mine.subjectRequest.id, kind: "objection", processingBasis: "legitimate_interests", processingActivityId: B.activity.id, rationale: "x", actor: as() })],
     ["a data subject request handled by B's person", () => dsr.updateRequest({ requestId: mine.subjectRequest.id, organisationId: A.org.id, changes: { ownerId: B.owner.user.id }, actor: as() })],
     ["a breach in B's entity", () => breachesSvc.recordBreach({ organisationId: A.org.id, entityId: B.entity.id, title: "x", description: "x", discoveredAt: new Date(), actor: as() })],
     ["an incident about B's AI system", () => aiIncidents.reportIncident({ organisationId: A.org.id, useCaseId: B.useCase.id, kind: "challenge", source: "public", summary: "x", harm: "potential", confidential: false, reportedByLabel: "x", actor: as() })],
@@ -620,6 +629,7 @@ describe("lists", () => {
       ["thirdParty.registerHealth", thirdParty.registerHealth(o)] as const,
       ["training.trainedOwners", training.trainedOwners(o)] as const,
       ["trends.trendFor", trends.trendFor(o, null)] as const,
+      ["dsr.objectionCounts", dsr.objectionCounts(o)] as const,
       ["webhooks.pendingDeliveries", webhooks.pendingDeliveries(o)] as const,
       ["workflow.tasksDueSoon", workflow.tasksDueSoon(o, 24 * 365)] as const,
       ["domains.domainsFor", domains.domainsFor(o)] as const,
@@ -710,6 +720,8 @@ const NOT_TENANT_SCOPED: Record<string, string> = {
   "risk-policy.setRiskScale": "configures the caller's own organisation",
   "data-subject-requests.setDefaultJurisdiction": "configures the caller's own organisation",
   "data-subject-requests.defaultJurisdiction": "reads the caller's own organisation",
+  "data-subject-requests.setObjectionReviewThreshold": "configures the caller's own organisation",
+  "data-subject-requests.objectionReviewThreshold": "reads the caller's own organisation",
   "risk-policy.riskCount": "counts the caller's own risks",
   "risks.riskScaleOf": "reads the caller's own organisation",
   "templates.createTemplate": "creates a template in the caller's own organisation",

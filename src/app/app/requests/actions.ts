@@ -3,20 +3,27 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireCapability } from "@/lib/session";
-import { mayChooseDsrJurisdiction } from "@/lib/rbac";
+import { mayConfigureRequests } from "@/lib/rbac";
 import type { Jurisdiction, ProcessingBasis } from "@/lib/dsr/statutory";
 import { refusable, type EditResult } from "@/lib/edit-result";
 import {
   RequestRefused,
+  addScopeEntry,
   closeRequest,
+  passToController,
   recordIdentity,
+  recordRecipientNotice,
   recordRequest,
   recordRequestDecision,
+  recordScopeResult,
   respondToRequest,
+  seedRequestScope,
   setDefaultJurisdiction,
+  setObjectionReviewThreshold,
   updateRequest,
   type ControllerRole,
   type RequestDecision,
+  type ScopeEntry,
 } from "@/services/data-subject-requests";
 
 const text = (v: FormDataEntryValue | null) => String(v ?? "").trim();
@@ -73,6 +80,7 @@ export async function recordRequestAction(_prev: RequestResult, formData: FormDa
       representative: text(formData.get("representative")) || null,
       controllerRole: (text(formData.get("controllerRole")) || "controller") as ControllerRole,
       jurisdiction: (text(formData.get("jurisdiction")) || undefined) as Jurisdiction | undefined,
+      subjectCategories: lines(formData.get("subjectCategories")),
       ownerId: formData.get("ownMe") === "on" ? active.userId : null,
       actor: actorOf(active),
     });
@@ -87,7 +95,7 @@ export async function recordRequestAction(_prev: RequestResult, formData: FormDa
 export async function setJurisdictionAction(_prev: RequestResult, formData: FormData): Promise<RequestResult> {
   const active = await requireCapability("dsr.handle");
   // Organisation-wide, so a grant confined to one entity is not enough.
-  if (!mayChooseDsrJurisdiction(active.membership.grants)) {
+  if (!mayConfigureRequests(active.membership.grants)) {
     return { ok: false, message: "Only somebody who configures the whole organisation can change this." };
   }
   const jurisdiction = text(formData.get("jurisdiction")) as Jurisdiction;
@@ -170,6 +178,7 @@ export async function recordRequestDecisionAction(
       right: text(formData.get("right")) || null,
       statutoryBasis: text(formData.get("statutoryBasis")) || null,
       processingBasis: (text(formData.get("processingBasis")) || null) as ProcessingBasis | null,
+      processingActivityId: text(formData.get("processingActivityId")) || null,
       rationale: text(formData.get("rationale")),
       effectiveAt: when(formData.get("effectiveAt")) ?? undefined,
       actor: actorOf(active),
@@ -221,6 +230,117 @@ export async function closeRequestAction(
     });
   }, "Closed.");
   revalidatePath(`/app/requests/${requestId}`);
+  revalidatePath("/app/requests");
+  return result;
+}
+
+export async function seedScopeAction(requestId: string, _prev: RequestResult): Promise<RequestResult> {
+  const active = await requireCapability("dsr.handle");
+  let added = 0;
+  const result = await refused(async () => {
+    added = await seedRequestScope({ requestId, organisationId: active.membership.organisationId, actor: actorOf(active) });
+  }, "");
+  revalidatePath(`/app/requests/${requestId}`);
+  if (!result?.ok) return result;
+  return { ok: true, message: added === 0 ? "Nothing new in the ROPA for who they are." : `Added ${added} from the ROPA.` };
+}
+
+export async function addScopeAction(
+  requestId: string,
+  _prev: RequestResult,
+  formData: FormData,
+): Promise<RequestResult> {
+  const active = await requireCapability("dsr.handle");
+  const kind = text(formData.get("kind"));
+  const result = await refused(async () => {
+    await addScopeEntry({
+      requestId,
+      organisationId: active.membership.organisationId,
+      kind: kind === "recipient" || kind === "system" ? kind : "other",
+      label: text(formData.get("label")),
+      actor: actorOf(active),
+    });
+  }, "Added.");
+  revalidatePath(`/app/requests/${requestId}`);
+  return result;
+}
+
+export async function scopeResultAction(
+  requestId: string,
+  scopeId: string,
+  _prev: RequestResult,
+  formData: FormData,
+): Promise<RequestResult> {
+  const active = await requireCapability("dsr.handle");
+  const result = await refused(async () => {
+    await recordScopeResult({
+      scopeId,
+      organisationId: active.membership.organisationId,
+      status: text(formData.get("status")) as ScopeEntry["status"],
+      note: text(formData.get("note")) || null,
+      actor: actorOf(active),
+    });
+  }, "Saved.");
+  revalidatePath(`/app/requests/${requestId}`);
+  return result;
+}
+
+export async function recipientNoticeAction(
+  requestId: string,
+  scopeId: string,
+  _prev: RequestResult,
+  formData: FormData,
+): Promise<RequestResult> {
+  const active = await requireCapability("dsr.handle");
+  const result = await refused(async () => {
+    await recordRecipientNotice({
+      scopeId,
+      organisationId: active.membership.organisationId,
+      notice: text(formData.get("notice")) as NonNullable<ScopeEntry["recipientNotice"]>,
+      at: when(formData.get("at")) ?? undefined,
+      note: text(formData.get("note")) || null,
+      actor: actorOf(active),
+    });
+  }, "Recorded.");
+  revalidatePath(`/app/requests/${requestId}`);
+  return result;
+}
+
+export async function passToControllerAction(
+  requestId: string,
+  _prev: RequestResult,
+  formData: FormData,
+): Promise<RequestResult> {
+  const active = await requireCapability("dsr.handle");
+  const result = await refused(async () => {
+    await passToController({
+      requestId,
+      organisationId: active.membership.organisationId,
+      controllerName: text(formData.get("controllerName")),
+      at: when(formData.get("at")) ?? undefined,
+      assistance: text(formData.get("assistance")) || null,
+      actor: actorOf(active),
+    });
+  }, "Recorded.");
+  revalidatePath(`/app/requests/${requestId}`);
+  revalidatePath("/app/requests");
+  return result;
+}
+
+export async function setObjectionThresholdAction(_prev: RequestResult, formData: FormData): Promise<RequestResult> {
+  const active = await requireCapability("dsr.handle");
+  if (!mayConfigureRequests(active.membership.grants)) {
+    return { ok: false, message: "Only somebody who configures the whole organisation can change this." };
+  }
+  const result = await refused(
+    () =>
+      setObjectionReviewThreshold({
+        organisationId: active.membership.organisationId,
+        threshold: Number(text(formData.get("threshold"))),
+        actor: actorOf(active),
+      }),
+    "Saved.",
+  );
   revalidatePath("/app/requests");
   return result;
 }

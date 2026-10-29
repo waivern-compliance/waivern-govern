@@ -24,6 +24,23 @@ import { BANK_HOLIDAYS_ENGLAND_AND_WALES } from "./bank-holidays";
  */
 export type Jurisdiction = "uk" | "eu";
 
+/**
+ * When the DUAA 2025's changes to the data subject rights came into force: the
+ * clarification pause, and searches that need only be reasonable and
+ * proportionate. All of them commenced on 19 June 2026.
+ */
+export const DUAA_RIGHTS_IN_FORCE = new Date("2026-06-19T00:00:00Z");
+
+/**
+ * Does waiting for clarification stop this request's clock?
+ *
+ * Only under UK law, and only for a request received once the DUAA's changes
+ * were in force. One received before then runs on the rules it arrived under.
+ */
+export function clarificationStopsClock(jurisdiction: Jurisdiction, receivedAt: Date): boolean {
+  return jurisdiction === "uk" && receivedAt >= DUAA_RIGHTS_IN_FORCE;
+}
+
 export const JURISDICTION_LABEL: Record<Jurisdiction, string> = {
   uk: "UK GDPR and the Data Protection Act 2018",
   eu: "EU GDPR",
@@ -149,6 +166,41 @@ export function objectionTest(basis: ProcessingBasis): {
         : "Article 21 does not apply to processing on this basis. Consider whether the person is exercising another right, such as erasure or restriction.",
   };
 }
+
+/**
+ * What the ROPA suggests an objection is about, read from an activity's
+ * free-text lawful basis and its purposes.
+ *
+ * Only a suggestion: the handler confirms it, because the ROPA may be wrong
+ * and the answer decides whether the objection can be refused at all. Direct
+ * marketing is a purpose rather than a basis, so it wins wherever it appears.
+ */
+export function basisSuggestedBy(activity: { lawfulBasis: string | null; purposes: readonly string[] }): ProcessingBasis | null {
+  if (activity.purposes.some((p) => /\bmarketing\b/i.test(p))) return "direct_marketing";
+  const b = (activity.lawfulBasis ?? "").toLowerCase();
+  if (/legitimate/.test(b)) return "legitimate_interests";
+  if (/public (task|interest)|official authority/.test(b)) return "public_task";
+  if (/consent/.test(b)) return "consent";
+  if (/contract/.test(b)) return "contract";
+  if (/legal obligation/.test(b)) return "legal_obligation";
+  if (/vital/.test(b)) return "vital_interests";
+  return null;
+}
+
+/** How far back objections to one activity are counted. */
+export const OBJECTION_WINDOW_MONTHS = 12;
+
+/**
+ * Whether the objections to one activity should send its legitimate
+ * interests assessment back for review. A threshold of zero turns it off.
+ */
+export function objectionReviewDue(count: number, threshold: number): boolean {
+  return threshold > 0 && count >= threshold;
+}
+
+/** Article 18(1)(d), said where an objection is still being weighed. */
+export const RESTRICT_WHILE_WEIGHED =
+  "Article 18(1)(d): while you weigh an objection to processing on public task or legitimate interests, the person may have it restricted — kept, but not otherwise used — until you decide.";
 
 /** How many days before the deadline a request counts as due soon. */
 export const DUE_SOON_DAYS = 7;
@@ -305,7 +357,7 @@ export function requestClock(input: {
     };
   }
 
-  const pauses = input.pauses ?? [];
+  const pauses = clarificationStopsClock(input.jurisdiction, input.receivedAt) ? (input.pauses ?? []) : [];
   const dueAt = responseDeadline({
     startsAt,
     jurisdiction: input.jurisdiction,
@@ -326,7 +378,7 @@ export function requestClock(input: {
   }
 
   const open = pauses.some((p) => p.to === null);
-  if (open && input.jurisdiction === "uk") {
+  if (open) {
     return {
       state: "paused",
       dueAt,

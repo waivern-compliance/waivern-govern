@@ -1,0 +1,4 @@
+ALTER TABLE "organisation" ADD COLUMN "objection_review_threshold" integer DEFAULT 3 NOT NULL;--> statement-breakpoint
+ALTER TABLE "data_subject_request_decision" ADD COLUMN "processing_activity_id" uuid;--> statement-breakpoint
+ALTER TABLE "data_subject_request_decision" ADD CONSTRAINT "data_subject_request_decision_processing_activity_id_processing_activity_id_fk" FOREIGN KEY ("processing_activity_id") REFERENCES "public"."processing_activity"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "data_subject_request_decision_activity_idx" ON "data_subject_request_decision" USING btree ("processing_activity_id","effective_at");

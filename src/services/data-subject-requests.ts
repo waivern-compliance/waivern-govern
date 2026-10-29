@@ -1,16 +1,21 @@
-import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { db, withOrganisation } from "@/db/client";
 import {
   dataSubjectRequestDecisions,
+  dataSubjectRequestScope,
   dataSubjectRequests,
   entities,
   organisations,
+  processingActivities,
   referenceCounters,
+  suppliers,
   users,
 } from "@/db/schema";
 import { appendAuditEvent } from "@/lib/audit";
 import {
+  OBJECTION_WINDOW_MONTHS,
   RIGHT_KEYS,
+  clarificationStopsClock,
   clockStartsAt,
   extensionNoticeDeadline,
   objectionTest,
@@ -20,8 +25,9 @@ import {
   type ProcessingBasis,
   type Right,
 } from "@/lib/dsr/statutory";
+import { canonicalise } from "./ingest";
 import type { Actor } from "./templates";
-import { assertEntityIn, assertMemberOf } from "./tenancy-guards";
+import { assertEntityIn, assertMemberOf, assertRecordIn } from "./tenancy-guards";
 
 /**
  * The register of requests from data subjects, and the decisions taken about each.
@@ -35,7 +41,9 @@ import { assertEntityIn, assertMemberOf } from "./tenancy-guards";
 
 export type DataSubjectRequest = typeof dataSubjectRequests.$inferSelect;
 export type RequestDecision = typeof dataSubjectRequestDecisions.$inferSelect;
+export type ScopeEntry = typeof dataSubjectRequestScope.$inferSelect;
 type LoadedDecision = RequestDecision & { decidedByEmail: string | null };
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 export type ControllerRole = "controller" | "joint_controller" | "processor";
 
@@ -98,6 +106,44 @@ function clockOf(request: DataSubjectRequest, decisions: readonly RequestDecisio
   });
 }
 
+/** The rights after which recipients have to be told (Article 19). */
+const NOTIFIABLE = ["rectification", "erasure", "restriction"] as const;
+
+/**
+ * Has anything been done that Article 19 requires recipients to hear about?
+ *
+ * Only a rectification, erasure or restriction actually carried out, in whole
+ * or in part: a refusal changes nothing a recipient holds.
+ */
+export function recipientsMustBeTold(decisions: readonly RequestDecision[]): boolean {
+  return decisions.some(
+    (d) => (NOTIFIABLE as readonly string[]).includes(d.kind) && (d.outcome === "complied" || d.outcome === "partly"),
+  );
+}
+
+/**
+ * Recipients not yet told, once telling them is owed.
+ *
+ * One found not to hold this person's data has nothing to be told. Everyone
+ * else is told, or the record says why that proved impossible or would take
+ * disproportionate effort.
+ */
+export function recipientsStillToTell(scope: readonly ScopeEntry[], decisions: readonly RequestDecision[]): ScopeEntry[] {
+  if (!recipientsMustBeTold(decisions)) return [];
+  return scope.filter((e) => e.isRecipient && e.status !== "not_held" && e.recipientNotice === null);
+}
+
+/**
+ * Activities where an objection was upheld but the processing has not been
+ * recorded as stopped for this person.
+ */
+export function processingStillToStop(scope: readonly ScopeEntry[], decisions: readonly RequestDecision[]): ScopeEntry[] {
+  const upheld = new Set(
+    decisions.filter((d) => d.kind === "objection" && d.outcome === "complied" && d.processingActivityId).map((d) => d.processingActivityId!),
+  );
+  return scope.filter((e) => e.processingActivityId && upheld.has(e.processingActivityId) && e.status !== "actioned");
+}
+
 export type LoadedRequest = {
   request: DataSubjectRequest;
   entityName: string;
@@ -122,6 +168,96 @@ function assemble(
     extended: isExtended(decisions),
     clock: clockOf(request, decisions, now),
   };
+}
+
+/** "Customers" and "customer" are the same people. */
+function subjectKey(category: string): string {
+  const k = category.trim().toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  return k.length > 3 && k.endsWith("s") ? k.slice(0, -1) : k;
+}
+
+/**
+ * Add to a request's scope everything the ROPA says might hold the requester's data.
+ *
+ * The activities in the request's entity whose data subjects include who the
+ * requester is; the systems those activities run on; and the suppliers and
+ * other recipients they disclose to. A recipient or system named the same as
+ * a supplier on the register becomes that supplier, so it is listed once.
+ * Entries already there are left alone, so this can run again whenever the
+ * request's subject categories change.
+ */
+async function seedScope(tx: Tx, request: DataSubjectRequest): Promise<number> {
+  const wanted = new Set(request.subjectCategories.map(subjectKey).filter(Boolean));
+  if (wanted.size === 0) return 0;
+
+  const activities = (
+    await tx
+      .select()
+      .from(processingActivities)
+      .where(
+        and(
+          eq(processingActivities.organisationId, request.organisationId),
+          eq(processingActivities.entityId, request.entityId),
+        ),
+      )
+      .orderBy(asc(processingActivities.reference))
+  ).filter((a) => a.subjectCategories.some((c) => wanted.has(subjectKey(c))));
+  if (activities.length === 0) return 0;
+
+  const supplierRows = await tx
+    .select({ id: suppliers.id, name: suppliers.name })
+    .from(suppliers)
+    .where(eq(suppliers.organisationId, request.organisationId));
+  const supplierByName = new Map(supplierRows.map((r) => [canonicalise(r.name), r]));
+
+  type Entry = typeof dataSubjectRequestScope.$inferInsert;
+  const entries = new Map<string, Entry>();
+  const add = (e: Omit<Entry, "organisationId" | "requestId">) => {
+    if (!entries.has(e.key)) entries.set(e.key, { ...e, organisationId: request.organisationId, requestId: request.id });
+  };
+
+  for (const a of activities) {
+    const who = a.subjectCategories.filter((c) => wanted.has(subjectKey(c))).join(", ");
+    add({
+      kind: "activity",
+      key: `activity:${a.id}`,
+      processingActivityId: a.id,
+      label: `${a.reference} ${a.name}`,
+      reason: `Processes data about ${who}`,
+    });
+    for (const [names, role] of [[a.systems, "system"], [a.recipients, "recipient"]] as const) {
+      for (const name of names) {
+        const key = canonicalise(name);
+        if (!key) continue;
+        const supplier = supplierByName.get(key);
+        if (supplier) {
+          add({
+            kind: "supplier",
+            key: `supplier:${supplier.id}`,
+            supplierId: supplier.id,
+            label: supplier.name,
+            reason: `A ${role} of ${a.reference}`,
+            isRecipient: true,
+          });
+        } else {
+          add({
+            kind: role,
+            key: `${role}:${key}`,
+            label: name.trim(),
+            reason: `A ${role} of ${a.reference}`,
+            isRecipient: role === "recipient",
+          });
+        }
+      }
+    }
+  }
+
+  const inserted = await tx
+    .insert(dataSubjectRequestScope)
+    .values([...entries.values()])
+    .onConflictDoNothing()
+    .returning({ id: dataSubjectRequestScope.id });
+  return inserted.length;
 }
 
 async function nextReference(organisationId: string, year: number) {
@@ -263,13 +399,26 @@ export async function recordRequest(input: {
           role: row.controllerRole,
         },
       });
+
+      const seeded = await seedScope(tx, row);
+      if (seeded > 0) {
+        await appendAuditEvent(tx, {
+          ...input.actor,
+          organisationId: input.organisationId,
+          entityId: input.entityId,
+          action: "dsr.scope_seeded",
+          subjectType: "data_subject_request",
+          subjectId: row.id,
+          after: { reference, added: seeded },
+        });
+      }
       return row;
     });
   });
 }
 
 async function lockedRequest(
-  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  tx: Tx,
   requestId: string,
   organisationId: string,
 ) {
@@ -328,6 +477,22 @@ export async function updateRequest(input: {
         before: { changed: Object.keys(changes) },
         after: { reference: after.reference, ...(changes.rights ? { rights: changes.rights } : {}) },
       });
+
+      // Who the requester is decides where to look, so a change looks again.
+      if (changes.subjectCategories !== undefined && !after.respondedAt && !after.closedAt) {
+        const seeded = await seedScope(tx, after);
+        if (seeded > 0) {
+          await appendAuditEvent(tx, {
+            ...input.actor,
+            organisationId: input.organisationId,
+            entityId: before.entityId,
+            action: "dsr.scope_seeded",
+            subjectType: "data_subject_request",
+            subjectId: input.requestId,
+            after: { reference: after.reference, added: seeded },
+          });
+        }
+      }
       return after;
     });
   });
@@ -411,6 +576,8 @@ export async function recordRequestDecision(input: {
   right?: string | null;
   statutoryBasis?: string | null;
   processingBasis?: ProcessingBasis | null;
+  /** For an objection: the processing activity it is about. */
+  processingActivityId?: string | null;
   rationale: string;
   /** When it took effect. Defaults to now; a pause counts from here. */
   effectiveAt?: Date;
@@ -435,7 +602,13 @@ export async function recordRequestDecision(input: {
     }
   }
 
+  const processingActivityId = input.processingActivityId || null;
+  if (processingActivityId && input.kind !== "objection") {
+    throw new RequestRefused("Only an objection is recorded against a processing activity.");
+  }
+
   return withOrganisation(input.organisationId, async () => {
+    if (processingActivityId) await assertRecordIn(input.organisationId, "processing_activity", processingActivityId);
     return db.transaction(async (tx) => {
       const request = await lockedRequest(tx, input.requestId, input.organisationId);
       if (request.closedAt) throw new RequestRefused("This request is closed.");
@@ -453,13 +626,28 @@ export async function recordRequestDecision(input: {
         const deadline = extensionNoticeDeadline({
           startsAt,
           jurisdiction: request.jurisdiction,
-          pauses: pausesFrom(earlier),
+          pauses: clarificationStopsClock(request.jurisdiction, request.receivedAt) ? pausesFrom(earlier) : [],
           now: effectiveAt,
         });
         if (effectiveAt > deadline) {
           throw new RequestRefused("Too late to extend. Article 12(3) requires the person to be told within the first month, with the reasons for the delay.");
         }
       }
+      // Article 18(1)(d): asked for restriction while an objection is weighed,
+      // the person is entitled to it. Refusing it is open only once the
+      // objection has been decided.
+      if (
+        input.kind === "restriction" &&
+        outcome === "refused" &&
+        request.rights.includes("objection") &&
+        request.rights.includes("restriction") &&
+        !earlier.some((d) => d.kind === "objection")
+      ) {
+        throw new RequestRefused(
+          "They objected and asked for restriction meanwhile. Article 18(1)(d) entitles them to it until the objection is decided: restrict now, and decide the objection.",
+        );
+      }
+
       const open = pausesFrom(earlier).some((p) => p.to === null);
       if (input.kind === "clarification_requested" && open) {
         throw new RequestRefused("Clarification has already been asked for and not yet received.");
@@ -478,6 +666,7 @@ export async function recordRequestDecision(input: {
           right: input.right ?? null,
           statutoryBasis: input.statutoryBasis ?? null,
           processingBasis: input.processingBasis ?? null,
+          processingActivityId,
           rationale,
           effectiveAt,
           decidedBy: input.actor.actorUserId ?? null,
@@ -486,8 +675,11 @@ export async function recordRequestDecision(input: {
         .returning();
 
       // The clock decisions move the status with them; the rest leave it alone.
-      const status =
-        input.kind === "clarification_requested"
+      // Asking an EU requester to clarify is allowed, but stops nothing.
+      const stops = clarificationStopsClock(request.jurisdiction, request.receivedAt);
+      const status = !stops
+        ? null
+        : input.kind === "clarification_requested"
           ? ("paused" as const)
           : input.kind === "clarification_received"
             ? ("in_progress" as const)
@@ -513,6 +705,7 @@ export async function recordRequestDecision(input: {
           right: input.right ?? null,
           basis: input.statutoryBasis ?? null,
           processingBasis: input.processingBasis ?? null,
+          processingActivity: processingActivityId,
           effectiveAt: effectiveAt.toISOString(),
           rationale,
         },
@@ -627,12 +820,34 @@ export async function closeRequest(input: {
       const request = await lockedRequest(tx, input.requestId, input.organisationId);
       if (request.closedAt) throw new RequestRefused("This request is already closed.");
       const identityNeverConfirmed = request.identityRequestedAt !== null && request.identityVerifiedAt === null;
-      if (!request.respondedAt && !input.withdrawn && !identityNeverConfirmed) {
+      // A processor's part ends when it has passed the request on and helped.
+      const passedOn = request.controllerRole === "processor" && request.passedToControllerAt !== null;
+      if (!request.respondedAt && !input.withdrawn && !identityNeverConfirmed && !passedOn) {
         // A request that started its clock is owed a response, and closing it
         // quietly would turn an overdue answer into no answer at all.
         throw new RequestRefused(
-          "This request has not been answered. Record the response first, or close it as withdrawn if the person withdrew it.",
+          request.controllerRole === "processor"
+            ? "Record that the request was passed to the controller first, or close it as withdrawn if the person withdrew it."
+            : "This request has not been answered. Record the response first, or close it as withdrawn if the person withdrew it.",
         );
+      }
+      if (!input.withdrawn) {
+        const [decisions, scope] = await Promise.all([
+          tx.select().from(dataSubjectRequestDecisions).where(eq(dataSubjectRequestDecisions.requestId, input.requestId)),
+          tx.select().from(dataSubjectRequestScope).where(eq(dataSubjectRequestScope.requestId, input.requestId)),
+        ]);
+        const notStopped = processingStillToStop(scope, decisions);
+        if (notStopped.length > 0) {
+          throw new RequestRefused(
+            `An upheld objection means the processing stops for this person. Record it as acted on in where to look: ${notStopped.map((e) => e.label).sort().join(", ")}.`,
+          );
+        }
+        const untold = recipientsStillToTell(scope, decisions);
+        if (untold.length > 0) {
+          throw new RequestRefused(
+            `Article 19: ${untold.map((e) => e.label).sort().join(", ")} ${untold.length === 1 ? "has" : "have"} not been told of the correction, erasure or restriction. Record that each was told, or why that proved impossible or disproportionate.`,
+          );
+        }
       }
 
       const status = input.withdrawn ? ("withdrawn" as const) : ("closed" as const);
@@ -656,6 +871,330 @@ export async function closeRequest(input: {
   });
 }
 
+/** Look in the ROPA again, adding anything not already in scope. */
+export async function seedRequestScope(input: { requestId: string; organisationId: string; actor: Actor }) {
+  return withOrganisation(input.organisationId, async () => {
+    return db.transaction(async (tx) => {
+      const request = await lockedRequest(tx, input.requestId, input.organisationId);
+      if (request.closedAt) throw new RequestRefused("This request is closed.");
+      if (request.subjectCategories.length === 0) {
+        throw new RequestRefused("Say who the requester is to you — customer, employee, applicant — so the ROPA can say where to look.");
+      }
+      const added = await seedScope(tx, request);
+      await appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        entityId: request.entityId,
+        action: "dsr.scope_seeded",
+        subjectType: "data_subject_request",
+        subjectId: input.requestId,
+        after: { reference: request.reference, added },
+      });
+      return added;
+    });
+  });
+}
+
+/**
+ * Add somewhere to look that the ROPA does not mention.
+ *
+ * A shared mailbox, a spreadsheet, a recipient missing from the register.
+ * Worth fixing in the ROPA too, but the search cannot wait for that.
+ */
+export async function addScopeEntry(input: {
+  requestId: string;
+  organisationId: string;
+  kind: "system" | "recipient" | "other";
+  label: string;
+  actor: Actor;
+}) {
+  const label = input.label.trim();
+  if (!label) throw new RequestRefused("Name the place to look, or the recipient.");
+
+  return withOrganisation(input.organisationId, async () => {
+    return db.transaction(async (tx) => {
+      const request = await lockedRequest(tx, input.requestId, input.organisationId);
+      if (request.closedAt) throw new RequestRefused("This request is closed.");
+      const [row] = await tx
+        .insert(dataSubjectRequestScope)
+        .values({
+          organisationId: input.organisationId,
+          requestId: input.requestId,
+          kind: input.kind,
+          key: `${input.kind}:${canonicalise(label) || label.toLowerCase()}`,
+          label,
+          reason: "Added by hand",
+          isRecipient: input.kind === "recipient",
+        })
+        .onConflictDoNothing()
+        .returning();
+      if (!row) throw new RequestRefused(`${label} is already in scope.`);
+
+      await appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        entityId: request.entityId,
+        action: "dsr.scope_added",
+        subjectType: "data_subject_request",
+        subjectId: input.requestId,
+        after: { reference: request.reference, entry: row.id, kind: input.kind, label },
+      });
+      return row;
+    });
+  });
+}
+
+async function lockedEntry(tx: Tx, scopeId: string, organisationId: string) {
+  const [row] = await tx
+    .select({ entry: dataSubjectRequestScope, request: dataSubjectRequests })
+    .from(dataSubjectRequestScope)
+    .innerJoin(dataSubjectRequests, eq(dataSubjectRequests.id, dataSubjectRequestScope.requestId))
+    .where(and(eq(dataSubjectRequestScope.id, scopeId), eq(dataSubjectRequestScope.organisationId, organisationId)))
+    .for("update");
+  if (!row) throw new Error("No such scope entry");
+  if (row.request.closedAt) throw new RequestRefused("This request is closed.");
+  return row;
+}
+
+/**
+ * Record what was found in one place, and what was done there.
+ *
+ * Deciding not to act on data that was found needs a reason, because that is
+ * the judgement somebody will ask about.
+ */
+export async function recordScopeResult(input: {
+  scopeId: string;
+  organisationId: string;
+  status: ScopeEntry["status"];
+  note?: string | null;
+  actor: Actor;
+}) {
+  const note = input.note?.trim() || null;
+  if (input.status === "not_actioned" && !note) {
+    throw new RequestRefused("Say why nothing was done with what was found — an exemption, an Article 17(3) exception, a refusal.");
+  }
+
+  return withOrganisation(input.organisationId, async () => {
+    return db.transaction(async (tx) => {
+      const { entry, request } = await lockedEntry(tx, input.scopeId, input.organisationId);
+      const [after] = await tx
+        .update(dataSubjectRequestScope)
+        .set({
+          status: input.status,
+          note,
+          checkedBy: input.actor.actorUserId ?? null,
+          checkedByLabel: input.actor.actorLabel,
+          checkedAt: new Date(),
+        })
+        .where(eq(dataSubjectRequestScope.id, input.scopeId))
+        .returning();
+
+      await appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        entityId: request.entityId,
+        action: "dsr.scope_checked",
+        subjectType: "data_subject_request",
+        subjectId: request.id,
+        before: { status: entry.status },
+        after: { reference: request.reference, entry: entry.id, label: entry.label, status: input.status, note },
+      });
+      return after;
+    });
+  });
+}
+
+/**
+ * Record that a recipient was told of a correction, erasure or restriction,
+ * or why it was not (Article 19).
+ *
+ * Telling is owed only once one of those has been done, and not telling is
+ * allowed only where it proves impossible or involves disproportionate effort
+ * — which the record has to explain.
+ */
+export async function recordRecipientNotice(input: {
+  scopeId: string;
+  organisationId: string;
+  notice: NonNullable<ScopeEntry["recipientNotice"]>;
+  at?: Date;
+  note?: string | null;
+  actor: Actor;
+}) {
+  const note = input.note?.trim() || null;
+  if (input.notice !== "notified" && !note) {
+    throw new RequestRefused("Say why telling this recipient is impossible or would take disproportionate effort.");
+  }
+  const at = input.at ?? new Date();
+
+  return withOrganisation(input.organisationId, async () => {
+    return db.transaction(async (tx) => {
+      const { entry, request } = await lockedEntry(tx, input.scopeId, input.organisationId);
+      if (!entry.isRecipient) throw new RequestRefused(`${entry.label} is somewhere to search, not a recipient of the data.`);
+      const decisions = await tx
+        .select()
+        .from(dataSubjectRequestDecisions)
+        .where(eq(dataSubjectRequestDecisions.requestId, request.id));
+      if (!recipientsMustBeTold(decisions)) {
+        throw new RequestRefused(
+          "Article 19 applies once data has been rectified, erased or restricted. Record that decision first.",
+        );
+      }
+      if (at < request.receivedAt) throw new RequestRefused("That is before the request arrived.");
+
+      const [after] = await tx
+        .update(dataSubjectRequestScope)
+        .set({ recipientNotice: input.notice, recipientNoticeAt: at, recipientNoticeNote: note })
+        .where(eq(dataSubjectRequestScope.id, input.scopeId))
+        .returning();
+
+      await appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        entityId: request.entityId,
+        action: "dsr.recipient_notified",
+        subjectType: "data_subject_request",
+        subjectId: request.id,
+        after: { reference: request.reference, entry: entry.id, label: entry.label, notice: input.notice, at: at.toISOString(), note },
+      });
+      return after;
+    });
+  });
+}
+
+/**
+ * Where this organisation is the processor: record passing the request to the
+ * controller, and the help given (Article 28(3)(e)).
+ *
+ * The processor does not answer the person, so this is where its part ends.
+ */
+export async function passToController(input: {
+  requestId: string;
+  organisationId: string;
+  controllerName: string;
+  at?: Date;
+  assistance?: string | null;
+  actor: Actor;
+}) {
+  const controllerName = input.controllerName.trim();
+  if (!controllerName) throw new RequestRefused("Name the controller the request went to.");
+  const at = input.at ?? new Date();
+
+  return withOrganisation(input.organisationId, async () => {
+    return db.transaction(async (tx) => {
+      const request = await lockedRequest(tx, input.requestId, input.organisationId);
+      if (request.closedAt) throw new RequestRefused("This request is closed.");
+      if (request.controllerRole !== "processor") {
+        throw new RequestRefused("Only a processor passes a request on. As controller, you answer it.");
+      }
+      if (at < request.receivedAt) throw new RequestRefused("That is before the request arrived.");
+
+      const [after] = await tx
+        .update(dataSubjectRequests)
+        .set({
+          controllerName,
+          passedToControllerAt: at,
+          assistanceSummary: input.assistance?.trim() || null,
+          updatedAt: new Date(),
+        })
+        .where(eq(dataSubjectRequests.id, input.requestId))
+        .returning();
+
+      await appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        entityId: request.entityId,
+        action: "dsr.passed_to_controller",
+        subjectType: "data_subject_request",
+        subjectId: input.requestId,
+        after: { reference: request.reference, controllerName, at: at.toISOString(), assistance: after.assistanceSummary },
+      });
+      return after;
+    });
+  });
+}
+
+/** How many objections to one activity send its LIA back for review. */
+export async function objectionReviewThreshold(organisationId: string): Promise<number> {
+  return withOrganisation(organisationId, async () => {
+    const [org] = await db
+      .select({ threshold: organisations.objectionReviewThreshold })
+      .from(organisations)
+      .where(eq(organisations.id, organisationId));
+    return org?.threshold ?? 3;
+  });
+}
+
+export async function setObjectionReviewThreshold(input: { organisationId: string; threshold: number; actor: Actor }) {
+  if (!Number.isInteger(input.threshold) || input.threshold < 0 || input.threshold > 100) {
+    throw new RequestRefused("A whole number from 0, which turns it off, to 100.");
+  }
+  return withOrganisation(input.organisationId, async () => {
+    return db.transaction(async (tx) => {
+      const [before] = await tx
+        .select({ threshold: organisations.objectionReviewThreshold })
+        .from(organisations)
+        .where(eq(organisations.id, input.organisationId));
+      if (!before) throw new Error("No such organisation");
+      if (before.threshold === input.threshold) return;
+      await tx
+        .update(organisations)
+        .set({ objectionReviewThreshold: input.threshold })
+        .where(eq(organisations.id, input.organisationId));
+      await appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        action: "organisation.objection_review_threshold_set",
+        subjectType: "organisation",
+        subjectId: input.organisationId,
+        before: { threshold: before.threshold },
+        after: { threshold: input.threshold },
+      });
+    });
+  });
+}
+
+/**
+ * Objections decided against each activity in the last twelve months, upheld
+ * or overridden, one per request.
+ *
+ * Counts only: no requester, no request. An objection found not to apply is
+ * left out, because it says nothing about the balance struck.
+ */
+export async function objectionCounts(
+  organisationId: string,
+  activityIds?: string[],
+  now = new Date(),
+): Promise<Map<string, { upheld: number; overridden: number; total: number }>> {
+  if (activityIds && activityIds.length === 0) return new Map();
+  const since = new Date(now);
+  since.setUTCMonth(since.getUTCMonth() - OBJECTION_WINDOW_MONTHS);
+  return withOrganisation(organisationId, async () => {
+    const rows = await db
+      .select({
+        activityId: dataSubjectRequestDecisions.processingActivityId,
+        upheld: sql<number>`count(distinct ${dataSubjectRequestDecisions.requestId}) filter (where ${dataSubjectRequestDecisions.outcome} = 'complied')`,
+        overridden: sql<number>`count(distinct ${dataSubjectRequestDecisions.requestId}) filter (where ${dataSubjectRequestDecisions.outcome} = 'refused')`,
+        total: sql<number>`count(distinct ${dataSubjectRequestDecisions.requestId})`,
+      })
+      .from(dataSubjectRequestDecisions)
+      .where(
+        and(
+          eq(dataSubjectRequestDecisions.organisationId, organisationId),
+          eq(dataSubjectRequestDecisions.kind, "objection"),
+          inArray(dataSubjectRequestDecisions.outcome, ["complied", "refused"]),
+          gte(dataSubjectRequestDecisions.effectiveAt, since),
+          activityIds
+            ? inArray(dataSubjectRequestDecisions.processingActivityId, activityIds)
+            : sql`${dataSubjectRequestDecisions.processingActivityId} is not null`,
+        ),
+      )
+      .groupBy(dataSubjectRequestDecisions.processingActivityId);
+    return new Map(
+      rows.map((r) => [r.activityId!, { upheld: Number(r.upheld), overridden: Number(r.overridden), total: Number(r.total) }]),
+    );
+  });
+}
+
 async function decisionsFor(requestIds: string[]) {
   if (requestIds.length === 0) return [];
   return db
@@ -676,7 +1215,10 @@ function groupDecisions(rows: Awaited<ReturnType<typeof decisionsFor>>) {
   return byRequest;
 }
 
-export async function loadRequest(requestId: string, organisationId: string): Promise<LoadedRequest | null> {
+export async function loadRequest(
+  requestId: string,
+  organisationId: string,
+): Promise<(LoadedRequest & { scope: ScopeEntry[] }) | null> {
   return withOrganisation(organisationId, async () => {
     const [row] = await db
       .select({ request: dataSubjectRequests, entityName: entities.name, ownerEmail: users.email })
@@ -686,7 +1228,12 @@ export async function loadRequest(requestId: string, organisationId: string): Pr
       .where(and(eq(dataSubjectRequests.id, requestId), eq(dataSubjectRequests.organisationId, organisationId)));
     if (!row) return null;
     const decisions = groupDecisions(await decisionsFor([requestId])).get(requestId) ?? [];
-    return assemble(row.request, row.entityName, row.ownerEmail, decisions);
+    const scope = await db
+      .select()
+      .from(dataSubjectRequestScope)
+      .where(eq(dataSubjectRequestScope.requestId, requestId))
+      .orderBy(asc(dataSubjectRequestScope.kind), asc(dataSubjectRequestScope.label));
+    return { ...assemble(row.request, row.entityName, row.ownerEmail, decisions), scope };
   });
 }
 

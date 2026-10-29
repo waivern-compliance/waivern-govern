@@ -9,6 +9,8 @@ import { NotPermitted } from "@/components/NotPermitted";
 import { can } from "@/lib/rbac";
 import { getActiveSession } from "@/lib/session";
 import { GAP_WORDS, HARD_GAPS, loadActivity } from "@/services/ropa";
+import { objectionCounts, objectionReviewThreshold } from "@/services/data-subject-requests";
+import { objectionReviewDue } from "@/lib/dsr/statutory";
 import { updateActivityAction } from "../actions";
 import { savedKey } from "@/lib/saved-key";
 import { EditForm } from "@/components/EditForm";
@@ -49,6 +51,12 @@ export default async function ActivityPage({
     .where(eq(memberships.organisationId, active.membership.organisationId))
     .orderBy(asc(users.email)));
 
+  // Counts only — no requester — so anyone who may read the record may see them.
+  const [objections, threshold] = await Promise.all([
+    objectionCounts(active.membership.organisationId, [activity.id]).then((m) => m.get(activity.id)),
+    objectionReviewThreshold(active.membership.organisationId),
+  ]);
+
   const transfersText = (activity.transfers ?? [])
     .map((t) => (t.mechanism ? `${t.country}: ${t.mechanism}` : t.country))
     .join("\n");
@@ -73,6 +81,19 @@ export default async function ActivityPage({
             The red items are unqualified Article 30 requirements. Retention and
             security measures are qualified by “where possible”, so they are
             reported without being called a breach.
+          </p>
+        ) : null}
+        {objections ? (
+          <p
+            className={`max-w-prose text-xs ${
+              objectionReviewDue(objections.total, threshold) ? "text-amber-900" : "text-ink-soft"
+            }`}
+          >
+            {objections.total} objection{objections.total === 1 ? "" : "s"} in the last twelve months: {objections.upheld} upheld,{" "}
+            {objections.overridden} overridden.
+            {objectionReviewDue(objections.total, threshold)
+              ? " Past the organisation's threshold, so its legitimate interests assessment is due a review."
+              : ""}
           </p>
         ) : null}
       </header>

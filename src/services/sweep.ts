@@ -8,11 +8,14 @@ import {
   mitigations,
   notifications,
   organisations,
+  processingActivities,
   riskAcceptances,
   risks,
   schedules,
   slaPolicies,
   tasks,
+  templateVersions,
+  templates,
 } from "@/db/schema";
 import { appendAuditEvent } from "@/lib/audit";
 import { addMonths } from "@/lib/dates";
@@ -22,7 +25,8 @@ import { countriesDueForReview } from "./countries";
 import { forgetExpiredConversations } from "./assistant";
 import { notificationDeadline } from "@/lib/breach/statutory";
 import { breachesNeedingAttention } from "./breaches";
-import { requestsNeedingAttention } from "./data-subject-requests";
+import { objectionCounts, objectionReviewThreshold, requestsNeedingAttention } from "./data-subject-requests";
+import { objectionReviewDue } from "@/lib/dsr/statutory";
 import { EXPIRING_WITHIN_LABEL, dpasNeedingAttention } from "./third-party";
 import { appetitesDueForReview } from "./risk-policy";
 import { scopeLabel } from "@/lib/risk/appetite";
@@ -59,6 +63,7 @@ export type SweepResult = {
   conversationsForgotten: number;
   breachDeadlinesRaised: number;
   requestDeadlinesRaised: number;
+  objectionReviewsRaised: number;
   lapsedReviewsRaised: number;
   aiReviewsRaised: number;
   appetiteReviewsRaised: number;
@@ -512,6 +517,82 @@ async function raiseRequestDeadlines(organisationId: string): Promise<number> {
 }
 
 /**
+ * Activities people keep objecting to.
+ *
+ * Each objection is decided on its own, but a run of them says something
+ * about the balance struck in the legitimate interests assessment: that the
+ * people affected do not expect the processing, or mind it more than the
+ * assessment supposed. Past the organisation's threshold in twelve months,
+ * the activity's current LIA goes back to its owner; where there is none,
+ * that absence is the task.
+ *
+ * Keyed on how many thresholds have been crossed, so a second run of
+ * objections raises a second review rather than nothing.
+ */
+async function raiseObjectionReviews(organisationId: string): Promise<number> {
+  const threshold = await objectionReviewThreshold(organisationId);
+  if (threshold === 0) return 0;
+  const counts = await objectionCounts(organisationId);
+  const due = [...counts].filter(([, c]) => objectionReviewDue(c.total, threshold));
+  if (due.length === 0) return 0;
+
+  let raised = 0;
+  for (const [activityId, count] of due) {
+    const [activity] = await db
+      .select()
+      .from(processingActivities)
+      .where(and(eq(processingActivities.id, activityId), eq(processingActivities.organisationId, organisationId)));
+    if (!activity) continue;
+    const [lia] = await db
+      .select({ assessment: assessments })
+      .from(assessments)
+      .innerJoin(templateVersions, eq(templateVersions.id, assessments.templateVersionId))
+      .innerJoin(templates, eq(templates.id, templateVersions.templateId))
+      .where(
+        and(
+          eq(assessments.organisationId, organisationId),
+          eq(assessments.subjectType, "processing_activity"),
+          eq(assessments.subjectId, activityId),
+          eq(templates.kind, "lia"),
+          inArray(assessments.status, ["draft", "in_progress", "in_review", "returned", "approved"]),
+        ),
+      )
+      .orderBy(sql`${assessments.createdAt} desc`)
+      .limit(1);
+
+    const tally = `${count.total} objection(s) in the last twelve months: ${count.upheld} upheld, ${count.overridden} overridden.`;
+    await db.transaction(async (tx) => {
+      const task = await raiseTask(tx, {
+        organisationId,
+        entityId: activity.entityId,
+        type: "reassess",
+        ...(lia
+          ? {
+              title: `Review the LIA for ${activity.reference} ${activity.name}: people keep objecting`,
+              description: `${tally} Revisit the balancing test in ${lia.assessment.reference} with that in mind.`,
+              subjectType: "assessment" as const,
+              subjectId: lia.assessment.id,
+              ...(lia.assessment.ownerId
+                ? { assigneeUserId: lia.assessment.ownerId }
+                : { assigneeRole: "privacy_admin" as const }),
+            }
+          : {
+              title: `${activity.reference} ${activity.name} has no LIA, and people keep objecting`,
+              description: `${tally} Carry out a legitimate interests assessment, or check the lawful basis recorded for it.`,
+              subjectType: "processing_activity" as const,
+              subjectId: activity.id,
+              ...(activity.ownerId ? { assigneeUserId: activity.ownerId } : { assigneeRole: "privacy_admin" as const }),
+            }),
+        idempotencyKey: `objection-review:${activityId}:${Math.floor(count.total / threshold)}`,
+        actor: SYSTEM,
+      });
+      if (task) raised += 1;
+    });
+  }
+  return raised;
+}
+
+/**
  * Approved assessments whose review date has passed.
  *
  * Separate from the schedule that raised the reassessment, because the two say
@@ -679,6 +760,7 @@ export async function sweepOrganisation(organisationId: string): Promise<SweepRe
     conversationsForgotten: await forgetExpiredConversations(organisationId),
     breachDeadlinesRaised: await raiseBreachDeadlines(organisationId),
     requestDeadlinesRaised: await raiseRequestDeadlines(organisationId),
+    objectionReviewsRaised: await raiseObjectionReviews(organisationId),
     lapsedReviewsRaised: await raiseLapsedReviews(organisationId),
     aiReviewsRaised: await raiseAiReviews(organisationId),
     appetiteReviewsRaised: await raiseAppetiteReviews(organisationId),

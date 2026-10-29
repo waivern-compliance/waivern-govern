@@ -1,7 +1,7 @@
 # Plan: a register for data subject requests (access, objection and the other rights)
 
-Status: Phases 0–2 built (statutory module, register, deadlines). Phases 3–5 not started, so
-`data_subject_request_scope` below does not exist yet. Written 29 October 2026.
+Status: Phases 0–4 built (statutory module, register, deadlines, scope from the ROPA, Article 19,
+processor hand-over, objections against activities and the LIA loop). Phase 5 not started. Written 29 October 2026.
 
 ## What is asked for
 
@@ -51,8 +51,9 @@ What the plan reuses, all already in Govern:
    and requires a complaints route acknowledged within 30 days. The EU GDPR has none of
    these, and Govern has no jurisdiction setting. *Recommendation:* add a
    `jurisdiction` field (`uk` | `eu`) to each request, defaulting from a new
-   organisation setting. The CNIL template already carries a `jurisdiction`. Before
-   building, confirm when each DUAA provision came into force.
+   organisation setting. The CNIL template already carries a `jurisdiction`.
+   *Settled:* all the DUAA's changes to the rights came into force on 19 June 2026. A UK
+   request received before then is not paused for clarification.
 2. **What is kept about the requester.** *Recommendation:* store a name, a contact
    route and how their identity was checked (method, who checked, when), never a copy
    of the ID document. This keeps to data minimisation, and Govern's `evidence` table
@@ -196,16 +197,30 @@ provisions, to `legal-references.ts`.
 - **Notifications:** the existing route.
 - **Dashboard:** "requests due this week" and "overdue".
 
-### Phase 3: scope against ROPA and suppliers
-- Seed the scope checklist from ROPA and suppliers when a request is recorded.
-- Record Art. 19 notifications to recipients.
+### Phase 3: scope against ROPA and suppliers (built)
+- Seed the scope checklist from ROPA and suppliers when a request is recorded, and again
+  when its subject categories change. Matching is on subject category (singular and
+  plural alike) within the request's entity; an activity's systems and recipients are
+  matched to suppliers by canonical name, and listed as they are written otherwise.
+- Record Art. 19 notifications to recipients, per recipient (`recipient_notice`). A
+  request will not close while a recipient holding the data is unrecorded after a
+  rectification, erasure or restriction was carried out.
 - For processor-role requests, record when the request went to the controller and what
-  help was given.
+  help was given. Once passed on, the request can close without a response.
 
-### Phase 4: objections
-- The lawful-basis-aware objection decision.
-- Restriction while an objection is weighed.
-- The per-activity objection count and the LIA reassessment trigger.
+### Phase 4: objections (built)
+- The lawful-basis-aware objection decision, now recorded against a processing activity
+  (`data_subject_request_decision.processing_activity_id`, one decision per activity). The
+  form suggests the basis from the activity's free-text lawful basis, and direct marketing
+  from its purposes; the handler confirms it.
+- Restriction while an objection is weighed: prompted, and where the person asked for it,
+  refusing restriction is refused until the objection is decided (Art. 18(1)(d)).
+- An upheld objection keeps the request open until the activity's scope entry is
+  `actioned`.
+- The per-activity objection count (upheld or overridden, one per request, rolling twelve
+  months) shows on the ROPA record. Past `organisation.objection_review_threshold`
+  (default 3, 0 = off) the sweep raises a `reassess` task on the activity's current LIA,
+  or on the activity itself where it has none; re-raised at each multiple of the threshold.
 
 ### Phase 5: reporting and integration
 - **Reporting:** timeliness metrics (on time, extended, late, by right) in `metrics.ts`,

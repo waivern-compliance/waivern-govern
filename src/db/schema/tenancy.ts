@@ -37,6 +37,12 @@ export const organisations = pgTable("organisation", {
    * received.
    */
   dataProtectionJurisdiction: dataProtectionJurisdiction("data_protection_jurisdiction").notNull().default("uk"),
+  /**
+   * How many objections to one processing activity in twelve months — upheld
+   * or overridden — before its legitimate interests assessment is put back in
+   * front of somebody. Zero turns it off.
+   */
+  objectionReviewThreshold: integer("objection_review_threshold").notNull().default(3),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
