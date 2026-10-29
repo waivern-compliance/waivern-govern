@@ -79,6 +79,24 @@ const REFERENCES = [
   { code: "uk.equality2010.s149", regime: "Equality Act 2010", citation: "Section 149", title: "Public sector equality duty", url: "https://www.legislation.gov.uk/ukpga/2010/15/section/149", jurisdiction: "UK" },
   { code: "ehrc.psed", regime: "EHRC", citation: "Public sector equality duty guidance", title: "Technical guidance on meeting the public sector equality duty", url: "https://www.equalityhumanrights.com/guidance/public-sector-equality-duty-psed", jurisdiction: "UK" },
   { code: "uk.hra1998", regime: "Human Rights Act 1998", citation: "Human Rights Act 1998", title: "Convention rights public authorities must act compatibly with", url: "https://www.legislation.gov.uk/ukpga/1998/42/contents", jurisdiction: "UK" },
+  // The rights of the data subject, cited by the request register.
+  { code: "ukgdpr.art7.3", regime: "UK GDPR", citation: "Article 7(3)", title: "Withdrawing consent", url: "https://www.legislation.gov.uk/eur/2016/679/article/7", jurisdiction: "UK" },
+  { code: "ukgdpr.art12", regime: "UK GDPR", citation: "Article 12", title: "Transparent communication and modalities for exercising rights, including time limits", url: "https://www.legislation.gov.uk/eur/2016/679/article/12", jurisdiction: "UK" },
+  { code: "ukgdpr.art15", regime: "UK GDPR", citation: "Article 15", title: "Right of access by the data subject", url: "https://www.legislation.gov.uk/eur/2016/679/article/15", jurisdiction: "UK" },
+  { code: "ukgdpr.art17", regime: "UK GDPR", citation: "Article 17", title: "Right to erasure", url: "https://www.legislation.gov.uk/eur/2016/679/article/17", jurisdiction: "UK" },
+  { code: "ukgdpr.art18", regime: "UK GDPR", citation: "Article 18", title: "Right to restriction of processing", url: "https://www.legislation.gov.uk/eur/2016/679/article/18", jurisdiction: "UK" },
+  { code: "ukgdpr.art19", regime: "UK GDPR", citation: "Article 19", title: "Telling recipients about rectification, erasure or restriction", url: "https://www.legislation.gov.uk/eur/2016/679/article/19", jurisdiction: "UK" },
+  { code: "ukgdpr.art20", regime: "UK GDPR", citation: "Article 20", title: "Right to data portability", url: "https://www.legislation.gov.uk/eur/2016/679/article/20", jurisdiction: "UK" },
+  { code: "ukgdpr.art21", regime: "UK GDPR", citation: "Article 21", title: "Right to object", url: "https://www.legislation.gov.uk/eur/2016/679/article/21", jurisdiction: "UK" },
+  { code: "uk.dpa2018.sch2", regime: "Data Protection Act 2018", citation: "Schedule 2", title: "Exemptions from the rights of data subjects", url: "https://www.legislation.gov.uk/ukpga/2018/12/schedule/2", jurisdiction: "UK" },
+  { code: "uk.duaa2025", regime: "Data (Use and Access) Act 2025", citation: "Data (Use and Access) Act 2025", title: "Amendments to subject access: when time starts and stops, and reasonable and proportionate searches", url: "https://www.legislation.gov.uk/ukpga/2025/18/contents", jurisdiction: "UK" },
+  { code: "ico.rights", regime: "ICO guidance", citation: "Individual rights", title: "Guidance on handling requests from individuals, including how the month is counted", url: "https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/individual-rights/", jurisdiction: "UK" },
+  { code: "eugdpr.art12", regime: "EU GDPR", citation: "Article 12", title: "Transparent communication and modalities for exercising rights, including time limits", url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32016R0679", jurisdiction: "EU" },
+  { code: "eugdpr.art15", regime: "EU GDPR", citation: "Article 15", title: "Right of access by the data subject", url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32016R0679", jurisdiction: "EU" },
+  { code: "eugdpr.art17", regime: "EU GDPR", citation: "Article 17", title: "Right to erasure", url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32016R0679", jurisdiction: "EU" },
+  { code: "eugdpr.art18", regime: "EU GDPR", citation: "Article 18", title: "Right to restriction of processing", url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32016R0679", jurisdiction: "EU" },
+  { code: "eugdpr.art20", regime: "EU GDPR", citation: "Article 20", title: "Right to data portability", url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32016R0679", jurisdiction: "EU" },
+  { code: "edpb.access", regime: "EDPB", citation: "Guidelines 01/2022", title: "Data subject rights: the right of access", url: "https://www.edpb.europa.eu/our-work-tools/our-documents/guidelines/guidelines-012022-data-subject-rights-right-access_en", jurisdiction: "EU" },
 ] as const;
 
 /** The whole library: the references above, then NIST AI RMF 1.0's functions, categories and subcategories. */

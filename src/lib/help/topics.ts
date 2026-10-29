@@ -370,7 +370,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         heading: "Progress is measured, not remembered",
         body: [
           "A step is ticked because something exists, not because somebody clicked it. Beside each step is the count it was judged on — '3 activities recorded', '2 third parties without an agreement' — so you can check the judgement rather than trust it.",
-          "Three steps are never ticked: treating risks, breach readiness, and taking an export. Those are ongoing judgements rather than tasks you finish, and a tick beside them would say otherwise.",
+          "Four steps are never ticked: treating risks, breach readiness, knowing how to handle a request, and taking an export. Those are ongoing judgements rather than tasks you finish, and a tick beside them would say otherwise.",
         ],
       },
       {
@@ -609,6 +609,68 @@ export const HELP_TOPICS: HelpTopic[] = [
       },
     ],
     related: ["risks", "service-levels", "audit", "ropa"],
+  },
+  {
+    id: "data-subject-requests",
+    title: "Data subject requests",
+    summary:
+      "Record every request from a person exercising their rights, run the month to answer it, and keep the reasoning for each decision.",
+    path: "/app/requests",
+    keywords: [
+      "dsar", "sar", "subject access", "access request", "article 15", "erasure", "right to be forgotten",
+      "article 17", "objection", "object", "article 21", "rectification", "portability", "restriction",
+      "one month", "extension", "article 12", "direct marketing", "rights request",
+    ],
+    sections: [
+      {
+        heading: "Record it the day it arrives",
+        body: [
+          "A request can come by any route — email, a letter, a phone call, a message on social media, a comment to a member of staff — and need not name the law or the right. The month runs from when it arrived, not from when it reached the right person, so record it as soon as anybody recognises it.",
+          "Record only what you need: who is asking, how to reach them, and what they asked for. The register is restricted to the people who handle requests, because each entry is the requester's own personal data.",
+        ],
+      },
+      {
+        heading: "How the month is counted",
+        body: [
+          "From the day the clock starts to the same date next month. Where next month has no such date, the last day of the month. Where that falls on a weekend or a bank holiday, the next working day. That is how the ICO counts it, and the deadline shown is worked out that way.",
+          "The clock starts on receipt, unless you had reasonable doubt about who was asking and asked for proof. Then it starts when the proof arrives. Record how identity was checked, never a copy of the document.",
+        ],
+        points: [
+          "Extension: up to two more months, for complexity or number of requests, decided and explained to the person within the first month. Only once.",
+          "Pausing for clarification: UK only, since the Data (Use and Access) Act 2025. Where you hold a lot about somebody and genuinely need to know what they want, the month stops until they answer. The EU GDPR has no such pause, and a request recorded under EU law is not paused.",
+          "Each request keeps the law it was recorded under. Changing the organisation's default never moves a deadline already running.",
+        ],
+      },
+      {
+        heading: "Objections",
+        body: [
+          "An objection to direct marketing is absolute: the processing stops, and there are no grounds on which to refuse. The platform will not record one as overridden.",
+          "An objection to processing on public task or legitimate interests can be overridden only on compelling legitimate grounds that outweigh the person's interests, or for legal claims — and the burden is yours. Record the grounds in the decision. Consider restricting the processing while you decide.",
+          "Processing on any other basis is not open to objection under Article 21. Processing on consent stops when consent is withdrawn; anything else may be an erasure or restriction request in different words.",
+        ],
+      },
+      {
+        heading: "Responding",
+        body: [
+          "Write the response in whatever you normally use for letters. Record here what was sent, when and how, and link to it if it is kept somewhere linkable.",
+          "Anything short of doing everything asked — a refusal, an exemption, part of the data withheld — must tell the person why, and that they may complain to the supervisory authority and seek a judicial remedy. The platform will not record such a response without that.",
+          "A late response is still owed, and is recorded with the reason it was late.",
+        ],
+      },
+      {
+        heading: "Deadlines and tasks",
+        body: [
+          "A week before a request falls due, and again once it is overdue, the scheduler raises a task for whoever is handling it, or for the privacy administrators if nobody is. The task is due on the statutory date, not on a service level.",
+        ],
+      },
+      {
+        heading: "What the platform will not do",
+        body: [
+          "It will not answer the request, search your systems, or redact anything. It counts the month, refuses what the law does not allow, and keeps the record of who decided what and why.",
+        ],
+      },
+    ],
+    related: ["breaches", "ropa", "tasks", "audit"],
   },
   {
     id: "ai-register",
@@ -1327,7 +1389,7 @@ export const HELP_GROUPS: Array<{ heading: string; ids: string[] }> = [
   },
   {
     heading: "The registers",
-    ids: ["ropa", "third-parties", "breaches", "ai-register", "ai-intake", "ai-chain", "ai-incidents", "ai-profile", "transparency-records", "transfers", "findings"],
+    ids: ["ropa", "third-parties", "breaches", "data-subject-requests", "ai-register", "ai-intake", "ai-chain", "ai-incidents", "ai-profile", "transparency-records", "transfers", "findings"],
   },
   {
     heading: "Seeing where you stand",

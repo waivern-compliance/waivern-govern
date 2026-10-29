@@ -1,0 +1,345 @@
+import Link from "next/link";
+import { notFound, redirect } from "next/navigation";
+import { asc, eq } from "drizzle-orm";
+import { db, scoped } from "@/db/client";
+import { memberships, users } from "@/db/schema";
+import { EditForm } from "@/components/EditForm";
+import { NotPermitted } from "@/components/NotPermitted";
+import { RequestClock } from "@/components/dsr/RequestClock";
+import { JURISDICTION_LABEL, PROCESSING_BASIS_LABEL, REFUSAL_MUST_SAY, RIGHTS, type ProcessingBasis, type Right } from "@/lib/dsr/statutory";
+import { can } from "@/lib/rbac";
+import { savedKey } from "@/lib/saved-key";
+import { getActiveSession } from "@/lib/session";
+import { loadRequest } from "@/services/data-subject-requests";
+import { ActionForm } from "../ActionForm";
+import { RequestDecisionForm } from "../RequestDecisionForm";
+import { closeRequestAction, identityAction, respondAction, updateRequestAction } from "../actions";
+import { CHANNEL_LABEL, ChannelSelect, Label, RightsField, inputClass, stamp } from "../fields";
+
+const OUTCOME_LABEL: Record<string, string> = {
+  done: "done",
+  complied: "complied",
+  partly: "partly",
+  refused: "refused",
+  not_applicable: "not applicable",
+};
+
+export default async function RequestPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const active = await getActiveSession();
+  if (!active) redirect("/sign-in");
+
+  const loaded = await loadRequest(id, active.membership.organisationId);
+  if (!loaded) notFound();
+  const { request, entityName, decisions, clock, extended, ownerEmail } = loaded;
+
+  if (!can(active.membership.grants, "dsr.handle", request.entityId)) {
+    return (
+      <NotPermitted
+        what={`${request.reference} is a request from a data subject, and`}
+        organisationName={active.membership.organisationName}
+      />
+    );
+  }
+
+  const open = !request.respondedAt && !request.closedAt;
+  const colleagues = await scoped(active.membership.organisationId, () => db
+    .select({ id: users.id, email: users.email })
+    .from(memberships)
+    .innerJoin(users, eq(users.id, memberships.userId))
+    .where(eq(memberships.organisationId, active.membership.organisationId))
+    .orderBy(asc(users.email)));
+
+  return (
+    <main className="mx-auto max-w-3xl space-y-9 px-6 py-12">
+      <header className="space-y-3 border-b border-line pb-6">
+        <Link href="/app/requests" className="text-xs text-ink-soft hover:text-brand">
+          ← Data subject requests
+        </Link>
+        <div className="flex flex-wrap items-baseline gap-3">
+          <span className="font-mono text-sm text-ink-soft">{request.reference}</span>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {request.rights.map((r) => RIGHTS[r as Right]?.label ?? r).join(", ")}
+          </h1>
+        </div>
+        <p className="text-xs text-ink-soft">
+          {entityName} · {request.controllerRole.replace(/_/g, " ")} · {request.status.replace(/_/g, " ")} ·{" "}
+          {JURISDICTION_LABEL[request.jurisdiction]}
+          {extended ? " · extended" : ""}
+          {ownerEmail ? ` · handled by ${ownerEmail}` : " · nobody handling it yet"}
+        </p>
+        <p className="text-xs text-ink-soft">
+          From {request.requesterName}
+          {request.representative ? `, through ${request.representative}` : ""} · received {stamp(request.receivedAt)} by{" "}
+          {CHANNEL_LABEL[request.channel]?.toLowerCase() ?? request.channel}
+        </p>
+        <RequestClock clock={clock} />
+        {request.controllerRole === "processor" ? (
+          <p className="max-w-prose rounded border border-amber-700 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            You are the processor. Article 28(3)(e): pass the request to the
+            controller without delay and help them answer it — do not answer
+            the person yourself unless the controller has told you to.
+          </p>
+        ) : null}
+      </header>
+
+      <section className="space-y-2">
+        <h2 className="text-sm font-semibold">What was asked</h2>
+        <p className="max-w-prose whitespace-pre-line text-sm">{request.description}</p>
+        <ul className="space-y-1.5">
+          {request.rights.map((r) => {
+            const right = RIGHTS[r as Right];
+            return right ? (
+              <li key={r} className="rounded border border-line bg-surface px-3 py-2 text-xs">
+                <span className="font-medium">{right.label}</span>{" "}
+                <span className="font-mono text-ink-soft">{right.article}</span> — {right.summary}
+              </li>
+            ) : null;
+          })}
+        </ul>
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="text-sm font-semibold">Identity</h2>
+        <p className="max-w-prose text-sm text-ink-soft">
+          {request.identityVerifiedAt
+            ? `Confirmed ${stamp(request.identityVerifiedAt)}: ${request.identityMethod}.`
+            : request.identityRequestedAt
+              ? `Proof asked for ${stamp(request.identityRequestedAt)}. The month starts when it arrives.`
+              : request.identityMethod
+                ? `Not in doubt: ${request.identityMethod}.`
+                : "Not asked for, so the month has run from receipt. Ask only where there is reasonable doubt about who is asking (Article 12(6)); the month then waits for the answer."}
+        </p>
+        {open ? (
+          <ActionForm action={identityAction.bind(null, request.id)} submit="Record">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block space-y-1">
+                <Label text="What happened" />
+                <select name="step" defaultValue={request.identityRequestedAt ? "verified" : "requested"} className={inputClass}>
+                  <option value="requested">We asked for proof of identity</option>
+                  <option value="verified">Identity confirmed</option>
+                </select>
+              </label>
+              <label className="block space-y-1">
+                <Label text="When" hint="Leave blank for now." />
+                <input name="at" type="datetime-local" className={inputClass} />
+              </label>
+            </div>
+            <label className="block space-y-1">
+              <Label text="How it was checked" hint="The method, never the document: “matched account email and postcode”." />
+              <input name="method" className={inputClass} />
+            </label>
+          </ActionForm>
+        ) : null}
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="text-sm font-semibold">Decisions ({decisions.length})</h2>
+        <ul className="divide-y divide-line overflow-hidden rounded border border-line bg-surface">
+          {decisions.map((d) => (
+            <li key={d.id} className="space-y-1 px-4 py-3">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                <span className="text-sm font-medium">
+                  {d.kind.replace(/_/g, " ")}
+                  {d.outcome !== "done" ? ` — ${OUTCOME_LABEL[d.outcome]}` : ""}
+                  {d.right && request.rights.length > 1 ? ` (${RIGHTS[d.right as Right]?.label ?? d.right})` : ""}
+                </span>
+                <span className="font-mono text-[11px] text-ink-soft">{d.statutoryBasis ?? "no provision cited"}</span>
+              </div>
+              {d.processingBasis ? (
+                <p className="text-xs text-ink-soft">
+                  Processing relies on {PROCESSING_BASIS_LABEL[d.processingBasis as ProcessingBasis]?.toLowerCase() ?? d.processingBasis}
+                </p>
+              ) : null}
+              <p className="max-w-prose text-sm">{d.rationale}</p>
+              <p className="font-mono text-[11px] text-ink-soft">
+                {d.decidedByEmail ?? d.decidedByLabel} · {stamp(d.decidedAt)}
+                {Math.abs(d.effectiveAt.getTime() - d.decidedAt.getTime()) > 60_000 ? ` · took effect ${stamp(d.effectiveAt)}` : ""}
+              </p>
+            </li>
+          ))}
+          {decisions.length === 0 ? (
+            <li className="px-4 py-5 text-sm text-ink-soft">
+              Nothing decided yet. Work out where their data is held, and what
+              each right asks of you.
+            </li>
+          ) : null}
+        </ul>
+      </section>
+
+      {!request.closedAt ? <RequestDecisionForm requestId={request.id} rights={request.rights} /> : null}
+
+      {request.respondedAt ? (
+        <section className="space-y-1 rounded border border-line bg-surface p-5">
+          <h2 className="text-sm font-semibold">
+            {request.status === "refused" ? "Refused" : "Responded"} {stamp(request.respondedAt)} by{" "}
+            {CHANNEL_LABEL[request.responseChannel ?? ""]?.toLowerCase() ?? request.responseChannel}
+          </h2>
+          <p className="max-w-prose text-sm">{request.responseSummary}</p>
+          {request.responseLink ? (
+            <a href={request.responseLink} className="text-xs text-brand underline" rel="noreferrer" target="_blank">
+              The response, where it is kept
+            </a>
+          ) : null}
+          {request.toldOfComplaintRight ? (
+            <p className="text-xs text-ink-soft">Told they may complain to the supervisory authority and seek a judicial remedy.</p>
+          ) : null}
+          {request.lateReason ? (
+            <p className="max-w-prose text-xs text-amber-900">Late because: {request.lateReason}</p>
+          ) : null}
+        </section>
+      ) : open ? (
+        <ActionForm action={respondAction.bind(null, request.id)} submit="Record the response">
+          <h2 className="text-sm font-semibold">Record the response</h2>
+          <p className="max-w-prose text-xs text-ink-soft">
+            Write it in whatever you use for letters; record here what was sent
+            and, if you can, link to it. Anything short of doing everything
+            asked must say why — {REFUSAL_MUST_SAY}
+          </p>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <label className="block space-y-1">
+              <Label text="Outcome" />
+              <select name="outcome" defaultValue="complied" className={inputClass}>
+                <option value="complied">Did what was asked</option>
+                <option value="partly">Partly</option>
+                <option value="refused">Refused</option>
+              </select>
+            </label>
+            <label className="block space-y-1">
+              <Label text="Sent by" />
+              <ChannelSelect defaultValue={request.channel === "via_processor" ? "email" : request.channel} />
+            </label>
+            <label className="block space-y-1">
+              <Label text="When" hint="Leave blank for now." />
+              <input name="respondedAt" type="datetime-local" className={inputClass} />
+            </label>
+          </div>
+          <label className="block space-y-1">
+            <Label text="What was sent" hint="A sentence or two: what was provided, done or withheld." />
+            <textarea name="summary" required rows={2} className={inputClass} />
+          </label>
+          <label className="block space-y-1">
+            <Label text="Where the response is kept" hint="Optional link, to wherever the letter or pack lives." />
+            <input name="link" type="url" placeholder="https://" className={inputClass} />
+          </label>
+          <label className="flex items-start gap-2.5 text-sm">
+            <input type="checkbox" name="toldOfComplaintRight" className="mt-1 accent-brand" />
+            <span>It told them they may complain to the supervisory authority and seek a judicial remedy</span>
+          </label>
+          {clock.state === "overdue" ? (
+            <label className="block space-y-1">
+              <Label text="Why it was late" hint="Required: the deadline has passed." />
+              <textarea name="lateReason" rows={2} className={inputClass} />
+            </label>
+          ) : null}
+        </ActionForm>
+      ) : null}
+
+      {!request.closedAt ? (
+        <ActionForm action={closeRequestAction.bind(null, request.id)} submit="Close the request">
+          <h2 className="text-sm font-semibold">Close</h2>
+          <p className="max-w-prose text-xs text-ink-soft">
+            {request.respondedAt
+              ? "Once anything that followed the response is done — corrections made, recipients told."
+              : "An unanswered request can only be closed if the person withdrew it, or never confirmed who they were after you reasonably asked."}
+          </p>
+          <label className="block space-y-1">
+            <Label text="Why" />
+            <textarea name="rationale" required rows={2} className={inputClass} />
+          </label>
+          {!request.respondedAt ? (
+            <label className="flex items-start gap-2.5 text-sm">
+              <input type="checkbox" name="withdrawn" className="mt-1 accent-brand" />
+              <span>They withdrew it</span>
+            </label>
+          ) : null}
+        </ActionForm>
+      ) : (
+        <section className="space-y-1 rounded border border-line bg-surface p-5">
+          <h2 className="text-sm font-semibold">
+            {request.status === "withdrawn" ? "Withdrawn" : "Closed"} {stamp(request.closedAt)}
+          </h2>
+          <p className="max-w-prose text-sm text-ink-soft">{request.closureRationale}</p>
+        </section>
+      )}
+
+      <EditForm
+        key={savedKey(request)}
+        action={updateRequestAction.bind(null, request.id)}
+        className="space-y-4 rounded border border-line bg-surface p-5"
+      >
+        <h2 className="text-sm font-semibold">The record</h2>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="block space-y-1">
+            <Label text="Who is asking" />
+            <input name="requesterName" defaultValue={request.requesterName} className={inputClass} />
+          </label>
+          <label className="block space-y-1">
+            <Label text="How to reach them" />
+            <input name="requesterContact" defaultValue={request.requesterContact ?? ""} className={inputClass} />
+          </label>
+        </div>
+        <label className="block space-y-1">
+          <Label text="What they asked for" />
+          <textarea name="description" rows={3} defaultValue={request.description} className={inputClass} />
+        </label>
+        <RightsField selected={request.rights} />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="block space-y-1">
+            <Label text="Acting for them" />
+            <input name="representative" defaultValue={request.representative ?? ""} className={inputClass} />
+          </label>
+          <label className="block space-y-1">
+            <Label text="Their authority to act checked?" />
+            <select
+              name="representativeAuthorityChecked"
+              defaultValue={request.representativeAuthorityChecked === null ? "" : request.representativeAuthorityChecked ? "yes" : "no"}
+              className={inputClass}
+            >
+              <option value="">Not applicable or not yet</option>
+              <option value="yes">Yes</option>
+              <option value="no">No</option>
+            </select>
+          </label>
+        </div>
+        <label className="block space-y-1">
+          <Label text="Who they are to you" hint="Customer, employee, applicant — one per line. Decides where to look." />
+          <textarea name="subjectCategories" rows={2} defaultValue={request.subjectCategories.join("\n")} className={inputClass} />
+        </label>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <label className="block space-y-1">
+            <Label text="Arrived by" />
+            <ChannelSelect defaultValue={request.channel} />
+          </label>
+          <label className="block space-y-1">
+            <Label text="Your role" />
+            <select name="controllerRole" defaultValue={request.controllerRole} className={inputClass}>
+              <option value="controller">Controller</option>
+              <option value="joint_controller">Joint controller</option>
+              <option value="processor">Processor</option>
+            </select>
+          </label>
+          <label className="block space-y-1">
+            <Label text="Handled by" />
+            <select name="ownerId" defaultValue={request.ownerId ?? ""} className={inputClass}>
+              <option value="">Nobody yet</option>
+              {colleagues.map((c) => (
+                <option key={c.id} value={c.id}>{c.email}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <p className="max-w-prose text-xs text-ink-soft">
+          When it arrived and the law it is handled under are not editable:
+          they set the deadline, and changing them afterwards would rewrite it.
+        </p>
+        <button
+          type="submit"
+          className="rounded bg-brand px-4 py-2 text-sm font-medium text-white hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+        >
+          Save the record
+        </button>
+      </EditForm>
+    </main>
+  );
+}

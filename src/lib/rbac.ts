@@ -62,6 +62,13 @@ export const CAPABILITIES = [
   "audit.export",
   /** See who raised a confidential concern. Whistleblowing depends on few people holding this. */
   "concern.confidential",
+  /**
+   * Read and handle requests from data subjects. Separate from `record.read`
+   * because each request is the requester's own personal data — sometimes
+   * about their health or a grievance — and an auditor or approver reading the
+   * registers has no need to see who asked for what.
+   */
+  "dsr.handle",
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -85,6 +92,7 @@ const ROLE_CAPABILITIES: Record<AppRole, readonly Capability[]> = {
     "audit.read",
     "audit.export",
     "concern.confidential",
+    "dsr.handle",
   ],
   privacy_analyst: [
     "record.read",
@@ -94,6 +102,7 @@ const ROLE_CAPABILITIES: Record<AppRole, readonly Capability[]> = {
     "assessment.submit",
     "risk.manage",
     "schedule.manage",
+    "dsr.handle",
   ],
   ai_governance: [
     "record.read",
@@ -192,6 +201,23 @@ export function mayManageEntities(grants: readonly Grant[]): boolean {
  */
 export function mayChooseAiFramework(grants: readonly Grant[]): boolean {
   return grants.some((g) => g.scope === "organisation" && canForKind([g], "workflow.configure", "ai_risk"));
+}
+
+/**
+ * May this person choose which law new data subject requests are handled under?
+ *
+ * Somebody who both handles requests and configures the organisation's
+ * workflows, across the whole organisation: an owner or a privacy
+ * administrator. The choice sets how every new deadline is counted, so a grant
+ * confined to one entity is not enough.
+ */
+export function mayChooseDsrJurisdiction(grants: readonly Grant[]): boolean {
+  return grants.some(
+    (g) =>
+      g.scope === "organisation" &&
+      ROLE_CAPABILITIES[g.role].includes("dsr.handle") &&
+      ROLE_CAPABILITIES[g.role].includes("workflow.configure"),
+  );
 }
 
 /**

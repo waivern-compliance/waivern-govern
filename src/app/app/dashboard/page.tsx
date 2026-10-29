@@ -7,6 +7,7 @@ import { can } from "@/lib/rbac";
 import { NotPermitted } from "@/components/NotPermitted";
 import { getActiveSession, visibleEntityIds } from "@/lib/session";
 import { dashboardMetrics } from "@/services/metrics";
+import { requestRegister } from "@/services/data-subject-requests";
 
 export default async function Dashboard() {
   const active = await getActiveSession();
@@ -25,6 +26,12 @@ const m = await dashboardMetrics(
     active.membership.organisationId,
     visibleEntityIds(active),
   );
+
+  // Requests are the requester's own personal data, so their counts are shown
+  // only to the people who handle them.
+  const requests = can(active.membership.grants, "dsr.handle")
+    ? await requestRegister(active.membership.organisationId, visibleEntityIds(active, "dsr.handle"))
+    : null;
 
   const treated = m.riskPosture.reduce((n, r) => n + r.residual, 0);
   const shift =
@@ -90,6 +97,24 @@ const m = await dashboardMetrics(
           tone={m.attention.reviewsOverdue > 0 ? "critical" : "good"}
           note="approved, and nobody has confirmed it still holds"
         />
+        {requests ? (
+          <>
+            <Tile
+              label="Requests due this week"
+              value={requests.dueSoon}
+              href="/app/requests"
+              tone={requests.dueSoon > 0 ? "warning" : "good"}
+              note="from data subjects: respond, or extend and say why"
+            />
+            <Tile
+              label="Requests past deadline"
+              value={requests.overdue}
+              href="/app/requests"
+              tone={requests.overdue > 0 ? "critical" : "good"}
+              note="the response is still owed"
+            />
+          </>
+        ) : null}
       </section>
 
       <div className="grid gap-8 lg:grid-cols-2">

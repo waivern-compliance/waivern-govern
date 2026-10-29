@@ -61,6 +61,9 @@ export const recordType = pgEnum("record_type", [
   "ai_use_case_request",
   "training_record",
   "framework_profile_item",
+  // Added with the register of requests from data subjects.
+  "data_subject_request",
+  "data_subject_request_decision",
 ]);
 
 /**
@@ -218,6 +221,72 @@ export const riskScale = pgEnum("risk_scale", ["4x4", "5x5"]);
 export const aiFramework = pgEnum("ai_framework", ["uk_dsit", "nist_ai_rmf"]);
 
 /**
+ * Which data protection law sets the clock for a request from a data subject.
+ * The UK and EU texts have drifted apart on exactly this: only the UK lets the
+ * month stop while clarification is awaited. See `lib/dsr/statutory.ts`.
+ */
+export const dataProtectionJurisdiction = pgEnum("data_protection_jurisdiction", ["uk", "eu"]);
+
+/**
+ * Where a request from a data subject is in its handling.
+ *
+ * `verifying` and `paused` are the two states in which the month is not
+ * running: waiting for proof of identity, and (UK only) waiting for
+ * clarification. Everything else either runs the clock or has stopped it.
+ */
+export const dsrStatus = pgEnum("dsr_status", [
+  "received",
+  "verifying",
+  "in_progress",
+  "paused",
+  "responded",
+  "refused",
+  "withdrawn",
+  "closed",
+]);
+
+/**
+ * What a decision about a request was about.
+ *
+ * The clock decisions (`clarification_requested`, `clarification_received`,
+ * `extension`) move the deadline, so they are kept as decisions rather than
+ * overwritten fields: the deadline has to be reproducible from the record. The
+ * rest are the judgements each right calls for.
+ */
+export const dsrDecisionKind = pgEnum("dsr_decision_kind", [
+  "clarification_requested",
+  "clarification_received",
+  "extension",
+  "fee",
+  "refusal",
+  "exemption",
+  "objection",
+  "erasure",
+  "rectification",
+  "restriction",
+  "portability",
+  "automated_decision",
+  "recipients_notified",
+  "other",
+]);
+
+/**
+ * What was decided.
+ *
+ * `complied` and `refused` read per kind: for an objection, upheld or
+ * overridden; for erasure, deleted or kept under an Article 17(3) exception.
+ * `partly` is a real answer — an access request answered with some data
+ * withheld under an exemption is both.
+ */
+export const dsrDecisionOutcome = pgEnum("dsr_decision_outcome", [
+  "done",
+  "complied",
+  "partly",
+  "refused",
+  "not_applicable",
+]);
+
+/**
  * How far an organisation meets one outcome in a framework profile, now or as
  * its target. See `lib/ai-frameworks/profile.ts`.
  */
@@ -285,6 +354,12 @@ export const taskType = pgEnum("task_type", [
   "breach_deadline",
   /** A report about an AI system that somebody has to look at and decide on. */
   "triage_incident",
+  /**
+   * The month to answer a request from a data subject under Article 12(3).
+   * Set by statute like the breach deadline, and computed from the request
+   * rather than from when the task was raised.
+   */
+  "dsr_deadline",
 ]);
 
 export const taskStatus = pgEnum("task_status", [
