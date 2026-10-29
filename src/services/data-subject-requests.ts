@@ -25,7 +25,10 @@ import {
   type ProcessingBasis,
   type Right,
 } from "@/lib/dsr/statutory";
+import { requestTimeliness, type Timeliness } from "@/lib/dsr/metrics";
+import { BadQuery } from "@/lib/integration/query";
 import { canonicalise } from "./ingest";
+import { monthsEnding } from "./trends";
 import type { Actor } from "./templates";
 import { assertEntityIn, assertMemberOf, assertRecordIn } from "./tenancy-guards";
 
@@ -1268,6 +1271,93 @@ export async function requestRegister(organisationId: string, entityIds: string[
       answeredOnTime: answered.filter((r) => r.clock.state === "met").length,
       answeredLate: answered.filter((r) => r.clock.state === "late").length,
       rows: loaded,
+    };
+  });
+}
+
+/**
+ * Timeliness over the requests received in the last `months` months, by
+ * right and by month, plus how the objections among them were decided.
+ *
+ * Counts only, so it can go on a dashboard, into a spreadsheet, or over the
+ * Integration API to the Portal's data subject rights procedure, without any
+ * requester going with it.
+ */
+export async function requestMetrics(
+  organisationId: string,
+  entityIds: string[] | null,
+  months = 12,
+  now = new Date(),
+): Promise<Timeliness & { months: number; from: Date; to: Date; objections: { decided: number; upheld: number; overridden: number; notApplicable: number } }> {
+  const periods = monthsEnding(now, months);
+  const from = periods[0].start;
+  const register = await requestRegister(organisationId, entityIds);
+  const inWindow = register.rows.filter((r) => r.request.receivedAt >= from && r.request.receivedAt <= now);
+  const objections = inWindow.flatMap((r) => r.decisions.filter((d) => d.kind === "objection"));
+  return {
+    months,
+    from,
+    to: now,
+    ...requestTimeliness(
+      inWindow.map((r) => ({
+        rights: r.request.rights,
+        receivedAt: r.request.receivedAt,
+        respondedAt: r.request.respondedAt,
+        clockState: r.clock.state,
+        extended: r.extended,
+        status: r.request.status,
+        closedAt: r.request.closedAt,
+      })),
+      periods,
+    ),
+    objections: {
+      decided: objections.length,
+      upheld: objections.filter((d) => d.outcome === "complied").length,
+      overridden: objections.filter((d) => d.outcome === "refused").length,
+      notApplicable: objections.filter((d) => d.outcome === "not_applicable").length,
+    },
+  };
+}
+
+/**
+ * The Integration API's summary of requests: counts only.
+ *
+ * Entities are named as the context export names them — by name or legal
+ * entity reference. One that matches nothing is refused rather than counted
+ * as zero, because a summary of nothing reads exactly like a clean record.
+ */
+export async function requestsSummary(input: { organisationId: string; entities?: string[]; months?: number }) {
+  const months = input.months ?? 12;
+  return withOrganisation(input.organisationId, async () => {
+    const [org] = await db
+      .select({ name: organisations.name, slug: organisations.slug, jurisdiction: organisations.dataProtectionJurisdiction })
+      .from(organisations)
+      .where(eq(organisations.id, input.organisationId));
+    if (!org) throw new Error("No such organisation");
+
+    let entityIds: string[] | null = null;
+    if (input.entities?.length) {
+      const all = await db.select().from(entities).where(eq(entities.organisationId, input.organisationId));
+      const unknown = input.entities.filter((n) => !all.some((e) => e.name === n || e.legalEntityRef === n));
+      if (unknown.length) throw new BadQuery(`No entity named ${unknown.map((n) => `\`${n}\``).join(", ")}`);
+      entityIds = all.filter((e) => input.entities!.includes(e.name) || (e.legalEntityRef !== null && input.entities!.includes(e.legalEntityRef))).map((e) => e.id);
+    }
+
+    const m = await requestMetrics(input.organisationId, entityIds, months);
+    return {
+      summaryVersion: "1.0",
+      generatedAt: new Date().toISOString(),
+      organisation: { name: org.name, slug: org.slug, defaultJurisdiction: org.jurisdiction },
+      scope: {
+        entities: input.entities?.length ? input.entities : null,
+        months,
+        from: m.from.toISOString(),
+        to: m.to.toISOString(),
+      },
+      totals: m.totals,
+      byRight: m.byRight,
+      byMonth: m.byMonth,
+      objections: m.objections,
     };
   });
 }

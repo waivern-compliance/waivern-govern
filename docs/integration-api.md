@@ -100,6 +100,7 @@ from facts rather than from events it may have missed.
 | `GET /api/v1/export/context` | The whole governance picture in one document |
 | `GET /api/v1/export/ropa` | Article 30 records plus the assessments covering them |
 | `GET /api/v1/export/ai-profile` | The organisation's NIST AI RMF profile, current against target |
+| `GET /api/v1/export/requests-summary` | How data subject requests were answered: counts only, no requests |
 
 `context` and `ropa` accept `entity` (repeatable), `since` (ISO-8601, for incremental sync) and
 `limit` (1–1000). A malformed query returns `400` with the reason rather than
@@ -284,6 +285,69 @@ falls short, and who took them out of Govern should be on the record.
 Exports are `cache-control: no-store`. Governance state changes when people
 decide things, and a cached export could hand back a decision that has since
 been withdrawn.
+
+### Data subject requests, summarised
+
+`GET /api/v1/export/requests-summary` says how the organisation has handled
+requests from data subjects: how many arrived, of which rights, how many were
+answered within the statutory time and how many late, how many were extended,
+and how objections were decided. It is what lets the Portal's data subject
+rights procedure state real response times rather than an aspiration.
+
+**Counts only.** No reference, requester, description, date of an individual
+request or reasoning leaves Govern through this endpoint. Requests are the
+requesters' own personal data, and the Portal needs the totals, not the cases.
+
+It accepts:
+
+- `entity` (repeatable) — narrow to those entities, as for `context`.
+- `months` — the window, 1–24, default 12. The window is whole calendar months
+  ending with the current one, and covers requests **received** in it.
+
+`since` and `limit` are refused with `400`: a summary of a delta, or of the
+first N requests, would read as a summary of everything.
+
+```json
+{
+  "summaryVersion": "1.0",
+  "generatedAt": "2026-10-30T09:14:02.881Z",
+  "organisation": { "name": "BBC Group", "slug": "bbc-group", "defaultJurisdiction": "uk" },
+  "scope": { "entities": null, "months": 12, "from": "2025-11-01T00:00:00.000Z", "to": "2026-10-30T09:14:02.881Z" },
+  "totals": {
+    "received": 41, "answered": 37, "onTime": 35, "late": 2,
+    "extended": 4, "refused": 3, "withdrawn": 1, "open": 3, "overdue": 0,
+    "medianDaysToRespond": 19
+  },
+  "byRight": [
+    { "right": "access", "label": "Access", "article": "Article 15",
+      "received": 30, "answered": 28, "onTime": 27, "late": 1 }
+  ],
+  "byMonth": [
+    { "period": "2026-10", "received": 4, "answered": 3, "onTime": 3, "late": 0, "extended": 0 }
+  ],
+  "objections": { "decided": 6, "upheld": 4, "overridden": 1, "notApplicable": 1 }
+}
+```
+
+- `onTime` and `late` count answered requests against the statutory deadline
+  as Govern worked it out: one month (three if extended), moved off weekends
+  and, for UK requests, bank holidays, waiting for identity where it was asked
+  for, and pausing for clarification under UK law from 19 June 2026.
+- A request invoking several rights counts once under each in `byRight`, so
+  those rows can add up to more than `totals.received`. Rights nobody invoked
+  are left out.
+- `byMonth` puts each event in the month it happened: `received` when the
+  request arrived; `answered`, `onTime`, `late` and `extended` when the
+  response went. Every month in the window is present, including empty ones.
+- `medianDaysToRespond` is calendar days from receipt to response, or `null`
+  when nothing in the window was answered.
+- `objections` counts objection decisions, one per processing activity decided,
+  on requests in the window. `overridden` means compelling legitimate grounds
+  or legal claims were relied on.
+- **Small numbers are not suppressed.** Three erasure requests in a month is
+  three. Whether a figure is fit to publish is the Portal's decision when it
+  writes a document, not something this endpoint decides by hiding it.
+- `summaryVersion` versions this shape; additive changes bump the minor version.
 
 ## Idempotency
 

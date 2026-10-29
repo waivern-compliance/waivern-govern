@@ -637,6 +637,14 @@ Anything short of doing everything asked — a refusal, an exemption, part of th
 
 A late response is still owed, and is recorded with the reason it was late.
 
+### How well you are answering
+
+The requests page shows the last twelve months: how many requests arrived, of which rights, how many were answered on time and how many late, and the median days to respond. A request invoking several rights counts under each.
+
+Exports has the register as a spreadsheet, for anybody who handles requests: rights, dates, the deadline, each decision with its reasoning, and whether it was answered on time. Who asked and what they wrote stay in Govern. The monthly trends export carries the counts too.
+
+The Waivern Compliance Portal can read the same counts — never the requests — so its data subject rights procedure can state real response times.
+
 ### Deadlines and tasks
 
 A week before a request falls due, and again once it is overdue, the scheduler raises a task for whoever is handling it, or for the privacy administrators if nobody is. The task is due on the statutory date, not on a service level.
@@ -647,7 +655,7 @@ It will not answer the request, search your systems, or redact anything. It coun
 
 **See also:** Personal data breaches · The processing register (Article 30) · Tasks, and being mentioned · The audit trail
 
-<sub>Also searchable as: dsar, sar, subject access, access request, article 15, erasure, right to be forgotten, article 17, objection, object, article 21, rectification, portability, restriction, one month, extension, article 12, direct marketing, rights request, article 19, recipients, search, reasonable and proportionate, processor, article 28, article 18(1)(d), lia, legitimate interests assessment, balancing test</sub>
+<sub>Also searchable as: dsar, sar, subject access, access request, article 15, erasure, right to be forgotten, article 17, objection, object, article 21, rectification, portability, restriction, one month, extension, article 12, direct marketing, rights request, article 19, recipients, search, reasonable and proportionate, processor, article 28, article 18(1)(d), lia, legitimate interests assessment, balancing test, timeliness, on time, response times, export, metrics</sub>
 
 ## The AI register
 

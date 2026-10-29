@@ -622,6 +622,7 @@ export const HELP_TOPICS: HelpTopic[] = [
       "one month", "extension", "article 12", "direct marketing", "rights request",
       "article 19", "recipients", "search", "reasonable and proportionate", "processor", "article 28",
       "article 18(1)(d)", "lia", "legitimate interests assessment", "balancing test",
+      "timeliness", "on time", "response times", "export", "metrics",
     ],
     sections: [
       {
@@ -687,6 +688,14 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Write the response in whatever you normally use for letters. Record here what was sent, when and how, and link to it if it is kept somewhere linkable.",
           "Anything short of doing everything asked — a refusal, an exemption, part of the data withheld — must tell the person why, and that they may complain to the supervisory authority and seek a judicial remedy. The platform will not record such a response without that.",
           "A late response is still owed, and is recorded with the reason it was late.",
+        ],
+      },
+      {
+        heading: "How well you are answering",
+        body: [
+          "The requests page shows the last twelve months: how many requests arrived, of which rights, how many were answered on time and how many late, and the median days to respond. A request invoking several rights counts under each.",
+          "Exports has the register as a spreadsheet, for anybody who handles requests: rights, dates, the deadline, each decision with its reasoning, and whether it was answered on time. Who asked and what they wrote stay in Govern. The monthly trends export carries the counts too.",
+          "The Waivern Compliance Portal can read the same counts — never the requests — so its data subject rights procedure can state real response times.",
         ],
       },
       {
