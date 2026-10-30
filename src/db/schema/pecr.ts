@@ -42,6 +42,11 @@ export const digitalProperties = pgTable(
     /** The consent platform, as last detected or entered. */
     cmp: text("cmp"),
     lastScannedAt: timestamp("last_scanned_at", { withTimezone: true }),
+    /**
+     * How often it should be scanned again, in months. Null means no reminders:
+     * a site that never changes, or one scanned by some other routine.
+     */
+    rescanIntervalMonths: integer("rescan_interval_months").default(3),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { db, withOrganisation } from "@/db/client";
 import {
   consentScans,
@@ -10,6 +10,7 @@ import {
   storageDecisions,
   storageItems,
   storageProposals,
+  tasks,
   users,
 } from "@/db/schema";
 import { appendAuditEvent } from "@/lib/audit";
@@ -24,8 +25,18 @@ import {
   validateReport,
   type ObservedItem,
 } from "@/lib/pecr/analyser-report";
-import { BASES, BASIS_KEYS, gaps, type ConditionKey, type StorageBasis } from "@/lib/pecr/statutory";
+import { RESCAN_INTERVALS, rescanDueAt, rescanState } from "@/lib/pecr/rescan";
+import {
+  BASES,
+  BASIS_KEYS,
+  gapsOf,
+  summariseGaps,
+  type ConditionKey,
+  type Gap,
+  type StorageBasis,
+} from "@/lib/pecr/statutory";
 import type { Actor } from "./templates";
+import { raiseTask } from "./workflow";
 import { assertEntityIn, assertMemberOf, assertRecordIn } from "./tenancy-guards";
 
 /**
@@ -147,10 +158,17 @@ export async function updateProperty(input: {
     informationUrl: string | null;
     objectionMechanism: string | null;
     cmp: string | null;
+    rescanIntervalMonths: number | null;
   }>;
   actor: Actor;
 }) {
   const changes = { ...input.changes };
+  if (
+    changes.rescanIntervalMonths != null &&
+    !(RESCAN_INTERVALS as readonly number[]).includes(changes.rescanIntervalMonths)
+  ) {
+    throw new InventoryRefused("Choose how often it is scanned again.");
+  }
   if (changes.name !== undefined && !changes.name.trim()) throw new InventoryRefused("Give the website or app a name.");
   if (changes.url !== undefined && !changes.url.trim()) throw new InventoryRefused("Give its address.");
   if (changes.informationUrl !== undefined) changes.informationUrl = validUrl(changes.informationUrl, "The cookie notice's address");
@@ -175,9 +193,14 @@ export async function updateProperty(input: {
         before: {
           informationUrl: before.informationUrl,
           objectionMechanism: before.objectionMechanism,
+          rescanIntervalMonths: before.rescanIntervalMonths,
           changed: Object.keys(changes),
         },
-        after: { informationUrl: after.informationUrl, objectionMechanism: after.objectionMechanism },
+        after: {
+          informationUrl: after.informationUrl,
+          objectionMechanism: after.objectionMechanism,
+          rescanIntervalMonths: after.rescanIntervalMonths,
+        },
       });
       return after;
     });
@@ -482,6 +505,8 @@ export async function ingestAnalyserReport(input: {
         seenAt: scannedAt,
       });
 
+      await raiseScanTasks(tx, { property, scan, outcome, actor: input.actor });
+
       for (const f of failures) {
         await tx
           .insert(scanFindings)
@@ -524,6 +549,7 @@ export async function ingestAnalyserReport(input: {
           observed: observed.length,
           proposedNew: outcome.proposedNew,
           proposedNotSeen: outcome.proposedNotSeen,
+          newlyBeforeConsent: outcome.newlyBeforeConsent,
           failingChecks: failures.length,
         },
       });
@@ -558,10 +584,12 @@ async function applyObservations(
   const seen = new Set(input.observed.map((o) => o.key));
   let proposedNew = 0;
   let proposedNotSeen = 0;
+  let newlyBeforeConsent = 0;
 
   for (const o of input.observed) {
     const item = byKey.get(o.key);
     if (item) {
+      if (item.status === "active" && o.seenBeforeConsent && item.seenBeforeConsent !== true) newlyBeforeConsent += 1;
       await tx
         .update(storageItems)
         .set({
@@ -603,7 +631,80 @@ async function applyObservations(
     });
     proposedNotSeen += 1;
   }
-  return { proposedNew, proposedNotSeen };
+  return { proposedNew, proposedNotSeen, newlyBeforeConsent };
+}
+
+/**
+ * What a scan leaves for a person to do.
+ *
+ * A scan settles any rescan reminder for the property: the reminder asked for
+ * exactly this. And if it found anything the inventory does not reflect — new
+ * items, items gone, or an item on the inventory now set before consent —
+ * one task says so, keyed on the scan so taking it in again raises nothing.
+ */
+async function raiseScanTasks(
+  tx: Tx,
+  input: {
+    property: DigitalProperty;
+    scan: ConsentScan;
+    outcome: { proposedNew: number; proposedNotSeen: number; newlyBeforeConsent: number };
+    actor: Actor;
+  },
+) {
+  const { property, scan, outcome } = input;
+  await tx
+    .update(tasks)
+    .set({ status: "done", completedAt: new Date(), completedByLabel: input.actor.actorLabel })
+    .where(
+      and(
+        eq(tasks.organisationId, property.organisationId),
+        eq(tasks.subjectType, "digital_property"),
+        eq(tasks.subjectId, property.id),
+        eq(tasks.type, "pecr_rescan"),
+        inArray(tasks.status, ["open", "in_progress"]),
+      ),
+    );
+
+  const found = [
+    outcome.newlyBeforeConsent && `${outcome.newlyBeforeConsent} now set before consent`,
+    outcome.proposedNew && `${outcome.proposedNew} new`,
+    outcome.proposedNotSeen && `${outcome.proposedNotSeen} no longer seen`,
+  ].filter(Boolean);
+  if (found.length === 0) return;
+  await raiseTask(tx, {
+    organisationId: property.organisationId,
+    entityId: property.entityId,
+    type: "pecr_scan_changes",
+    title: `${property.reference}: cookie scan found changes (${found.join(", ")})`,
+    description:
+      "Accept or reject what the scan proposed, and give anything new a basis. " +
+      (outcome.newlyBeforeConsent
+        ? "Items set before consent need a basis that allows it — strictly necessary, statistics or appearance with its conditions met — or they must wait for consent."
+        : ""),
+    subjectType: "digital_property",
+    subjectId: property.id,
+    ...(property.ownerId ? { assigneeUserId: property.ownerId } : { assigneeRole: "privacy_admin" as const }),
+    idempotencyKey: `pecr-scan-changes:${scan.id}`,
+    actor: input.actor,
+  });
+}
+
+/**
+ * Properties whose next scan is due within the lead time, or overdue, for the
+ * sweep to remind somebody about.
+ */
+export async function propertiesDueForRescan(organisationId: string, now = new Date()) {
+  return withOrganisation(organisationId, async () => {
+    const rows = await db
+      .select()
+      .from(digitalProperties)
+      .where(and(eq(digitalProperties.organisationId, organisationId), isNotNull(digitalProperties.rescanIntervalMonths)));
+    return rows.flatMap((property) => {
+      const dueAt = rescanDueAt(property);
+      const state = rescanState(dueAt, now);
+      return dueAt && state !== "not_due" ? [{ property, dueAt, state }] : [];
+    });
+  });
 }
 
 /**
@@ -702,6 +803,8 @@ export type LoadedItem = StorageItem & {
   history: Array<StorageDecision & { decidedByEmail: string | null }>;
   supplierName: string | null;
   gaps: string[];
+  /** The same gaps with their kinds, for counting. */
+  gapList: Gap[];
 };
 
 async function itemsWithDecisions(propertyIds: string[]) {
@@ -733,20 +836,15 @@ function assembleItem(
   supplierName: string | null,
 ): LoadedItem {
   const decision = history[0] ?? null;
-  return {
-    ...item,
-    decision,
-    history,
-    supplierName,
-    gaps:
-      item.status === "active"
-        ? gaps({
-            item,
-            decision: decision ? { basis: decision.basis, conditions: decision.conditions } : null,
-            property,
-          })
-        : [],
-  };
+  const gapList =
+    item.status === "active"
+      ? gapsOf({
+          item,
+          decision: decision ? { basis: decision.basis, conditions: decision.conditions } : null,
+          property,
+        })
+      : [];
+  return { ...item, decision, history, supplierName, gaps: gapList.map((g) => g.text), gapList };
 }
 
 export async function loadProperty(propertyId: string, organisationId: string) {
@@ -774,7 +872,15 @@ export async function loadProperty(propertyId: string, organisationId: string) {
     const loaded = items.map((i) =>
       assembleItem(i, decisions.get(i.id) ?? [], row.property, i.supplierId ? supplierName.get(i.supplierId) ?? null : null),
     );
-    return { ...row, items: loaded, scans, proposals, suppliers: supplierNames.map((s) => ({ id: s.id, name: s.name })) };
+    return {
+      ...row,
+      items: loaded,
+      gapSummary: summariseGaps(loaded.map((i) => i.gapList)),
+      rescanDueAt: rescanDueAt(row.property),
+      scans,
+      proposals,
+      suppliers: supplierNames.map((s) => ({ id: s.id, name: s.name })),
+    };
   });
 }
 
@@ -815,6 +921,8 @@ export async function propertyRegister(organisationId: string, entityIds: string
         withGaps: active.filter((i) => i.gaps.length > 0).length,
         beforeConsent: active.filter((i) => i.seenBeforeConsent).length,
         pending: pendingBy.get(property.id) ?? 0,
+        gapSummary: summariseGaps(active.map((i) => i.gapList)),
+        rescanDueAt: rescanDueAt(property),
       };
     });
   });

@@ -91,6 +91,7 @@ export async function updatePropertyAction(propertyId: string, _prev: EditResult
         url: text(formData.get("url")),
         informationUrl: text(formData.get("informationUrl")) || null,
         objectionMechanism: text(formData.get("objectionMechanism")) || null,
+        rescanIntervalMonths: text(formData.get("rescanIntervalMonths")) ? Number(text(formData.get("rescanIntervalMonths"))) : null,
       },
       actor: actorOf(active),
     });

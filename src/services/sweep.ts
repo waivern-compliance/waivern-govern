@@ -28,6 +28,7 @@ import { breachesNeedingAttention } from "./breaches";
 import { objectionCounts, objectionReviewThreshold, requestsNeedingAttention } from "./data-subject-requests";
 import { pruneIntakeAttempts } from "./dsr-intake";
 import { complaintsNeedingAttention } from "./complaints";
+import { propertiesDueForRescan } from "./storage-inventory";
 import { objectionReviewDue } from "@/lib/dsr/statutory";
 import { EXPIRING_WITHIN_LABEL, dpasNeedingAttention } from "./third-party";
 import { appetitesDueForReview } from "./risk-policy";
@@ -66,6 +67,7 @@ export type SweepResult = {
   breachDeadlinesRaised: number;
   requestDeadlinesRaised: number;
   complaintDeadlinesRaised: number;
+  rescansRaised: number;
   objectionReviewsRaised: number;
   intakeAttemptsForgotten: number;
   lapsedReviewsRaised: number;
@@ -580,6 +582,41 @@ async function raiseComplaintDeadlines(organisationId: string): Promise<number> 
 }
 
 /**
+ * Websites and apps due to be scanned for cookies again.
+ *
+ * Raised a fortnight ahead, once per due date: a scan moves the date on and
+ * closes the reminder, so the next cycle raises its own. Nothing is scanned
+ * from here; somebody uploads a report, or starts a scan.
+ */
+async function raiseRescans(organisationId: string): Promise<number> {
+  const due = await propertiesDueForRescan(organisationId);
+  let raised = 0;
+  for (const { property, dueAt, state } of due) {
+    const day = dueAt.toISOString().slice(0, 10);
+    await db.transaction(async (tx) => {
+      const task = await raiseTask(tx, {
+        organisationId,
+        entityId: property.entityId,
+        type: "pecr_rescan",
+        title: `${property.reference}: ${property.name} is ${state === "overdue" ? "overdue" : "due"} a cookie scan (${day})`,
+        description:
+          `Scan ${property.url} with the Waivern Consent Analyser and upload the report, so the cookie inventory ` +
+          `reflects what the site sets today. Due every ${property.rescanIntervalMonths === 1 ? "month" : `${property.rescanIntervalMonths} months`}; ` +
+          (property.lastScannedAt ? `last scanned ${property.lastScannedAt.toISOString().slice(0, 10)}.` : "never scanned."),
+        subjectType: "digital_property",
+        subjectId: property.id,
+        ...(property.ownerId ? { assigneeUserId: property.ownerId } : { assigneeRole: "privacy_admin" as const }),
+        dueAt,
+        idempotencyKey: `pecr-rescan:${property.id}:${day}`,
+        actor: SYSTEM,
+      });
+      if (task) raised += 1;
+    });
+  }
+  return raised;
+}
+
+/**
  * Activities people keep objecting to.
  *
  * Each objection is decided on its own, but a run of them says something
@@ -824,6 +861,7 @@ export async function sweepOrganisation(organisationId: string): Promise<SweepRe
     breachDeadlinesRaised: await raiseBreachDeadlines(organisationId),
     requestDeadlinesRaised: await raiseRequestDeadlines(organisationId),
     complaintDeadlinesRaised: await raiseComplaintDeadlines(organisationId),
+    rescansRaised: await raiseRescans(organisationId),
     objectionReviewsRaised: await raiseObjectionReviews(organisationId),
     // Kept a day for rate limiting, then forgotten.
     intakeAttemptsForgotten: await pruneIntakeAttempts(organisationId),

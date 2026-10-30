@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { EditForm } from "@/components/EditForm";
 import { NotPermitted } from "@/components/NotPermitted";
+import { RESCAN_INTERVALS, rescanState } from "@/lib/pecr/rescan";
 import { BASES, suggestedBasis } from "@/lib/pecr/statutory";
 import { can } from "@/lib/rbac";
 import { savedKey } from "@/lib/saved-key";
@@ -38,13 +39,14 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
   if (!active) redirect("/sign-in");
   const loaded = await loadProperty(id, active.membership.organisationId);
   if (!loaded) notFound();
-  const { property, entityName, ownerEmail, items, scans, proposals, suppliers } = loaded;
+  const { property, entityName, ownerEmail, items, gapSummary, rescanDueAt, scans, proposals, suppliers } = loaded;
   if (!can(active.membership.grants, "record.read", property.entityId)) {
     return <NotPermitted what={`${property.reference} is a website's cookie inventory, and`} organisationName={active.membership.organisationName} />;
   }
   const mayWrite = can(active.membership.grants, "record.write", property.entityId);
   const inUse = items.filter((i) => i.status === "active");
   const retired = items.filter((i) => i.status !== "active");
+  const rescan = rescanState(rescanDueAt);
 
   return (
     <main className="mx-auto max-w-4xl space-y-9 px-6 py-12">
@@ -63,8 +65,26 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
           {inUse.length} in use · {inUse.filter((i) => !i.decision).length} with no basis ·{" "}
           {inUse.filter((i) => i.gaps.length > 0).length} with gaps ·{" "}
           {property.lastScannedAt ? `last scanned ${stamp(property.lastScannedAt)}` : "never scanned"}
+          {rescanDueAt ? (
+            <span className={rescan === "overdue" ? "text-red-800" : rescan === "due_soon" ? "text-amber-900" : ""}>
+              {" "}· next scan {rescan === "overdue" ? "overdue since" : "due"} {rescanDueAt.toISOString().slice(0, 10)}
+            </span>
+          ) : (
+            " · no rescan reminders"
+          )}
         </p>
       </header>
+
+      {gapSummary.length > 0 ? (
+        <section className="space-y-1.5 rounded border border-amber-700 bg-amber-50 p-4" aria-label="What the record does not yet show">
+          <h2 className="text-sm font-semibold text-amber-900">What the record does not yet show</h2>
+          <ul className="list-disc space-y-0.5 pl-5 text-sm text-amber-900">
+            {gapSummary.map((g) => <li key={g.kind}>{g.text}</li>)}
+          </ul>
+        </section>
+      ) : inUse.length > 0 ? (
+        <p className="text-sm text-emerald-900">Every item in use has a basis, and nothing is missing from the record.</p>
+      ) : null}
 
       <EditForm
         key={savedKey(property)}
@@ -94,6 +114,20 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
         <label className="block space-y-1">
           <Label text="How people object" hint="For example: the analytics switch in Cookie settings, linked from every page footer." />
           <textarea name="objectionMechanism" rows={2} defaultValue={property.objectionMechanism ?? ""} disabled={!mayWrite} className={inputClass} />
+        </label>
+        <label className="block space-y-1">
+          <Label text="Scan it again" hint="A reminder is raised a fortnight before each scan is due. Sites change without anyone telling you." />
+          <select
+            name="rescanIntervalMonths"
+            defaultValue={property.rescanIntervalMonths ? String(property.rescanIntervalMonths) : ""}
+            disabled={!mayWrite}
+            className={inputClass}
+          >
+            {RESCAN_INTERVALS.map((m) => (
+              <option key={m} value={m}>{m === 1 ? "Every month" : m === 12 ? "Every year" : `Every ${m} months`}</option>
+            ))}
+            <option value="">No reminders</option>
+          </select>
         </label>
         {mayWrite ? <button type="submit" className={save}>Save</button> : null}
       </EditForm>

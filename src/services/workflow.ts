@@ -74,6 +74,10 @@ const DEFAULT_SLA_HOURS: Record<TaskType, number> = {
   complaint_deadline: 24 * 7,
   // The 30 days to acknowledge are already running; somebody should know within a day.
   complaint_intake: 24,
+  /** Placeholder: the sweep sets the due date from the property's last scan and its interval. */
+  pecr_rescan: 24 * 14,
+  // Cookies seen before consent may be unlawful today; a week to look at what the scan found.
+  pecr_scan_changes: 24 * 7,
 };
 
 async function slaHoursFor(tx: Tx, organisationId: string, type: TaskType) {
