@@ -33,6 +33,7 @@ Every help topic the application carries, in the order it presents them.
 - [Data subject requests](#data-subject-requests) — Record every request from a person exercising their rights, run the month to answer it, and keep the reasoning for each decision.
 - [Data protection complaints](#data-protection-complaints) — Record each complaint a person makes to you about how their data was handled, acknowledge it within 30 days, and keep what you looked into and what you told them.
 - [Cookies and similar technologies](#cookies-and-similar-technologies) — Inventory every cookie, pixel and stored item on your websites and apps, from Consent Analyser reports or by hand, and record the basis each relies on under UK PECR.
+- [Electronic marketing](#electronic-marketing) — Every campaign that markets by email, text or phone, and the basis it relies on under UK PECR, from consent to the soft opt-in.
 - [The AI register](#the-ai-register) — Every AI system the organisation is accountable for, including the ones nobody has assessed.
 - [Proposals to use AI](#proposals-to-use-ai) — Ideas for using AI, captured before anything is built or bought, scored on value and feasibility, and decided with a reason.
 - [The AI assurance chain](#the-ai-assurance-chain) — Each AI system drawn through to what was done about it — and, more usefully, where that chain stops.
@@ -809,6 +810,48 @@ It will not decide a basis from a scan, change the website or its consent banner
 **See also:** Scan findings · Third parties and processor agreements (Article 28) · Exports
 
 <sub>Also searchable as: cookie, cookies, pecr, regulation 6, schedule a1, storage, access, terminal equipment, analytics, statistics, preferences, functional, strictly necessary, consent, opt out, object, duaa, data use and access act, consent analyser, scan, pixel, local storage, sdk, cookie notice, rescan, reminder, gaps, scan now, api token, credits</sub>
+
+## Electronic marketing
+
+*Every campaign that markets by email, text or phone, and the basis it relies on under UK PECR, from consent to the soft opt-in.*
+
+**Screen:** `/app/marketing`
+
+### What the law requires
+
+PECR sets its own rules for direct marketing by electronic means, on top of UK GDPR. Which rule applies depends on the channel:
+
+- Email and text to individuals, sole traders and ordinary partnerships need consent, or the soft opt-in: details got in a sale or negotiations for one, marketing only the organisation's own similar products, with a simple free way to refuse when the details were collected and in every message (reg 22(3)).
+- Since 5 February 2026 a registered charity may use a charity soft opt-in: solely to further its charitable purposes, to people who expressed interest in or offered or gave support, with the same chance to refuse (reg 22(3A), added by the Data (Use and Access) Act 2025).
+- Email and text to companies, LLPs and public bodies are outside regulation 22, but every marketing message must say who it is from and give a valid address to opt out (reg 23). A named employee's address is still personal data.
+- Live calls must not go to anyone who has told you not to call, or to a number on the TPS or CTPS unless they have said they do not mind (reg 21). Calls about claims management or pensions need consent (regs 21A, 21B).
+- Automated calls need consent (reg 19).
+
+### Recording an activity
+
+Add each campaign or channel: the monthly newsletter, a promotional text campaign, an outbound call programme. Say how it reaches people and who — individuals, or only companies and public bodies — because that decides which bases are open to it.
+
+Link it to its processing activity in the ROPA. Objections to direct marketing upheld in the request register are then counted against it; an objection overridden shows in red, because UK GDPR article 21(3) makes it absolute.
+
+Who is on each list, and who has opted out, stays in your marketing tool. This records what the sending relies on.
+
+### Recording the basis
+
+Choose the basis and say why. Only the bases the channel can use are offered, and you confirm each condition the regulation sets. Decisions are kept, never overwritten: changing your mind is a second decision.
+
+What is still missing shows as a gap, most pressing first: an objection overridden, no basis, a basis the channel cannot use, a call list not screened against the TPS in the last 28 days, a charity soft opt-in with no registration number, an unconfirmed condition, or no link to the ROPA.
+
+### TPS screening
+
+For live calls that rely on screening, record each time the list is screened against the TPS and CTPS. A screening holds for 28 days. Three days before it runs out, or straight away if it never happened, a task goes to whoever is responsible for the activity, or to privacy administrators. Recording the next screening closes it.
+
+### What the platform will not do
+
+It will not hold your mailing lists or suppression lists, send anything, or tell you a campaign is lawful. It holds what each activity relies on, the reasoning, and what is still to be shown.
+
+**See also:** Data subject requests · The processing register (Article 30) · Cookies and similar technologies
+
+<sub>Also searchable as: marketing, direct marketing, email, newsletter, sms, text, phone, calls, pecr, regulation 21, regulation 22, soft opt-in, charity, tps, ctps, telephone preference service, opt out, unsubscribe, objection, duaa, consent</sub>
 
 ## The AI register
 

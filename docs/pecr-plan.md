@@ -1,6 +1,6 @@
 # Plan: UK PECR as amended by the Data (Use and Access) Act 2025
 
-Status: decisions settled as recommended (30 October 2026); Phases 0–3 built.
+Status: decisions settled as recommended (30 October 2026); Phases 0–4 built.
 
 ## What is asked for
 
@@ -277,7 +277,7 @@ One row per name, domain and property:
     They show on the property page, each register row, and two dashboard tiles ("Cookies
     with gaps" and "Cookie scans due"), visible to anyone with `record.read`.
 
-### Phase 4: the electronic marketing register (about 2 days)
+### Phase 4: the electronic marketing register (built)
 - **One row per campaign or channel:** email, SMS, live calls, automated calls,
   linked to the ROPA processing activity that has direct marketing among its purposes.
 - **The basis for each:**
@@ -289,6 +289,26 @@ One row per name, domain and property:
 - **Objections:** objections to direct marketing upheld in the request register count
   against the activity, which they already do.
 - **Out of scope:** the suppression list, which stays in the marketing tool.
+- **As built:**
+  - `lib/pecr/marketing.ts` (pure) holds the channels, the bases each can use, their
+    conditions and the gaps. Regulation 23 (sender identity and an opt-out address) is
+    asked of every email and text basis, consent included. Automated calls (reg 19) can
+    rely only on consent; calls about claims management or pensions are a condition of
+    the screened-calls basis (regs 21A, 21B).
+  - Tables `marketing_activity` and `marketing_decision` (append-only), with row-level
+    security. References are `MKT-YYYY-NNNN`.
+  - "Who it reaches" (individuals, businesses only, or both) decides whether the
+    corporate-subscriber basis is offered. A basis the channel cannot use is refused when
+    recorded, and shown as a gap if the channel changes later.
+  - A charity soft opt-in with no registration number is a gap.
+  - Live calls on the screened basis record each TPS and CTPS screening. One holds for 28
+    days. The sweep raises `marketing_tps_screening` three days before it runs out, or at
+    once if there was never one; recording a screening closes it.
+  - Objections are counted with the request register's `objectionCounts` through the
+    linked ROPA activity. An overridden objection to direct marketing is the first gap.
+  - `/app/marketing` and `/app/marketing/[id]`, nav, help topic, guidance step, legal
+    references for regs 19 and 23 and the ICO's direct marketing guidance, and the
+    tenant-isolation tests.
 
 ### Phase 5: reg 5A breach notification (about half a day, only if needed)
 - **Provider flag:** a flag on the entity marking it as a public electronic

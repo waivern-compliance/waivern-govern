@@ -72,6 +72,9 @@ export const recordType = pgEnum("record_type", [
   "storage_item",
   "storage_decision",
   "consent_scan",
+  // Added with the electronic marketing register.
+  "marketing_activity",
+  "marketing_decision",
 ]);
 
 /**
@@ -390,6 +393,24 @@ export const storageProposalStatus = pgEnum("storage_proposal_status", ["pending
 /** A run of the Consent Analyser, uploaded or started from here. */
 export const consentScanStatus = pgEnum("consent_scan_status", ["running", "done", "failed"]);
 
+/** How electronic direct marketing reaches people, each with its own PECR regulation. See `lib/pecr/marketing.ts`. */
+export const marketingChannel = pgEnum("marketing_channel", ["email", "sms", "live_call", "automated_call"]);
+
+/** Who a marketing activity reaches. Regulation 22 protects individual subscribers only. */
+export const marketingRecipients = pgEnum("marketing_recipients", ["individuals", "businesses", "both"]);
+
+/** What PECR lets an electronic marketing activity rely on, or that nothing does. */
+export const marketingBasis = pgEnum("marketing_basis", [
+  "consent",
+  "soft_opt_in",
+  "charity_soft_opt_in",
+  "corporate_subscriber",
+  "screened_calls",
+  "none",
+]);
+
+export const marketingActivityStatus = pgEnum("marketing_activity_status", ["active", "paused", "ended"]);
+
 /**
  * How far an organisation meets one outcome in a framework profile, now or as
  * its target. See `lib/ai-frameworks/profile.ts`.
@@ -478,6 +499,8 @@ export const taskType = pgEnum("task_type", [
   "pecr_rescan",
   /** A cookie scan found something the inventory does not yet reflect, or a cookie newly set before consent. */
   "pecr_scan_changes",
+  /** A live-call marketing activity is due to be screened against the TPS and CTPS again (every 28 days). */
+  "marketing_tps_screening",
 ]);
 
 export const taskStatus = pgEnum("task_status", [

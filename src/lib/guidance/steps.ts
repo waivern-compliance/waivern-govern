@@ -341,6 +341,22 @@ export const MAINTAIN: Step[] = [
       "Schedule A1, however the cookie is named.",
   },
   {
+    id: "marketing",
+    title: "Know what your marketing relies on",
+    what:
+      "Add each newsletter, promotional email or text campaign and call programme, link it to its ROPA entry, and " +
+      "record the PECR basis it relies on.",
+    why:
+      "PECR regulations 21 and 22 decide who may be emailed, texted or called for marketing, on top of UK GDPR. " +
+      "The soft opt-in and, since February 2026, the charity soft opt-in each come with conditions you must be able " +
+      "to show; call lists must be screened against the TPS.",
+    finishedWhen: "Every running activity has a basis with no gaps.",
+    href: "/app/marketing",
+    watchOut:
+      "An objection to direct marketing is absolute. Once it is upheld, only the person's fresh consent lets you " +
+      "market to them again.",
+  },
+  {
     id: "evidence",
     title: "Take an export when you need to show your work",
     what:

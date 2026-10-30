@@ -94,6 +94,12 @@ export const NAV: NavItem[] = [
     capability: "record.read",
   },
   {
+    href: "/app/marketing",
+    label: "Electronic marketing",
+    hint: "email, text and calls, and the PECR basis for each",
+    capability: "record.read",
+  },
+  {
     href: "/app/complaints",
     label: "Data protection complaints",
     hint: "complaints made to you, and the 30 days to acknowledge them",

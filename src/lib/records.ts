@@ -27,6 +27,8 @@ const PATHS: Record<string, (id: string) => string> = {
   storage_item: () => "/app/cookies",
   storage_decision: () => "/app/cookies",
   consent_scan: () => "/app/cookies",
+  marketing_activity: (id) => `/app/marketing/${id}`,
+  marketing_decision: () => "/app/marketing",
   data_protection_complaint_event: () => "/app/complaints",
   risk_appetite: () => "/app/risks/appetite",
   ai_incident: (id) => `/app/ai/incidents/${id}`,
