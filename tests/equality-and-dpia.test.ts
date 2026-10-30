@@ -231,6 +231,7 @@ describe("shipped templates, kept current", () => {
         special_category: false,
         sources_and_flows: "Claims system, UK only.",
         subject_groups: "Claimants",
+        children_likely: false,
         volume: 50000,
         retention: "Six years.",
         necessity: "Volume.",

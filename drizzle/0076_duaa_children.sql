@@ -1,0 +1,1 @@
+ALTER TABLE "processing_activity" ADD COLUMN "children_likely" boolean;

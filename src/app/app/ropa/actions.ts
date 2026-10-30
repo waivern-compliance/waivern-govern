@@ -34,6 +34,11 @@ const lines = (raw: FormDataEntryValue | null) =>
 
 const text = (raw: FormDataEntryValue | null) => String(raw ?? "").trim();
 
+const yesNo = (raw: FormDataEntryValue | null) => {
+  const v = String(raw ?? "");
+  return v === "yes" ? true : v === "no" ? false : null;
+};
+
 export async function recordActivity(formData: FormData) {
   const entityId = text(formData.get("entityId"));
   const name = text(formData.get("name"));
@@ -98,6 +103,7 @@ export async function updateActivityAction(
         securityMeasures: text(formData.get("securityMeasures")),
         controllerRole: text(formData.get("controllerRole")),
         controllerName: text(formData.get("controllerName")),
+        childrenLikely: yesNo(formData.get("childrenLikely")),
         ...(owner !== null ? { ownerId: text(owner) || null } : {}),
       },
       actor: { actorKind: "user", actorUserId: active.userId, actorLabel: active.email },
@@ -107,11 +113,6 @@ export async function updateActivityAction(
     revalidatePath("/app/ropa");
   });
 }
-
-const yesNo = (raw: FormDataEntryValue | null) => {
-  const v = String(raw ?? "");
-  return v === "yes" ? true : v === "no" ? false : null;
-};
 
 export async function saveFurtherProcessingAction(
   activityId: string,

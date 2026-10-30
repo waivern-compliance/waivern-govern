@@ -103,6 +103,7 @@ const BASE_DPIA = {
   data_categories: ["viewing_history"],
   special_category: false,
   subject_groups: "Signed-in audience.",
+  children_likely: false,
   volume: 100000,
   retention: "Thirteen months.",
   necessity: "Required for ranking.",

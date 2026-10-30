@@ -1,6 +1,7 @@
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, notInArray, sql } from "drizzle-orm";
 import { db, withOrganisation } from "@/db/client";
 import {
+  assessmentAnswers,
   assessments,
   entities,
   processingActivities,
@@ -54,6 +55,8 @@ export type Article30Gap =
   | "recognised_condition"
   | AdmGap
   | FurtherProcessingGap
+  | "children_no_dpia"
+  | "children_dpia_unanswered"
   | "no_owner"
   | "review_overdue";
 
@@ -70,6 +73,8 @@ export const GAP_WORDS: Record<Article30Gap, string> = {
   recognised_condition: "Recognised legitimate interests with no Annex 1 condition",
   ...ADM_GAP_WORDS,
   ...FURTHER_PROCESSING_GAP_WORDS,
+  children_no_dpia: "Likely accessed by children, with no DPIA",
+  children_dpia_unanswered: "Likely accessed by children; the DPIA does not say how the children's higher protection matters were taken into account",
   no_owner: "No named owner",
   review_overdue: "Review overdue",
 };
@@ -109,6 +114,12 @@ export function article30Gaps(
    * record itself says.
    */
   originalConsent: boolean | null = activity.originalConsent,
+  /**
+   * What the DPIAs of this activity say about children, from
+   * `childrenDpiaStates`. A gap that depends on it is not reported when it is
+   * not supplied, rather than claiming no DPIA exists.
+   */
+  childrenDpia?: ChildrenDpiaState,
 ): Article30Gap[] {
   const gaps: Article30Gap[] = [];
 
@@ -143,6 +154,13 @@ export function article30Gaps(
   gaps.push(...admGaps(activity, activity.lawfulBases ?? []));
   // Articles 8A, 13(5) and 84C, only where further processing or research is recorded.
   gaps.push(...furtherProcessingGaps(activity, originalConsent));
+  // Article 25(1A): an online service likely to be accessed by children must
+  // weigh the children's higher protection matters, and a DPIA is where that
+  // is shown.
+  if (activity.childrenLikely && childrenDpia !== undefined) {
+    if (childrenDpia === "none") gaps.push("children_no_dpia");
+    else if (childrenDpia === "unanswered") gaps.push("children_dpia_unanswered");
+  }
   if (!activity.ownerId) gaps.push("no_owner");
   if (activity.reviewDueAt && activity.reviewDueAt.getTime() <= Date.now()) {
     gaps.push("review_overdue");
@@ -171,6 +189,45 @@ async function basesByActivity(organisationId: string) {
     .from(processingActivities)
     .where(eq(processingActivities.organisationId, organisationId));
   return new Map(rows.map((r) => [r.id, r.lawfulBases ?? []] as const));
+}
+
+/** Whether any current DPIA of an activity answers the children's question. */
+export type ChildrenDpiaState = "none" | "unanswered" | "answered";
+
+/** The DPIA question that records how the children's higher protection matters were weighed. */
+export const CHILDREN_DPIA_QUESTION = "children_protection";
+
+/**
+ * For every activity with a current DPIA (not superseded or rejected), whether
+ * any of them answers the children's question. Live answers, not only
+ * submitted ones: a DPIA in progress that has answered it has answered it.
+ */
+export async function childrenDpiaStates(organisationId: string): Promise<Map<string, ChildrenDpiaState>> {
+  const rows = await db
+    .select({ activityId: assessments.subjectId, value: assessmentAnswers.value })
+    .from(assessments)
+    .innerJoin(templateVersions, eq(templateVersions.id, assessments.templateVersionId))
+    .innerJoin(templates, eq(templates.id, templateVersions.templateId))
+    .leftJoin(
+      assessmentAnswers,
+      and(eq(assessmentAnswers.assessmentId, assessments.id), eq(assessmentAnswers.questionKey, CHILDREN_DPIA_QUESTION)),
+    )
+    .where(
+      and(
+        eq(assessments.organisationId, organisationId),
+        eq(assessments.subjectType, "processing_activity"),
+        eq(templates.kind, "dpia"),
+        notInArray(assessments.status, ["superseded", "rejected"]),
+      ),
+    );
+  const states = new Map<string, ChildrenDpiaState>();
+  for (const r of rows) {
+    if (!r.activityId) continue;
+    const answered = typeof r.value === "string" && r.value.trim() !== "";
+    if (answered) states.set(r.activityId, "answered");
+    else if (!states.has(r.activityId)) states.set(r.activityId, "unanswered");
+  }
+  return states;
 }
 
 export class LawfulBasisRefused extends Error {}
@@ -223,7 +280,7 @@ export async function listActivities(
   entityIds: string[] | null,
 ): Promise<RegisterRow[]> {
   return withOrganisation(organisationId, async () => {
-    const [rows, needsSafeguards, bases] = await Promise.all([
+    const [rows, needsSafeguards, bases, children] = await Promise.all([
       db
         .select({
           activity: processingActivities,
@@ -237,10 +294,16 @@ export async function listActivities(
         .orderBy(asc(processingActivities.reference)),
       needingSafeguards(organisationId, "uk"),
       basesByActivity(organisationId),
+      childrenDpiaStates(organisationId),
     ]);
 
     return rows.map(({ activity, entityName, ownerEmail }) => {
-      const gaps = article30Gaps(activity, needsSafeguards, originalConsentOf(activity, bases));
+      const gaps = article30Gaps(
+        activity,
+        needsSafeguards,
+        originalConsentOf(activity, bases),
+        children.get(activity.id) ?? "none",
+      );
       return {
         activity,
         entityName,
@@ -271,7 +334,7 @@ export async function loadActivity(activityId: string, organisationId: string) {
       );
     if (!row) return null;
 
-    const [needsSafeguards, related, bases] = await Promise.all([
+    const [needsSafeguards, related, bases, children] = await Promise.all([
       needingSafeguards(organisationId, "uk"),
       db
         .select({ assessment: assessments, kind: templates.kind })
@@ -286,6 +349,7 @@ export async function loadActivity(activityId: string, organisationId: string) {
         )
         .orderBy(desc(assessments.createdAt)),
       basesByActivity(organisationId),
+      childrenDpiaStates(organisationId),
     ]);
 
     const original = row.activity.originalActivityId
@@ -296,7 +360,7 @@ export async function loadActivity(activityId: string, organisationId: string) {
           .then((r) => r[0] ?? null)
       : null;
     const originalConsent = originalConsentOf(row.activity, bases);
-    const gaps = article30Gaps(row.activity, needsSafeguards, originalConsent);
+    const gaps = article30Gaps(row.activity, needsSafeguards, originalConsent, children.get(activityId) ?? "none");
     return {
       ...row,
       assessments: related,
@@ -409,6 +473,7 @@ export async function updateActivity(input: {
     controllerName: string;
     ownerId: string | null;
     reviewDueAt: Date | null;
+    childrenLikely: boolean | null;
   }>;
   actor: Actor;
 }) {

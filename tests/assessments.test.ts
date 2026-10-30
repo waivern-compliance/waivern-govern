@@ -89,6 +89,7 @@ const COMPLETE_DPIA = {
   data_categories: ["viewing_history", "account_identifiers"],
   special_category: false,
   subject_groups: "Signed-in audience members in the UK.",
+  children_likely: false,
   volume: 2400000,
   retention: "Thirteen months from last activity, then aggregated.",
   necessity: "Ranking cannot be personalised without behavioural signal.",

@@ -142,6 +142,13 @@ export const processingActivities = pgTable(
     art13Exemption: boolean("art13_exemption"),
     publicInformationUrl: text("public_information_url"),
     /**
+     * Whether an online service in this processing is likely to be accessed by
+     * children (Article 25(1A)). Where it is, the measures must take the
+     * children's higher protection matters into account, and the register
+     * looks for a DPIA that says how. Null: not yet known.
+     */
+    childrenLikely: boolean("children_likely"),
+    /**
      * The basis as somebody wrote it — before the bases above existed, or as the
      * Portal sends it. Kept as a note: where it named a basis unambiguously, that
      * basis was chosen from it; where it did not, nothing was guessed.
