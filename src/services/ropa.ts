@@ -82,9 +82,17 @@ export const GAP_WORDS: Record<Article30Gap, string> = {
 /**
  * Gaps that would make the record non-compliant, as against merely thin.
  *
- * Article 30(1)(f) and (g) — retention and security measures — are qualified in
- * the Regulation by "where possible", so their absence is reported without
- * being called a breach. Everything in this list is unqualified.
+ * Two kinds. The unqualified Article 30 requirements: Article 30(1)(f) and (g)
+ * — retention and security measures — are qualified in the Regulation by
+ * "where possible", so their absence is reported without being called a
+ * breach. And processing the record itself describes as something the law does
+ * not allow: a solely automated significant decision on recognised legitimate
+ * interests (Article 22B(4)) or on special category data with no Article 22B
+ * condition, and further processing on a route Article 8A(4) closes.
+ *
+ * What is merely unknown or unconfirmed — a safeguard not yet ticked, a route
+ * not yet chosen, a question not yet answered — stays amber. Calling it a
+ * breach would be a claim nobody has made.
  */
 export const HARD_GAPS: Article30Gap[] = [
   "purposes",
@@ -93,6 +101,9 @@ export const HARD_GAPS: Article30Gap[] = [
   "recipients",
   "transfer_safeguards",
   "controller_named",
+  "adm_relies_on_ea",
+  "adm_special_no_condition",
+  "further_route_closed",
 ];
 
 const EMPTY = (a: unknown[] | null | undefined) => !a || a.length === 0;

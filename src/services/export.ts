@@ -20,6 +20,14 @@ import {
   users,
 } from "@/db/schema";
 import { listRegister } from "./ai-register";
+import {
+  admToWire,
+  furtherToWire,
+  researchToWire,
+  type AutomatedDecisionsWire,
+  type FurtherProcessingWire,
+  type ResearchWire,
+} from "@/lib/integration/duaa";
 
 /**
  * What this platform hands back.
@@ -38,7 +46,7 @@ import { listRegister } from "./ai-register";
  * 1.1 adds `aiSystems`. Additive: a reader of 1.0 that ignores unknown keys
  * reads 1.1 unchanged.
  */
-export const CONTEXT_VERSION = "1.1";
+export const CONTEXT_VERSION = "1.2";
 
 export type ExportScope = {
   organisationId: string;
@@ -98,6 +106,10 @@ export type ContextAiSystem = {
   assessment: { reference: string; tier: string | null; band: string | null; approvedAt: string | null } | null;
   nextReviewAt: string | null;
   gaps: string[];
+  /** Articles 22A–22C, in the same shape the Portal sends. */
+  automatedDecisions: AutomatedDecisionsWire;
+  /** References of the processing activities this system is linked to here. */
+  processingActivities: string[];
   updatedAt: string;
 };
 
@@ -124,6 +136,14 @@ export type ContextActivity = {
   controllerRole: string | null;
   /** Article 30(2)(a) — named when this organisation acts as processor. */
   controllerName: string | null;
+  /** Articles 22A–22C. */
+  automatedDecisions: AutomatedDecisionsWire;
+  /** Article 8A, naming the original activity by its reference here and the Portal's. */
+  furtherProcessing: FurtherProcessingWire & { originalReference: string | null };
+  /** Articles 84A–84C and 13(5)–(7). */
+  research: ResearchWire;
+  /** Article 25(1A). */
+  childrenLikely: boolean | null;
   updatedAt: string;
 };
 
@@ -454,6 +474,17 @@ export async function governanceContext(scope: ExportScope): Promise<GovernanceC
 
     const aiRows = await aiSystemsFor(scope.organisationId, inScope, nameOf, scope.since, limit);
 
+    // The original activity of further processing may sit outside this slice,
+    // so it is looked up by id rather than from the rows exported.
+    const originalIds = [...new Set(activityRows.flatMap((a) => (a.originalActivityId ? [a.originalActivityId] : [])))];
+    const originals = originalIds.length
+      ? await db
+          .select({ id: processingActivities.id, reference: processingActivities.reference, externalRef: processingActivities.externalRef })
+          .from(processingActivities)
+          .where(and(eq(processingActivities.organisationId, scope.organisationId), inArray(processingActivities.id, originalIds)))
+      : [];
+    const originalOf = new Map(originals.map((o) => [o.id, { reference: o.reference, externalRef: o.externalRef }]));
+
     return {
       contextVersion: CONTEXT_VERSION,
       generatedAt: new Date().toISOString(),
@@ -481,6 +512,10 @@ export async function governanceContext(scope: ExportScope): Promise<GovernanceC
         securityMeasures: a.securityMeasures,
         controllerRole: a.controllerRole,
         controllerName: a.controllerName,
+        automatedDecisions: admToWire(a),
+        furtherProcessing: furtherToWire(a, a.originalActivityId ? (originalOf.get(a.originalActivityId) ?? null) : null),
+        research: researchToWire(a),
+        childrenLikely: a.childrenLikely,
         updatedAt: a.updatedAt.toISOString(),
       })),
       assessments: contextAssessments,
@@ -539,7 +574,7 @@ async function aiSystemsFor(
   const ids = entries.map((e) => e.useCase.id);
   const officerIds = entries.map((e) => e.useCase.governanceOfficerId).filter((x): x is string => Boolean(x));
   const supplierIds = entries.map((e) => e.useCase.supplierId).filter((x): x is string => Boolean(x));
-  const [officers, supplierNames, published] = await Promise.all([
+  const [officers, supplierNames, published, links] = await Promise.all([
     officerIds.length
       ? db.select({ id: users.id, email: users.email }).from(users).where(inArray(users.id, officerIds))
       : [],
@@ -550,7 +585,22 @@ async function aiSystemsFor(
       .select({ id: atrsRecords.aiUseCaseId, at: atrsRecords.publishedAt })
       .from(atrsRecords)
       .where(and(inArray(atrsRecords.aiUseCaseId, ids), eq(atrsRecords.status, "published"))),
+    db
+      .select({ useCaseId: recordLinks.fromId, reference: processingActivities.reference })
+      .from(recordLinks)
+      .innerJoin(processingActivities, eq(processingActivities.id, recordLinks.toId))
+      .where(
+        and(
+          eq(recordLinks.organisationId, organisationId),
+          eq(recordLinks.fromType, "ai_use_case"),
+          eq(recordLinks.toType, "processing_activity"),
+          inArray(recordLinks.fromId, ids),
+        ),
+      )
+      .orderBy(asc(processingActivities.reference)),
   ]);
+  const linkedOf = new Map<string, string[]>();
+  for (const l of links) linkedOf.set(l.useCaseId, [...(linkedOf.get(l.useCaseId) ?? []), l.reference]);
   const officerOf = new Map(officers.map((o) => [o.id, o.email]));
   const supplierOf = new Map(supplierNames.map((x) => [x.id, x.name]));
   const publishedOf = new Map(published.map((p) => [p.id, p.at]));
@@ -591,6 +641,8 @@ async function aiSystemsFor(
         : null,
     nextReviewAt: u.nextReviewAt?.toISOString() ?? null,
     gaps,
+    automatedDecisions: admToWire(u),
+    processingActivities: linkedOf.get(u.id) ?? [],
     updatedAt: u.updatedAt.toISOString(),
   }));
 }

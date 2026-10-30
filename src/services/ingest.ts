@@ -31,6 +31,38 @@ import { createUseCase } from "./ai-register";
 import { canonicalise as canonicaliseByHand } from "./third-party";
 import { basesFromText } from "@/lib/gdpr/lawful-basis";
 import { cleanLawfulBases } from "./ropa";
+import { AutomatedDecisionRefused, cleanAdm } from "@/lib/gdpr/automated-decisions";
+import { FurtherProcessingRefused, cleanFurtherProcessing } from "@/lib/gdpr/further-processing";
+import { admFromWire, furtherFromWire, researchFromWire } from "@/lib/integration/duaa";
+
+/** A record the Act's rules refuse is skipped with the reason, not the whole batch. */
+class RecordRefused extends Error {}
+
+function refusedBy(error: unknown): string | null {
+  if (error instanceof AutomatedDecisionRefused || error instanceof FurtherProcessingRefused || error instanceof RecordRefused) {
+    return error.message;
+  }
+  return null;
+}
+
+/** The further-processing and research fields as stored on an activity, for merging a group into. */
+function furtherRecordOf(row: typeof processingActivities.$inferSelect) {
+  return {
+    furtherProcessing: row.furtherProcessing,
+    originalActivityId: row.originalActivityId,
+    originalConsent: row.originalConsent,
+    compatibilityRoute: row.compatibilityRoute,
+    annex2Condition: row.annex2Condition,
+    consentUnobtainable: row.consentUnobtainable,
+    compatibilityFactors: row.compatibilityFactors,
+    compatibilityNote: row.compatibilityNote,
+    research: row.research,
+    researchSafeguards: row.researchSafeguards,
+    approvedMedicalResearch: row.approvedMedicalResearch,
+    art13Exemption: row.art13Exemption,
+    publicInformationUrl: row.publicInformationUrl,
+  };
+}
 
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
@@ -106,6 +138,7 @@ export async function ingestProcessingActivities(
         continue;
       }
 
+      try {
       await db.transaction(async (tx) => {
         const [existing] = await tx
           .select()
@@ -117,6 +150,53 @@ export async function ingestProcessingActivities(
               eq(processingActivities.externalRef, r.externalRef),
             ),
           );
+
+        // The Act's records, group by group. A group sent replaces what is
+        // recorded for it; one left out is left alone, because a push that
+        // says nothing about research has no view on it.
+        const recorded: string[] = [];
+        const duaa: Record<string, unknown> = {};
+        if (r.automatedDecisions) {
+          Object.assign(duaa, cleanAdm(admFromWire(r.automatedDecisions)));
+          recorded.push("automatedDecisions");
+        }
+        if (r.furtherProcessing || r.research) {
+          let originalActivityId = existing?.originalActivityId ?? null;
+          if (r.furtherProcessing) {
+            const ref = r.furtherProcessing.originalExternalRef;
+            if (ref === r.externalRef) throw new RecordRefused("An activity cannot be further processing of itself.");
+            // Only an activity this connection sent: the reference is the
+            // Portal's own, and means nothing against another source's.
+            const [original] = ref
+              ? await tx
+                  .select({ id: processingActivities.id })
+                  .from(processingActivities)
+                  .where(
+                    and(
+                      eq(processingActivities.organisationId, connection.organisationId),
+                      eq(processingActivities.sourceConnectionId, connection.id),
+                      eq(processingActivities.externalRef, ref),
+                    ),
+                  )
+              : [];
+            originalActivityId = original?.id ?? null;
+            recorded.push("furtherProcessing");
+          }
+          if (r.research) recorded.push("research");
+          Object.assign(
+            duaa,
+            cleanFurtherProcessing({
+              ...(existing ? furtherRecordOf(existing) : {}),
+              ...(r.furtherProcessing ? furtherFromWire(r.furtherProcessing) : {}),
+              ...(r.research ? researchFromWire(r.research) : {}),
+              originalActivityId,
+            }),
+          );
+        }
+        if (r.childrenLikely !== undefined) {
+          duaa.childrenLikely = r.childrenLikely;
+          recorded.push("childrenLikely");
+        }
 
         // Structured bases win; otherwise read them from the text where it is
         // unambiguous. Where neither says anything, a basis somebody chose in
@@ -141,6 +221,7 @@ export async function ingestProcessingActivities(
           controllerRole: r.controllerRole,
           controllerName: r.controllerName,
           reviewDueAt: r.reviewDueAt ? new Date(r.reviewDueAt) : undefined,
+          ...duaa,
           updatedAt: new Date(),
         };
 
@@ -158,7 +239,7 @@ export async function ingestProcessingActivities(
             subjectId: existing.id,
             entityId: existing.entityId,
             before: { name: existing.name },
-            after: { name: r.name, externalRef: r.externalRef },
+            after: { name: r.name, externalRef: r.externalRef, ...(recorded.length ? { recorded } : {}) },
           });
           return;
         }
@@ -183,9 +264,14 @@ export async function ingestProcessingActivities(
           subjectType: "processing_activity",
           subjectId: row.id,
           entityId: entity.entityId,
-          after: { reference, name: r.name, externalRef: r.externalRef },
+          after: { reference, name: r.name, externalRef: r.externalRef, ...(recorded.length ? { recorded } : {}) },
         });
       });
+      } catch (error) {
+        const reason = refusedBy(error);
+        if (reason === null) throw error;
+        outcome.skipped.push({ externalRef: r.externalRef, reason });
+      }
     }
     return outcome;
   });
@@ -292,6 +378,16 @@ export async function ingestAiUseCases(
         supplierId = match?.id ?? null;
       }
 
+      let adm: ReturnType<typeof cleanAdm> | null = null;
+      try {
+        adm = r.automatedDecisions ? cleanAdm(admFromWire(r.automatedDecisions)) : null;
+      } catch (error) {
+        const reason = refusedBy(error);
+        if (reason === null) throw error;
+        outcome.skipped.push({ externalRef: r.externalRef, reason });
+        continue;
+      }
+
       await db.transaction(async (tx) => {
         const [existing] = await tx
           .select()
@@ -323,6 +419,8 @@ export async function ingestAiUseCases(
             .update(aiUseCases)
             .set({
               ...described,
+              // Sent replaces; left out leaves what was recorded here alone.
+              ...(adm ?? {}),
               // A link somebody made here is kept; the push only fills an empty one.
               supplierId: existing.supplierId ?? supplierId,
               updatedAt: new Date(),
@@ -337,12 +435,12 @@ export async function ingestAiUseCases(
             subjectId: existing.id,
             entityId: existing.entityId,
             before: { name: existing.name, purpose: existing.purpose },
-            after: { name: r.name, purpose: r.purpose, externalRef: r.externalRef },
+            after: { name: r.name, purpose: r.purpose, externalRef: r.externalRef, ...(adm ? { recorded: ["automatedDecisions"] } : {}) },
           });
           return;
         }
 
-        await createUseCase(
+        const created = await createUseCase(
           {
             organisationId: connection.organisationId,
             entityId: entity.entityId,
@@ -355,6 +453,9 @@ export async function ingestAiUseCases(
           },
           tx,
         );
+        // createUseCase records what a system is, field by field; the
+        // automated-decision record goes on alongside, in the same transaction.
+        if (adm) await tx.update(aiUseCases).set(adm).where(eq(aiUseCases.id, created.id));
         outcome.created += 1;
       });
     }
