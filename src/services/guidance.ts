@@ -296,6 +296,8 @@ function measure(step: Step, t: Tally): { done: boolean; measure: string } {
       return { done: false, measure: "read it before you need it" };
     case "cookies":
       return { done: false, measure: "kept current as the sites change" };
+    case "marketing":
+      return { done: false, measure: "kept current as campaigns start and stop" };
     case "evidence":
       return { done: false, measure: "worth doing before somebody asks" };
     default:

@@ -40,6 +40,7 @@ import * as aiRiskProfile from "@/services/ai-risk-profile";
 import * as dsr from "@/services/data-subject-requests";
 import * as complaintsSvc from "@/services/complaints";
 import * as inventory from "@/services/storage-inventory";
+import * as marketingSvc from "@/services/marketing";
 import * as analyserSvc from "@/services/consent-analyser";
 import * as dsrIntake from "@/services/dsr-intake";
 import * as routing from "@/services/approval-routing";
@@ -206,6 +207,12 @@ async function populated() {
   });
   const storageProposal = (await inventory.loadProperty(webProperty.id, id))!.proposals[0];
   const consentScan = (await inventory.loadProperty(webProperty.id, id))!.scans[0];
+  const marketingActivity = await marketingSvc.createMarketingActivity({
+    organisationId: id, entityId: o.entity.id, name: "B's secret call list", channel: "live_call", processingActivityId: activity.id, actor: SYSTEM,
+  });
+  await marketingSvc.recordMarketingDecision({
+    activityId: marketingActivity.id, organisationId: id, basis: "screened_calls", rationale: "B's reasons", actor: SYSTEM,
+  });
   const complaint = await complaintsSvc.recordComplaint({
     organisationId: id, entityId: o.entity.id, channel: "email", receivedAt: new Date(), subject: "request_handling",
     description: "B's complainant's secret grievance.", complainantName: "B's complainant", requestId: subjectRequest.id,
@@ -287,7 +294,7 @@ async function populated() {
 
   return {
     ...o, template, dpiaVersion, workflow: workflows[0], stage, risk, mitigation, acceptance, appetite,
-    supplier, dpa, activity, breach, subjectRequest, requestScope, complaint, webProperty, storageItem, storageProposal, consentScan, intakeLink, useCase, change, assurance, incident, atrsRecord, request,
+    supplier, dpa, activity, breach, subjectRequest, requestScope, complaint, webProperty, storageItem, storageProposal, consentScan, marketingActivity, intakeLink, useCase, change, assurance, incident, atrsRecord, request,
     trainingRecord, assessment, approval, link, comment, document, scanner, finding: finding.finding,
     conversation, task, draft, domainClaim,
   };
@@ -302,6 +309,7 @@ let mine: {
   subjectRequest: { id: string };
   complaint: { id: string };
   webProperty: { id: string };
+  marketingActivity: { id: string };
   useCase: { id: string };
   incident: { id: string };
   document: { id: string };
@@ -328,6 +336,9 @@ before(async () => {
   const webProperty = await inventory.createProperty({
     organisationId: A.org.id, entityId: A.entity.id, name: "A's site", url: "https://a.example.com", actor: SYSTEM,
   });
+  const marketingActivity = await marketingSvc.createMarketingActivity({
+    organisationId: A.org.id, entityId: A.entity.id, name: "A's newsletter", channel: "email", actor: SYSTEM,
+  });
   const complaint = await complaintsSvc.recordComplaint({
     organisationId: A.org.id, entityId: A.entity.id, channel: "email", receivedAt: new Date(), subject: "other",
     description: "Mine.", complainantName: "A's complainant", actor: SYSTEM,
@@ -345,7 +356,7 @@ before(async () => {
     organisationId: A.org.id, entityId: null, subjectType: "risk", subjectId: risk.id,
     filename: "a.pdf", contentType: "application/pdf", content: PDF, actor: SYSTEM,
   });
-  mine = { risk, breach, subjectRequest, complaint, webProperty, useCase, incident, document, dpiaVersion: dpia.version.id };
+  mine = { risk, breach, subjectRequest, complaint, webProperty, marketingActivity, useCase, incident, document, dpiaVersion: dpia.version.id };
 });
 after(() => pg.end());
 
@@ -440,6 +451,8 @@ describe("reading another organisation's records", () => {
     ["inventory.loadProperty", () => inventory.loadProperty(B.webProperty.id, A.org.id)],
     ["analyserSvc.checkPropertyScan", () => analyserSvc.checkPropertyScan({ scanId: B.consentScan.id, organisationId: A.org.id })],
     ["inventory.inventoryEntity", () => inventory.inventoryEntity({ property: B.webProperty.id }, A.org.id)],
+    ["marketingSvc.loadMarketingActivity", () => marketingSvc.loadMarketingActivity(B.marketingActivity.id, A.org.id)],
+    ["marketingSvc.marketingEntity", () => marketingSvc.marketingEntity(B.marketingActivity.id, A.org.id)],
     ["documentsFor", () => documentsSvc.documentsFor(A.org.id, "supplier", B.supplier.id)],
     ["readDocument", () => documentsSvc.readDocument(B.document.id, A.org.id)],
     ["latestExtraction", () => extraction.latestExtraction(A.org.id, B.dpa.id)],
@@ -519,6 +532,9 @@ describe("changing another organisation's records", () => {
     ["ingestAnalyserReport", () => inventory.ingestAnalyserReport({ propertyId: B.webProperty.id, organisationId: A.org.id, report: { schema_version: "2.0", checklist: [], summary: {}, metadata: {} }, source: "upload", actor: as() })],
     ["startPropertyScan", () => analyserSvc.startPropertyScan({ propertyId: B.webProperty.id, organisationId: A.org.id, actor: as() })],
     ["decideProposal", () => inventory.decideProposal({ proposalId: B.storageProposal.id, organisationId: A.org.id, accept: true, actor: as() })],
+    ["updateMarketingActivity", () => marketingSvc.updateMarketingActivity({ activityId: B.marketingActivity.id, organisationId: A.org.id, changes: { name: "taken" }, actor: as() })],
+    ["recordTpsScreening", () => marketingSvc.recordTpsScreening({ activityId: B.marketingActivity.id, organisationId: A.org.id, screenedAt: new Date(), actor: as() })],
+    ["recordMarketingDecision", () => marketingSvc.recordMarketingDecision({ activityId: B.marketingActivity.id, organisationId: A.org.id, basis: "none", rationale: "x", actor: as() })],
     ["updateComplaint", () => complaintsSvc.updateComplaint({ complaintId: B.complaint.id, organisationId: A.org.id, changes: { description: "taken" }, actor: as() })],
     ["recordComplaintEvent", () => complaintsSvc.recordComplaintEvent({ complaintId: B.complaint.id, organisationId: A.org.id, kind: "acknowledged", note: "", channel: "email", actor: as() })],
     ["recordComplaintOutcome", () => complaintsSvc.recordComplaintOutcome({ complaintId: B.complaint.id, organisationId: A.org.id, outcome: "upheld", channel: "email", summary: "x", actor: as() })],
@@ -590,6 +606,10 @@ describe("linking one's own records to another organisation's", () => {
     ["a website in B's entity", () => inventory.createProperty({ organisationId: A.org.id, entityId: B.entity.id, name: "x", url: "https://x.example.com", actor: as() })],
     ["a website owned by B's person", () => inventory.updateProperty({ propertyId: mine.webProperty.id, organisationId: A.org.id, changes: { ownerId: B.owner.user.id }, actor: as() })],
     ["a cookie collected by B's supplier", () => inventory.addItem({ propertyId: mine.webProperty.id, organisationId: A.org.id, name: "x", supplierId: B.supplier.id, actor: as() })],
+    ["a marketing activity in B's entity", () => marketingSvc.createMarketingActivity({ organisationId: A.org.id, entityId: B.entity.id, name: "x", channel: "email", actor: as() })],
+    ["a marketing activity under B's processing activity", () => marketingSvc.createMarketingActivity({ organisationId: A.org.id, entityId: A.entity.id, name: "x", channel: "email", processingActivityId: B.activity.id, actor: as() })],
+    ["a marketing activity linked to B's processing activity", () => marketingSvc.updateMarketingActivity({ activityId: mine.marketingActivity.id, organisationId: A.org.id, changes: { processingActivityId: B.activity.id }, actor: as() })],
+    ["a marketing activity owned by B's person", () => marketingSvc.updateMarketingActivity({ activityId: mine.marketingActivity.id, organisationId: A.org.id, changes: { ownerId: B.owner.user.id }, actor: as() })],
     ["a complaint in B's entity", () => complaintsSvc.recordComplaint({ organisationId: A.org.id, entityId: B.entity.id, channel: "email", receivedAt: new Date(), subject: "other", description: "x", complainantName: "x", actor: as() })],
     ["a complaint about B's request", () => complaintsSvc.recordComplaint({ organisationId: A.org.id, entityId: A.entity.id, channel: "email", receivedAt: new Date(), subject: "other", description: "x", complainantName: "x", requestId: B.subjectRequest.id, actor: as() })],
     ["a complaint linked to B's request", () => complaintsSvc.updateComplaint({ complaintId: mine.complaint.id, organisationId: A.org.id, changes: { requestId: B.subjectRequest.id }, actor: as() })],
@@ -640,6 +660,9 @@ describe("lists", () => {
       ["complaintsSvc.complaintRegister", complaintsSvc.complaintRegister(o, null)] as const,
       ["inventory.propertyRegister", inventory.propertyRegister(o, null)] as const,
       ["inventory.propertiesDueForRescan", inventory.propertiesDueForRescan(o, new Date(Date.now() + 10 * 365 * 24 * 3600 * 1000))] as const,
+      ["marketingSvc.marketingRegister", marketingSvc.marketingRegister(o, null)] as const,
+      ["marketingSvc.marketingProcessingActivities", marketingSvc.marketingProcessingActivities(o)] as const,
+      ["marketingSvc.activitiesDueTpsScreening", marketingSvc.activitiesDueTpsScreening(o, new Date(Date.now() + 10 * 365 * 24 * 3600 * 1000))] as const,
       ["complaintsSvc.complaintsNeedingAttention", complaintsSvc.complaintsNeedingAttention(o)] as const,
       ["complaintsSvc.complaintMetrics", complaintsSvc.complaintMetrics(o, null)] as const,
       ["complaintsSvc.complaintsSummary", complaintsSvc.complaintsSummary({ organisationId: o })] as const,

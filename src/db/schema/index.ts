@@ -16,3 +16,4 @@ export * from "./profiles";
 export * from "./requests";
 export * from "./complaints";
 export * from "./pecr";
+export * from "./marketing";

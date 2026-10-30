@@ -29,6 +29,7 @@ import { objectionCounts, objectionReviewThreshold, requestsNeedingAttention } f
 import { pruneIntakeAttempts } from "./dsr-intake";
 import { complaintsNeedingAttention } from "./complaints";
 import { propertiesDueForRescan } from "./storage-inventory";
+import { activitiesDueTpsScreening } from "./marketing";
 import { finishRunningScans } from "./consent-analyser";
 import { objectionReviewDue } from "@/lib/dsr/statutory";
 import { EXPIRING_WITHIN_LABEL, dpasNeedingAttention } from "./third-party";
@@ -69,6 +70,7 @@ export type SweepResult = {
   requestDeadlinesRaised: number;
   complaintDeadlinesRaised: number;
   rescansRaised: number;
+  tpsScreeningsRaised: number;
   consentScansFinished: number;
   objectionReviewsRaised: number;
   intakeAttemptsForgotten: number;
@@ -619,6 +621,42 @@ async function raiseRescans(organisationId: string): Promise<number> {
 }
 
 /**
+ * Live-call marketing whose TPS and CTPS screening is about to run out, has
+ * run out, or never happened. The TPS asks callers to screen at least every
+ * 28 days; recording a screening closes the reminder.
+ */
+async function raiseTpsScreenings(organisationId: string): Promise<number> {
+  const due = await activitiesDueTpsScreening(organisationId);
+  let raised = 0;
+  for (const { activity, dueAt, overdue } of due) {
+    // One reminder per screening that runs out, and one for never having screened.
+    const key = activity.tpsScreenedAt ? dueAt.toISOString().slice(0, 10) : "never";
+    await db.transaction(async (tx) => {
+      const task = await raiseTask(tx, {
+        organisationId,
+        entityId: activity.entityId,
+        type: "marketing_tps_screening",
+        title: activity.tpsScreenedAt
+          ? `${activity.reference}: ${activity.name} ${overdue ? "is overdue" : "is due"} TPS screening (${key})`
+          : `${activity.reference}: ${activity.name} has never been screened against the TPS`,
+        description:
+          "Screen the call list against the Telephone and Corporate Telephone Preference Services and record the date. " +
+          "PECR regulation 21 bars calls to registered numbers unless the person has told you they do not object; a " +
+          "screening holds for 28 days.",
+        subjectType: "marketing_activity",
+        subjectId: activity.id,
+        ...(activity.ownerId ? { assigneeUserId: activity.ownerId } : { assigneeRole: "privacy_admin" as const }),
+        dueAt,
+        idempotencyKey: `marketing-tps:${activity.id}:${key}`,
+        actor: SYSTEM,
+      });
+      if (task) raised += 1;
+    });
+  }
+  return raised;
+}
+
+/**
  * Activities people keep objecting to.
  *
  * Each objection is decided on its own, but a run of them says something
@@ -867,6 +905,7 @@ export async function sweepOrganisation(organisationId: string): Promise<SweepRe
     // Before rescans, so a scan finished here moves the next due date on.
     consentScansFinished: await finishRunningScans(organisationId),
     rescansRaised: await raiseRescans(organisationId),
+    tpsScreeningsRaised: await raiseTpsScreenings(organisationId),
     objectionReviewsRaised: await raiseObjectionReviews(organisationId),
     // Kept a day for rate limiting, then forgotten.
     intakeAttemptsForgotten: await pruneIntakeAttempts(organisationId),
