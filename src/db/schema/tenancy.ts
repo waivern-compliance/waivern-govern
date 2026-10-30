@@ -52,6 +52,18 @@ export const organisations = pgTable("organisation", {
   complaintOutcomeTargetDays: integer("complaint_outcome_target_days").notNull().default(30),
   /** How often a complainant is told how things stand while it is open (s.164A(5)(b)). Zero turns it off. */
   complaintUpdateIntervalDays: integer("complaint_update_interval_days").notNull().default(30),
+  /**
+   * The Waivern Consent Analyser this organisation scans its websites with, and
+   * its API token, sealed like an integration secret: a dump of the tables
+   * alone does not yield a token that can spend the owner's scan credits. The
+   * hint is the token's last four characters, so people can tell which one is
+   * set without it ever being shown.
+   */
+  consentAnalyserUrl: text("consent_analyser_url").notNull().default("https://consent-analyser-emea.waivern.com"),
+  consentAnalyserTokenCiphertext: text("consent_analyser_token_ciphertext"),
+  consentAnalyserTokenIv: text("consent_analyser_token_iv"),
+  consentAnalyserTokenTag: text("consent_analyser_token_tag"),
+  consentAnalyserTokenHint: text("consent_analyser_token_hint"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

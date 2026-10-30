@@ -40,6 +40,7 @@ import * as aiRiskProfile from "@/services/ai-risk-profile";
 import * as dsr from "@/services/data-subject-requests";
 import * as complaintsSvc from "@/services/complaints";
 import * as inventory from "@/services/storage-inventory";
+import * as analyserSvc from "@/services/consent-analyser";
 import * as dsrIntake from "@/services/dsr-intake";
 import * as routing from "@/services/approval-routing";
 import * as assessmentsSvc from "@/services/assessments";
@@ -204,6 +205,7 @@ async function populated() {
     },
   });
   const storageProposal = (await inventory.loadProperty(webProperty.id, id))!.proposals[0];
+  const consentScan = (await inventory.loadProperty(webProperty.id, id))!.scans[0];
   const complaint = await complaintsSvc.recordComplaint({
     organisationId: id, entityId: o.entity.id, channel: "email", receivedAt: new Date(), subject: "request_handling",
     description: "B's complainant's secret grievance.", complainantName: "B's complainant", requestId: subjectRequest.id,
@@ -285,7 +287,7 @@ async function populated() {
 
   return {
     ...o, template, dpiaVersion, workflow: workflows[0], stage, risk, mitigation, acceptance, appetite,
-    supplier, dpa, activity, breach, subjectRequest, requestScope, complaint, webProperty, storageItem, storageProposal, intakeLink, useCase, change, assurance, incident, atrsRecord, request,
+    supplier, dpa, activity, breach, subjectRequest, requestScope, complaint, webProperty, storageItem, storageProposal, consentScan, intakeLink, useCase, change, assurance, incident, atrsRecord, request,
     trainingRecord, assessment, approval, link, comment, document, scanner, finding: finding.finding,
     conversation, task, draft, domainClaim,
   };
@@ -436,6 +438,7 @@ describe("reading another organisation's records", () => {
     ["dsr.loadRequest", () => dsr.loadRequest(B.subjectRequest.id, A.org.id)],
     ["complaintsSvc.loadComplaint", () => complaintsSvc.loadComplaint(B.complaint.id, A.org.id)],
     ["inventory.loadProperty", () => inventory.loadProperty(B.webProperty.id, A.org.id)],
+    ["analyserSvc.checkPropertyScan", () => analyserSvc.checkPropertyScan({ scanId: B.consentScan.id, organisationId: A.org.id })],
     ["inventory.inventoryEntity", () => inventory.inventoryEntity({ property: B.webProperty.id }, A.org.id)],
     ["documentsFor", () => documentsSvc.documentsFor(A.org.id, "supplier", B.supplier.id)],
     ["readDocument", () => documentsSvc.readDocument(B.document.id, A.org.id)],
@@ -514,6 +517,7 @@ describe("changing another organisation's records", () => {
     ["updateItem", () => inventory.updateItem({ itemId: B.storageItem.id, organisationId: A.org.id, changes: { purpose: "taken" }, actor: as() })],
     ["recordStorageDecision", () => inventory.recordStorageDecision({ itemId: B.storageItem.id, organisationId: A.org.id, basis: "consent", rationale: "x", actor: as() })],
     ["ingestAnalyserReport", () => inventory.ingestAnalyserReport({ propertyId: B.webProperty.id, organisationId: A.org.id, report: { schema_version: "2.0", checklist: [], summary: {}, metadata: {} }, source: "upload", actor: as() })],
+    ["startPropertyScan", () => analyserSvc.startPropertyScan({ propertyId: B.webProperty.id, organisationId: A.org.id, actor: as() })],
     ["decideProposal", () => inventory.decideProposal({ proposalId: B.storageProposal.id, organisationId: A.org.id, accept: true, actor: as() })],
     ["updateComplaint", () => complaintsSvc.updateComplaint({ complaintId: B.complaint.id, organisationId: A.org.id, changes: { description: "taken" }, actor: as() })],
     ["recordComplaintEvent", () => complaintsSvc.recordComplaintEvent({ complaintId: B.complaint.id, organisationId: A.org.id, kind: "acknowledged", note: "", channel: "email", actor: as() })],
@@ -790,6 +794,9 @@ const NOT_TENANT_SCOPED: Record<string, string> = {
   "data-subject-requests.defaultJurisdiction": "reads the caller's own organisation",
   "complaints.setComplaintTargets": "configures the caller's own organisation",
   "complaints.complaintTargets": "reads the caller's own organisation",
+  "consent-analyser.analyserSettings": "reads the caller's own organisation",
+  "consent-analyser.setAnalyserSettings": "configures the caller's own organisation",
+  "consent-analyser.finishRunningScans": "acts only on the organisation it is given; run by the sweep",
   "dsr-intake.openIntakeLink": "the published address is the authority, and carries its organisation",
   "dsr-intake.submitIntake": "the published address is the authority, and carries its organisation",
   "dsr-intake.submitComplaintIntake": "the published address is the authority, and carries its organisation",

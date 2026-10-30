@@ -462,7 +462,9 @@ export async function ingestAnalyserReport(input: {
         analyserRunId: summary.runId,
         targetUrl: summary.targetUrl,
         mode: summary.mode,
-        region: summary.probeLocation,
+        // A run started from here already knows its region; a report's own probe
+        // location is used only where it says one.
+        ...(summary.probeLocation ? { region: summary.probeLocation } : {}),
         summary: summary as unknown as Record<string, unknown>,
         evidenceId: ev.id,
         observed: observed.length,

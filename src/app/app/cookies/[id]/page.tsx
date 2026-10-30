@@ -7,17 +7,21 @@ import { BASES, suggestedBasis } from "@/lib/pecr/statutory";
 import { can } from "@/lib/rbac";
 import { savedKey } from "@/lib/saved-key";
 import { getActiveSession } from "@/lib/session";
+import { analyserSettings } from "@/services/consent-analyser";
 import { loadProperty, ITEM_KINDS } from "@/services/storage-inventory";
 import { ActionForm } from "../../requests/ActionForm";
 import { Label, inputClass, stamp } from "../../requests/fields";
 import {
   addItemAction,
+  checkScanAction,
   decideBasisAction,
   decideProposalAction,
   updateItemAction,
+  startScanAction,
   updatePropertyAction,
   uploadReportAction,
 } from "../actions";
+import { ScanStatus } from "../ScanStatus";
 import { BasisForm } from "../BasisForm";
 import { UploadReport } from "../UploadReport";
 
@@ -44,6 +48,8 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
     return <NotPermitted what={`${property.reference} is a website's cookie inventory, and`} organisationName={active.membership.organisationName} />;
   }
   const mayWrite = can(active.membership.grants, "record.write", property.entityId);
+  const analyser = await analyserSettings(active.membership.organisationId);
+  const running = scans.find((s) => s.status === "running");
   const inUse = items.filter((i) => i.status === "active");
   const retired = items.filter((i) => i.status !== "active");
   const rescan = rescanState(rescanDueAt);
@@ -131,6 +137,30 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
         </label>
         {mayWrite ? <button type="submit" className={save}>Save</button> : null}
       </EditForm>
+
+      {property.kind === "website" && (running || (mayWrite && analyser.configured)) ? (
+        <section className="space-y-3 rounded border border-line bg-surface p-5">
+          <h2 className="text-sm font-semibold">Scan it now</h2>
+          {running ? (
+            <ScanStatus
+              key={running.id}
+              check={checkScanAction.bind(null, running.id, property.id)}
+              startedAt={running.startedAt.toISOString()}
+            />
+          ) : (
+            <>
+              <p className="max-w-prose text-xs text-ink-soft">
+                Runs the Waivern Consent Analyser against {property.url}, from the UK where the analyser can, in
+                GDPR mode with AI classification. It costs the token owner one scan credit and usually takes one to
+                five minutes. The report is taken in as an upload would be.
+              </p>
+              <ActionForm action={startScanAction.bind(null, property.id)} submit="Scan now" pendingLabel="Starting…">
+                <span className="sr-only">Scan {property.name}</span>
+              </ActionForm>
+            </>
+          )}
+        </section>
+      ) : null}
 
       {mayWrite ? (
         <section className="space-y-3 rounded border border-line bg-surface p-5">
@@ -355,7 +385,10 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
                   <span className="font-mono">{s.analyserRunId ?? "no run id"}</span> · {s.source === "upload" ? "uploaded" : "run from here"} by {s.startedByLabel}
                 </span>
                 <span className="text-ink-soft">
-                  {s.status} · {s.observed} seen · overall {summary.overall ?? "?"} · {stamp(s.completedAt ?? s.startedAt)}
+                  {s.status}
+                  {s.status === "failed" && s.failure ? ` (${s.failure})` : ""}
+                  {s.status === "done" ? ` · ${s.observed} seen · overall ${summary.overall ?? "?"}` : ""}
+                  {s.region ? ` · from ${s.region.toUpperCase()}` : ""} · {stamp(s.completedAt ?? s.startedAt)}
                 </span>
               </li>
             );

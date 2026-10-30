@@ -1,7 +1,6 @@
 # Plan: UK PECR as amended by the Data (Use and Access) Act 2025
 
-Status: decisions settled as recommended (30 October 2026); Phases 0, 1 and 3 built. The
-Consent Analyser changes in decision 4 are merged (analyser PR #145), so Phase 2 is unblocked.
+Status: decisions settled as recommended (30 October 2026); Phases 0–3 built.
 
 ## What is asked for
 
@@ -216,7 +215,7 @@ One row per name, domain and property:
     12 MB server action limit. The server strips them again.
   - Writes check the entity the website belongs to (`record.write` there).
 
-### Phase 2: scanning through the analyser API (about 1.5 days, after decision 4)
+### Phase 2: scanning through the analyser API (built)
 - **Settings:** the token and base URL, set by owners and privacy admins.
 - **Scan now:** a button on the property page.
   1. `POST /analyse/url` with `mode=gdpr`, `region=uk` (falling back to `eu` with a note
@@ -230,6 +229,28 @@ One row per name, domain and property:
   - the token is never logged;
   - an anonymous-looking run (the report can't be read back with the token) is reported
     as a token problem and not ingested.
+- **As built:**
+  - Decision 4's analyser changes shipped first in waivern-consent-analyser#145: report
+    schema 2.1 with `storage[]`, 401 for an invalid token, and HTTP scans charged to
+    the token's owner (402 when they are out of credits).
+  - `lib/pecr/analyser-client.ts` calls the analyser and has no database access.
+    `services/consent-analyser.ts` holds the organisation's settings and the
+    start/check/finish steps.
+  - The token is checked with the analyser before it is saved. The check reads the
+    status of a run id that doesn't exist, which costs nothing.
+  - The token is sealed in organisation columns, like integration secrets. Only its
+    last four characters are shown or written to the audit log.
+  - A finished run is claimed (`completed_at`) before its report is fetched, so two
+    callers asking at the same moment cannot both take it in.
+  - The page asks every 10 seconds while it is open. The sweep's
+    `finishRunningScans` handles runs nobody stayed to watch, and gives up after 15
+    minutes.
+  - The settings are set by organisation-wide grants with `workflow.configure`
+    (owner or privacy admin).
+  - The website's address is vetted with `fetch-page`'s rules (no private or
+    loopback addresses) before it is sent to the analyser.
+  - The sweep finishes running scans before it raises rescan reminders, so a scan
+    finished in the sweep moves the next due date on.
 
 ### Phase 3: keeping it current (built)
 - **Rescan tasks:** each property gets a rescan schedule (default quarterly) through the
