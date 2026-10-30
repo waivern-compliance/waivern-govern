@@ -28,6 +28,7 @@ const ANSWERS = {
   special_category: false,
   subject_groups: "Signed-in audience.",
   children_likely: false,
+  dpo_consulted: "no_dpo",
   volume: 100000,
   retention: "Thirteen months.",
   necessity: "Required for ranking.",

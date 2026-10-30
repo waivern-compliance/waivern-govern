@@ -9,6 +9,7 @@ import { NotPermitted } from "@/components/NotPermitted";
 import { can } from "@/lib/rbac";
 import { getActiveSession, visibleEntityIds } from "@/lib/session";
 import { GAP_WORDS, HARD_GAPS, registerHealth } from "@/services/ropa";
+import { dpoPosition } from "@/services/entities";
 import { recordActivity } from "./actions";
 
 export default async function RopaPage() {
@@ -25,10 +26,12 @@ export default async function RopaPage() {
   }
 
   const org = active.membership.organisationId;
-  const [health, orgEntities] = await Promise.all([
+  const [health, orgEntities, dpo] = await Promise.all([
     registerHealth(org, visibleEntityIds(active)),
     scoped(org, () => db.select().from(entities).where(eq(entities.organisationId, org))),
+    dpoPosition(org),
   ]);
+  const withoutDpo = dpo.entities.filter((e) => e.missing);
   const mayAdd = can(active.membership.grants, "record.write");
 
   return (
@@ -48,6 +51,18 @@ export default async function RopaPage() {
       </header>
 
       <HelpLink topic="ropa" />
+
+      {withoutDpo.length > 0 ? (
+        <p role="alert" className="max-w-prose rounded border border-red-800 bg-red-50 px-3 py-2 text-xs text-red-900">
+          {withoutDpo.map((e) => e.name).join(", ")} {withoutDpo.length === 1 ? "is a public authority" : "are public authorities"}{" "}
+          with no data protection officer recorded. Article 37(1)(a) requires one.{" "}
+          {can(active.membership.grants, "org.manage") ? (
+            <Link href="/app/admin/organisation" className="underline">Record the DPO</Link>
+          ) : (
+            "Someone who manages the organisation can record them."
+          )}
+        </p>
+      ) : null}
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Activities" value={health.total} note="on the register" />

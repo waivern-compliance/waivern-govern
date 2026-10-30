@@ -13,7 +13,11 @@ import { ScaleForm } from "./ScaleForm";
 import { DomainsPanel } from "./DomainsPanel";
 import { EntitiesPanel } from "./EntitiesPanel";
 import { domainsFor } from "@/services/domains";
-import { entitiesOf } from "@/services/entities";
+import { dpoPosition, entitiesOf } from "@/services/entities";
+import { DpoPanel } from "./DpoPanel";
+import { and, asc, eq } from "drizzle-orm";
+import { db, scoped } from "@/db/client";
+import { memberships, users } from "@/db/schema";
 
 export default async function OrganisationPage() {
   const active = await getActiveSession();
@@ -31,11 +35,18 @@ export default async function OrganisationPage() {
   const org = await organisationDetail(active.membership.organisationId);
   if (!org) redirect("/app");
 
-  const [legalEntities, scale, risksHeld, domains] = await Promise.all([
+  const [legalEntities, scale, risksHeld, domains, dpo, members] = await Promise.all([
     entitiesOf(org.id),
     riskScaleOf(org.id),
     riskCount(org.id),
     domainsFor(org.id),
+    dpoPosition(org.id),
+    scoped(org.id, () => db
+      .select({ id: users.id, email: users.email })
+      .from(memberships)
+      .innerJoin(users, eq(users.id, memberships.userId))
+      .where(and(eq(memberships.organisationId, org.id), eq(memberships.isActive, true)))
+      .orderBy(asc(users.email))),
   ]);
 
   return (
@@ -62,7 +73,14 @@ export default async function OrganisationPage() {
           legalEntityRef: e.legalEntityRef,
           isDefault: e.isDefault,
           publicCommsProvider: e.publicCommsProvider,
+          publicAuthority: e.publicAuthority,
         }))}
+      />
+
+      <DpoPanel
+        mayManage={mayManageEntities(active.membership.grants)}
+        position={dpo}
+        members={members}
       />
 
       <ScaleForm

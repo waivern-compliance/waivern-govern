@@ -24,12 +24,18 @@ export function LawfulBasisFields({
   bases,
   condition,
   note,
+  publicAuthority = false,
+  outsidePublicTasks = false,
 }: {
   bases: readonly LawfulBasis[];
   condition: RecognisedCondition | null;
   note: string;
+  /** The entity is a public authority: legitimate interests is not for its tasks. */
+  publicAuthority?: boolean;
+  outsidePublicTasks?: boolean;
 }) {
   const [recognised, setRecognised] = useState(bases.includes("recognised_legitimate_interests"));
+  const [legitimate, setLegitimate] = useState(bases.includes("legitimate_interests"));
 
   return (
     <fieldset className="space-y-3">
@@ -47,7 +53,13 @@ export function LawfulBasisFields({
               name="lawfulBases"
               value={b}
               defaultChecked={bases.includes(b)}
-              onChange={b === "recognised_legitimate_interests" ? (e) => setRecognised(e.target.checked) : undefined}
+              onChange={
+                b === "recognised_legitimate_interests"
+                  ? (e) => setRecognised(e.target.checked)
+                  : b === "legitimate_interests"
+                    ? (e) => setLegitimate(e.target.checked)
+                    : undefined
+              }
               className="mt-1 accent-brand"
             />
             <span>
@@ -56,6 +68,19 @@ export function LawfulBasisFields({
           </label>
         ))}
       </div>
+      {publicAuthority && (recognised || legitimate) ? (
+        <div className="space-y-2 rounded border border-red-800 bg-red-50 px-3 py-2 text-xs text-red-900">
+          <p>
+            This entity is a public authority. Article 6(1) does not let a public authority rely on legitimate
+            interests or recognised legitimate interests for processing in the performance of its tasks: those
+            rest on public task (Article 6(1)(e)) or another basis.
+          </p>
+          <label className="flex items-start gap-2">
+            <input type="checkbox" name="outsidePublicTasks" defaultChecked={outsidePublicTasks} className="mt-0.5 accent-brand" />
+            <span>This processing is not in the performance of the authority&apos;s tasks</span>
+          </label>
+        </div>
+      ) : null}
       {recognised ? (
         <label className="block space-y-1">
           <span className={label}>

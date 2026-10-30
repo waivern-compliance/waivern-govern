@@ -104,6 +104,7 @@ export async function updateActivityAction(
         controllerRole: text(formData.get("controllerRole")),
         controllerName: text(formData.get("controllerName")),
         childrenLikely: yesNo(formData.get("childrenLikely")),
+        outsidePublicTasks: formData.get("outsidePublicTasks") === "on",
         ...(owner !== null ? { ownerId: text(owner) || null } : {}),
       },
       actor: { actorKind: "user", actorUserId: active.userId, actorLabel: active.email },

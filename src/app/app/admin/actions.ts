@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { DpoRefused } from "@/lib/dpa2018/public-authority";
 import { SCALES, isScaleId } from "@/lib/risk/scale";
 import { setRiskScale } from "@/services/risk-policy";
 import { PERSONAS, type Persona } from "@/lib/persona";
@@ -26,7 +27,7 @@ import { unresolvedPlaceholder } from "@/lib/assistant/models";
 import type { ProviderKind } from "@/lib/assistant/providers";
 import { refusable, type EditResult } from "@/lib/edit-result";
 import { DomainRefused, claimDomain, removeDomain, verifyDomain } from "@/services/domains";
-import { EntityRefused, addEntity, makeDefaultEntity, renameEntity, setPublicCommsProvider } from "@/services/entities";
+import { EntityRefused, addEntity, makeDefaultEntity, renameEntity, setDpo, setPublicAuthority, setPublicCommsProvider } from "@/services/entities";
 import { NotInOrganisation } from "@/services/tenancy-guards";
 
 const text = (v: FormDataEntryValue | null) => String(v ?? "").trim();
@@ -348,7 +349,7 @@ async function entityResult(work: (active: Awaited<ReturnType<typeof requireCapa
     revalidatePath("/app", "layout");
     return { ok: true, message };
   } catch (error) {
-    if (error instanceof EntityRefused || error instanceof NotInOrganisation) {
+    if (error instanceof EntityRefused || error instanceof NotInOrganisation || error instanceof DpoRefused) {
       return { ok: false, message: error.message };
     }
     throw error;
@@ -402,5 +403,42 @@ export async function setProviderAction(entityId: string, provider: boolean, _pr
     return updated.publicCommsProvider
       ? `${updated.name} is marked as a public communications provider. Its breaches now run the PECR reg 5A clock.`
       : `${updated.name} is no longer marked as a public communications provider.`;
+  });
+}
+
+export async function setPublicAuthorityAction(entityId: string, publicAuthority: boolean, _prev: AdminResult): Promise<AdminResult> {
+  return entityResult(async (active) => {
+    const updated = await setPublicAuthority({
+      organisationId: active.membership.organisationId,
+      entityId,
+      publicAuthority,
+      actor: actorOf(active),
+    });
+    return updated.publicAuthority
+      ? `${updated.name} is marked as a public authority. Legitimate interests is flagged on its activities, and it needs a data protection officer.`
+      : `${updated.name} is no longer marked as a public authority.`;
+  });
+}
+
+/** The DPO for the organisation, or for one entity (`entityId`) that has its own. */
+export async function setDpoAction(entityId: string | null, _prev: AdminResult, formData: FormData): Promise<AdminResult> {
+  return entityResult(async (active) => {
+    const clear = formData.get("clear") === "on";
+    const dpo = await setDpo({
+      organisationId: active.membership.organisationId,
+      entityId,
+      dpo: clear
+        ? null
+        : {
+            name: text(formData.get("name")),
+            contact: text(formData.get("contact")),
+            userId: text(formData.get("userId")) || null,
+            reportsTo: text(formData.get("reportsTo")) || null,
+            published: formData.get("published") === "on",
+          },
+      actor: actorOf(active),
+    });
+    if (!dpo) return entityId ? "This entity now uses the organisation's data protection officer." : "No data protection officer is recorded.";
+    return `${dpo.name} is recorded as the data protection officer${entityId ? " for this entity" : ""}.`;
   });
 }

@@ -149,6 +149,12 @@ export const processingActivities = pgTable(
      */
     childrenLikely: boolean("children_likely"),
     /**
+     * For a public authority: this processing is not in the performance of its
+     * tasks, so the Article 6(1) bar on legitimate interests does not reach it.
+     * A person says so; nothing infers it.
+     */
+    outsidePublicTasks: boolean("outside_public_tasks").notNull().default(false),
+    /**
      * The basis as somebody wrote it — before the bases above existed, or as the
      * Portal sends it. Kept as a note: where it named a basis unambiguously, that
      * basis was chosen from it; where it did not, nothing was guessed.

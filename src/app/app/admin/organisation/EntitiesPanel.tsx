@@ -7,10 +7,18 @@ import {
   makeDefaultEntityAction,
   renameEntityAction,
   setProviderAction,
+  setPublicAuthorityAction,
   type AdminResult,
 } from "../actions";
 
-type Entity = { id: string; name: string; legalEntityRef: string | null; isDefault: boolean; publicCommsProvider: boolean };
+type Entity = {
+  id: string;
+  name: string;
+  legalEntityRef: string | null;
+  isDefault: boolean;
+  publicCommsProvider: boolean;
+  publicAuthority: boolean;
+};
 
 const input =
   "rounded border border-line bg-ground px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-brand";
@@ -55,6 +63,7 @@ export function EntitiesPanel({ entities, mayManage }: { entities: Entity[]; may
                 {e.legalEntityRef ?? "no reference"}
                 {e.isDefault ? " · default" : ""}
                 {e.publicCommsProvider ? " · public communications provider" : ""}
+                {e.publicAuthority ? " · public authority" : ""}
               </span>
             </li>
           ),
@@ -103,6 +112,11 @@ function EntityRow({ entity }: { entity: Entity }) {
   });
   const provider = useRefusableAction<AdminResult>(
     setProviderAction.bind(null, entity.id, !entity.publicCommsProvider),
+    { resetOnSuccess: false },
+  );
+
+  const authority = useRefusableAction<AdminResult>(
+    setPublicAuthorityAction.bind(null, entity.id, !entity.publicAuthority),
     { resetOnSuccess: false },
   );
 
@@ -166,9 +180,24 @@ function EntityRow({ entity }: { entity: Entity }) {
             : "Mark as a public communications provider (PECR reg 5A)"}
         </button>
       </form>
+      <form {...authority.formProps} className="flex flex-wrap items-baseline gap-2 text-xs">
+        {entity.publicAuthority ? (
+          <span className="rounded border border-line px-2 py-0.5 font-mono text-[11px]">public authority</span>
+        ) : null}
+        <button
+          type="submit"
+          disabled={authority.pending}
+          className="text-ink-soft underline-offset-2 hover:text-brand hover:underline disabled:opacity-50"
+        >
+          {entity.publicAuthority
+            ? "Not a public authority"
+            : "Mark as a public authority (Data Protection Act 2018 s.7)"}
+        </button>
+      </form>
       <Outcome result={rename.result} />
       <Outcome result={makeDefault.result} />
       <Outcome result={provider.result} />
+      <Outcome result={authority.result} />
     </li>
   );
 }

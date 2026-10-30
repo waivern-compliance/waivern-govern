@@ -5,6 +5,10 @@ import {
   approvals,
   assessmentAnswers,
   assessments,
+  entities,
+  memberships,
+  organisations,
+  roleAssignments,
   notifications,
   schedules,
   slaPolicies,
@@ -22,10 +26,45 @@ import type { RiskTier } from "@/lib/risk/scale";
 import { describe, matches, type RoutingContext } from "@/lib/workflow/routing";
 import { loadAssessment, submitAssessment } from "./assessments";
 import { needingSafeguards } from "./countries";
+import { effectiveDpo, isDpoStage } from "@/lib/dpa2018/public-authority";
 import { queueEvent } from "./webhooks";
 import type { Actor } from "./templates";
 
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
+
+/**
+ * Who a stage's task goes to by name, besides the role.
+ *
+ * The "Data protection officer" stage goes to the person recorded as the DPO
+ * for the assessment's entity (or the organisation), where they are an active
+ * member who may decide the stage. Otherwise it stays with the role: a DPO who
+ * cannot decide it would be handed work they cannot finish.
+ */
+async function stageAssignee(
+  tx: Tx,
+  organisationId: string,
+  entityId: string,
+  stage: { name: string; requiredRole: string },
+): Promise<string | null> {
+  if (!isDpoStage(stage.name)) return null;
+  const [org] = await tx.select({ dpo: organisations.dpo }).from(organisations).where(eq(organisations.id, organisationId));
+  const [entity] = await tx.select({ dpo: entities.dpo }).from(entities).where(eq(entities.id, entityId));
+  const dpo = effectiveDpo(org?.dpo ?? null, entity?.dpo ?? null);
+  if (!dpo?.userId) return null;
+  const roles = await tx
+    .select({ role: roleAssignments.role, scope: roleAssignments.scope, entityId: roleAssignments.entityId })
+    .from(roleAssignments)
+    .innerJoin(memberships, eq(memberships.id, roleAssignments.membershipId))
+    .where(
+      and(
+        eq(memberships.organisationId, organisationId),
+        eq(memberships.userId, dpo.userId),
+        eq(memberships.isActive, true),
+      ),
+    );
+  const held = roles.filter((r) => r.scope === "organisation" || r.entityId === entityId).map((r) => r.role);
+  return mayDecideStage(held, stage.requiredRole) ? dpo.userId : null;
+}
 
 export class NotYourDecision extends Error {}
 export class DecisionRefused extends Error {}
@@ -271,6 +310,7 @@ export async function openApprovals(input: {
           subjectType: "assessment",
           subjectId: input.assessmentId,
           assigneeRole: firstPending.requiredRole,
+          assigneeUserId: await stageAssignee(tx, input.organisationId, loaded.assessment.entityId, firstPending),
           idempotencyKey: `approve:${firstPending.id}`,
           actor: input.actor,
         });
@@ -514,6 +554,7 @@ export async function decideApproval(input: {
           subjectType: "assessment",
           subjectId: row.approval.assessmentId,
           assigneeRole: nextPending.requiredRole,
+          assigneeUserId: await stageAssignee(tx, input.organisationId, row.assessment.entityId, nextPending),
           idempotencyKey: `approve:${nextPending.id}`,
           actor: input.actor,
         });

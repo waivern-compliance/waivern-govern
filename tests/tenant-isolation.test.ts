@@ -89,6 +89,7 @@ const DPIA_ANSWERS = {
   special_category: false,
   subject_groups: "Signed-in audience.",
   children_likely: false,
+  dpo_consulted: "no_dpo",
   volume: 100000,
   retention: "Thirteen months.",
   necessity: "Required for ranking.",
@@ -587,6 +588,8 @@ describe("changing another organisation's records", () => {
     ["renameEntity", () => entitiesSvc.renameEntity({ organisationId: A.org.id, entityId: B.entity.id, name: "taken", actor: as() })],
     ["makeDefaultEntity", () => entitiesSvc.makeDefaultEntity({ organisationId: A.org.id, entityId: B.entity.id, actor: as() })],
     ["setPublicCommsProvider", () => entitiesSvc.setPublicCommsProvider({ organisationId: A.org.id, entityId: B.entity.id, provider: true, actor: as() })],
+    ["setPublicAuthority", () => entitiesSvc.setPublicAuthority({ organisationId: A.org.id, entityId: B.entity.id, publicAuthority: true, actor: as() })],
+    ["setDpo (B's entity)", () => entitiesSvc.setDpo({ organisationId: A.org.id, entityId: B.entity.id, dpo: { name: "Taken", contact: "x@example.com" }, actor: as() })],
     ["handOver (from B's person)", () => handover.handOver({ organisationId: A.org.id, fromUserId: B.owner.user.id, toUserId: A.owner.user.id, actor: as() })],
   ];
 
@@ -622,6 +625,7 @@ describe("linking one's own records to another organisation's", () => {
     ["a marketing activity in B's entity", () => marketingSvc.createMarketingActivity({ organisationId: A.org.id, entityId: B.entity.id, name: "x", channel: "email", actor: as() })],
     ["a marketing activity under B's processing activity", () => marketingSvc.createMarketingActivity({ organisationId: A.org.id, entityId: A.entity.id, name: "x", channel: "email", processingActivityId: B.activity.id, actor: as() })],
     ["further processing of B's processing activity", () => ropa.setFurtherProcessing({ activityId: mine.activity.id, organisationId: A.org.id, record: { furtherProcessing: true, originalActivityId: B.activity.id }, actor: as() })],
+    ["a DPO who is B's person", () => entitiesSvc.setDpo({ organisationId: A.org.id, dpo: { name: "B's person", contact: "x@example.com", userId: B.owner.user.id }, actor: as() })],
     ["an AI system linked to B's processing activity", () => adm.linkUseCaseToActivity({ organisationId: A.org.id, useCaseId: mine.useCase.id, activityId: B.activity.id, actor: as() })],
     ["a marketing activity linked to B's processing activity", () => marketingSvc.updateMarketingActivity({ activityId: mine.marketingActivity.id, organisationId: A.org.id, changes: { processingActivityId: B.activity.id }, actor: as() })],
     ["a marketing activity owned by B's person", () => marketingSvc.updateMarketingActivity({ activityId: mine.marketingActivity.id, organisationId: A.org.id, changes: { ownerId: B.owner.user.id }, actor: as() })],
@@ -745,6 +749,7 @@ describe("lists", () => {
       ["workflow.tasksDueSoon", workflow.tasksDueSoon(o, 24 * 365)] as const,
       ["domains.domainsFor", domains.domainsFor(o)] as const,
       ["entitiesSvc.entitiesOf", entitiesSvc.entitiesOf(o)] as const,
+      ["entitiesSvc.dpoPosition", entitiesSvc.dpoPosition(o)] as const,
     ].map(async ([n, r]) => [n, await r] as [string, unknown]));
     const text = (v: unknown) =>
       JSON.stringify(v, (_k, x) => (x instanceof Map ? [...x] : x instanceof Set ? [...x] : x)) ?? "";
