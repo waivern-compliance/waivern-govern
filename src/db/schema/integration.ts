@@ -11,6 +11,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import type { LawfulBasis, RecognisedCondition } from "@/lib/gdpr/lawful-basis";
+import type { AdmSafeguards, AdmSpecialCondition } from "@/lib/gdpr/automated-decisions";
 import {
   deliveryStatus,
   evidenceKind,
@@ -88,6 +89,16 @@ export const processingActivities = pgTable(
     lawfulBases: jsonb("lawful_bases").$type<LawfulBasis[]>().notNull().default([]),
     /** The Annex 1 condition, where recognised legitimate interests is relied on. */
     recognisedCondition: text("recognised_condition").$type<RecognisedCondition>(),
+    /**
+     * Significant decisions taken solely by automated means (UK GDPR 22A–22C).
+     * The same record is kept on AI use cases; where a linked pair disagrees,
+     * the page offers to copy one across, and a person decides.
+     * Null: not yet known.
+     */
+    automatedDecisions: boolean("automated_decisions"),
+    admSpecialCategory: boolean("adm_special_category"),
+    admSpecialCondition: text("adm_special_condition").$type<AdmSpecialCondition>(),
+    admSafeguards: jsonb("adm_safeguards").$type<AdmSafeguards>().notNull().default({}),
     /**
      * The basis as somebody wrote it — before the bases above existed, or as the
      * Portal sends it. Kept as a note: where it named a basis unambiguously, that

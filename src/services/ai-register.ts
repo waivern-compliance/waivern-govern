@@ -17,6 +17,7 @@ import {
 } from "@/db/schema";
 import { appendAuditEvent } from "@/lib/audit";
 import type { AssuranceSummary } from "@/lib/ai/assurance";
+import { ADM_GAP_WORDS, admGaps, type AdmGap } from "@/lib/gdpr/automated-decisions";
 import { assuranceByUseCase } from "./ai-assurance";
 import { systemsWithUnresolvedHarm } from "./ai-incidents";
 import { lastMaterialChanges } from "./ai-lifecycle";
@@ -136,7 +137,8 @@ export type Gap =
   | "supplier_unrecorded"
   | "supplier_not_assessed"
   | "supplier_advised_against"
-  | "owner_not_trained";
+  | "owner_not_trained"
+  | AdmGap;
 
 export const GAP_WORDS: Record<Gap, string> = {
   never_assessed: "Never assessed",
@@ -156,6 +158,7 @@ export const GAP_WORDS: Record<Gap, string> = {
   supplier_not_assessed: "Supplier's AI never assessed",
   supplier_advised_against: "Supplier's AI assessment recommends not proceeding",
   owner_not_trained: "Owner's AI learning not current",
+  ...ADM_GAP_WORDS,
 };
 
 /**
@@ -534,6 +537,11 @@ export function gapsFor(
       if (assurance.failing.length > 0) gaps.push("last_test_failed");
     }
   }
+
+  // Articles 22A–22C. The use case has no lawful basis of its own, so whether
+  // it relies on recognised legitimate interests (22B(4)) is shown on the page
+  // from the processing activities it is linked to, not reported here.
+  gaps.push(...admGaps(useCase));
 
   // Somebody reported actual harm and nobody has said how it was put right.
   if (unresolvedHarm) gaps.push("unresolved_harm");

@@ -15,6 +15,11 @@ import type { TemplateDefinition } from "../schema";
  * and — for AI and automated decisions — where they affect people, where a
  * person is involved, and the detriment bias or inaccuracy could cause.
  *
+ * Automated decisions follow UK GDPR Articles 22A–22C as the Data (Use and
+ * Access) Act 2025 left them: whether significant decisions are solely
+ * automated, the 22B restrictions on special category data and on recognised
+ * legitimate interests, and the four 22C safeguards.
+ *
  * `residual_accepted` and `ico_consultation` are read by the AI register's
  * lifecycle gate: a system whose DPIA leaves high risk cannot go live until
  * the ICO has been consulted, because Article 36 requires consultation before
@@ -126,6 +131,50 @@ export const DPIA: TemplateDefinition = {
             showWhen: { op: "equals", question: "uses_ai", value: true },
             requireWhen: { op: "equals", question: "uses_ai", value: true },
             legalRefs: ["ukgdpr.art22a", "ukgdpr.art22c"], evidence: "none" },
+          { key: "solely_automated", label: "Are significant decisions about people taken solely by automated means?", type: "boolean", required: false,
+            help: "Significant: a legal or similarly significant effect on them. Solely automated: no meaningful human involvement, considering how far the decision is reached by profiling. A person who only rubber-stamps the outcome is not meaningful involvement.",
+            showWhen: { op: "equals", question: "uses_ai", value: true },
+            requireWhen: { op: "equals", question: "uses_ai", value: true },
+            legalRefs: ["ukgdpr.art22a"], evidence: "none" },
+          { key: "adm_special_category", label: "Are those decisions based wholly or partly on special category data?", type: "boolean", required: false,
+            showWhen: { op: "equals", question: "solely_automated", value: true },
+            requireWhen: { op: "equals", question: "solely_automated", value: true },
+            legalRefs: ["ukgdpr.art22b", "ukgdpr.art9"], evidence: "none" },
+          { key: "adm_special_condition", label: "Which Article 22B condition is met?", type: "single_select", required: false,
+            help: "Without one of these, the decision may not be taken solely by automated means: a person must be meaningfully involved.",
+            showWhen: { op: "equals", question: "adm_special_category", value: true },
+            requireWhen: { op: "equals", question: "adm_special_category", value: true },
+            legalRefs: ["ukgdpr.art22b", "ukgdpr.art9"], evidence: "none",
+            options: [
+              { value: "explicit_consent", label: "Based entirely on data the person explicitly consented to (22B(2))" },
+              { value: "contract_or_law", label: "Necessary for a contract with them, or required or authorised by law, and Article 9(2)(g) applies (22B(3))" },
+              { value: "none", label: "None of these" },
+            ] },
+          { key: "adm_recognised_basis", label: "The processing relies on recognised legitimate interests, which Article 22B(4) does not allow for these decisions. How will a person be meaningfully involved instead, or which other basis applies?", type: "long_text", required: false,
+            showWhen: { op: "and", all: [
+              { op: "equals", question: "solely_automated", value: true },
+              { op: "equals", question: "lawful_basis", value: "recognised_legitimate_interests" },
+            ] },
+            requireWhen: { op: "and", all: [
+              { op: "equals", question: "solely_automated", value: true },
+              { op: "equals", question: "lawful_basis", value: "recognised_legitimate_interests" },
+            ] },
+            legalRefs: ["ukgdpr.art22b", "ukgdpr.art6.1ea"], evidence: "none" },
+          { key: "adm_safeguards", label: "Which safeguards are in place for these decisions?", type: "multi_select", required: false,
+            help: "Article 22C requires all four.",
+            showWhen: { op: "equals", question: "solely_automated", value: true },
+            requireWhen: { op: "equals", question: "solely_automated", value: true },
+            legalRefs: ["ukgdpr.art22c"], evidence: "optional",
+            options: [
+              { value: "information", label: "People are told about these decisions (22C(2)(a))" },
+              { value: "representations", label: "They can make representations about them (22C(2)(b))" },
+              { value: "human_intervention", label: "They can obtain human intervention (22C(2)(c))" },
+              { value: "contest", label: "They can contest them (22C(2)(d))" },
+            ] },
+          { key: "adm_safeguards_how", label: "How does each safeguard work in practice, and who handles a request for review?", type: "long_text", required: false,
+            showWhen: { op: "equals", question: "solely_automated", value: true },
+            requireWhen: { op: "equals", question: "solely_automated", value: true },
+            legalRefs: ["ukgdpr.art22c"], evidence: "optional" },
           { key: "bias_inaccuracy", label: "What detriment could people suffer from bias or inaccuracy, and how has that been tested?", type: "long_text", required: false,
             showWhen: { op: "equals", question: "uses_ai", value: true },
             requireWhen: { op: "equals", question: "uses_ai", value: true },

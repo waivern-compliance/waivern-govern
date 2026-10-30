@@ -39,9 +39,11 @@ import { updateUseCaseAction } from "../actions";
 import { StartAssessment } from "@/components/StartAssessment";
 import { asc, eq } from "drizzle-orm";
 import { db, scoped } from "@/db/client";
-import { aiUseCaseRequests, suppliers } from "@/db/schema";
+import { aiUseCaseRequests, processingActivities, suppliers } from "@/db/schema";
 import { savedKey } from "@/lib/saved-key";
 import { EditForm } from "@/components/EditForm";
+import { AutomatedDecisions } from "@/components/AutomatedDecisions";
+import { linkedActivitiesOf } from "@/services/automated-decisions";
 
 const CONSEQUENCE_WORDS: Record<string, string> = {
   informational: "Informational only — no decision follows",
@@ -79,7 +81,7 @@ export default async function UseCasePage({
     );
   }
   const mayEdit = can(active.membership.grants, "record.write", useCase.entityId);
-  const [members, records, history, gate, assurance, incidents, supplierOptions, [proposal]] = await Promise.all([
+  const [members, records, history, gate, assurance, incidents, supplierOptions, [proposal], linkedActivities, activityOptions] = await Promise.all([
     mayEdit ? candidatesFor(active.membership.organisationId) : Promise.resolve([]),
     recordsFor(id, active.membership.organisationId),
     historyFor(id, active.membership.organisationId),
@@ -98,7 +100,23 @@ export default async function UseCasePage({
       .select({ id: aiUseCaseRequests.id, reference: aiUseCaseRequests.reference })
       .from(aiUseCaseRequests)
       .where(eq(aiUseCaseRequests.aiUseCaseId, id))),
+    linkedActivitiesOf(active.membership.organisationId, useCase),
+    mayEdit
+      ? scoped(active.membership.organisationId, () => db
+          .select({
+            id: processingActivities.id,
+            entityId: processingActivities.entityId,
+            reference: processingActivities.reference,
+            name: processingActivities.name,
+          })
+          .from(processingActivities)
+          .where(eq(processingActivities.organisationId, active.membership.organisationId))
+          .orderBy(asc(processingActivities.reference)))
+      : Promise.resolve([]),
   ]);
+  // Article 22B(4) turns on the processing's bases, which live on the
+  // activities this system is used in.
+  const linkedBases = [...new Set(linkedActivities.flatMap((a) => a.lawfulBases ?? []))];
   const mayWaive = can(active.membership.grants, "approval.decide", useCase.entityId);
   // What each possible move would still need, worked out here so the form can
   // say so before anyone tries.
@@ -456,6 +474,19 @@ export default async function UseCasePage({
           <p className="text-sm text-ink-soft">Nothing reported.</p>
         )}
       </section>
+
+      <AutomatedDecisions
+        side="ai_use_case"
+        recordId={id}
+        record={useCase}
+        bases={linkedBases}
+        linked={linkedActivities}
+        mayEdit={mayEdit}
+        linkCandidates={activityOptions
+          .filter((a) => can(active.membership.grants, "record.read", a.entityId))
+          .filter((a) => !linkedActivities.some((l) => l.id === a.id))
+          .map((a) => ({ id: a.id, label: `${a.reference} ${a.name}` }))}
+      />
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-soft">

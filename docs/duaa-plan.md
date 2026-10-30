@@ -1,6 +1,6 @@
 # Plan: the UK GDPR as amended by the Data (Use and Access) Act 2025
 
-Status: decisions settled (30 October 2026); 1, 2, 5, 6 and 7 as recommended, 3 and 4 changed. Phases 0–1 built.
+Status: decisions settled (30 October 2026); 1, 2, 5, 6 and 7 as recommended, 3 and 4 changed. Phases 0–2 built.
 
 ## What is asked for
 
@@ -183,7 +183,7 @@ Built as:
   EU ones; EDPB Guidelines 1/2024 stay as persuasive. The DPIA's lawful basis question
   offers recognised legitimate interests and asks for the condition.
 
-### Phase 2: automated decisions (about 1.5 days)
+### Phase 2: automated decisions (built)
 - The ADM fields on the processing activity, `admRestriction`, and gaps:
   - a significant solely automated decision with any 22C safeguard unconfirmed;
   - one involving special category data without a 22B condition;
@@ -195,6 +195,27 @@ Built as:
 - The same fields on AI use cases. On either page, where the linked record lacks the
   automated-decision answers or differs, a prompt offers to copy them across; copying is
   an audited write by the person who clicked it.
+
+Built as:
+- `automated_decisions`, `adm_special_category`, `adm_special_condition` and
+  `adm_safeguards` on both `processing_activity` and `ai_use_case` (migration 0073), with
+  the rules in `lib/gdpr/automated-decisions.ts` (`cleanAdm`, `admGaps`, `admRestriction`,
+  `admMismatch`). Article 22A–22C wording checked on legislation.gov.uk.
+- Nothing linked an AI use case to a processing activity before, so the link is a
+  `record_link` (`ai_use_case` → `processing_activity`, `used_in`), made and removed from
+  the AI use case page and audited. One use case can sit in several activities.
+- Both pages share an "Automated decisions" section: the record, the linked records on the
+  other side, a prompt where one lacks the record or they disagree (answers compared,
+  notes not), and a red notice where 22B forbids the decision as recorded. On a use case
+  the 22B(4) check uses the bases of its linked activities.
+- Gaps on the ROPA and the AI register: special category data unanswered, special
+  category data with no 22B condition, any 22C safeguard unconfirmed, and (ROPA only)
+  reliance on recognised legitimate interests.
+- The DPIA asks whether significant decisions are solely automated, then about special
+  category data and the 22B condition, reliance on (ea), and the four 22C safeguards.
+- The request page lists, for an automated-decision request, what each activity in
+  scope records about the 22C safeguards. The Integration API does not carry the record
+  yet.
 
 ### Phase 3: further processing and research (about 1.5 days)
 - Confirm the unchecked provisions above first.

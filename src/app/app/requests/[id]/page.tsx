@@ -22,6 +22,7 @@ import { getActiveSession } from "@/lib/session";
 import { complaintsAboutRequest } from "@/services/complaints";
 import { loadRequest } from "@/services/data-subject-requests";
 import { ActionForm } from "../ActionForm";
+import { ADM_SAFEGUARDS, ADM_SAFEGUARD_KEYS, describeAdm } from "@/lib/gdpr/automated-decisions";
 import { describeBases } from "@/lib/gdpr/lawful-basis";
 import { RequestDecisionForm } from "../RequestDecisionForm";
 import { closeRequestAction, identityAction, passToControllerAction, respondAction, updateRequestAction } from "../actions";
@@ -79,6 +80,7 @@ export default async function RequestPage({ params }: { params: Promise<{ id: st
     : [];
   const activityLabel = new Map(scopedActivities.map((a) => [a.id, `${a.reference} ${a.name}`]));
   const objectionPending = request.rights.includes("objection") && !decisions.some((d) => d.kind === "objection");
+  const automatedAsked = request.rights.includes("automated_decision");
 
   return (
     <main className="mx-auto max-w-3xl space-y-9 px-6 py-12">
@@ -247,6 +249,41 @@ export default async function RequestPage({ params }: { params: Promise<{ id: st
             ? "They have asked for it, so restrict now and record that as a decision."
             : "Consider offering it, or restricting anyway while you decide."}
         </p>
+      ) : null}
+
+      {automatedAsked ? (
+        <section className="space-y-2">
+          <h2 className="text-sm font-semibold">Automated decisions in scope</h2>
+          <p className="max-w-prose text-xs text-ink-soft">
+            Article 22C: where a significant decision about them was taken solely by automated means, they are
+            entitled to information about it, to make representations, to obtain human intervention and to contest
+            it. What each activity in scope records:
+          </p>
+          {scopedActivities.length === 0 ? (
+            <p className="text-xs text-ink-soft">No processing activity in scope yet.</p>
+          ) : (
+            <ul className="divide-y divide-line overflow-hidden rounded border border-line bg-surface text-sm">
+              {scopedActivities.map((a) => (
+                <li key={a.id} className="space-y-1 px-4 py-3">
+                  <Link href={`/app/ropa/${a.id}`} className="hover:text-brand">
+                    <span className="font-mono text-xs text-ink-soft">{a.reference}</span> {a.name}
+                  </Link>
+                  <p className="text-xs text-ink-soft">{describeAdm(a)}</p>
+                  {a.automatedDecisions ? (
+                    <ul className="text-xs text-ink-soft">
+                      {ADM_SAFEGUARD_KEYS.map((k) => (
+                        <li key={k}>
+                          {a.admSafeguards?.[k]?.confirmed ? "✓" : "✗"} {ADM_SAFEGUARDS[k].label}
+                          {a.admSafeguards?.[k]?.note ? ` — ${a.admSafeguards[k]!.note}` : ""}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       ) : null}
 
       {!request.closedAt ? (

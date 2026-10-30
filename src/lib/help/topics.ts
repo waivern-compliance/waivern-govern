@@ -339,6 +339,14 @@ export const HELP_TOPICS: HelpTopic[] = [
         ],
       },
       {
+        heading: "Automated decisions",
+        body: [
+          "Say whether the processing takes significant decisions about people solely by automated means — decisions with a legal or similarly significant effect, with no person meaningfully involved (UK GDPR Article 22A). Answer 'not yet known' rather than guess; nothing is flagged until you say yes.",
+          "Where you say yes, it asks whether special category data is behind the decisions and, if so, which Article 22B condition allows it, and which of the four Article 22C safeguards are in place: telling people, hearing their representations, human intervention, and a way to contest. Each missing piece shows as a flag, and a red notice says when the record as written is not permitted — special category data with no condition, or processing that relies on recognised legitimate interests.",
+          "The same questions sit on each AI use case. Link a use case to the processing activities it is used in from the AI use case's page. Where one side has the record and the other lacks it or disagrees, both pages say so and offer to copy it across. Nothing is copied unless you click, because a system can automate part of what an activity does and the two may rightly differ; the copy is logged against you.",
+        ],
+      },
+      {
         heading: "Transfers",
         body: [
           "Each transfer needs a destination and, where that destination is not covered by adequacy, a safeguard. The check reads the country library. If the library is empty it escalates rather than clearing everything — an unanswerable question is never answered 'no'.",

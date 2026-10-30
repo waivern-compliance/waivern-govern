@@ -16,6 +16,8 @@ import { savedKey } from "@/lib/saved-key";
 import { EditForm } from "@/components/EditForm";
 import { RECOGNISED_CONDITIONS, describeBases } from "@/lib/gdpr/lawful-basis";
 import { LawfulBasisFields } from "../LawfulBasisFields";
+import { AutomatedDecisions } from "@/components/AutomatedDecisions";
+import { linkedUseCasesOf } from "@/services/automated-decisions";
 
 const ROLE_WORDS: Record<string, string> = {
   controller: "Controller — you decide why and how",
@@ -54,9 +56,10 @@ export default async function ActivityPage({
     .orderBy(asc(users.email)));
 
   // Counts only — no requester — so anyone who may read the record may see them.
-  const [objections, threshold] = await Promise.all([
+  const [objections, threshold, linkedUseCases] = await Promise.all([
     objectionCounts(active.membership.organisationId, [activity.id]).then((m) => m.get(activity.id)),
     objectionReviewThreshold(active.membership.organisationId),
+    linkedUseCasesOf(active.membership.organisationId, activity),
   ]);
 
   const transfersText = (activity.transfers ?? [])
@@ -252,6 +255,15 @@ export default async function ActivityPage({
           <Read label="Security measures" value={activity.securityMeasures} />
         </section>
       )}
+
+      <AutomatedDecisions
+        side="processing_activity"
+        recordId={activity.id}
+        record={activity}
+        bases={activity.lawfulBases ?? []}
+        linked={linkedUseCases}
+        mayEdit={mayEdit}
+      />
 
       <Discussion
         subjectType="processing_activity"

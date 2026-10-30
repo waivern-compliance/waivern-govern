@@ -58,6 +58,7 @@ import * as ingest from "@/services/ingest";
 import * as riskPolicy from "@/services/risk-policy";
 import * as risksSvc from "@/services/risks";
 import * as ropa from "@/services/ropa";
+import * as adm from "@/services/automated-decisions";
 import * as templatesSvc from "@/services/templates";
 import * as thirdParty from "@/services/third-party";
 import * as training from "@/services/training";
@@ -223,6 +224,8 @@ async function populated() {
     organisationId: id, entityId: o.entity.id, name: "B's model", purpose: "Secret purpose.",
     systemType: "generative", provenance: "third_party_api", supplierId: supplier.id, actor: SYSTEM,
   });
+  await adm.linkUseCaseToActivity({ organisationId: id, useCaseId: useCase.id, activityId: activity.id, actor: SYSTEM });
+  await adm.setAutomatedDecisions({ organisationId: id, side: "processing_activity", id: activity.id, record: { automatedDecisions: true }, actor: SYSTEM });
   const change = await aiLifecycle.recordChange({
     useCaseId: useCase.id, organisationId: id, kind: "data", summary: "B's change", actor: SYSTEM,
   });
@@ -440,6 +443,8 @@ describe("reading another organisation's records", () => {
     ["gateContext", () => aiLifecycle.gateContext(B.useCase.id, A.org.id)],
     ["historyFor", () => aiLifecycle.historyFor(B.useCase.id, A.org.id)],
     ["loadUseCase", () => aiRegister.loadUseCase(B.useCase.id, A.org.id)],
+    ["linkedActivitiesOf", () => adm.linkedActivitiesOf(A.org.id, { id: B.useCase.id, automatedDecisions: null, admSpecialCategory: null, admSpecialCondition: null, admSafeguards: {} })],
+    ["linkedUseCasesOf", () => adm.linkedUseCasesOf(A.org.id, { id: B.activity.id, automatedDecisions: null, admSpecialCategory: null, admSpecialCondition: null, admSafeguards: {} })],
     ["loadAssessment", () => assessmentsSvc.loadAssessment(B.assessment.id, A.org.id)],
     ["conversationMessages", () => assistant.conversationMessages(B.conversation.id, A.org.id)],
     ["prefillFor", () => atrs.prefillFor(B.useCase.id, A.org.id)],
@@ -557,6 +562,9 @@ describe("changing another organisation's records", () => {
     ["revokeAcceptance", () => risksSvc.revokeAcceptance({ acceptanceId: B.acceptance.id, organisationId: A.org.id, reason: "x", actor: as() })],
     ["closeRisk", () => risksSvc.closeRisk({ riskId: B.risk.id, organisationId: A.org.id, reason: "x", actor: as() })],
     ["updateActivity", () => ropa.updateActivity({ activityId: B.activity.id, organisationId: A.org.id, changes: { name: "taken" }, actor: as() })],
+    ["setAutomatedDecisions", () => adm.setAutomatedDecisions({ organisationId: A.org.id, side: "processing_activity", id: B.activity.id, record: { automatedDecisions: false }, actor: as() })],
+    ["copyAutomatedDecisions", () => adm.copyAutomatedDecisions({ organisationId: A.org.id, useCaseId: B.useCase.id, activityId: B.activity.id, to: "ai_use_case", actor: as() })],
+    ["unlinkUseCaseFromActivity", () => adm.unlinkUseCaseFromActivity({ organisationId: A.org.id, useCaseId: B.useCase.id, activityId: B.activity.id, actor: as() })],
     ["createDraftFrom", () => templatesSvc.createDraftFrom({ organisationId: A.org.id, templateId: B.template, actor: as() })],
     ["publishVersion", () => templatesSvc.publishVersion({ organisationId: A.org.id, versionId: B.dpiaVersion, actor: as() })],
     ["updateSupplier", () => thirdParty.updateSupplier({ supplierId: B.supplier.id, organisationId: A.org.id, changes: { name: "taken" }, actor: as() })],
@@ -609,6 +617,7 @@ describe("linking one's own records to another organisation's", () => {
     ["a cookie collected by B's supplier", () => inventory.addItem({ propertyId: mine.webProperty.id, organisationId: A.org.id, name: "x", supplierId: B.supplier.id, actor: as() })],
     ["a marketing activity in B's entity", () => marketingSvc.createMarketingActivity({ organisationId: A.org.id, entityId: B.entity.id, name: "x", channel: "email", actor: as() })],
     ["a marketing activity under B's processing activity", () => marketingSvc.createMarketingActivity({ organisationId: A.org.id, entityId: A.entity.id, name: "x", channel: "email", processingActivityId: B.activity.id, actor: as() })],
+    ["an AI system linked to B's processing activity", () => adm.linkUseCaseToActivity({ organisationId: A.org.id, useCaseId: mine.useCase.id, activityId: B.activity.id, actor: as() })],
     ["a marketing activity linked to B's processing activity", () => marketingSvc.updateMarketingActivity({ activityId: mine.marketingActivity.id, organisationId: A.org.id, changes: { processingActivityId: B.activity.id }, actor: as() })],
     ["a marketing activity owned by B's person", () => marketingSvc.updateMarketingActivity({ activityId: mine.marketingActivity.id, organisationId: A.org.id, changes: { ownerId: B.owner.user.id }, actor: as() })],
     ["a complaint in B's entity", () => complaintsSvc.recordComplaint({ organisationId: A.org.id, entityId: B.entity.id, channel: "email", receivedAt: new Date(), subject: "other", description: "x", complainantName: "x", actor: as() })],

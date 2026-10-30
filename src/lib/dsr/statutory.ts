@@ -92,7 +92,7 @@ export const RIGHTS: Record<Right, { label: string; article: string; summary: st
   automated_decision: {
     label: "Automated decisions",
     article: "Article 22C",
-    summary: "Representations, a review by a person, or a challenge to a significant decision made solely by automated means.",
+    summary: "The safeguards for a significant decision made solely by automated means: information about it, a chance to make representations, human intervention, and a way to contest it.",
   },
   withdraw_consent: {
     label: "Withdrawing consent",
