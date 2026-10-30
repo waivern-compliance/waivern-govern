@@ -2,17 +2,15 @@ import { and, asc, count, eq, inArray, isNull, or } from "drizzle-orm";
 import { db, withOrganisation } from "@/db/client";
 import { documents, entities, policyDocuments, processingActivities, users } from "@/db/schema";
 import { appendAuditEvent } from "@/lib/audit";
+import { part3PolicyKey } from "@/lib/dpa2018/part3";
+import { POLICY_KEYS, isPolicyKey, type PolicyKey } from "@/lib/dpa2018/policy-keys";
 import {
-  SCHEDULE_1,
   conditionsNeedingPolicy,
   conditionsReliedOn,
-  coveredBy,
   deletableFrom,
-  isSchedule1Condition,
   policyDocumentGaps,
   type PolicyCoverage,
   type PolicyDocumentGap,
-  type Schedule1Condition,
 } from "@/lib/dpa2018/schedule-1";
 import type { Actor } from "./templates";
 import { assertEntityIn, assertMemberOf } from "./tenancy-guards";
@@ -37,11 +35,12 @@ export class PolicyDocumentRefused extends Error {
   }
 }
 
-function cleanConditions(conditions: readonly string[]): Schedule1Condition[] {
-  const unknown = conditions.filter((c) => !isSchedule1Condition(c));
-  if (unknown.length > 0) throw new PolicyDocumentRefused("That is not a Schedule 1 condition.");
-  const chosen = new Set(conditions as Schedule1Condition[]);
-  return (Object.keys(SCHEDULE_1) as Schedule1Condition[]).filter((k) => chosen.has(k));
+function cleanConditions(conditions: readonly string[]): PolicyKey[] {
+  if (conditions.some((c) => !isPolicyKey(c))) {
+    throw new PolicyDocumentRefused("That is not a Schedule 1 condition, or a Part 3 ground for sensitive processing.");
+  }
+  const chosen = new Set(conditions);
+  return POLICY_KEYS.filter((k) => chosen.has(k));
 }
 
 /** What the current (not withdrawn) documents cover. Read inside the organisation's scope. */
@@ -79,6 +78,10 @@ async function reliance(organisationId: string, entityIds: string[] | null, cove
       schedule1Condition: processingActivities.schedule1Condition,
       criminalOffence: processingActivities.criminalOffence,
       art10Condition: processingActivities.art10Condition,
+      regime: processingActivities.regime,
+      sensitiveProcessing: processingActivities.sensitiveProcessing,
+      sensitiveRoute: processingActivities.sensitiveRoute,
+      schedule8Condition: processingActivities.schedule8Condition,
     })
     .from(processingActivities)
     .where(
@@ -92,14 +95,15 @@ async function reliance(organisationId: string, entityIds: string[] | null, cove
     .orderBy(asc(processingActivities.reference));
   return rows
     .map((r) => {
-      const needing = conditionsNeedingPolicy(r);
+      const part3Key = r.regime === "dpa_part3" ? part3PolicyKey(r) : null;
+      const needing: PolicyKey[] = r.regime === "dpa_part3" ? (part3Key ? [part3Key] : []) : conditionsNeedingPolicy(r);
       return {
         id: r.id,
         entityId: r.entityId,
         reference: r.reference,
         name: r.name,
-        conditions: conditionsReliedOn(r),
-        uncovered: needing.filter((k) => !coveredBy(r.entityId, k, coverage)),
+        conditions: r.regime === "dpa_part3" ? needing : (conditionsReliedOn(r) as PolicyKey[]),
+        uncovered: needing.filter((k) => !coverage.some((c) => (c.entityId === null || c.entityId === r.entityId) && c.conditions.includes(k))),
         needing,
       };
     })

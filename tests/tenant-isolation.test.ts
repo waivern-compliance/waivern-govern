@@ -606,6 +606,7 @@ describe("changing another organisation's records", () => {
     ["renameEntity", () => entitiesSvc.renameEntity({ organisationId: A.org.id, entityId: B.entity.id, name: "taken", actor: as() })],
     ["makeDefaultEntity", () => entitiesSvc.makeDefaultEntity({ organisationId: A.org.id, entityId: B.entity.id, actor: as() })],
     ["setPublicCommsProvider", () => entitiesSvc.setPublicCommsProvider({ organisationId: A.org.id, entityId: B.entity.id, provider: true, actor: as() })],
+    ["setCompetentAuthority", () => entitiesSvc.setCompetentAuthority({ organisationId: A.org.id, entityId: B.entity.id, competentAuthority: true, actor: as() })],
     ["setPublicAuthority", () => entitiesSvc.setPublicAuthority({ organisationId: A.org.id, entityId: B.entity.id, publicAuthority: true, actor: as() })],
     ["updateSharingAgreement", () => sharingSvc.updateSharingAgreement({ id: B.sharing.id, organisationId: A.org.id, changes: { title: "taken", purpose: null, direction: "both", gatewayKind: null, gateway: null, dataShared: null, lawfulBases: [], schedule1Condition: null, art10Condition: null, ownerId: null, signedAt: null, reviewDueAt: null, activityIds: [] }, actor: as() })],
     ["addSharingParty", () => sharingSvc.addSharingParty({ agreementId: B.sharing.id, organisationId: A.org.id, supplierId: B.partner.id, actor: as() })],

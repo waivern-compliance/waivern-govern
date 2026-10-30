@@ -347,6 +347,15 @@ export const HELP_TOPICS: HelpTopic[] = [
         ],
       },
       {
+        heading: "Law enforcement processing (Part 3)",
+        body: [
+          "On an entity that is a competent authority, a record can be kept under Part 3 of the Data Protection Act 2018 instead of the UK GDPR, for processing for the law enforcement purposes. The UK GDPR's questions — lawful basis, Articles 9 and 10, children, further processing, automated decisions — give way to Part 3's.",
+          "It asks how section 35(2) is met (a task carried out for a law enforcement purpose, or consent). Where there is sensitive processing it asks the route: consent, or strictly necessary with a Schedule 8 condition. Either way an appropriate policy document must be in place (s.42): the policy document register covers Part 3 grounds as well as Schedule 1 conditions, and the record asks whether retention followed it. A record with no route, no condition or no document covering it is red.",
+          "It also asks whether fact is distinguished from personal assessment (s.38(2)), and flags categories of data subject that do not distinguish suspects, the convicted, victims and witnesses (s.38(3)), both so far as possible. And for each system the record names, what it logs (s.62): the six operations, whether the consultation and disclosure logs show who did it and to whom, who reviews them and when they were last checked. Since 19 August 2025 the logs need not record why data was consulted or disclosed. Govern records the statement, never the logs.",
+          "Part 3's rights, breaches, automated decisions and transfers are not yet handled differently from the UK GDPR's; a later release covers them.",
+        ],
+      },
+      {
         heading: "Further processing and research",
         body: [
           "Say whether the activity reuses data first collected for something else. If it does, the new purpose has to be compatible with the old one (UK GDPR Article 8A). Choose the activity the data came from, if it is on the register, and the ground: fresh consent, research, demonstrating compliance, an Annex 2 condition, an Article 23 objective authorised by law, or your own assessment against the five Article 8A(2) factors, which it then asks you to write up.",
@@ -396,6 +405,7 @@ export const HELP_TOPICS: HelpTopic[] = [
       {
         heading: "Recording one",
         body: [
+          "Part 3 asks the same of a competent authority's sensitive processing for law enforcement (s.42), so a document can also cover sensitive processing on consent or on a Schedule 8 condition.",
           "Govern does not write the document. Add each one with the conditions it covers, whom it is for (one entity, or every entity in the organisation), an owner and when it was last reviewed, then attach the document itself.",
           "The register flags a document never reviewed, or not reviewed in twelve months, one with nothing attached, and one with no owner. It also lists each processing activity relying on a condition that no current document covers; the same shows red on the activity's record.",
         ],
@@ -1461,7 +1471,14 @@ export const HELP_TOPICS: HelpTopic[] = [
         heading: "Public authorities and the data protection officer",
         body: [
           "Mark an entity as a public authority where it is one within the Data Protection Act 2018 s.7 — broadly, a body under the Freedom of Information Act. Two things follow. For processing in the performance of its tasks it may not rely on legitimate interests or recognised legitimate interests (UK GDPR Article 6(1)), so a ROPA record that does is shown in red; where the processing is genuinely not one of its tasks, the record can say so. And it must have a data protection officer (Article 37(1)(a)).",
-          "Record the data protection officer on the Organisation page: their name, how to reach them, whom they report to and whether their details are published. An entity can have its own; otherwise the organisation's acts for it. A public authority with none is flagged here and on the ROPA. Where the DPO is a member who may decide it, the 'Data protection officer' approval stage goes to them by name; otherwise it stays with the role. The DPIA asks whether the DPO's advice was sought and what it was (Article 35(2)).",
+          "Record the data protection officer on the Organisation page: their name, how to reach them, whom they report to and whether their details are published. An entity can have its own; otherwise the organisation's acts for it. A public or competent authority with none is flagged here and on the ROPA. Where the DPO is a member who may decide it, the 'Data protection officer' approval stage goes to them by name; otherwise it stays with the role. The DPIA asks whether the DPO's advice was sought and what it was (Article 35(2)).",
+        ],
+      },
+      {
+        heading: "Competent authorities and law enforcement processing",
+        body: [
+          "Mark an entity as a competent authority where it is one for some of its functions: a body listed in Schedule 7 of the Data Protection Act 2018, such as a police force, or one with statutory functions for a law enforcement purpose (s.30). Its processing for those purposes falls under Part 3 of the Act rather than the UK GDPR, and it must have a data protection officer (s.69).",
+          "Say also which regime its new processing records start under. A police force's investigations are Part 3; its staff and finance records stay under the UK GDPR. Each record can be moved either way afterwards. Once an entity is a competent authority, the law enforcement DPIA template is offered through 'Waivern has updated templates'.",
         ],
       },
       {

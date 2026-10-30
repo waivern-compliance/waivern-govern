@@ -1,6 +1,6 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db, withOrganisation } from "@/db/client";
-import { legalReferences, templates, templateVersions } from "@/db/schema";
+import { entities, legalReferences, templates, templateVersions } from "@/db/schema";
 import type { templateKind } from "@/db/schema";
 import { appendAuditEvent, type AuditInput } from "@/lib/audit";
 import { canonicalise } from "@/lib/canonical";
@@ -307,13 +307,24 @@ export async function publishVersion(input: {
 export async function shippedTemplatesMissing(organisationId: string) {
   const framework = await aiFrameworkOf(organisationId);
   return withOrganisation(organisationId, async () => {
-    const held = await db
-      .select({ name: templates.name })
-      .from(templates)
-      .where(and(eq(templates.organisationId, organisationId), eq(templates.isSystem, true)));
+    const [held, [competent]] = await Promise.all([
+      db
+        .select({ name: templates.name })
+        .from(templates)
+        .where(and(eq(templates.organisationId, organisationId), eq(templates.isSystem, true))),
+      db
+        .select({ id: entities.id })
+        .from(entities)
+        .where(and(eq(entities.organisationId, organisationId), eq(entities.competentAuthority, true)))
+        .limit(1),
+    ]);
     const names = new Set(held.map((h) => h.name));
     return SYSTEM_TEMPLATES.filter(
-      (t) => !names.has(t.name) && (t.aiFramework === undefined || t.aiFramework === framework),
+      (t) =>
+        !names.has(t.name) &&
+        (t.aiFramework === undefined || t.aiFramework === framework) &&
+        // The Part 3 DPIA is offered once an entity is a competent authority.
+        (!t.competentAuthority || competent !== undefined),
     );
   });
 }

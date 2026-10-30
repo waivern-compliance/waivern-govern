@@ -2,6 +2,7 @@ import { and, asc, eq, ne } from "drizzle-orm";
 import { db, withOrganisation, type Db } from "@/db/client";
 import { entities, organisations } from "@/db/schema";
 import { appendAuditEvent } from "@/lib/audit";
+import { isRegime, type Regime } from "@/lib/dpa2018/part3";
 import { cleanDpo, dpoMissing, type Dpo } from "@/lib/dpa2018/public-authority";
 import { NotInOrganisation, assertMemberOf } from "./tenancy-guards";
 import type { Actor } from "./templates";
@@ -256,6 +257,46 @@ export async function setPublicAuthority(input: {
 }
 
 /**
+ * Whether the entity is a competent authority for some of its functions
+ * (s.30, Schedule 7), and the regime its new processing activities start
+ * under. Part 3 is available only to a competent authority, so turning the
+ * flag off sets the default back to the UK GDPR; records already under Part 3
+ * keep their regime and the register flags them.
+ */
+export async function setCompetentAuthority(input: {
+  organisationId: string;
+  entityId: string;
+  competentAuthority: boolean;
+  defaultRegime?: Regime;
+  actor: Actor;
+}) {
+  const defaultRegime: Regime = input.competentAuthority ? (input.defaultRegime ?? "uk_gdpr") : "uk_gdpr";
+  if (!isRegime(defaultRegime)) throw new Error("Choose the regime new records start under.");
+  return withOrganisation(input.organisationId, () =>
+    db.transaction(async (tx) => {
+      const before = await entityIn(tx, input.organisationId, input.entityId);
+      if (before.competentAuthority === input.competentAuthority && before.defaultRegime === defaultRegime) return before;
+      const [after] = await tx
+        .update(entities)
+        .set({ competentAuthority: input.competentAuthority, defaultRegime, updatedAt: new Date() })
+        .where(eq(entities.id, before.id))
+        .returning();
+      await appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        action: "entity.competent_authority_changed",
+        subjectType: "entity",
+        subjectId: before.id,
+        entityId: before.id,
+        before: { competentAuthority: before.competentAuthority, defaultRegime: before.defaultRegime },
+        after: { competentAuthority: input.competentAuthority, defaultRegime },
+      });
+      return after;
+    }),
+  );
+}
+
+/**
  * Record the data protection officer, for the whole organisation or — with an
  * `entityId` — for one entity that has its own. Null clears it. A member named
  * as the DPO must belong to this organisation.
@@ -316,9 +357,10 @@ export async function dpoPosition(organisationId: string) {
         id: e.id,
         name: e.name,
         publicAuthority: e.publicAuthority,
+        competentAuthority: e.competentAuthority,
         ownDpo: e.dpo ?? null,
         effectiveDpo: e.dpo ?? organisationDpo,
-        missing: dpoMissing({ publicAuthority: e.publicAuthority, dpo: e.dpo ?? null }, organisationDpo),
+        missing: dpoMissing({ publicAuthority: e.publicAuthority, competentAuthority: e.competentAuthority, dpo: e.dpo ?? null }, organisationDpo),
       })),
     };
   });

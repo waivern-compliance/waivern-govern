@@ -1,4 +1,5 @@
 import { index, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import type { PolicyKey } from "@/lib/dpa2018/policy-keys";
 import type { Art10Condition, Schedule1Condition } from "@/lib/dpa2018/schedule-1";
 import type { GatewayKind, SharingDirection } from "@/lib/dpa2018/sharing";
 import type { LawfulBasis } from "@/lib/gdpr/lawful-basis";
@@ -26,7 +27,8 @@ export const policyDocuments = pgTable(
     entityId: uuid("entity_id").references(() => entities.id, { onDelete: "restrict" }),
     title: text("title").notNull(),
     version: text("version"),
-    conditions: jsonb("conditions").$type<Schedule1Condition[]>().notNull().default([]),
+    /** Schedule 1 conditions, and Part 3 sensitive processing on consent or a Schedule 8 condition. */
+    conditions: jsonb("conditions").$type<PolicyKey[]>().notNull().default([]),
     ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
     lastReviewedAt: timestamp("last_reviewed_at", { withTimezone: true }),
     withdrawnAt: timestamp("withdrawn_at", { withTimezone: true }),

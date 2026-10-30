@@ -74,6 +74,8 @@ export default async function OrganisationPage() {
           isDefault: e.isDefault,
           publicCommsProvider: e.publicCommsProvider,
           publicAuthority: e.publicAuthority,
+          competentAuthority: e.competentAuthority,
+          defaultRegime: e.defaultRegime,
         }))}
       />
 
