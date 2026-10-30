@@ -639,6 +639,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           "On the requests page, an owner or privacy administrator can create a web form for an entity and publish its address in the privacy notice. People can then make a request without an account. Each submission is recorded here as arriving by web form, the month starts at once, and a task goes to the privacy team.",
           "The form shows nothing back except a reference and the deadline, so nobody can use it to find out about anybody's request. It takes no identity documents: if you reasonably doubt who is asking, ask afterwards, as for any request. It limits how often one address can submit, keeping only a scrambled form of the address for a day.",
           "It is one route among many. The form says so, and so must you: a request by email, by post or in person counts the same. Withdraw a form and its address says it is no longer taking requests.",
+          "Each form also takes complaints about how personal data was handled (DPA 2018 s.164A) unless you switch that off for it. Those go to the complaints register.",
         ],
       },
       {
@@ -734,6 +735,7 @@ export const HELP_TOPICS: HelpTopic[] = [
       "acknowledge", "acknowledgement", "30 days", "thirty days", "undue delay", "outcome", "grievance",
       "information commission", "ico", "regulator", "progress update",
       "deadline", "task", "timeliness", "metrics", "164b", "return", "counts",
+      "web form", "public form", "complaint form", "online", "intake",
     ],
     sections: [
       {
@@ -750,6 +752,14 @@ export const HELP_TOPICS: HelpTopic[] = [
           "A complaint can come by any route, and need not use the word. It often arrives inside a reply about a request: if the person is unhappy with how you handled it, that is a complaint as well as part of the request. Record it separately, linked to the request, because the 30 days to acknowledge it run on their own.",
           "Record only what you need: who is complaining, how to reach them, what it is about and what they said. The register is restricted to the people who handle requests, for the same reason.",
           "The right is the data subject's own. Somebody acting for them is recorded as their representative, with whether their authority was checked.",
+        ],
+      },
+      {
+        heading: "Taking complaints online",
+        body: [
+          "The Act gives a complaint form that can be completed electronically as its example of making complaining easy. The public request form does this: unless you switch it off for a form, it asks people whether they are making a request or a complaint. A complaint sent through it is recorded here as received by web form, the 30 days start at once, and a task goes to the privacy team.",
+          "As for requests, the form shows nothing back except a reference and the date it must be acknowledged by, takes no identity documents, and limits how often one address can submit — requests and complaints counted together. If the person gives the reference of an earlier request, it is kept with what they wrote; link the complaint to the request yourself once you have checked it is theirs.",
+          "Forms are created, switched and withdrawn on the requests page, by an owner or privacy administrator.",
         ],
       },
       {

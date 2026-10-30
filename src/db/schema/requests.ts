@@ -45,6 +45,12 @@ export const dsrIntakeLinks = pgTable(
     slug: text("slug").notNull().unique(),
     /** Where it is published, for the handler: "Studios privacy notice". */
     label: text("label").notNull(),
+    /**
+     * Whether the form also takes complaints (DPA 2018 s.164A). On by default:
+     * s.164A(2) names an electronic complaint form as the example of making
+     * complaining easy, and one published address is simpler than two.
+     */
+    takesComplaints: boolean("takes_complaints").notNull().default(true),
     submissions: integer("submissions").notNull().default(0),
     lastSubmittedAt: timestamp("last_submitted_at", { withTimezone: true }),
     createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),

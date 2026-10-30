@@ -592,6 +592,8 @@ The form shows nothing back except a reference and the deadline, so nobody can u
 
 It is one route among many. The form says so, and so must you: a request by email, by post or in person counts the same. Withdraw a form and its address says it is no longer taking requests.
 
+Each form also takes complaints about how personal data was handled (DPA 2018 s.164A) unless you switch that off for it. Those go to the complaints register.
+
 ### How the month is counted
 
 From the day the clock starts to the same date next month. Where next month has no such date, the last day of the month. Where that falls on a weekend or a bank holiday, the next working day. That is how the ICO counts it, and the deadline shown is worked out that way.
@@ -690,6 +692,14 @@ Record only what you need: who is complaining, how to reach them, what it is abo
 
 The right is the data subject's own. Somebody acting for them is recorded as their representative, with whether their authority was checked.
 
+### Taking complaints online
+
+The Act gives a complaint form that can be completed electronically as its example of making complaining easy. The public request form does this: unless you switch it off for a form, it asks people whether they are making a request or a complaint. A complaint sent through it is recorded here as received by web form, the 30 days start at once, and a task goes to the privacy team.
+
+As for requests, the form shows nothing back except a reference and the date it must be acknowledged by, takes no identity documents, and limits how often one address can submit — requests and complaints counted together. If the person gives the reference of an earlier request, it is kept with what they wrote; link the complaint to the request yourself once you have checked it is theirs.
+
+Forms are created, switched and withdrawn on the requests page, by an owner or privacy administrator.
+
 ### How the 30 days are counted
 
 The Act says the period begins when the complaint is received, so the day it arrives is the first day. A complaint received on 1 July must be acknowledged by the end of 30 July. These are calendar days: unlike the month for a request, nothing moves off a weekend or a bank holiday.
@@ -732,7 +742,7 @@ It will not decide whether a complaint is justified, write to the complainant, o
 
 **See also:** Data subject requests · Personal data breaches · The audit trail
 
-<sub>Also searchable as: complaint, complaints, 164a, section 164a, dpa 2018, data use and access act, duaa, acknowledge, acknowledgement, 30 days, thirty days, undue delay, outcome, grievance, information commission, ico, regulator, progress update, deadline, task, timeliness, metrics, 164b, return, counts</sub>
+<sub>Also searchable as: complaint, complaints, 164a, section 164a, dpa 2018, data use and access act, duaa, acknowledge, acknowledgement, 30 days, thirty days, undue delay, outcome, grievance, information commission, ico, regulator, progress update, deadline, task, timeliness, metrics, 164b, return, counts, web form, public form, complaint form, online, intake</sub>
 
 ## The AI register
 

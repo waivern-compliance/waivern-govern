@@ -16,6 +16,7 @@ import { can, mayConfigureRequests } from "@/lib/rbac";
 import { getActiveSession, visibleEntityIds } from "@/lib/session";
 import { complaintMetrics, complaintRegister, complaintTargets } from "@/services/complaints";
 import { defaultJurisdiction, loadRequest } from "@/services/data-subject-requests";
+import { intakeLinksFor } from "@/services/dsr-intake";
 import { ActionForm } from "../requests/ActionForm";
 import { CHANNEL_LABEL, ChannelSelect, Label, inputClass } from "../requests/fields";
 import { recordComplaintAction, setComplaintTargetsAction } from "./actions";
@@ -35,14 +36,16 @@ export default async function ComplaintsPage({ searchParams }: { searchParams: P
 
   const org = active.membership.organisationId;
   const { request: requestId } = await searchParams;
-  const [register, orgEntities, jurisdiction, targets, about, metrics] = await Promise.all([
+  const [register, orgEntities, jurisdiction, targets, about, metrics, links] = await Promise.all([
     complaintRegister(org, visibleEntityIds(active, "dsr.handle")),
     scoped(org, () => db.select().from(entities).where(eq(entities.organisationId, org))),
     defaultJurisdiction(org),
     complaintTargets(org),
     requestId && /^[0-9a-f-]{36}$/i.test(requestId) ? loadRequest(requestId, org) : null,
     complaintMetrics(org, visibleEntityIds(active, "dsr.handle")),
+    intakeLinksFor(org, visibleEntityIds(active, "dsr.handle")),
   ]);
+  const intakeForms = links.filter(({ link }) => !link.revokedAt && link.takesComplaints).length;
   const mayRecordIn = orgEntities.filter((e) => can(active.membership.grants, "dsr.handle", e.id));
   // A complaint about a request is made to the entity the request was.
   const aboutRequest = about && mayRecordIn.some((e) => e.id === about.request.entityId) ? about : null;
@@ -237,6 +240,20 @@ export default async function ComplaintsPage({ searchParams }: { searchParams: P
           </li>
         ) : null}
       </ul>
+
+      <section className="space-y-2 rounded border border-line bg-surface p-5">
+        <h2 className="text-sm font-semibold">Taking complaints online</h2>
+        <p className="max-w-prose text-xs text-ink-soft">
+          s.164A(2) gives a complaint form that can be completed electronically as the example of making
+          complaining easy. The public request forms take complaints too unless switched off; each
+          submission lands here as received by web form and raises a task for the privacy team.{" "}
+          {intakeForms === 0
+            ? "No published form takes complaints at the moment."
+            : `${intakeForms} published form${intakeForms === 1 ? " takes" : "s take"} complaints.`}{" "}
+          Forms are managed on{" "}
+          <Link href="/app/requests" className="text-brand underline">the requests page</Link>.
+        </p>
+      </section>
 
       <section className="space-y-2 rounded border border-line bg-surface p-5">
         <h2 className="text-sm font-semibold">Your targets for “without undue delay”</h2>

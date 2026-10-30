@@ -1,6 +1,6 @@
 # Plan: a register for data protection complaints
 
-Status: decisions settled as recommended; Phases 1 and 2 built. Written 29 October 2026.
+Status: decisions settled as recommended; all three phases built. Written 29 October 2026.
 
 ## What is asked for
 
@@ -205,10 +205,22 @@ These are the dated steps, each recorded by a named person with a note:
     same query rules as the requests summary, and also returns the organisation's
     targets so "within target" can be read.
 
-### Phase 3: public intake
+### Phase 3: public intake (built)
 Only if decision 2 is yes. The form gets the request-or-complaint choice; a per-form
 switch; submissions go through `recordComplaint` with channel `web_form` and raise a
 `complaint_intake` task; the reference and acknowledgement deadline are shown back.
+- **As built:**
+  - `dsr_intake_link.takes_complaints` defaults to on, so forms already published
+    started offering the choice as soon as this was deployed. It is switched per form
+    on the requests page.
+  - `submitComplaintIntake` shares the request form's checks: the hidden trap field,
+    the signed start time and the hourly limits, with requests and complaints counted
+    together.
+  - A complainant can give the reference of an earlier request. It is kept with what
+    they wrote, not linked automatically, because nothing proves the request is theirs.
+  - The complaint records the form it came through (`intake_link_id`) and raises a
+    `complaint_intake` task. The page shows back only the reference, and the
+    acknowledgement date where s.164A applies.
 
 ## Rough size
 

@@ -442,6 +442,8 @@ export const taskType = pgEnum("task_type", [
    * is. Due from the complaint, like the other deadlines from statute.
    */
   "complaint_deadline",
+  /** A complaint arrived through the public web form and nobody has picked it up yet. */
+  "complaint_intake",
 ]);
 
 export const taskStatus = pgEnum("task_status", [

@@ -202,6 +202,8 @@ export async function recordComplaint(input: {
   /** The request it is about, if it is about one. */
   requestId?: string | null;
   ownerId?: string | null;
+  /** The published web form it came through, if it did. */
+  intakeLinkId?: string | null;
   actor: Actor;
 }) {
   const subject = validSubject(input.subject);
@@ -238,6 +240,7 @@ export async function recordComplaint(input: {
           representative: input.representative?.trim() || null,
           requestId: input.requestId ?? null,
           ownerId: input.ownerId ?? null,
+          intakeLinkId: input.intakeLinkId ?? null,
         })
         .returning();
 
