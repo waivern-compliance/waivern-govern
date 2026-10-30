@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { LAWFUL_BASIS_KEYS, RECOGNISED_CONDITION_KEYS } from "@/lib/gdpr/lawful-basis";
 
 /**
  * The wire contract, versioned from the first release.
@@ -26,7 +27,12 @@ export const processingActivityIn = z.object({
   name: shortText,
   description: longText.optional(),
   purposes: z.array(shortText).max(50).default([]),
+  /** As written. Read into `lawfulBases` where it names them unambiguously. */
   lawfulBasis: z.string().max(100).optional(),
+  /** The Article 6(1) bases, where the producer knows them. Takes precedence over the text. */
+  lawfulBases: z.array(z.enum(LAWFUL_BASIS_KEYS as [string, ...string[]])).max(7).optional(),
+  /** The Annex 1 condition, with recognised legitimate interests. */
+  recognisedCondition: z.enum(RECOGNISED_CONDITION_KEYS as [string, ...string[]]).optional(),
   dataCategories: z.array(z.string().max(100)).max(100).default([]),
   subjectCategories: z.array(z.string().max(100)).max(50).default([]),
   recipients: z.array(z.string().max(200)).max(100).default([]),

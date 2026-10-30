@@ -505,6 +505,13 @@
       "when": 1793365084401,
       "tag": "0071_pecr_breach_5a",
       "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1793367302444,
+      "tag": "0072_duaa_lawful_bases",
+      "breakpoints": true
     }
   ]
 }

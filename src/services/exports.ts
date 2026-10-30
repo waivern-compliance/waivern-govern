@@ -34,6 +34,7 @@ import {
 } from "./third-party";
 import type { Actor } from "./templates";
 import { AI_STANDING_LABEL } from "@/lib/thirdparty/ai-procurement";
+import { RECOGNISED_CONDITIONS, describeBases } from "@/lib/gdpr/lawful-basis";
 
 /**
  * Data out, for people rather than machines.
@@ -420,7 +421,7 @@ export async function exportRopa(organisationId: string, entityIds: string[] | n
       columns: [
         "Reference", "Entity", "Activity", "Description",
         "Controller role", "Controller acted for", "Owner",
-        "Purposes", "Lawful basis",
+        "Purposes", "Lawful basis", "Annex 1 condition", "Note on the basis",
         "Categories of data subject", "Categories of personal data",
         "Categories of recipient", "Transfers", "Retention", "Security measures",
         "Systems", "Article 30 gaps", "Would fail an inspection", "Last updated",
@@ -428,7 +429,10 @@ export async function exportRopa(organisationId: string, entityIds: string[] | n
       rows: rows.map(({ activity, entityName, ownerEmail, gaps, hardGaps }) => [
         activity.reference, entityName, activity.name, activity.description,
         activity.controllerRole, activity.controllerName, ownerEmail,
-        (activity.purposes ?? []).join("; "), activity.lawfulBasis,
+        (activity.purposes ?? []).join("; "),
+        describeBases(activity.lawfulBases ?? []),
+        activity.recognisedCondition ? RECOGNISED_CONDITIONS[activity.recognisedCondition].label : "",
+        activity.lawfulBasis,
         (activity.subjectCategories ?? []).join("; "),
         (activity.dataCategories ?? []).join("; "),
         (activity.recipients ?? []).join("; "),

@@ -14,6 +14,7 @@
  */
 import { addMonths } from "@/lib/dates";
 import { BANK_HOLIDAYS_ENGLAND_AND_WALES } from "./bank-holidays";
+import { basesFromText, type LawfulBasis } from "@/lib/gdpr/lawful-basis";
 
 /**
  * Which law sets the clock.
@@ -103,14 +104,7 @@ export const RIGHTS: Record<Right, { label: string; article: string; summary: st
 export const RIGHT_KEYS = Object.keys(RIGHTS) as Right[];
 
 /** Article 6(1), plus direct marketing, which Article 21 treats on its own terms. */
-export type ProcessingBasis =
-  | "consent"
-  | "contract"
-  | "legal_obligation"
-  | "vital_interests"
-  | "public_task"
-  | "legitimate_interests"
-  | "direct_marketing";
+export type ProcessingBasis = LawfulBasis | "direct_marketing";
 
 export const PROCESSING_BASIS_LABEL: Record<ProcessingBasis, string> = {
   consent: "Consent",
@@ -118,6 +112,7 @@ export const PROCESSING_BASIS_LABEL: Record<ProcessingBasis, string> = {
   legal_obligation: "Legal obligation",
   vital_interests: "Vital interests",
   public_task: "Public task",
+  recognised_legitimate_interests: "Recognised legitimate interests",
   legitimate_interests: "Legitimate interests",
   direct_marketing: "Direct marketing",
 };
@@ -126,8 +121,9 @@ export const PROCESSING_BASIS_LABEL: Record<ProcessingBasis, string> = {
  * Whether an objection applies to processing on this basis, and whether the
  * controller may continue anyway.
  *
- * Article 21(1) reaches only public task and legitimate interests, and there
- * the controller may carry on if it shows compelling legitimate grounds that
+ * Article 21(1) reaches public task, legitimate interests and, since the Data
+ * (Use and Access) Act 2025 inserted point (ea), recognised legitimate
+ * interests (from 5 February 2026). There the controller may carry on if it shows compelling legitimate grounds that
  * override the person's interests, or needs the data for legal claims.
  * Article 21(2) and (3) make an objection to direct marketing absolute: there
  * is no balancing, and the processing stops.
@@ -147,7 +143,7 @@ export function objectionTest(basis: ProcessingBasis): {
         "An objection to direct marketing is absolute. The data must no longer be processed for that purpose, and there are no grounds on which to refuse.",
     };
   }
-  if (basis === "public_task" || basis === "legitimate_interests") {
+  if (basis === "public_task" || basis === "legitimate_interests" || basis === "recognised_legitimate_interests") {
     return {
       applies: true,
       overridable: true,
@@ -167,16 +163,34 @@ export function objectionTest(basis: ProcessingBasis): {
   };
 }
 
+/** Where an activity rests on several bases, the one an objection most likely concerns. */
+const OBJECTION_ORDER: LawfulBasis[] = [
+  "recognised_legitimate_interests",
+  "legitimate_interests",
+  "public_task",
+  "consent",
+  "contract",
+  "legal_obligation",
+  "vital_interests",
+];
+
 /**
- * What the ROPA suggests an objection is about, read from an activity's
- * free-text lawful basis and its purposes.
+ * What the ROPA suggests an objection is about, read from the bases chosen on
+ * an activity, or failing those its free-text note, and its purposes.
  *
  * Only a suggestion: the handler confirms it, because the ROPA may be wrong
  * and the answer decides whether the objection can be refused at all. Direct
  * marketing is a purpose rather than a basis, so it wins wherever it appears.
+ * Of several bases, one Article 21(1) reaches is suggested first.
  */
-export function basisSuggestedBy(activity: { lawfulBasis: string | null; purposes: readonly string[] }): ProcessingBasis | null {
+export function basisSuggestedBy(activity: {
+  lawfulBases?: readonly LawfulBasis[];
+  lawfulBasis: string | null;
+  purposes: readonly string[];
+}): ProcessingBasis | null {
   if (activity.purposes.some((p) => /\bmarketing\b/i.test(p))) return "direct_marketing";
+  const chosen = activity.lawfulBases?.length ? activity.lawfulBases : basesFromText(activity.lawfulBasis);
+  if (chosen?.length) return OBJECTION_ORDER.find((b) => chosen.includes(b)) ?? null;
   const b = (activity.lawfulBasis ?? "").toLowerCase();
   if (/legitimate/.test(b)) return "legitimate_interests";
   if (/public (task|interest)|official authority/.test(b)) return "public_task";

@@ -10,6 +10,13 @@ import {
   users,
 } from "@/db/schema";
 import { appendAuditEvent } from "@/lib/audit";
+import {
+  isLawfulBasis,
+  isRecognisedCondition,
+  lawfulBasisGaps,
+  type LawfulBasis,
+  type RecognisedCondition,
+} from "@/lib/gdpr/lawful-basis";
 import { needingSafeguards } from "./countries";
 import type { Actor } from "./templates";
 import { assertEntityIn, assertMemberOf } from "./tenancy-guards";
@@ -36,6 +43,7 @@ export type Article30Gap =
   | "retention"
   | "security_measures"
   | "lawful_basis"
+  | "recognised_condition"
   | "no_owner"
   | "review_overdue";
 
@@ -48,7 +56,8 @@ export const GAP_WORDS: Record<Article30Gap, string> = {
   controller_named: "Acting as processor with no controller named",
   retention: "No retention period",
   security_measures: "No security measures described",
-  lawful_basis: "No lawful basis",
+  lawful_basis: "No lawful basis chosen",
+  recognised_condition: "Recognised legitimate interests with no Annex 1 condition",
   no_owner: "No named owner",
   review_overdue: "Review overdue",
 };
@@ -107,13 +116,42 @@ export function article30Gaps(
 
   if (!activity.retention?.trim()) gaps.push("retention");
   if (!activity.securityMeasures?.trim()) gaps.push("security_measures");
-  if (!activity.lawfulBasis?.trim()) gaps.push("lawful_basis");
+  // Article 6(1): a basis chosen, not merely described. Free text that named
+  // one unambiguously was turned into a choice; anything else waits for one.
+  for (const gap of lawfulBasisGaps({ bases: activity.lawfulBases ?? [], recognisedCondition: activity.recognisedCondition })) {
+    gaps.push(gap === "no_basis" ? "lawful_basis" : "recognised_condition");
+  }
   if (!activity.ownerId) gaps.push("no_owner");
   if (activity.reviewDueAt && activity.reviewDueAt.getTime() <= Date.now()) {
     gaps.push("review_overdue");
   }
 
   return gaps;
+}
+
+export class LawfulBasisRefused extends Error {}
+
+/**
+ * The bases and Annex 1 condition as they will be stored. Unknown values are
+ * refused rather than dropped, and a condition is kept only where recognised
+ * legitimate interests is among the bases — a condition with nothing relying
+ * on it would read as a claim nobody made.
+ */
+export function cleanLawfulBases(
+  bases: readonly string[],
+  condition: string | null | undefined,
+): { lawfulBases: LawfulBasis[]; recognisedCondition: RecognisedCondition | null } {
+  const unknown = bases.filter((b) => !isLawfulBasis(b));
+  if (unknown.length > 0) throw new LawfulBasisRefused(`Not a lawful basis: ${unknown.join(", ")}.`);
+  const lawfulBases = [...new Set(bases)] as LawfulBasis[];
+  if (condition && !isRecognisedCondition(condition)) {
+    throw new LawfulBasisRefused(`Not an Annex 1 condition: ${condition}.`);
+  }
+  return {
+    lawfulBases,
+    recognisedCondition:
+      lawfulBases.includes("recognised_legitimate_interests") && condition ? (condition as RecognisedCondition) : null,
+  };
 }
 
 export type RegisterRow = {
@@ -232,6 +270,8 @@ export async function createActivity(input: {
   description?: string;
   purposes?: string[];
   lawfulBasis?: string;
+  lawfulBases?: string[];
+  recognisedCondition?: string | null;
   dataCategories?: string[];
   subjectCategories?: string[];
   recipients?: string[];
@@ -248,6 +288,7 @@ export async function createActivity(input: {
   return withOrganisation(input.organisationId, async () => {
     await assertEntityIn(input.organisationId, input.entityId);
     if (input.ownerId) await assertMemberOf(input.organisationId, input.ownerId);
+    const bases = cleanLawfulBases(input.lawfulBases ?? [], input.recognisedCondition);
     const reference = await nextReference(input.organisationId, new Date().getUTCFullYear());
 
     return db.transaction(async (tx) => {
@@ -261,6 +302,7 @@ export async function createActivity(input: {
           description: input.description,
           purposes: input.purposes ?? [],
           lawfulBasis: input.lawfulBasis,
+          ...bases,
           dataCategories: input.dataCategories ?? [],
           subjectCategories: input.subjectCategories ?? [],
           recipients: input.recipients ?? [],
@@ -298,6 +340,8 @@ export async function updateActivity(input: {
     description: string;
     purposes: string[];
     lawfulBasis: string;
+    lawfulBases: string[];
+    recognisedCondition: string | null;
     dataCategories: string[];
     subjectCategories: string[];
     recipients: string[];
@@ -329,9 +373,18 @@ export async function updateActivity(input: {
         );
       if (!before) throw new Error("No such processing activity");
 
+      const { lawfulBases, recognisedCondition, ...rest } = input.changes;
+      const bases =
+        lawfulBases !== undefined || recognisedCondition !== undefined
+          ? cleanLawfulBases(
+              lawfulBases ?? before.lawfulBases,
+              recognisedCondition !== undefined ? recognisedCondition : before.recognisedCondition,
+            )
+          : {};
+
       const [after] = await tx
         .update(processingActivities)
-        .set({ ...input.changes, updatedAt: new Date() })
+        .set({ ...rest, ...bases, updatedAt: new Date() })
         .where(eq(processingActivities.id, input.activityId))
         .returning();
 
@@ -342,8 +395,17 @@ export async function updateActivity(input: {
         subjectType: "processing_activity",
         subjectId: input.activityId,
         entityId: before.entityId,
-        before: { name: before.name, changed: Object.keys(input.changes) },
-        after: { name: after.name },
+        before: {
+          name: before.name,
+          changed: Object.keys(input.changes),
+          // The basis is the field a regulator asks about, so its change is
+          // kept in the chain, not only the fact that something changed.
+          ...("lawfulBases" in bases ? { lawfulBases: before.lawfulBases, recognisedCondition: before.recognisedCondition } : {}),
+        },
+        after: {
+          name: after.name,
+          ...("lawfulBases" in bases ? { lawfulBases: after.lawfulBases, recognisedCondition: after.recognisedCondition } : {}),
+        },
       });
 
       return after;

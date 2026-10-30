@@ -422,6 +422,12 @@ Red items are unqualified Article 30 requirements — purposes, categories of da
 
 Amber items are reported without being called a breach. Retention and security measures are qualified in the Regulation by 'where possible', so their absence is worth knowing and is not the same thing.
 
+### Lawful basis
+
+Tick each Article 6(1) basis the processing relies on. Recognised legitimate interests, which the Data (Use and Access) Act 2025 added, covers only the five conditions in Annex 1 — disclosure for another's public task, national security, emergencies, crime and safeguarding — and asks which one. It needs no balancing test, but people can still object to it, and a significant decision may not rest solely on automated processing under it.
+
+The text field beside it is a note. Where a record's basis used to be written as text and named one basis plainly, that basis was ticked for you; anything less clear was left for you to choose, and shows as 'No lawful basis chosen' until you do.
+
 ### Transfers
 
 Each transfer needs a destination and, where that destination is not covered by adequacy, a safeguard. The check reads the country library. If the library is empty it escalates rather than clearing everything — an unanswerable question is never answered 'no'.
@@ -636,13 +642,13 @@ An objection to direct marketing is absolute: the processing stops, and there ar
 
 Where the marketing is by email, text or phone, stopping it also meets the opt-out rules in PECR (regulations 21 and 22), or for an EU request the national law implementing the ePrivacy Directive. Keep the person on a suppression list rather than deleting them, even if they also asked for erasure, so they are not marketed to again. The platform records the objection; the marketing consents themselves are outside it.
 
-An objection to processing on public task or legitimate interests can be overridden only on compelling legitimate grounds that outweigh the person's interests, or for legal claims — and the burden is yours. Record the grounds in the decision. Consider restricting the processing while you decide.
+An objection to processing on public task, legitimate interests or recognised legitimate interests can be overridden only on compelling legitimate grounds that outweigh the person's interests, or for legal claims — and the burden is yours. Record the grounds in the decision. Consider restricting the processing while you decide.
 
 Processing on any other basis is not open to objection under Article 21. Processing on consent stops when consent is withdrawn; anything else may be an erasure or restriction request in different words.
 
 Decide an objection once for each processing activity it is about. The form offers the activities found in where to look, and suggests the basis from the ROPA; if the ROPA is wrong, correct it there.
 
-While you weigh an objection to public task or legitimate interests, the person may have the processing restricted (Article 18(1)(d)). If they asked, the platform will not record the restriction as refused until the objection is decided.
+While you weigh an objection to public task or either kind of legitimate interests, the person may have the processing restricted (Article 18(1)(d)). If they asked, the platform will not record the restriction as refused until the objection is decided.
 
 An upheld objection means the processing stops for this person. The request will not close until that activity is recorded as acted on in where to look.
 

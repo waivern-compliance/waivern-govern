@@ -58,8 +58,8 @@ export const SYSTEM_TEMPLATES: Array<{
     kind: "lia",
     name: "Legitimate interests assessment",
     description:
-      "The three-part test under Article 6(1)(f): purpose, necessity, and the balance against data subjects' rights.",
-    jurisdiction: "EU",
+      "Whether an Annex 1 recognised legitimate interest applies (UK GDPR Article 6(1)(ea)), and if not the three-part test under Article 6(1)(f): purpose, necessity, and the balance against data subjects' rights.",
+    jurisdiction: "UK",
     definition: LIA,
   },
   {

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { HARD_GAPS, article30Gaps, type Activity } from "@/services/ropa";
+import { HARD_GAPS, article30Gaps, cleanLawfulBases, type Activity } from "@/services/ropa";
 
 /** A record that satisfies Article 30 outright, to vary one field at a time. */
 function complete(over: Partial<Activity> = {}): Activity {
@@ -9,6 +9,8 @@ function complete(over: Partial<Activity> = {}): Activity {
     name: "Payroll", description: null,
     purposes: ["Paying staff"],
     lawfulBasis: "Contract",
+    lawfulBases: ["contract"],
+    recognisedCondition: null,
     dataCategories: ["Bank details"],
     subjectCategories: ["Staff"],
     recipients: ["Payroll bureau"],
@@ -110,5 +112,21 @@ describe("Article 30 completeness", () => {
   it("does not call a review due tomorrow overdue", () => {
     const soon = complete({ reviewDueAt: new Date(Date.now() + 86_400_000) });
     assert.ok(!article30Gaps(soon, LIBRARY).includes("review_overdue"));
+  });
+
+  it("asks for a basis to be chosen, not merely described, and for the Annex 1 condition", () => {
+    assert.ok(article30Gaps(complete({ lawfulBases: [] }), LIBRARY).includes("lawful_basis"), "text alone is not a choice");
+    const recognised = complete({ lawfulBases: ["recognised_legitimate_interests"] });
+    assert.deepEqual(article30Gaps(recognised, LIBRARY), ["recognised_condition"]);
+    assert.deepEqual(article30Gaps({ ...recognised, recognisedCondition: "crime" }, LIBRARY), []);
+  });
+
+  it("refuses unknown bases, and drops a condition nothing relies on", () => {
+    assert.throws(() => cleanLawfulBases(["vibes"], null), /Not a lawful basis/);
+    assert.throws(() => cleanLawfulBases(["recognised_legitimate_interests"], "marketing"), /Not an Annex 1 condition/);
+    assert.deepEqual(cleanLawfulBases(["contract", "contract"], "crime"), { lawfulBases: ["contract"], recognisedCondition: null });
+    assert.deepEqual(cleanLawfulBases(["recognised_legitimate_interests"], "safeguarding"), {
+      lawfulBases: ["recognised_legitimate_interests"], recognisedCondition: "safeguarding",
+    });
   });
 });

@@ -115,6 +115,23 @@ A processing activity carries every Article 30(1) element, in both directions:
 document from these, and a record that arrives thin should arrive rather than be
 rejected — Waivern Governance Tool reports its own gaps on the register instead.
 
+**Lawful basis.** `lawfulBasis` is free text, as before. Two optional fields carry
+the basis as a choice:
+
+- `lawfulBases`: an array of `consent`, `contract`, `legal_obligation`,
+  `vital_interests`, `public_task`, `recognised_legitimate_interests` (UK GDPR
+  Article 6(1)(ea), added by the Data (Use and Access) Act 2025) and
+  `legitimate_interests`;
+- `recognisedCondition`: with recognised legitimate interests, the Annex 1
+  condition: `public_task_disclosure`, `national_security`, `emergency`, `crime`
+  or `safeguarding`.
+
+On ingest, `lawfulBases` wins when sent. Otherwise the bases are read from
+`lawfulBasis` where every part of it names exactly one basis ("Contract; legitimate
+interests"); text that does not is kept as the note and no basis is guessed, and a
+basis already chosen in Waivern Governance Tool is left as it was. Exports carry all
+three fields, with `lawfulBasis` as the note.
+
 The context document is versioned (`contextVersion`), so the Portal can tell
 what shape it received:
 

@@ -22,6 +22,7 @@ import { getActiveSession } from "@/lib/session";
 import { complaintsAboutRequest } from "@/services/complaints";
 import { loadRequest } from "@/services/data-subject-requests";
 import { ActionForm } from "../ActionForm";
+import { describeBases } from "@/lib/gdpr/lawful-basis";
 import { RequestDecisionForm } from "../RequestDecisionForm";
 import { closeRequestAction, identityAction, passToControllerAction, respondAction, updateRequestAction } from "../actions";
 import { CHANNEL_LABEL, ChannelSelect, Label, RightsField, inputClass, stamp } from "../fields";
@@ -255,7 +256,7 @@ export default async function RequestPage({ params }: { params: Promise<{ id: st
           activities={scopedActivities.map((a) => ({
             id: a.id,
             label: `${a.reference} ${a.name}`,
-            lawfulBasis: a.lawfulBasis,
+            lawfulBasis: describeBases(a.lawfulBases ?? []) || a.lawfulBasis,
             suggested: basisSuggestedBy(a),
           }))}
         />

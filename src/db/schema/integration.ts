@@ -10,6 +10,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import type { LawfulBasis, RecognisedCondition } from "@/lib/gdpr/lawful-basis";
 import {
   deliveryStatus,
   evidenceKind,
@@ -80,6 +81,18 @@ export const processingActivities = pgTable(
     description: text("description"),
 
     purposes: jsonb("purposes").$type<string[]>().notNull().default([]),
+    /**
+     * The Article 6(1) bases relied on, as chosen. More than one is possible,
+     * since different purposes in one activity can rest on different bases.
+     */
+    lawfulBases: jsonb("lawful_bases").$type<LawfulBasis[]>().notNull().default([]),
+    /** The Annex 1 condition, where recognised legitimate interests is relied on. */
+    recognisedCondition: text("recognised_condition").$type<RecognisedCondition>(),
+    /**
+     * The basis as somebody wrote it — before the bases above existed, or as the
+     * Portal sends it. Kept as a note: where it named a basis unambiguously, that
+     * basis was chosen from it; where it did not, nothing was guessed.
+     */
     lawfulBasis: text("lawful_basis"),
     /** Categories only. Never identities — that is out of scope by design. */
     dataCategories: jsonb("data_categories").$type<string[]>().notNull().default([]),
