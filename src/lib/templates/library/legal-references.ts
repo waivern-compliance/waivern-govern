@@ -20,7 +20,8 @@ const REFERENCES = [
   { code: "ukgdpr.art35.7", regime: "UK GDPR", citation: "Article 35(7)", title: "Minimum content of a DPIA", url: "https://www.legislation.gov.uk/eur/2016/679/article/35", jurisdiction: "UK" },
   { code: "ukgdpr.art36", regime: "UK GDPR", citation: "Article 36", title: "Prior consultation with the supervisory authority", url: "https://www.legislation.gov.uk/eur/2016/679/article/36", jurisdiction: "UK" },
   { code: "ukgdpr.art44", regime: "UK GDPR", citation: "Article 44", title: "General principle for transfers", url: "https://www.legislation.gov.uk/eur/2016/679/article/44", jurisdiction: "UK" },
-  { code: "ukgdpr.art45", regime: "UK GDPR", citation: "Article 45", title: "Transfers on the basis of an adequacy decision", url: "https://www.legislation.gov.uk/eur/2016/679/article/45", jurisdiction: "UK" },
+  { code: "ukgdpr.art45", regime: "UK GDPR", citation: "Article 45", title: "Transfers on the basis of an adequacy decision (omitted from 5 February 2026; see Articles 44A and 45A)", url: "https://www.legislation.gov.uk/eur/2016/679/article/45", jurisdiction: "UK" },
+  { code: "ukgdpr.art44a", regime: "UK GDPR", citation: "Article 44A", title: "General principles for transfers: approved by regulations, Article 46 safeguards or an Article 49 derogation", url: "https://www.legislation.gov.uk/eur/2016/679/article/44A", jurisdiction: "UK" },
   { code: "ukgdpr.art46", regime: "UK GDPR", citation: "Article 46", title: "Transfers subject to appropriate safeguards", url: "https://www.legislation.gov.uk/eur/2016/679/article/46", jurisdiction: "UK" },
   { code: "ukgdpr.art49", regime: "UK GDPR", citation: "Article 49", title: "Derogations for specific situations", url: "https://www.legislation.gov.uk/eur/2016/679/article/49", jurisdiction: "UK" },
   // Articles the Data (Use and Access) Act 2025 inserted or substituted, in force 5 February 2026.

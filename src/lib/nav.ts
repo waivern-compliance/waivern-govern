@@ -120,7 +120,7 @@ export const NAV: NavItem[] = [
   {
     href: "/app/countries",
     label: "Country library",
-    hint: "adequacy, transfer risk, and when it was last checked",
+    hint: "UK approval, adequacy, transfer risk, and when it was last checked",
     capability: "record.read",
   },
   {

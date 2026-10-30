@@ -369,7 +369,7 @@ export default async function SupplierPage({
               <Field
                 label="Transfer mechanism"
                 name="transferMechanism"
-                hint="SCCs, UK Addendum, adequacy — if data leaves the UK"
+                hint="IDTA, UK Addendum, approved destination — if data leaves the UK"
               />
               <Area
                 label="Sub-processors"

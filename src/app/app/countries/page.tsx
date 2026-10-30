@@ -6,6 +6,7 @@ import { can, kindsFor } from "@/lib/rbac";
 import { getActiveSession } from "@/lib/session";
 import {
   ADEQUACY_WORDS,
+  UK_APPROVAL_WORDS,
   RISK_WORDS,
   type AdequacyStatus,
   type RiskLevel,
@@ -71,7 +72,8 @@ export default async function CountriesPage({
               {health.unverified} of {health.total} entries have never been checked by a person.
             </strong>{" "}
             They were loaded as a starting point, not verified against a current
-            source. Adequacy status is a matter of public record and should be
+            source. Whether the UK approves a destination (Article 45A) and
+            whether the EU finds it adequate are matters of public record and should be
             confirmed; the two risk judgements are deliberately left open,
             because a rating nobody can source would read as evidence in a
             transfer assessment and would not be.
@@ -108,7 +110,7 @@ export default async function CountriesPage({
               </span>
               <span className="flex flex-wrap items-center gap-1.5">
                 <Badge tone={ADEQUACY_TONE[c.ukAdequacy as AdequacyStatus]}>
-                  UK: {ADEQUACY_WORDS[c.ukAdequacy as AdequacyStatus]}
+                  UK: {UK_APPROVAL_WORDS[c.ukAdequacy as AdequacyStatus]}
                 </Badge>
                 <Badge tone={ADEQUACY_TONE[c.euAdequacy as AdequacyStatus]}>
                   EU: {ADEQUACY_WORDS[c.euAdequacy as AdequacyStatus]}

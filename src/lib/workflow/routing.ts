@@ -148,7 +148,7 @@ export function describe(condition: RoutingCondition): string {
     case "specialCategoryData":
       return "special category data is involved";
     case "transferToNonAdequate":
-      return "data goes to a country without adequacy";
+      return "data goes to a country not approved by UK regulations (Article 45A)";
     case "and":
       return condition.all.map(describe).join(" and ");
     case "or":
@@ -182,7 +182,7 @@ export function describeRouting(condition: RoutingCondition): string {
     case "specialCategoryData":
       return "special-category data is involved";
     case "transferToNonAdequate":
-      return "data goes to a country without an adequacy decision";
+      return "data goes to a country not approved by UK regulations";
     case "and":
       return condition.all.map(describeRouting).join(", and ");
     case "or":

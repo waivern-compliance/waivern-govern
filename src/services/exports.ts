@@ -271,7 +271,7 @@ export async function exportCountries(organisationId: string) {
     const library = await libraryFor(organisationId);
     return {
       columns: [
-        "Code", "Country", "UK adequacy", "UK note", "EU adequacy", "EU note",
+        "Code", "Country", "UK approval (Article 45A)", "UK note", "EU adequacy", "EU note",
         "Government access", "Redress", "Summary",
         "Source of this entry", "Last checked", "Checked by", "Next review", "Overdue",
       ],

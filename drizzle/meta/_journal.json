@@ -526,6 +526,13 @@
       "when": 1793373143910,
       "tag": "0074_duaa_further_processing",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1793374240863,
+      "tag": "0075_duaa_uk_approval_wording",
+      "breakpoints": true
     }
   ]
 }

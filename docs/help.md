@@ -40,7 +40,7 @@ Every help topic the application carries, in the order it presents them.
 - [AI incidents and concerns](#ai-incidents-and-concerns) — Reports about AI systems — failures, harm, challenges to outcomes and concerns — each handled by a named person.
 - [NIST AI RMF profile](#nist-ai-rmf-profile) — Where the organisation stands against each of NIST AI RMF's 72 subcategories, where it means to be, and the gap between.
 - [Algorithmic transparency records](#algorithmic-transparency-records) — The public record of how an AI system is used, in the Algorithmic Transparency Recording Standard's own fields.
-- [Countries, adequacy and transfers](#countries-adequacy-and-transfers) — One shared library of destinations, with adequacy and transfer risk, and a date showing when each was last checked by a person.
+- [Countries, UK approval and transfers](#countries-uk-approval-and-transfers) — One shared library of destinations, with UK approval, EU adequacy and transfer risk, and a date showing when each was last checked by a person.
 - [Scan findings](#scan-findings) — Observations pushed in by scanning tools, waiting for a person to decide whether each is a risk.
 
 **Seeing where you stand**
@@ -264,7 +264,7 @@ Each gate names the role that must decide it. Approve, return for more, or rejec
 
 Gates are added by routing rules that read the answers. A transfer outside the UK, a high inherent rating, an AI system that decides without human review — each pulls in the approval it warrants. Where a rule cannot answer a question, it escalates rather than passing: an unanswerable question is not a 'no'.
 
-**See also:** Assessments: DPIAs, transfer risk, AI risk, screening · Roles, and why you cannot see something · Countries, adequacy and transfers
+**See also:** Assessments: DPIAs, transfer risk, AI risk, screening · Roles, and why you cannot see something · Countries, UK approval and transfers
 
 <sub>Also searchable as: gate, sign off, decision, reject, return, approver, threshold</sub>
 
@@ -448,7 +448,7 @@ The same questions sit on each AI use case. Link a use case to the processing ac
 
 Each transfer needs a destination and, where that destination is not covered by adequacy, a safeguard. The check reads the country library. If the library is empty it escalates rather than clearing everything — an unanswerable question is never answered 'no'.
 
-**See also:** Countries, adequacy and transfers · Third parties and processor agreements (Article 28) · Exports
+**See also:** Countries, UK approval and transfers · Third parties and processor agreements (Article 28) · Exports
 
 <sub>Also searchable as: ropa, article 30, record of processing, purposes, lawful basis, retention, recipients</sub>
 
@@ -540,7 +540,7 @@ AI comes from the AI supplier assessment: not assessed, in progress, or — once
 
 Only an AI supplier assessment counts for the AI standing. It is recognised by the questions it asks, so your own copy of the template counts, and a privacy or security assessment of the same supplier does not.
 
-**See also:** The processing register (Article 30) · Countries, adequacy and transfers · Scan findings · The AI register
+**See also:** The processing register (Article 30) · Countries, UK approval and transfers · Scan findings · The AI register
 
 <sub>Also searchable as: supplier, vendor, dpa, article 28, processor, sub-processor, contract, expiry, extract, read the agreement, transfer mechanism, provenance, sub-processor list</sub>
 
@@ -1067,21 +1067,23 @@ To change a record, start a new version. It begins from the one in force, and ap
 
 <sub>Also searchable as: atrs, algorithmic transparency, recording standard, public sector, dsit, gov.uk, publish</sub>
 
-## Countries, adequacy and transfers
+## Countries, UK approval and transfers
 
-*One shared library of destinations, with adequacy and transfer risk, and a date showing when each was last checked by a person.*
+*One shared library of destinations, with UK approval, EU adequacy and transfer risk, and a date showing when each was last checked by a person.*
 
 **Screen:** `/app/countries`
 
 ### What the library holds
 
-Sending personal data outside the UK needs either a destination covered by adequacy or a safeguard such as the IDTA or SCCs. This library is where that question is answered from, for every assessment and every processing record.
+Since 5 February 2026, sending personal data outside the UK needs one of three things (UK GDPR Article 44A): a transfer approved by UK regulations under Article 45A — what used to be called adequacy regulations — a safeguard under Article 46 such as the IDTA or the UK Addendum, or an Article 49 derogation. This library is where the first question is answered from, for every assessment and every processing record.
 
-It holds adequacy status, transfer risk, and when each entry was last reviewed. Some entries are conditional — a destination covered only for organisations certified under a particular framework is not covered for everybody, and the library says so rather than rounding it to 'adequate'.
+It holds whether the UK approves each destination, whether the EU finds it adequate, transfer risk, and when each entry was last reviewed. Some entries are conditional — a destination approved only for organisations certified under a particular framework is not approved for everybody, and the library says so rather than rounding it up. The stored statuses did not change with the law; only the words did, so older records still read correctly.
+
+Relying on an Article 46 safeguard now means applying the data protection test: acting reasonably and proportionately, you must consider that protection after the transfer would be not materially lower than in the UK, judged on everything about the transfer, including the nature and volume of the data. The UK transfer risk assessment asks for that judgement, the steps behind it, and what you will do if the test is not met.
 
 ### Seeded is not verified
 
-Entries loaded from the seed are marked as never checked by a person. Adequacy decisions change, and an assessment that cites a stale entry is worse than one that cites nothing. The library flags its own staleness and the sweep raises a monthly task while entries remain unchecked.
+Entries loaded from the seed are marked as never checked by a person. Approvals and adequacy decisions change, and an assessment that cites a stale entry is worse than one that cites nothing. The library flags its own staleness and the sweep raises a monthly task while entries remain unchecked.
 
 Your organisation can override a shared entry. An override applies to you alone.
 
@@ -1091,7 +1093,7 @@ An empty library escalates every transfer rather than clearing it. If every tran
 
 **See also:** The processing register (Article 30) · Approving, returning and rejecting · Third parties and processor agreements (Article 28)
 
-<sub>Also searchable as: adequacy, transfer, scc, idta, third country, chapter v, safeguard, dpf, outside the uk, uk, international transfer, restricted transfer, overseas, eu</sub>
+<sub>Also searchable as: adequacy, transfer, scc, idta, third country, chapter v, approved, 45a, data protection test, not materially lower, addendum, safeguard, dpf, outside the uk, uk, international transfer, restricted transfer, overseas, eu</sub>
 
 ## Scan findings
 

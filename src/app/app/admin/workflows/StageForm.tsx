@@ -116,7 +116,7 @@ export function StageForm({ stage }: { stage: StageView }) {
                 <option value="answerAtLeast">An answer reaches a number</option>
                 <option value="specialCategoryData">Special-category data is involved</option>
                 <option value="transferToNonAdequate">
-                  Data goes somewhere without adequacy
+                  Data goes somewhere not approved by UK regulations
                 </option>
               </select>
               <div className="flex gap-2">

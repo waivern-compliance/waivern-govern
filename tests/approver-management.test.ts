@@ -141,7 +141,7 @@ describe("who approves, and where that is defined", () => {
         op: "and",
         all: [{ op: "tierAtLeast", value: "high" }, { op: "transferToNonAdequate" }],
       }),
-      /high or worse, and .*adequacy/,
+      /high or worse, and .*not approved by UK regulations/,
     );
   });
 });

@@ -1,10 +1,23 @@
 import type { TemplateDefinition } from "../schema";
 
 /**
- * UK transfer risk assessment, following the structure of the ICO's TRA tool:
- * describe the transfer, identify the Article 46 mechanism, assess whether the
- * destination's law and practice undermine it, and decide what to do about it.
+ * UK transfer risk assessment, as the Data (Use and Access) Act 2025 left
+ * transfers from 5 February 2026.
+ *
+ * Article 44A(2) permits a transfer that is approved by regulations under
+ * Article 45A (what were adequacy regulations; Article 45 is omitted), that is
+ * subject to Article 46 safeguards, or that relies on an Article 49
+ * derogation. For Article 46, the controller, acting reasonably and
+ * proportionately, must consider that protection after the transfer would be
+ * not materially lower than under UK law — the data protection test in Article
+ * 46(1A) and (6) — judged on all the circumstances, including the nature and
+ * volume of the data (46(7)). The law-and-practice questions follow the ICO's
+ * TRA tool and feed that judgement; the test's conclusion is asked in words.
  */
+const ARTICLE_46: Array<{ op: "equals"; question: string; value: string }> = ["idta", "addendum", "bcr", "other_safeguard"].map(
+  (value) => ({ op: "equals", question: "mechanism", value }),
+);
+
 export const TRA_UK: TemplateDefinition = {
   schema: {
     sections: [
@@ -14,7 +27,7 @@ export const TRA_UK: TemplateDefinition = {
         questions: [
           { key: "transfer_name", label: "What is this transfer called?", type: "short_text", required: true, legalRefs: [], evidence: "none" },
           { key: "importer", label: "Who receives the data?", type: "short_text", required: true, help: "Organisation name and role — processor, controller or sub-processor.", legalRefs: [], evidence: "none" },
-          { key: "destination", label: "Destination country", type: "country", required: true, legalRefs: ["ukgdpr.art44"], evidence: "none" },
+          { key: "destination", label: "Destination country", type: "country", required: true, legalRefs: ["ukgdpr.art44a"], evidence: "none" },
           { key: "data_categories", label: "Categories of personal data transferred", type: "data_category", required: true, legalRefs: [], evidence: "none" },
           { key: "special_category", label: "Does the transfer include special category or criminal offence data?", type: "boolean", required: true, legalRefs: ["ukgdpr.art9"], evidence: "none" },
           { key: "frequency", label: "How often does the transfer happen?", type: "single_select", required: true, legalRefs: [], evidence: "none",
@@ -27,29 +40,28 @@ export const TRA_UK: TemplateDefinition = {
       },
       {
         key: "mechanism",
-        title: "Transfer mechanism",
+        title: "What permits the transfer",
+        description: "Article 44A(2): approval by UK regulations, Article 46 safeguards, or an Article 49 derogation.",
         questions: [
-          { key: "mechanism", label: "What permits this transfer?", type: "single_select", required: true, legalRefs: ["ukgdpr.art45", "ukgdpr.art46", "ukgdpr.art49"], evidence: "none",
+          { key: "mechanism", label: "What permits this transfer?", type: "single_select", required: true, legalRefs: ["ukgdpr.art44a", "ukgdpr.art45a", "ukgdpr.art46", "ukgdpr.art49"], evidence: "none",
             options: [
-              { value: "adequacy", label: "Adequacy regulations cover the destination" },
-              { value: "idta", label: "IDTA" },
-              { value: "addendum", label: "UK Addendum to the EU SCCs" },
-              { value: "bcr", label: "Binding corporate rules" },
+              { value: "adequacy", label: "The destination is approved by UK regulations (Article 45A)" },
+              { value: "idta", label: "Article 46: the International Data Transfer Agreement (IDTA)" },
+              { value: "addendum", label: "Article 46: the UK Addendum to the EU SCCs" },
+              { value: "bcr", label: "Article 46: binding corporate rules" },
+              { value: "other_safeguard", label: "Article 46: another safeguard — a public body instrument, a code of conduct or certification" },
               { value: "derogation", label: "An Article 49 derogation" },
               { value: "none", label: "Nothing identified yet" },
             ] },
+          { key: "approval_scope", label: "Does the approval cover this transfer — this recipient, sector and kind of data?", type: "boolean", required: false,
+            help: "Regulations under Article 45A may approve only some transfers to a country: a sector, certified recipients, or certain data. Check the regulations, not only the country.",
+            showWhen: { op: "equals", question: "mechanism", value: "adequacy" },
+            requireWhen: { op: "equals", question: "mechanism", value: "adequacy" },
+            legalRefs: ["ukgdpr.art45a"], evidence: "optional" },
           { key: "mechanism_evidence", label: "Where is the signed agreement held?", type: "short_text", required: false,
-            showWhen: { op: "or", any: [
-              { op: "equals", question: "mechanism", value: "idta" },
-              { op: "equals", question: "mechanism", value: "addendum" },
-              { op: "equals", question: "mechanism", value: "bcr" },
-            ] },
-            requireWhen: { op: "or", any: [
-              { op: "equals", question: "mechanism", value: "idta" },
-              { op: "equals", question: "mechanism", value: "addendum" },
-              { op: "equals", question: "mechanism", value: "bcr" },
-            ] },
-            legalRefs: ["ico.idta"], evidence: "required" },
+            showWhen: { op: "or", any: ARTICLE_46 },
+            requireWhen: { op: "or", any: ARTICLE_46 },
+            legalRefs: ["ico.idta", "ukgdpr.art46"], evidence: "required" },
           { key: "derogation_basis", label: "Which derogation, and why is it available for a transfer of this kind?", type: "long_text", required: false,
             showWhen: { op: "equals", question: "mechanism", value: "derogation" },
             requireWhen: { op: "equals", question: "mechanism", value: "derogation" },
@@ -60,8 +72,8 @@ export const TRA_UK: TemplateDefinition = {
       {
         key: "destination_law",
         title: "Law and practice in the destination",
-        description: "Only needed where the transfer relies on Article 46 safeguards rather than adequacy.",
-        showWhen: { op: "notEquals", question: "mechanism", value: "adequacy" },
+        description: "For Article 46 safeguards: what could undermine them there. It feeds the data protection test below.",
+        showWhen: { op: "or", any: ARTICLE_46 },
         questions: [
           { key: "surveillance_regime", label: "Can public authorities in the destination compel access to this data?", type: "single_select", required: true, legalRefs: ["ico.tra"], evidence: "optional",
             options: [
@@ -77,7 +89,7 @@ export const TRA_UK: TemplateDefinition = {
               { value: "none", label: "No effective route" },
               { value: "unknown", label: "Not established" },
             ] },
-          { key: "supplementary", label: "What supplementary measures are in place?", type: "multi_select", required: false, legalRefs: ["edpb.rec01-2020"], evidence: "optional",
+          { key: "supplementary", label: "What supplementary measures are in place?", type: "multi_select", required: false, legalRefs: ["ico.tra"], evidence: "optional",
             options: [
               { value: "encryption_in_transit", label: "Encryption in transit" },
               { value: "encryption_at_rest", label: "Encryption at rest, keys held in the UK" },
@@ -87,6 +99,32 @@ export const TRA_UK: TemplateDefinition = {
               { value: "policy", label: "Organisational policy — access minimisation, transparency reporting" },
               { value: "none", label: "None" },
             ] },
+        ],
+      },
+      {
+        key: "data_protection_test",
+        title: "The data protection test",
+        description: "Article 46(1A), (6) and (7): acting reasonably and proportionately, would protection after the transfer be not materially lower than under UK law?",
+        showWhen: { op: "or", any: ARTICLE_46 },
+        questions: [
+          { key: "dpt_nature_volume", label: "What is the nature and volume of the data, and how much checking does that make reasonable and proportionate?", type: "long_text", required: true,
+            help: "A small volume of business contact details warrants less than a large volume of health records. Article 46(7) asks you to judge it on all the circumstances, including these.",
+            legalRefs: ["ukgdpr.art46.1a"], evidence: "none" },
+          { key: "dpt_steps", label: "What did you do to reach a view on protection in the destination?", type: "long_text", required: true,
+            help: "The sources you relied on, the importer's answers, the safeguards' terms and any supplementary measures.",
+            legalRefs: ["ukgdpr.art46.1a", "ico.tra"], evidence: "optional" },
+          { key: "dpt_conclusion", label: "Would the protection people get after the transfer be not materially lower than under the UK GDPR and the Data Protection Act 2018?", type: "single_select", required: true,
+            legalRefs: ["ukgdpr.art46.1a"], evidence: "none",
+            options: [
+              { value: "met", label: "Yes — not materially lower, so the test is met" },
+              { value: "not_met", label: "No — materially lower" },
+              { value: "undetermined", label: "Not yet determined" },
+            ] },
+          { key: "dpt_not_met_action", label: "The test is not met, so the transfer cannot rely on these safeguards. What will you do?", type: "long_text", required: false,
+            help: "Add measures and reassess, use another route, or do not transfer.",
+            showWhen: { op: "equals", question: "dpt_conclusion", value: "not_met" },
+            requireWhen: { op: "equals", question: "dpt_conclusion", value: "not_met" },
+            legalRefs: ["ukgdpr.art44a", "ukgdpr.art46.1a"], evidence: "none" },
         ],
       },
       {
