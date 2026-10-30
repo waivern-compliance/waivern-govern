@@ -77,6 +77,8 @@ export const recordType = pgEnum("record_type", [
   "marketing_decision",
   // Added with the appropriate policy document register.
   "policy_document",
+  // Added with the data sharing agreement register.
+  "sharing_agreement",
 ]);
 
 /**

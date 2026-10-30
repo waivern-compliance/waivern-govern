@@ -21,6 +21,7 @@ import {
   type AiSupplierAssessed,
   type AiSupplierGap,
 } from "@/lib/thirdparty/ai-procurement";
+import { isSupplierRole, type SupplierRole } from "@/lib/dpa2018/sharing";
 import type { Actor } from "./templates";
 import { assertMemberOf } from "./tenancy-guards";
 
@@ -53,7 +54,7 @@ export const GAP_WORDS: Record<Article28Gap, string> = {
   dpa_expiring: "Agreement expiring soon",
   no_transfer_mechanism: "No transfer mechanism recorded",
   subprocessors_undisclosed: "Sub-processors not recorded",
-  never_reviewed: "Nobody has confirmed this is a processor",
+  never_reviewed: "Nobody has confirmed what this third party is to us",
   no_owner: "No named owner",
 };
 
@@ -116,21 +117,25 @@ export function article28Gaps(
   const gaps: Article28Gap[] = [];
   const dpa = currentDpa(supplierDpas, now);
 
-  if (!dpa) {
-    gaps.push("no_dpa");
-  } else {
-    if (!dpa.signedAt) gaps.push("dpa_unsigned");
-    if (dpa.expiresAt && dpa.expiresAt <= now) {
-      gaps.push("dpa_expired");
-    } else if (dpa.expiresAt) {
-      const days = (dpa.expiresAt.getTime() - now.getTime()) / 86_400_000;
-      if (days <= EXPIRING_WITHIN_DAYS) gaps.push("dpa_expiring");
+  // Another controller is not processing for us: Article 28 does not reach
+  // it, and what governs the sharing is a data sharing agreement instead.
+  if (supplier.role !== "controller") {
+    if (!dpa) {
+      gaps.push("no_dpa");
+    } else {
+      if (!dpa.signedAt) gaps.push("dpa_unsigned");
+      if (dpa.expiresAt && dpa.expiresAt <= now) {
+        gaps.push("dpa_expired");
+      } else if (dpa.expiresAt) {
+        const days = (dpa.expiresAt.getTime() - now.getTime()) / 86_400_000;
+        if (days <= EXPIRING_WITHIN_DAYS) gaps.push("dpa_expiring");
+      }
+      if (!dpa.transferMechanism?.trim()) gaps.push("no_transfer_mechanism");
+      // Article 28(2): a processor engages no sub-processor without
+      // authorisation. An empty list is genuinely ambiguous — it may mean none —
+      // so this is reported as unrecorded rather than as a breach.
+      if ((dpa.subProcessors ?? []).length === 0) gaps.push("subprocessors_undisclosed");
     }
-    if (!dpa.transferMechanism?.trim()) gaps.push("no_transfer_mechanism");
-    // Article 28(2): a processor engages no sub-processor without
-    // authorisation. An empty list is genuinely ambiguous — it may mean none —
-    // so this is reported as unrecorded rather than as a breach.
-    if ((dpa.subProcessors ?? []).length === 0) gaps.push("subprocessors_undisclosed");
   }
 
   // Only meaningful for a supplier a tool invented. One a person typed in is
@@ -150,15 +155,17 @@ export function article28Gaps(
  * are judged by different people against different rules, and a supplier can
  * pass one and fail the other.
  */
-export type PrivacyStanding = "not_met" | "met_with_gaps" | "met";
+export type PrivacyStanding = "not_met" | "met_with_gaps" | "met" | "controller";
 
 export const PRIVACY_STANDING_LABEL: Record<PrivacyStanding, string> = {
+  controller: "Another controller: Article 28 does not apply",
   not_met: "Article 28 not met",
   met_with_gaps: "Article 28 met, with gaps",
   met: "Article 28 met",
 };
 
-export function privacyStanding(gaps: readonly Article28Gap[]): PrivacyStanding {
+export function privacyStanding(gaps: readonly Article28Gap[], role: SupplierRole = "processor"): PrivacyStanding {
+  if (role === "controller") return "controller";
   if (gaps.some((g) => HARD_GAPS.includes(g))) return "not_met";
   return gaps.length > 0 ? "met_with_gaps" : "met";
 }
@@ -312,7 +319,7 @@ async function rowsFor(organisationId: string): Promise<SupplierRow[]> {
       ownerEmail,
       gaps,
       hardGaps: gaps.filter((g) => HARD_GAPS.includes(g)),
-      privacy: privacyStanding(gaps),
+      privacy: privacyStanding(gaps, supplier.role),
       ai: {
         standing: aiStanding(supplier.aiInvolvement as AiInvolvement | null, assessed, systems),
         assessed,
@@ -404,6 +411,7 @@ export async function updateSupplier(input: {
     categories: string[];
     ownerId: string | null;
     aiInvolvement: AiInvolvement | null;
+    role: SupplierRole;
   }>;
   /** Record that a person has confirmed this is a real processor. */
   confirmBy?: string;
@@ -415,6 +423,9 @@ export async function updateSupplier(input: {
       throw new Error("A third party needs a name.");
     }
     if (input.changes.ownerId) await assertMemberOf(input.organisationId, input.changes.ownerId);
+    if (input.changes.role !== undefined && !isSupplierRole(input.changes.role)) {
+      throw new Error("Choose whether they are a processor, another controller, or both.");
+    }
     return db.transaction(async (tx) => {
       const [before] = await tx
         .select()
@@ -441,8 +452,8 @@ export async function updateSupplier(input: {
         action: input.confirmBy ? "supplier.confirmed" : "supplier.updated",
         subjectType: "supplier",
         subjectId: input.supplierId,
-        before: { name: before.name, reviewedAt: before.reviewedAt, aiInvolvement: before.aiInvolvement },
-        after: { name: after.name, reviewedAt: after.reviewedAt, aiInvolvement: after.aiInvolvement },
+        before: { name: before.name, reviewedAt: before.reviewedAt, aiInvolvement: before.aiInvolvement, role: before.role },
+        after: { name: after.name, reviewedAt: after.reviewedAt, aiInvolvement: after.aiInvolvement, role: after.role },
       });
       return after;
     });

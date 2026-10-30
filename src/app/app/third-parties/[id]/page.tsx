@@ -12,6 +12,8 @@ import { NotPermitted } from "@/components/NotPermitted";
 import { can } from "@/lib/rbac";
 import { getActiveSession } from "@/lib/session";
 import { documentsFor } from "@/services/documents";
+import { agreementsFor } from "@/services/sharing-agreements";
+import { SUPPLIER_ROLES, SUPPLIER_ROLE_KEYS, isController } from "@/lib/dpa2018/sharing";
 import { extractionAvailable, latestExtraction } from "@/services/extraction";
 import { GAP_WORDS, HARD_GAPS, loadSupplier } from "@/services/third-party";
 import { StartAssessment } from "@/components/StartAssessment";
@@ -30,6 +32,7 @@ import {
   confirmSupplierAction,
   recordDpaAction,
   setAiInvolvementAction,
+  setSupplierRoleAction,
   updateSupplierAction,
 } from "../actions";
 import { savedKey } from "@/lib/saved-key";
@@ -69,7 +72,8 @@ export default async function SupplierPage({
     .orderBy(asc(users.email)));
 
   const org = active.membership.organisationId;
-  const [supplierDocs, ...dpaDocs] = await Promise.all([
+  const [sharing, supplierDocs, ...dpaDocs] = await Promise.all([
+    agreementsFor(org, { supplierId: supplier.id }),
     documentsFor(org, "supplier", supplier.id),
     ...dpas.map((d) => documentsFor(org, "dpa", d.id)),
   ]);
@@ -136,7 +140,7 @@ export default async function SupplierPage({
           gaps={gaps}
           words={GAP_WORDS}
           serious={HARD_GAPS}
-          clear="Article 28 satisfied"
+          clear={supplier.role === "controller" ? "Nothing missing" : "Article 28 satisfied"}
         />
         {hardGaps.length > 0 ? (
           <p className="max-w-prose text-xs text-red-900">
@@ -168,6 +172,64 @@ export default async function SupplierPage({
           </form>
         </section>
       ) : null}
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold">What they are to you</h2>
+        {mayEdit ? (
+          <EditForm
+            key={savedKey(supplier.role)}
+            action={setSupplierRoleAction.bind(null, supplier.id)}
+            className="flex flex-wrap items-end gap-2"
+          >
+            <label className="block space-y-1">
+              <span className="block text-xs font-medium uppercase tracking-wider text-ink-soft">
+                Processor or controller?
+              </span>
+              <select
+                name="role"
+                defaultValue={supplier.role}
+                className="rounded border border-line bg-ground px-3 py-2 text-sm"
+              >
+                {SUPPLIER_ROLE_KEYS.map((r) => (
+                  <option key={r} value={r}>{SUPPLIER_ROLES[r]}</option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="submit"
+              className="rounded border border-line bg-surface px-4 py-2 text-sm hover:border-brand"
+            >
+              Save
+            </button>
+          </EditForm>
+        ) : (
+          <p className="text-sm">{SUPPLIER_ROLES[supplier.role]}</p>
+        )}
+        {isController(supplier.role) ? (
+          <div className="space-y-1.5 text-sm">
+            <p className="max-w-prose text-xs text-ink-soft">
+              Sharing with another controller is governed by a data sharing agreement, not an Article 28 contract.
+            </p>
+            {sharing.length > 0 ? (
+              <ul className="space-y-0.5">
+                {sharing.map((a) => (
+                  <li key={a.id}>
+                    <Link href={`/app/sharing-agreements/${a.id}`} className="hover:text-brand">
+                      <span className="font-mono text-xs text-ink-soft">{a.reference}</span> {a.title}
+                      {a.endedAt ? <span className="text-xs text-ink-soft"> (ended)</span> : null}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-amber-900">
+                No data sharing agreement names them.{" "}
+                <Link href="/app/sharing-agreements" className="text-brand hover:underline">Record one</Link>.
+              </p>
+            )}
+          </div>
+        ) : null}
+      </section>
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold">AI</h2>

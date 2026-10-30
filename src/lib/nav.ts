@@ -70,6 +70,12 @@ export const NAV: NavItem[] = [
     capability: "record.read",
   },
   {
+    href: "/app/sharing-agreements",
+    label: "Data sharing agreements",
+    hint: "sharing with other controllers, and what no agreement covers",
+    capability: "record.read",
+  },
+  {
     href: "/app/third-parties",
     label: "Third parties",
     hint: "processors, agreements, and which are not covered",

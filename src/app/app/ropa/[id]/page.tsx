@@ -31,6 +31,7 @@ import { DATA_CATEGORIES, SUBJECT_CATEGORIES } from "@/lib/templates/catalogues"
 import { ART9_CONDITIONS, describeArt10, describeSchedule1 } from "@/lib/dpa2018/schedule-1";
 import { AutomatedDecisions } from "@/components/AutomatedDecisions";
 import { linkedUseCasesOf } from "@/services/automated-decisions";
+import { agreementsFor } from "@/services/sharing-agreements";
 
 const ROLE_WORDS: Record<string, string> = {
   controller: "Controller — you decide why and how",
@@ -69,7 +70,7 @@ export default async function ActivityPage({
     .orderBy(asc(users.email)));
 
   // Counts only — no requester — so anyone who may read the record may see them.
-  const [objections, threshold, linkedUseCases, otherActivities] = await Promise.all([
+  const [objections, threshold, linkedUseCases, otherActivities, sharing] = await Promise.all([
     objectionCounts(active.membership.organisationId, [activity.id]).then((m) => m.get(activity.id)),
     objectionReviewThreshold(active.membership.organisationId),
     linkedUseCasesOf(active.membership.organisationId, activity),
@@ -87,6 +88,7 @@ export default async function ActivityPage({
           .where(eq(processingActivities.organisationId, active.membership.organisationId))
           .orderBy(asc(processingActivities.reference)))
       : Promise.resolve([]),
+    agreementsFor(active.membership.organisationId, { activityId: activity.id }),
   ]);
 
   const transfersText = (activity.transfers ?? [])
@@ -154,6 +156,31 @@ export default async function ActivityPage({
               </li>
             ))}
           </ul>
+        </section>
+      ) : null}
+
+      {sharing.length > 0 || loaded.uncoveredControllers.length > 0 ? (
+        <section className="space-y-2">
+          <h2 className="text-sm font-semibold">Data sharing agreements</h2>
+          {sharing.length > 0 ? (
+            <ul className="space-y-0.5 text-sm">
+              {sharing.map((a) => (
+                <li key={a.id}>
+                  <Link href={`/app/sharing-agreements/${a.id}`} className="hover:text-brand">
+                    <span className="font-mono text-xs text-ink-soft">{a.reference}</span> {a.title}
+                    {a.endedAt ? <span className="text-xs text-ink-soft"> (ended)</span> : null}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {loaded.uncoveredControllers.length > 0 ? (
+            <p className="text-xs text-amber-900">
+              Shared with {loaded.uncoveredControllers.map((c) => c.name).join(", ")}, recorded as another controller,
+              with no current agreement covering this activity.{" "}
+              <Link href="/app/sharing-agreements" className="text-brand hover:underline">Data sharing agreements</Link>
+            </p>
+          ) : null}
         </section>
       ) : null}
 
