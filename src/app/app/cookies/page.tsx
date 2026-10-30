@@ -7,6 +7,7 @@ import { HelpLink } from "@/components/help/HelpLink";
 import { NotPermitted } from "@/components/NotPermitted";
 import { can } from "@/lib/rbac";
 import { getActiveSession, visibleEntityIds } from "@/lib/session";
+import { rescanState } from "@/lib/pecr/rescan";
 import { propertyRegister } from "@/services/storage-inventory";
 import { ActionForm } from "../requests/ActionForm";
 import { Label, inputClass } from "../requests/fields";
@@ -102,7 +103,9 @@ export default async function CookiesPage() {
       ) : null}
 
       <ul className="space-y-3">
-        {register.map(({ property, entityName, active: inUse, noBasis, withGaps, beforeConsent, pending }) => (
+        {register.map(({ property, entityName, active: inUse, noBasis, withGaps, beforeConsent, pending, gapSummary, rescanDueAt }) => {
+          const rescan = rescanState(rescanDueAt);
+          return (
           <li key={property.id}>
             <Link
               href={`/app/cookies/${property.id}`}
@@ -123,10 +126,19 @@ export default async function CookiesPage() {
                 {inUse} in use · {noBasis} with no basis · {withGaps} with gaps · {beforeConsent} seen before consent
                 {pending > 0 ? ` · ${pending} to review` : ""}
                 {property.lastScannedAt ? ` · last scanned ${property.lastScannedAt.toISOString().slice(0, 10)}` : " · never scanned"}
+                {rescanDueAt && rescan !== "not_due" ? (
+                  <span className={rescan === "overdue" ? "text-red-800" : "text-amber-900"}>
+                    {" "}· scan {rescan === "overdue" ? "overdue" : "due"} {rescanDueAt.toISOString().slice(0, 10)}
+                  </span>
+                ) : null}
               </p>
+              {gapSummary.length > 0 ? (
+                <p className="text-xs text-amber-900">{gapSummary.map((g) => g.text).join(" · ")}</p>
+              ) : null}
             </Link>
           </li>
-        ))}
+          );
+        })}
         {register.length === 0 ? (
           <li className="rounded border border-line bg-surface px-4 py-6 text-sm text-ink-soft">
             Nothing yet. Add a website or app, then upload a Consent Analyser report for it, or record its

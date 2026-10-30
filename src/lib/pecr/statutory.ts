@@ -139,39 +139,121 @@ export type GapInput = {
   property: { informationUrl: string | null; objectionMechanism: string | null };
 };
 
+/** What kind of gap a sentence is, so they can be counted across a site or an organisation. */
+export type GapKind =
+  | "no_basis"
+  | "basis_none"
+  | "condition_unconfirmed"
+  | "no_information"
+  | "no_objection_route"
+  | "supplier_unknown"
+  | "before_consent"
+  | "after_reject";
+
+export type Gap = { kind: GapKind; text: string };
+
 /**
  * What the record does not yet show, for one item on one property.
  *
  * Each gap is a sentence a handler can act on. An item no longer in use has
  * none: there is nothing left to justify.
  */
-export function gaps({ item, decision, property }: GapInput): string[] {
+export function gapsOf({ item, decision, property }: GapInput): Gap[] {
   if (item.status === "removed") return [];
-  if (!decision) return ["No basis recorded."];
+  if (!decision) return [{ kind: "no_basis", text: "No basis recorded." }];
   const basis = BASES[decision.basis];
-  const out: string[] = [];
+  const out: Gap[] = [];
 
   if (decision.basis === "none") {
-    out.push("Recorded as having no basis: remove it, or put it behind consent.");
+    out.push({ kind: "basis_none", text: "Recorded as having no basis: remove it, or put it behind consent." });
     return out;
   }
   for (const c of basis.conditions) {
-    if (!decision.conditions[c.key]) out.push(`Not confirmed: ${c.label.toLowerCase()} (${basis.citation}).`);
+    if (!decision.conditions[c.key]) {
+      out.push({ kind: "condition_unconfirmed", text: `Not confirmed: ${c.label.toLowerCase()} (${basis.citation}).` });
+    }
   }
   if (basis.needsInformation && !property.informationUrl?.trim()) {
-    out.push("No clear and comprehensive information recorded for this website or app — where people are told about it.");
+    out.push({
+      kind: "no_information",
+      text: "No clear and comprehensive information recorded for this website or app — where people are told about it.",
+    });
   }
   if (basis.needsObjection && !property.objectionMechanism?.trim()) {
-    out.push(`No simple, free way to object recorded for this website or app (${basis.citation}).`);
+    out.push({ kind: "no_objection_route", text: `No simple, free way to object recorded for this website or app (${basis.citation}).` });
   }
   if (decision.basis === "statistics" && item.party === "third" && !item.supplierId) {
-    out.push("A third party collects it: record which supplier, so the record shows they only help improve the service.");
+    out.push({
+      kind: "supplier_unknown",
+      text: "A third party collects it: record which supplier, so the record shows they only help improve the service.",
+    });
   }
   if (decision.basis === "consent" && item.seenBeforeConsent) {
-    out.push("Relies on consent, but the last scan saw it before any consent was given.");
+    out.push({ kind: "before_consent", text: "Relies on consent, but the last scan saw it before any consent was given." });
   }
   if ((decision.basis === "consent" || decision.basis === "statistics" || decision.basis === "appearance_function") && item.seenAfterReject) {
-    out.push("The last scan still saw it after the person refused or rejected.");
+    out.push({ kind: "after_reject", text: "The last scan still saw it after the person refused or rejected." });
   }
   return out;
+}
+
+/** The gaps as sentences, for one item. */
+export function gaps(input: GapInput): string[] {
+  return gapsOf(input).map((g) => g.text);
+}
+
+/** How each kind of gap reads when counted: one item, or several. */
+const GAP_PHRASE: Record<GapKind, [string, string]> = {
+  no_basis: ["item with no basis", "items with no basis"],
+  basis_none: ["item recorded as having no basis", "items recorded as having no basis"],
+  before_consent: ["consent item seen before consent", "consent items seen before consent"],
+  after_reject: ["item still seen after Reject", "items still seen after Reject"],
+  no_objection_route: [
+    "statistics or appearance item with no objection route",
+    "statistics or appearance items with no objection route",
+  ],
+  no_information: ["item with nowhere people are told", "items with nowhere people are told"],
+  supplier_unknown: ["third-party statistics item with no supplier", "third-party statistics items with no supplier"],
+  condition_unconfirmed: ["item with a condition not confirmed", "items with a condition not confirmed"],
+};
+
+/** Most pressing first: what may be unlawful now, then what is unrecorded. */
+const GAP_ORDER: GapKind[] = [
+  "before_consent",
+  "after_reject",
+  "basis_none",
+  "no_basis",
+  "no_objection_route",
+  "no_information",
+  "supplier_unknown",
+  "condition_unconfirmed",
+];
+
+export type GapSummary = Array<{ kind: GapKind; items: number; text: string }>;
+
+function fromCounts(counts: Map<GapKind, number>): GapSummary {
+  return GAP_ORDER.filter((k) => counts.has(k)).map((kind) => {
+    const n = counts.get(kind)!;
+    return { kind, items: n, text: `${n} ${GAP_PHRASE[kind][n === 1 ? 0 : 1]}` };
+  });
+}
+
+/**
+ * Gaps counted by kind across many items, each item counted once per kind.
+ * For example "3 items with no basis, 1 statistics or appearance item with no
+ * objection route".
+ */
+export function summariseGaps(perItem: Gap[][]): GapSummary {
+  const counts = new Map<GapKind, number>();
+  for (const list of perItem) {
+    for (const kind of new Set(list.map((g) => g.kind))) counts.set(kind, (counts.get(kind) ?? 0) + 1);
+  }
+  return fromCounts(counts);
+}
+
+/** Merge summaries from several properties into one. */
+export function mergeGapSummaries(summaries: GapSummary[]): GapSummary {
+  const counts = new Map<GapKind, number>();
+  for (const s of summaries) for (const g of s) counts.set(g.kind, (counts.get(g.kind) ?? 0) + g.items);
+  return fromCounts(counts);
 }

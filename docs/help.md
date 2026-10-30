@@ -786,13 +786,21 @@ Decisions are kept, never overwritten. Changing your mind is a second decision.
 
 What is still missing shows as a gap: an unconfirmed condition, no information or objection route for the site, a third-party statistics cookie with no supplier recorded, or a cookie that relies on consent but was seen before consent was given.
 
+### Keeping it current
+
+Sites change without anyone telling the privacy team: a new tag in the tag manager, a plug-in update. So each website or app has a rescan interval — every three months unless you change it, or no reminders at all. A fortnight before a scan is due, a task goes to whoever is responsible for the site, or to privacy administrators if nobody is. Taking in the next report closes it, and the next due date counts from that scan.
+
+When a scan finds something the inventory does not reflect — new items, items no longer seen, or an item already on the inventory that is now set before consent — one task says what it found. Something newly set before consent needs a basis that allows it, or it must wait for consent.
+
+The website's page, the cookies register and the governance overview count the gaps by kind — for example "3 items with no basis, 1 statistics or appearance item with no objection route" — most pressing first: what may be unlawful now, then what is unrecorded.
+
 ### What the platform will not do
 
 It will not decide a basis from a scan, change the website or its consent banner, or tell you a cookie is lawful. It holds the inventory, the reasoning, and what is still to be shown.
 
 **See also:** Scan findings · Third parties and processor agreements (Article 28) · Exports
 
-<sub>Also searchable as: cookie, cookies, pecr, regulation 6, schedule a1, storage, access, terminal equipment, analytics, statistics, preferences, functional, strictly necessary, consent, opt out, object, duaa, data use and access act, consent analyser, scan, pixel, local storage, sdk, cookie notice</sub>
+<sub>Also searchable as: cookie, cookies, pecr, regulation 6, schedule a1, storage, access, terminal equipment, analytics, statistics, preferences, functional, strictly necessary, consent, opt out, object, duaa, data use and access act, consent analyser, scan, pixel, local storage, sdk, cookie notice, rescan, reminder, gaps</sub>
 
 ## The AI register
 

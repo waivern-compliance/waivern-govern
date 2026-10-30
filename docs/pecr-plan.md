@@ -1,6 +1,7 @@
 # Plan: UK PECR as amended by the Data (Use and Access) Act 2025
 
-Status: decisions settled as recommended (30 October 2026); Phases 0 and 1 built.
+Status: decisions settled as recommended (30 October 2026); Phases 0, 1 and 3 built. The
+Consent Analyser changes in decision 4 are merged (analyser PR #145), so Phase 2 is unblocked.
 
 ## What is asked for
 
@@ -230,13 +231,30 @@ One row per name, domain and property:
   - an anonymous-looking run (the report can't be read back with the token) is reported
     as a token problem and not ingested.
 
-### Phase 3: keeping it current (about 1 day)
+### Phase 3: keeping it current (built)
 - **Rescan tasks:** each property gets a rescan schedule (default quarterly) through the
   existing scheduler.
 - **Change tasks:** after a scan, a task is raised for anything new, not seen, or newly
   seen before consent.
 - **Gaps:** these show on the property and on the dashboard, for example "3 cookies with
   no basis, 1 statistics cookie with no objection route".
+- **As built:**
+  - The interval is a column on the property, `rescan_interval_months` (1, 3, 6 or 12;
+    default 3; null for no reminders), not a row in `schedule`. A schedule rolls forward on
+    its own dates, but a rescan is due from the last scan, whenever that happened.
+  - The sweep raises `pecr_rescan` a fortnight ahead, once per due date, to the site's
+    owner or else privacy admins. Taking in a report closes any open reminder for the
+    property, and the next due date counts from that scan. A site never scanned counts
+    from when it was added.
+  - Ingest raises one `pecr_scan_changes` task per scan, keyed on the scan, naming how
+    many items are new, no longer seen, and newly set before consent (an item on the
+    inventory whose last scan did not see it before consent). A scan that finds nothing
+    raises nothing.
+  - Gaps carry a kind (`lib/pecr/statutory.ts:gapsOf`), counted once per item per kind
+    and ordered most pressing first: before consent, after Reject, recorded as no basis,
+    no basis, no objection route, no information, no supplier, condition unconfirmed.
+    They show on the property page, each register row, and two dashboard tiles ("Cookies
+    with gaps" and "Cookie scans due"), visible to anyone with `record.read`.
 
 ### Phase 4: the electronic marketing register (about 2 days)
 - **One row per campaign or channel:** email, SMS, live calls, automated calls,

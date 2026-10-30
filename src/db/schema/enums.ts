@@ -474,6 +474,10 @@ export const taskType = pgEnum("task_type", [
   "complaint_deadline",
   /** A complaint arrived through the public web form and nobody has picked it up yet. */
   "complaint_intake",
+  /** A website or app is due to be scanned again for cookies, on the interval set for it. */
+  "pecr_rescan",
+  /** A cookie scan found something the inventory does not yet reflect, or a cookie newly set before consent. */
+  "pecr_scan_changes",
 ]);
 
 export const taskStatus = pgEnum("task_status", [

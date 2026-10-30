@@ -635,6 +635,7 @@ describe("lists", () => {
       ["dsr.requestRegister", dsr.requestRegister(o, null)] as const,
       ["complaintsSvc.complaintRegister", complaintsSvc.complaintRegister(o, null)] as const,
       ["inventory.propertyRegister", inventory.propertyRegister(o, null)] as const,
+      ["inventory.propertiesDueForRescan", inventory.propertiesDueForRescan(o, new Date(Date.now() + 10 * 365 * 24 * 3600 * 1000))] as const,
       ["complaintsSvc.complaintsNeedingAttention", complaintsSvc.complaintsNeedingAttention(o)] as const,
       ["complaintsSvc.complaintMetrics", complaintsSvc.complaintMetrics(o, null)] as const,
       ["complaintsSvc.complaintsSummary", complaintsSvc.complaintsSummary({ organisationId: o })] as const,

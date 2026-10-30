@@ -9,6 +9,9 @@ import { getActiveSession, visibleEntityIds } from "@/lib/session";
 import { dashboardMetrics } from "@/services/metrics";
 import { complaintRegister } from "@/services/complaints";
 import { requestRegister } from "@/services/data-subject-requests";
+import { propertyRegister } from "@/services/storage-inventory";
+import { rescanState } from "@/lib/pecr/rescan";
+import { mergeGapSummaries } from "@/lib/pecr/statutory";
 
 export default async function Dashboard() {
   const active = await getActiveSession();
@@ -37,6 +40,13 @@ const m = await dashboardMetrics(
   const complaints = can(active.membership.grants, "dsr.handle")
     ? await complaintRegister(active.membership.organisationId, visibleEntityIds(active, "dsr.handle"))
     : null;
+
+  // Cookies hold nobody's personal data, so anyone who may read records sees them.
+  const properties = await propertyRegister(active.membership.organisationId, visibleEntityIds(active));
+  const cookieGaps = mergeGapSummaries(properties.map((p) => p.gapSummary));
+  const cookiesWithGaps = properties.reduce((n, p) => n + p.withGaps, 0);
+  const scansDue = properties.filter((p) => rescanState(p.rescanDueAt) !== "not_due");
+  const scansOverdue = scansDue.filter((p) => rescanState(p.rescanDueAt) === "overdue").length;
 
   const treated = m.riskPosture.reduce((n, r) => n + r.residual, 0);
   const shift =
@@ -135,6 +145,24 @@ const m = await dashboardMetrics(
               href="/app/complaints"
               tone={complaints.acknowledgementOverdue > 0 ? "critical" : "good"}
               note="the acknowledgement is still owed"
+            />
+          </>
+        ) : null}
+        {properties.length > 0 ? (
+          <>
+            <Tile
+              label="Cookies with gaps"
+              value={cookiesWithGaps}
+              href="/app/cookies"
+              tone={cookieGaps.some((g) => g.kind === "before_consent" || g.kind === "after_reject") ? "critical" : cookiesWithGaps > 0 ? "warning" : "good"}
+              note={cookieGaps.length ? cookieGaps.slice(0, 2).map((g) => g.text).join(", ") : "every item has its Schedule A1 basis shown"}
+            />
+            <Tile
+              label="Cookie scans due"
+              value={scansDue.length}
+              href="/app/cookies"
+              tone={scansOverdue > 0 ? "critical" : scansDue.length > 0 ? "warning" : "good"}
+              note={scansOverdue > 0 ? `${scansOverdue} overdue: the inventory may be out of date` : "websites and apps due a scan within a fortnight"}
             />
           </>
         ) : null}
