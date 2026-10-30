@@ -37,6 +37,7 @@ import {
 } from "@/lib/gdpr/further-processing";
 import { needingSafeguards } from "./countries";
 import { policyCoverage } from "./policy-documents";
+import { controllersWithoutAgreement, sharingCoverage } from "./sharing-agreements";
 import type { Actor } from "./templates";
 import { assertEntityIn, assertMemberOf, assertRecordIn } from "./tenancy-guards";
 
@@ -69,6 +70,7 @@ export type Article30Gap =
   | "children_dpia_unanswered"
   | "public_authority_legitimate_interests"
   | ConditionGap
+  | "controller_recipient_no_agreement"
   | "no_owner"
   | "review_overdue";
 
@@ -90,6 +92,7 @@ export const GAP_WORDS: Record<Article30Gap, string> = {
   public_authority_legitimate_interests:
     "Public authority relying on legitimate interests or recognised legitimate interests for its tasks (Article 6(1))",
   ...CONDITION_GAP_WORDS,
+  controller_recipient_no_agreement: "Shares with another controller that no current data sharing agreement covers",
   no_owner: "No named owner",
   review_overdue: "Review overdue",
 };
@@ -157,6 +160,11 @@ export function article30Gaps(
      * reported.
      */
     policyCoverage?: readonly PolicyCoverage[];
+    /**
+     * Recipients that are other controllers with no current data sharing
+     * agreement for this activity, from `controllersWithoutAgreement`.
+     */
+    uncoveredControllers?: ReadonlyArray<{ id: string; name: string }>;
   } = {},
 ): Article30Gap[] {
   const { childrenDpia } = context;
@@ -210,6 +218,9 @@ export function article30Gaps(
   // Articles 9 and 10 with Schedule 1: the conditions, the appropriate policy
   // document most of them need, and what paragraph 41 adds to the record.
   gaps.push(...conditionGaps(activity, context.policyCoverage));
+  // Not a legal requirement, as Article 28 is for processors: the data
+  // sharing code expects an agreement for routine sharing between controllers.
+  if ((context.uncoveredControllers ?? []).length > 0) gaps.push("controller_recipient_no_agreement");
   if (activity.childrenLikely && childrenDpia !== undefined) {
     if (childrenDpia === "none") gaps.push("children_no_dpia");
     else if (childrenDpia === "unanswered") gaps.push("children_dpia_unanswered");
@@ -350,7 +361,7 @@ export async function listActivities(
       basesByActivity(organisationId),
       childrenDpiaStates(organisationId),
     ]);
-    const coverage = await policyCoverage(organisationId);
+    const [coverage, sharing] = await Promise.all([policyCoverage(organisationId), sharingCoverage(organisationId)]);
 
     return rows.map(({ activity, entityName, ownerEmail, publicAuthority }) => {
       const gaps = article30Gaps(activity, needsSafeguards, {
@@ -358,6 +369,7 @@ export async function listActivities(
         childrenDpia: children.get(activity.id) ?? "none",
         publicAuthority,
         policyCoverage: coverage,
+        uncoveredControllers: controllersWithoutAgreement(activity, sharing),
       });
       return {
         activity,
@@ -390,7 +402,7 @@ export async function loadActivity(activityId: string, organisationId: string) {
       );
     if (!row) return null;
 
-    const [needsSafeguards, related, bases, children, coverage] = await Promise.all([
+    const [needsSafeguards, related, bases, children, coverage, sharing] = await Promise.all([
       needingSafeguards(organisationId, "uk"),
       db
         .select({ assessment: assessments, kind: templates.kind })
@@ -407,6 +419,7 @@ export async function loadActivity(activityId: string, organisationId: string) {
       basesByActivity(organisationId),
       childrenDpiaStates(organisationId),
       policyCoverage(organisationId),
+      sharingCoverage(organisationId),
     ]);
 
     const original = row.activity.originalActivityId
@@ -417,17 +430,20 @@ export async function loadActivity(activityId: string, organisationId: string) {
           .then((r) => r[0] ?? null)
       : null;
     const originalConsent = originalConsentOf(row.activity, bases);
+    const uncoveredControllers = controllersWithoutAgreement(row.activity, sharing);
     const gaps = article30Gaps(row.activity, needsSafeguards, {
       originalConsent,
       childrenDpia: children.get(activityId) ?? "none",
       publicAuthority: row.publicAuthority,
       policyCoverage: coverage,
+      uncoveredControllers,
     });
     return {
       ...row,
       assessments: related,
       original,
       originalConsent,
+      uncoveredControllers,
       gaps,
       hardGaps: gaps.filter((g) => HARD_GAPS.includes(g)),
     };

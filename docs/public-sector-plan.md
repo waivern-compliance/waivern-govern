@@ -1,6 +1,6 @@
 # Plan: public services under the Data Protection Act 2018, as amended
 
-Status: decisions settled (30 October 2026), all as recommended. Phases 0–3 built.
+Status: decisions settled (30 October 2026), all as recommended. Phases 0–4 built.
 
 ## What is asked for
 
@@ -330,10 +330,34 @@ Built as:
 - Paras 4, 10 and 21: the requester's capacity (parental responsibility, or a court
   appointee); for 4 and 10 which expectation limb; for 21 that it is not Scotland.
 
-### Phase 4: data sharing agreements (about 1.5 days)
+### Phase 4: data sharing agreements (built)
 - The register (decision 8), linked to the ROPA and the third-party register, with gaps:
   a recipient on a ROPA activity that is another controller with no agreement; an
   agreement past its review date.
+
+Built as:
+- The third-party register had no way to say a party is another controller: every third
+  party was treated as a processor. Each now has a `role` (processor, another controller,
+  or both; migration 0081, defaulting to processor so nothing existing changes). Article
+  28 is not applied to a controller, whose standing reads "Another controller: Article 28
+  does not apply".
+- `sharing_agreement` (our entity, reference `DSA-year-n`, purpose, direction, gateway kind
+  and gateway, what is shared, our Article 6 basis with Schedule 1 / Article 10 condition,
+  owner, signed, review due, last reviewed, ended), `sharing_agreement_party` (each other
+  controller from the third-party register, with its own basis and condition) and
+  `sharing_agreement_activity` (the ROPA activities covered, of the same entity). The
+  signed agreement is attached through `document`. Rules in `lib/dpa2018/sharing.ts`.
+- A party must be recorded as a controller (or both) on the third-party register.
+- Agreement gaps: no other party and review overdue first, then a party or us with no
+  basis, no purpose, no gateway (unless not a public body), nothing said about what is
+  shared, not signed, no review date, nothing attached, no linked activity, no owner. None
+  is called a breach: an agreement is expected by the data sharing code, not required by
+  the UK GDPR.
+- ROPA: an activity whose recipients include a third party recorded as a controller, with
+  no current agreement covering that activity and party, shows the amber gap
+  `controller_recipient_no_agreement`; the register lists all of them. Recipients are
+  matched by canonical name, as the request register matches them.
+- Ended rather than deleted, with a reason; an ended agreement covers nothing.
 
 ### Phase 5: Part 3, law enforcement processing (about 4–5 days, in two parts)
 - **5a, the record:** the competent authority flag and regime (decision 1); s.61 records

@@ -13,6 +13,7 @@ import {
   updateDpa,
   updateSupplier,
 } from "@/services/third-party";
+import type { SupplierRole } from "@/lib/dpa2018/sharing";
 import { refusable, type EditResult } from "@/lib/edit-result";
 
 const text = (v: FormDataEntryValue | null) => String(v ?? "").trim();
@@ -72,6 +73,27 @@ export async function updateSupplierAction(
 
     revalidatePath(`/app/third-parties/${supplierId}`);
     revalidatePath("/app/third-parties");
+  });
+}
+
+/** Record what the third party is to us: processor, another controller, or both. */
+export async function setSupplierRoleAction(
+  supplierId: string,
+  _previous: EditResult,
+  formData: FormData,
+): Promise<EditResult> {
+  return refusable(async () => {
+    const active = await requireCapability("record.write");
+    await updateSupplier({
+      supplierId,
+      organisationId: active.membership.organisationId,
+      changes: { role: text(formData.get("role")) as SupplierRole },
+      actor: { actorKind: "user", actorUserId: active.userId, actorLabel: active.email },
+    });
+    revalidatePath(`/app/third-parties/${supplierId}`);
+    revalidatePath("/app/third-parties");
+    revalidatePath("/app/ropa");
+    revalidatePath("/app/sharing-agreements");
   });
 }
 

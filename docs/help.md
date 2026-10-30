@@ -30,6 +30,7 @@ Every help topic the application carries, in the order it presents them.
 - [The processing register (Article 30)](#the-processing-register-article-30) — Every processing activity, checked against what Article 30 actually requires rather than against whether the form was filled in.
 - [Appropriate policy documents (Schedule 1)](#appropriate-policy-documents-schedule-1) — Which Schedule 1 conditions each appropriate policy document covers, and which processing relies on a condition no current document covers.
 - [Third parties and processor agreements (Article 28)](#third-parties-and-processor-agreements-article-28) — Every processor you rely on, whether or not anybody procured it, and whether a contract actually covers them.
+- [Data sharing agreements](#data-sharing-agreements) — Sharing personal data with other controllers: who with, on what basis and gateway, and which sharing no agreement covers.
 - [Personal data breaches](#personal-data-breaches) — Record every breach, decide the two statutory questions separately, and keep the reasoning for both.
 - [Data subject requests](#data-subject-requests) — Record every request from a person exercising their rights, run the month to answer it, and keep the reasoning for each decision.
 - [Data protection complaints](#data-protection-complaints) — Record each complaint a person makes to you about how their data was handled, acknowledge it within 30 days, and keep what you looked into and what you told them.
@@ -505,6 +506,10 @@ Some you record. Others arrive from a connected scanner, because a tracker seen 
 
 A scanner cannot tell whether that party processes personal data on your behalf, is a recipient in its own right, or was a false positive. So a supplier it reported carries 'nobody has confirmed this is a processor' until a person presses the button saying they have looked. That button records that somebody looked; it does not assert that an agreement exists.
 
+### Processor or another controller
+
+Say what each third party is to you: a processor, which processes data for you on your instructions; another controller, with whom you share data and who decides for itself what to do with it; or both, for different data. Article 28 reaches processors only, so a third party recorded as another controller is not flagged for having no processor agreement. Sharing with it is recorded on the data sharing agreement register instead, and its page lists the agreements that name it.
+
 ### What counts as covered
 
 Article 28(3) requires processing to be governed by a contract. No agreement, an unsigned agreement and an expired agreement are reported as the same failure, because in substance they are.
@@ -584,6 +589,34 @@ Only an AI supplier assessment counts for the AI standing. It is recognised by t
 **See also:** The processing register (Article 30) · Countries, UK approval and transfers · Scan findings · The AI register
 
 <sub>Also searchable as: supplier, vendor, dpa, article 28, processor, sub-processor, contract, expiry, extract, read the agreement, transfer mechanism, provenance, sub-processor list</sub>
+
+## Data sharing agreements
+
+*Sharing personal data with other controllers: who with, on what basis and gateway, and which sharing no agreement covers.*
+
+**Screen:** `/app/sharing-agreements`
+
+### What it is for
+
+A processor is governed by an Article 28 contract. Another controller is not: a council sharing with a health trust, a school with children's services, a safeguarding partnership. The UK GDPR does not require an agreement for that sharing, but the Information Commission's data sharing code of practice expects one for routine sharing, and it is where each party's basis is written down.
+
+Each agreement names our party (one of your entities) and the other controllers, which come from the third-party register recorded as another controller. It records the purpose, which way the data goes, what is shared, each controller's own Article 6 basis — and where special category or criminal offence data is shared, its Schedule 1 or Article 10 condition — and the processing activities it covers.
+
+### The legal gateway
+
+A public body can share only within its powers, so as well as an Article 6 basis it needs a gateway: an enactment that allows or requires the sharing, such as the Digital Economy Act 2017 section 35 for public service delivery, or its own powers and functions. Say which, and name it. A party that is not a public body needs none; say so.
+
+### What is flagged
+
+An agreement with no other party, or past its review date, is shown first. Also flagged: a party with no lawful basis, ours not recorded, no purpose, no gateway, nothing said about what is shared, not signed, no review date, nothing attached, no linked activity and no owner. None is called a breach.
+
+On the processing register, an activity whose recipients include a third party recorded as another controller, with no current agreement covering that activity and that party, shows an amber gap; the register lists them all. Recipients are matched to the third-party register by name, as the request register does.
+
+Record a review with the date the next is due. When the sharing stops or the agreement is replaced, end it with a reason: it is kept, and from then covers nothing.
+
+**See also:** Third parties and processor agreements (Article 28) · The processing register (Article 30) · Appropriate policy documents (Schedule 1)
+
+<sub>Also searchable as: data sharing agreement, information sharing agreement, isa, dsa, controller to controller, gateway, legal gateway, digital economy act, safeguarding partnership, multi-agency, data sharing code</sub>
 
 ## Personal data breaches
 

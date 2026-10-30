@@ -14,6 +14,7 @@ import {
 import type { LawfulBasis, RecognisedCondition } from "@/lib/gdpr/lawful-basis";
 import type { AdmSafeguards, AdmSpecialCondition } from "@/lib/gdpr/automated-decisions";
 import type { Art10Condition, Art9Condition, Schedule1Condition } from "@/lib/dpa2018/schedule-1";
+import type { SupplierRole } from "@/lib/dpa2018/sharing";
 import type {
   Annex2Condition,
   CompatibilityFactor,
@@ -243,6 +244,11 @@ export const suppliers = pgTable(
     canonicalKey: text("canonical_key").notNull(),
     description: text("description"),
     categories: jsonb("categories").$type<string[]>().notNull().default([]),
+    /**
+     * What it is to us. Article 28 reaches processors; another controller is
+     * shared with under a data sharing agreement instead.
+     */
+    role: text("role").$type<SupplierRole>().notNull().default("processor"),
     /**
      * Who is accountable for this relationship. Nullable, because a supplier
      * nobody owns is a real and reportable state.

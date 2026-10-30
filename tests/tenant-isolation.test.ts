@@ -42,6 +42,7 @@ import * as complaintsSvc from "@/services/complaints";
 import * as inventory from "@/services/storage-inventory";
 import * as marketingSvc from "@/services/marketing";
 import * as policyDocs from "@/services/policy-documents";
+import * as sharingSvc from "@/services/sharing-agreements";
 import * as analyserSvc from "@/services/consent-analyser";
 import * as dsrIntake from "@/services/dsr-intake";
 import * as routing from "@/services/approval-routing";
@@ -218,6 +219,10 @@ async function populated() {
   await marketingSvc.recordMarketingDecision({
     activityId: marketingActivity.id, organisationId: id, basis: "screened_calls", rationale: "B's reasons", actor: SYSTEM,
   });
+  const partner = await thirdParty.createSupplier({ organisationId: id, name: "B's partner council", actor: SYSTEM });
+  await thirdParty.updateSupplier({ supplierId: partner.id, organisationId: id, changes: { role: "controller" }, actor: SYSTEM });
+  const sharing = await sharingSvc.createSharingAgreement({ organisationId: id, entityId: o.entity.id, title: "B's sharing agreement", actor: SYSTEM });
+  const sharingParty = await sharingSvc.addSharingParty({ agreementId: sharing.id, organisationId: id, supplierId: partner.id, actor: SYSTEM });
   const policyDoc = await policyDocs.createPolicyDocument({
     organisationId: id, entityId: o.entity.id, title: "B's policy document", conditions: ["para6", "para18"], actor: SYSTEM,
   });
@@ -304,7 +309,7 @@ async function populated() {
 
   return {
     ...o, template, dpiaVersion, workflow: workflows[0], stage, risk, mitigation, acceptance, appetite,
-    supplier, dpa, activity, breach, subjectRequest, requestScope, complaint, webProperty, storageItem, storageProposal, consentScan, marketingActivity, policyDoc, intakeLink, useCase, change, assurance, incident, atrsRecord, request,
+    supplier, dpa, activity, breach, subjectRequest, requestScope, complaint, webProperty, storageItem, storageProposal, consentScan, marketingActivity, policyDoc, partner, sharing, sharingParty, intakeLink, useCase, change, assurance, incident, atrsRecord, request,
     trainingRecord, assessment, approval, link, comment, document, scanner, finding: finding.finding,
     conversation, task, draft, domainClaim,
   };
@@ -314,6 +319,7 @@ let A: Org;
 let B: Awaited<ReturnType<typeof populated>>;
 
 let mine: {
+  sharing: { id: string };
   policyDoc: { id: string };
   risk: { id: string };
   breach: { id: string };
@@ -370,7 +376,8 @@ before(async () => {
   });
   const activity = await ropa.createActivity({ organisationId: A.org.id, entityId: A.entity.id, name: "A's processing", actor: SYSTEM });
   const policyDoc = await policyDocs.createPolicyDocument({ organisationId: A.org.id, entityId: A.entity.id, title: "A's policy document", conditions: ["para6"], actor: SYSTEM });
-  mine = { policyDoc, risk, breach, subjectRequest, complaint, webProperty, marketingActivity, activity, useCase, incident, document, dpiaVersion: dpia.version.id };
+  const sharing = await sharingSvc.createSharingAgreement({ organisationId: A.org.id, entityId: A.entity.id, title: "A's agreement", actor: SYSTEM });
+  mine = { sharing, policyDoc, risk, breach, subjectRequest, complaint, webProperty, marketingActivity, activity, useCase, incident, document, dpiaVersion: dpia.version.id };
 });
 after(() => pg.end());
 
@@ -484,6 +491,9 @@ describe("reading another organisation's records", () => {
     ["risksForAssessment", () => risksSvc.risksForAssessment(B.assessment.id, A.org.id)],
     ["historyOf B's person", () => training.historyOf(A.org.id, B.owner.user.id)],
     ["loadPolicyDocument", () => policyDocs.loadPolicyDocument(B.policyDoc.id, A.org.id)],
+    ["loadSharingAgreement", () => sharingSvc.loadSharingAgreement(B.sharing.id, A.org.id)],
+    ["agreementsFor B's activity", () => sharingSvc.agreementsFor(A.org.id, { activityId: B.activity.id })],
+    ["agreementsFor B's partner", () => sharingSvc.agreementsFor(A.org.id, { supplierId: B.partner.id })],
   ];
   for (const [name, read] of reads) {
     it(`gives nothing: ${name}`, async () => {
@@ -597,6 +607,12 @@ describe("changing another organisation's records", () => {
     ["makeDefaultEntity", () => entitiesSvc.makeDefaultEntity({ organisationId: A.org.id, entityId: B.entity.id, actor: as() })],
     ["setPublicCommsProvider", () => entitiesSvc.setPublicCommsProvider({ organisationId: A.org.id, entityId: B.entity.id, provider: true, actor: as() })],
     ["setPublicAuthority", () => entitiesSvc.setPublicAuthority({ organisationId: A.org.id, entityId: B.entity.id, publicAuthority: true, actor: as() })],
+    ["updateSharingAgreement", () => sharingSvc.updateSharingAgreement({ id: B.sharing.id, organisationId: A.org.id, changes: { title: "taken", purpose: null, direction: "both", gatewayKind: null, gateway: null, dataShared: null, lawfulBases: [], schedule1Condition: null, art10Condition: null, ownerId: null, signedAt: null, reviewDueAt: null, activityIds: [] }, actor: as() })],
+    ["addSharingParty", () => sharingSvc.addSharingParty({ agreementId: B.sharing.id, organisationId: A.org.id, supplierId: B.partner.id, actor: as() })],
+    ["updateSharingParty", () => sharingSvc.updateSharingParty({ partyId: B.sharingParty.id, organisationId: A.org.id, basis: { lawfulBases: ["public_task"], schedule1Condition: null, art10Condition: null }, note: "taken", actor: as() })],
+    ["removeSharingParty", () => sharingSvc.removeSharingParty({ partyId: B.sharingParty.id, organisationId: A.org.id, actor: as() })],
+    ["recordSharingReview", () => sharingSvc.recordSharingReview({ id: B.sharing.id, organisationId: A.org.id, nextReviewDueAt: new Date(Date.now() + 365 * DAY), actor: as() })],
+    ["endSharingAgreement", () => sharingSvc.endSharingAgreement({ id: B.sharing.id, organisationId: A.org.id, reason: "taken", actor: as() })],
     ["updatePolicyDocument", () => policyDocs.updatePolicyDocument({ id: B.policyDoc.id, organisationId: A.org.id, changes: { title: "taken", version: null, conditions: [], ownerId: null, entityId: null }, actor: as() })],
     ["recordPolicyReview", () => policyDocs.recordPolicyReview({ id: B.policyDoc.id, organisationId: A.org.id, actor: as() })],
     ["withdrawPolicyDocument", () => policyDocs.withdrawPolicyDocument({ id: B.policyDoc.id, organisationId: A.org.id, actor: as() })],
@@ -637,6 +653,11 @@ describe("linking one's own records to another organisation's", () => {
     ["a marketing activity in B's entity", () => marketingSvc.createMarketingActivity({ organisationId: A.org.id, entityId: B.entity.id, name: "x", channel: "email", actor: as() })],
     ["a marketing activity under B's processing activity", () => marketingSvc.createMarketingActivity({ organisationId: A.org.id, entityId: A.entity.id, name: "x", channel: "email", processingActivityId: B.activity.id, actor: as() })],
     ["further processing of B's processing activity", () => ropa.setFurtherProcessing({ activityId: mine.activity.id, organisationId: A.org.id, record: { furtherProcessing: true, originalActivityId: B.activity.id }, actor: as() })],
+    ["a sharing agreement for B's entity", () => sharingSvc.createSharingAgreement({ organisationId: A.org.id, entityId: B.entity.id, title: "x", actor: as() })],
+    ["B's controller as a party to my agreement", () => sharingSvc.addSharingParty({ agreementId: mine.sharing.id, organisationId: A.org.id, supplierId: B.partner.id, actor: as() })],
+    ["my agreement covering B's activity", () => sharingSvc.updateSharingAgreement({ id: mine.sharing.id, organisationId: A.org.id, changes: { ...{ title: "taken", purpose: null, direction: "both", gatewayKind: null, gateway: null, dataShared: null, lawfulBases: [], schedule1Condition: null, art10Condition: null, ownerId: null, signedAt: null, reviewDueAt: null, activityIds: [] }, activityIds: [B.activity.id] }, actor: as() })],
+    ["my agreement owned by B's person", () => sharingSvc.updateSharingAgreement({ id: mine.sharing.id, organisationId: A.org.id, changes: { ...{ title: "taken", purpose: null, direction: "both", gatewayKind: null, gateway: null, dataShared: null, lawfulBases: [], schedule1Condition: null, art10Condition: null, ownerId: null, signedAt: null, reviewDueAt: null, activityIds: [] }, ownerId: B.owner.user.id }, actor: as() })],
+    ["a document on B's sharing agreement", () => documentsSvc.attachDocument({ organisationId: A.org.id, entityId: null, subjectType: "sharing_agreement", subjectId: B.sharing.id, filename: "x.pdf", contentType: "application/pdf", content: PDF, actor: as() })],
     ["a policy document for B's entity", () => policyDocs.createPolicyDocument({ organisationId: A.org.id, entityId: B.entity.id, title: "x", conditions: [], actor: as() })],
     ["a policy document owned by B's person", () => policyDocs.createPolicyDocument({ organisationId: A.org.id, entityId: null, title: "x", conditions: [], ownerId: B.owner.user.id, actor: as() })],
     ["a policy document moved to B's entity", () => policyDocs.updatePolicyDocument({ id: mine.policyDoc.id, organisationId: A.org.id, changes: { title: "x", version: null, conditions: [], ownerId: null, entityId: B.entity.id }, actor: as() })],
@@ -768,13 +789,15 @@ describe("lists", () => {
       ["entitiesSvc.dpoPosition", entitiesSvc.dpoPosition(o)] as const,
       ["policyDocs.policyDocumentRegister", policyDocs.policyDocumentRegister(o, null)] as const,
       ["policyDocs.policyCoverage", policyDocs.policyCoverage(o)] as const,
+      ["sharingSvc.sharingRegister", sharingSvc.sharingRegister(o, null)] as const,
+      ["sharingSvc.sharingCoverage", sharingSvc.sharingCoverage(o)] as const,
     ].map(async ([n, r]) => [n, await r] as [string, unknown]));
     const text = (v: unknown) =>
       JSON.stringify(v, (_k, x) => (x instanceof Map ? [...x] : x instanceof Set ? [...x] : x)) ?? "";
     const bIds = [
       B.org.id, B.entity.id, B.owner.user.id, B.approver.user.id, B.risk.id, B.supplier.id, B.dpa.id,
       B.activity.id, B.breach.id, B.subjectRequest.id, B.complaint.id, B.webProperty.id, B.storageItem.id, B.useCase.id, B.incident.id, B.request.id, B.assessment.id,
-      B.policyDoc.id, B.template, B.dpiaVersion, B.workflow.id, B.scanner.id, B.finding.id, B.appetite.id,
+      B.policyDoc.id, B.partner.id, B.sharing.id, B.sharingParty.id, B.template, B.dpiaVersion, B.workflow.id, B.scanner.id, B.finding.id, B.appetite.id,
       B.domainClaim.id, B.domainClaim.domain, B.intakeLink.id, B.intakeLink.slug,
     ];
     const leaks = results.flatMap(([name, r]) => bIds.filter((id) => text(r).includes(id)).map((id) => `${name}: ${id}`));

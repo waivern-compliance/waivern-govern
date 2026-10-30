@@ -518,6 +518,41 @@ export const HELP_TOPICS: HelpTopic[] = [
     related: ["approvals", "managing-people", "roles-and-access", "service-levels"],
   },
   {
+    id: "sharing-agreements",
+    title: "Data sharing agreements",
+    summary:
+      "Sharing personal data with other controllers: who with, on what basis and gateway, and which sharing no agreement covers.",
+    path: "/app/sharing-agreements",
+    keywords: [
+      "data sharing agreement", "information sharing agreement", "isa", "dsa", "controller to controller",
+      "gateway", "legal gateway", "digital economy act", "safeguarding partnership", "multi-agency", "data sharing code",
+    ],
+    sections: [
+      {
+        heading: "What it is for",
+        body: [
+          "A processor is governed by an Article 28 contract. Another controller is not: a council sharing with a health trust, a school with children's services, a safeguarding partnership. The UK GDPR does not require an agreement for that sharing, but the Information Commission's data sharing code of practice expects one for routine sharing, and it is where each party's basis is written down.",
+          "Each agreement names our party (one of your entities) and the other controllers, which come from the third-party register recorded as another controller. It records the purpose, which way the data goes, what is shared, each controller's own Article 6 basis — and where special category or criminal offence data is shared, its Schedule 1 or Article 10 condition — and the processing activities it covers.",
+        ],
+      },
+      {
+        heading: "The legal gateway",
+        body: [
+          "A public body can share only within its powers, so as well as an Article 6 basis it needs a gateway: an enactment that allows or requires the sharing, such as the Digital Economy Act 2017 section 35 for public service delivery, or its own powers and functions. Say which, and name it. A party that is not a public body needs none; say so.",
+        ],
+      },
+      {
+        heading: "What is flagged",
+        body: [
+          "An agreement with no other party, or past its review date, is shown first. Also flagged: a party with no lawful basis, ours not recorded, no purpose, no gateway, nothing said about what is shared, not signed, no review date, nothing attached, no linked activity and no owner. None is called a breach.",
+          "On the processing register, an activity whose recipients include a third party recorded as another controller, with no current agreement covering that activity and that party, shows an amber gap; the register lists them all. Recipients are matched to the third-party register by name, as the request register does.",
+          "Record a review with the date the next is due. When the sharing stops or the agreement is replaced, end it with a reason: it is kept, and from then covers nothing.",
+        ],
+      },
+    ],
+    related: ["third-parties", "ropa", "policy-documents"],
+  },
+  {
     id: "third-parties",
     title: "Third parties and processor agreements (Article 28)",
     summary:
@@ -534,6 +569,12 @@ export const HELP_TOPICS: HelpTopic[] = [
         body: [
           "Some you record. Others arrive from a connected scanner, because a tracker seen on a page is a third party whether or not procurement knew about it.",
           "A scanner cannot tell whether that party processes personal data on your behalf, is a recipient in its own right, or was a false positive. So a supplier it reported carries 'nobody has confirmed this is a processor' until a person presses the button saying they have looked. That button records that somebody looked; it does not assert that an agreement exists.",
+        ],
+      },
+      {
+        heading: "Processor or another controller",
+        body: [
+          "Say what each third party is to you: a processor, which processes data for you on your instructions; another controller, with whom you share data and who decides for itself what to do with it; or both, for different data. Article 28 reaches processors only, so a third party recorded as another controller is not flagged for having no processor agreement. Sharing with it is recorded on the data sharing agreement register instead, and its page lists the agreements that name it.",
         ],
       },
       {
@@ -1761,7 +1802,7 @@ export const HELP_GROUPS: Array<{ heading: string; ids: string[] }> = [
   },
   {
     heading: "The registers",
-    ids: ["ropa", "policy-documents", "third-parties", "breaches", "data-subject-requests", "complaints", "cookies", "marketing", "ai-register", "ai-intake", "ai-chain", "ai-incidents", "ai-profile", "transparency-records", "transfers", "findings"],
+    ids: ["ropa", "policy-documents", "third-parties", "sharing-agreements", "breaches", "data-subject-requests", "complaints", "cookies", "marketing", "ai-register", "ai-intake", "ai-chain", "ai-incidents", "ai-profile", "transparency-records", "transfers", "findings"],
   },
   {
     heading: "Seeing where you stand",
