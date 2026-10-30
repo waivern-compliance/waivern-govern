@@ -347,6 +347,13 @@ export const HELP_TOPICS: HelpTopic[] = [
         ],
       },
       {
+        heading: "Children",
+        body: [
+          "Say whether an online service in the processing is likely to be accessed by children, whether or not it is aimed at them; preventive and counselling services are not included. Where it is, UK GDPR Article 25(1A) requires the measures to take the children's higher protection matters into account: how children can best be protected and supported, and that they may understand less of the risks, consequences and their rights, with needs that differ by age and development.",
+          "The DPIA is where that is shown. The record is flagged until a DPIA of the activity exists, and again until that DPIA says how the higher protection matters shaped the measures. The ICO's Children's code sets out what this looks like in practice.",
+        ],
+      },
+      {
         heading: "Automated decisions",
         body: [
           "Say whether the processing takes significant decisions about people solely by automated means — decisions with a legal or similarly significant effect, with no person meaningfully involved (UK GDPR Article 22A). Answer 'not yet known' rather than guess; nothing is flagged until you say yes.",

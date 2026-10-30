@@ -28,6 +28,7 @@ function complete(over: Partial<Activity> = {}): Activity {
     approvedMedicalResearch: null,
     art13Exemption: null,
     publicInformationUrl: null,
+    childrenLikely: null,
     dataCategories: ["Bank details"],
     subjectCategories: ["Staff"],
     recipients: ["Payroll bureau"],

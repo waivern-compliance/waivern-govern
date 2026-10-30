@@ -1,6 +1,6 @@
 # Plan: the UK GDPR as amended by the Data (Use and Access) Act 2025
 
-Status: decisions settled (30 October 2026); 1, 2, 5, 6 and 7 as recommended, 3 and 4 changed. Phases 0–4 built.
+Status: decisions settled (30 October 2026); 1, 2, 5, 6 and 7 as recommended, 3 and 4 changed. Phases 0–5 built.
 
 ## What is asked for
 
@@ -277,10 +277,23 @@ Built as:
   the shared library's seeded EEA note and US summary where they still read exactly as
   seeded; organisations' own entries are left alone.
 
-### Phase 5: children (about half a day)
+### Phase 5: children (built)
 - `children_likely` on the processing activity, and a DPIA question on the children's
   higher protection matters where it is set.
 - Gap: likely accessed by children with no DPIA, or with the question unanswered.
+
+Built as:
+- Article 25(1A)–(1B) checked on legislation.gov.uk: it sets no age and does not define
+  "likely to be accessed by children"; paragraph 5 excludes preventive and counselling
+  services.
+- `processing_activity.children_likely` (migration 0076), asked on the ROPA record form.
+- **DPIA, edited in place:** a required "likely to be accessed by children?" question in
+  "Data and people", and, where yes, how the children's higher protection matters shaped
+  the measures, by age. Cites Article 25(1A) and the ICO Children's code (new reference
+  `ico.childrens_code`).
+- Gaps: "Likely accessed by children, with no DPIA", and "… the DPIA does not say how the
+  children's higher protection matters were taken into account". Read from the live
+  answers of any DPIA of the activity that is not superseded or rejected.
 
 ## Rough size
 

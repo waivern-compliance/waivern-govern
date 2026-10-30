@@ -207,6 +207,21 @@ export default async function ActivityPage({
             defaultValue={activity.securityMeasures ?? ""}
             rows={2}
           />
+          <label className="block space-y-1">
+            <Label
+              text="Likely to be accessed by children?"
+              hint="Article 25(1A) — an online service in this processing that children are likely to use. Preventive and counselling services are not included. Where it is, the measures must take the children's higher protection matters into account, and the DPIA should say how."
+            />
+            <select
+              name="childrenLikely"
+              defaultValue={activity.childrenLikely === null ? "" : activity.childrenLikely ? "yes" : "no"}
+              className="w-full rounded border border-line bg-ground px-3 py-2 text-sm"
+            >
+              <option value="">Not yet known</option>
+              <option value="yes">Yes</option>
+              <option value="no">No</option>
+            </select>
+          </label>
           <Area
             label="Systems"
             name="systems"
@@ -276,6 +291,10 @@ export default async function ActivityPage({
           <Read label="Transfers" value={transfersText.replace(/\n/g, " · ")} />
           <Read label="Retention" value={activity.retention} />
           <Read label="Security measures" value={activity.securityMeasures} />
+          <Read
+            label="Children"
+            value={activity.childrenLikely === null ? null : activity.childrenLikely ? "Likely to be accessed by children" : "Not likely to be accessed by children"}
+          />
         </section>
       )}
 

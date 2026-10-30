@@ -38,6 +38,7 @@ const DPIA_BASE = {
   purpose: "Deliver and improve the service.",
   lawful_basis: "public_task",
   subject_groups: "Audience members and staff, in the UK.",
+  children_likely: false,
   necessity: "The processing is required to deliver the stated purpose.",
   alternatives: "Less intrusive options were considered and documented.",
   transparency: "Covered by the privacy notice and an in-product explainer.",
