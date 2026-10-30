@@ -442,7 +442,7 @@ export const NIST_AI_RISK: TemplateDefinition = {
           { key: "solely_automated", label: "Does it make decisions with legal or similarly significant effects on people without meaningful human involvement?", type: "single_select", required: false,
             showWhen: { op: "equals", question: "affects_people", value: true },
             requireWhen: { op: "equals", question: "affects_people", value: true },
-            legalRefs: ["ukgdpr.art22"], evidence: "none",
+            legalRefs: ["ukgdpr.art22a", "ukgdpr.art22b"], evidence: "none",
             options: [
               { value: "no", label: "No", weight: 0 },
               { value: "yes", label: "Yes", weight: 6 },

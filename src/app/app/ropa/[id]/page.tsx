@@ -140,7 +140,7 @@ export default async function ActivityPage({
           <Field
             label="Lawful basis"
             name="lawfulBasis"
-            hint="Consent, contract, legal obligation, vital interests, public task, legitimate interests"
+            hint="Consent, contract, legal obligation, vital interests, public task, recognised legitimate interests (Annex 1), legitimate interests"
             defaultValue={activity.lawfulBasis ?? ""}
           />
           <Area

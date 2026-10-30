@@ -147,7 +147,7 @@ export const SETUP: Step[] = [
       "model: a chatbot, a scoring tool, a transcription service, a recommendation engine.",
     why:
       "Automated decisions with legal or similarly significant effects carry specific " +
-      "obligations under UK GDPR Article 22, and the EU AI Act sets duties by risk " +
+      "obligations under UK GDPR Articles 22A–22D, and the EU AI Act sets duties by risk " +
       "category. You cannot classify what you have not listed.",
     finishedWhen: "Every AI system in use appears, including ones bought as a feature of something else.",
     href: "/app/ai",

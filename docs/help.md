@@ -971,7 +971,7 @@ Tick confidential to keep your name from everyone but the person handling it, th
 
 A report goes to the system's AI governance officer, else its owner, else to AI governance, with a task due within two days. They triage it — how serious, whether harm is actual, who handles it, and the risk it belongs to — then take it through investigation to resolution. Every step needs a note, and the timeline cannot be edited.
 
-Resolving needs an outcome. For a challenge, that is the decision a person reached and what was put right — the human review UK GDPR Article 22 and the AI Playbook ask for. A system with actual harm reported and not yet resolved shows as a serious gap on the register.
+Resolving needs an outcome. For a challenge, that is the decision a person reached and what was put right — the human review UK GDPR Article 22C and the AI Playbook ask for. A system with actual harm reported and not yet resolved shows as a serious gap on the register.
 
 **See also:** The AI register · The risk register
 

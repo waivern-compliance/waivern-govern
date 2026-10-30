@@ -59,11 +59,11 @@ export const DSIT_AI_RISK: TemplateDefinition = {
               { value: "local", label: "A model running on people's own devices" },
               { value: "trained_here", label: "A model trained or fine-tuned here" },
             ] },
-          { key: "affects_people", label: "Does the system affect people, directly or indirectly?", type: "boolean", required: true, legalRefs: ["ukgdpr.art22"], evidence: "none" },
+          { key: "affects_people", label: "Does the system affect people, directly or indirectly?", type: "boolean", required: true, legalRefs: ["ukgdpr.art22a"], evidence: "none" },
           { key: "consequence", label: "What is the strongest consequence for someone affected?", type: "single_select", required: false,
             showWhen: { op: "equals", question: "affects_people", value: true },
             requireWhen: { op: "equals", question: "affects_people", value: true },
-            legalRefs: ["ukgdpr.art22", "gds.aiplaybook"], evidence: "none",
+            legalRefs: ["ukgdpr.art22a", "gds.aiplaybook"], evidence: "none",
             options: [
               { value: "informational", label: "Informational only — no decision follows", weight: 0 },
               { value: "influences", label: "Influences a decision a person then takes", weight: 2 },
@@ -136,7 +136,7 @@ export const DSIT_AI_RISK: TemplateDefinition = {
           { key: "solely_automated", label: "Does it make decisions with legal or similarly significant effects on people without meaningful human involvement?", type: "single_select", required: false,
             showWhen: { op: "equals", question: "affects_people", value: true },
             requireWhen: { op: "equals", question: "affects_people", value: true },
-            legalRefs: ["ukgdpr.art22"], evidence: "none",
+            legalRefs: ["ukgdpr.art22a", "ukgdpr.art22b"], evidence: "none",
             options: [
               { value: "no", label: "No", weight: 0 },
               { value: "yes", label: "Yes", weight: 6 },
@@ -149,7 +149,7 @@ export const DSIT_AI_RISK: TemplateDefinition = {
         key: "transparency",
         title: "Transparency and explainability",
         questions: [
-          { key: "people_aware", label: "Are the people using it, or affected by it, told that AI is involved?", type: "single_select", required: true, legalRefs: ["gds.aiplaybook", "ukgdpr.art22"], evidence: "none",
+          { key: "people_aware", label: "Are the people using it, or affected by it, told that AI is involved?", type: "single_select", required: true, legalRefs: ["gds.aiplaybook", "ukgdpr.art22c"], evidence: "none",
             options: [
               { value: "always", label: "Yes, always", weight: 0 },
               { value: "sometimes", label: "Sometimes, or only if they ask", weight: 2 },
@@ -254,7 +254,7 @@ export const DSIT_AI_RISK: TemplateDefinition = {
         key: "contestability_section",
         title: "Contestability and redress",
         questions: [
-          { key: "contestability", label: "Can someone affected challenge or appeal an outcome?", type: "single_select", required: true, legalRefs: ["ukgdpr.art22", "gds.aiplaybook"], evidence: "none",
+          { key: "contestability", label: "Can someone affected challenge or appeal an outcome?", type: "single_select", required: true, legalRefs: ["ukgdpr.art22c", "gds.aiplaybook"], evidence: "none",
             options: [
               { value: "documented_route", label: "Yes — a documented route, with a human decision-maker", weight: 0 },
               { value: "informal", label: "Informally, through existing complaints channels", weight: 2 },

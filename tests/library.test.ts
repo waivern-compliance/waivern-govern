@@ -291,9 +291,10 @@ describe("legal references a lawyer can check", () => {
 
   it("points UK articles at the article, not the whole regulation", () => {
     // legislation.gov.uk supports article-level links and EUR-Lex does not, so
-    // the UK half of the library is expected to be more precise.
+    // the UK half of the library is expected to be more precise. The DUAA added
+    // lettered articles (22A, 84B) and annexes, which are just as precise.
     for (const ref of LEGAL_REFERENCES.filter((r) => r.code.startsWith("ukgdpr."))) {
-      assert.match(ref.url!, /\/article\/\d+$/, `${ref.code} is not an article-level link`);
+      assert.match(ref.url!, /\/(article\/\d+[A-Z]?|annex\/\d+)$/, `${ref.code} is not an article-level link`);
     }
   });
 });
