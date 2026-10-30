@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useState } from "react";
+import { useRefusableAction } from "@/lib/use-refusable-action";
 import {
   PROCESSING_BASIS_LABEL,
   RIGHTS,
@@ -10,6 +11,7 @@ import {
 } from "@/lib/dsr/statutory";
 import { recordRequestDecisionAction, type RequestResult } from "./actions";
 import { Label, inputClass } from "./fields";
+import { ExemptionFields, HealthOpinionFields } from "./ExemptionFields";
 
 type Outcome = "done" | "complied" | "partly" | "refused" | "not_applicable";
 
@@ -90,8 +92,13 @@ const KINDS: Array<{
   {
     value: "exemption",
     label: "Relied on an exemption",
-    basis: "DPA 2018 Schedule 2",
-    note: "Name the paragraph. Applied to the specific information, not the whole request.",
+    note: "Data Protection Act 2018 Schedule 2 or 3. One decision for each exemption, applied to the specific information, not the whole request.",
+    outcomes: [["partly", "Some information withheld"], ["refused", "All of it withheld"]],
+  },
+  {
+    value: "health_opinion",
+    label: "Recorded a health professional's opinion",
+    note: "Schedule 3: a controller that is not a health professional may withhold health data for serious harm only on this opinion (para 5), and may disclose health data the person has not already seen only on an opinion that the test is not met (para 6). Either way the opinion must be from the last six months.",
   },
   {
     value: "fee",
@@ -138,17 +145,27 @@ export function RequestDecisionForm({
   requestId,
   rights,
   activities = [],
+  opinions = [],
 }: {
   requestId: string;
   rights: string[];
   /** The processing activities in this request's scope, for an objection to be about. */
   activities?: ObjectableActivity[];
+  /** Health professionals' opinions recorded on this request, for an exemption to rely on. */
+  opinions?: Array<{ id: string; label: string; usable: boolean }>;
 }) {
-  const [result, action, pending] = useActionState<RequestResult, FormData>(
+  // A refusal keeps what was typed: an exemption can be refused for one
+  // missing answer among several.
+  const { result, pending, formProps } = useRefusableAction<RequestResult>(
     recordRequestDecisionAction.bind(null, requestId),
-    null,
   );
   const [kind, setKind] = useState(KINDS[0].value);
+  // The form is cleared once a decision is recorded; the choice of kind goes with it.
+  const [seen, setSeen] = useState(result);
+  if (result !== seen) {
+    setSeen(result);
+    if (result?.ok) setKind(KINDS[0].value);
+  }
   const [activityId, setActivityId] = useState(activities[0]?.id ?? "");
   const activity = activities.find((a) => a.id === activityId);
   const [basis, setBasis] = useState<ProcessingBasis>(activities[0]?.suggested ?? "legitimate_interests");
@@ -161,7 +178,7 @@ export function RequestDecisionForm({
   );
 
   return (
-    <form action={action} className="space-y-3 rounded border border-line bg-surface p-5">
+    <form {...formProps} className="space-y-3 rounded border border-line bg-surface p-5">
       <h2 className="text-sm font-semibold">Record a decision</h2>
 
       <label className="block space-y-1">
@@ -234,6 +251,9 @@ export function RequestDecisionForm({
         </div>
       ) : null}
 
+      {kind === "exemption" ? <ExemptionFields opinions={opinions} /> : null}
+      {kind === "health_opinion" ? <HealthOpinionFields /> : null}
+
       <div className="grid gap-3 sm:grid-cols-2">
         {outcomes ? (
           <label className="block space-y-1">
@@ -263,15 +283,19 @@ export function RequestDecisionForm({
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="block space-y-1">
-          <Label text="Provision relied on" hint="Edit to the exact paragraph." />
-          <input
-            name="statutoryBasis"
-            key={`${kind}-${basis}`}
-            defaultValue={test?.provision ?? chosen.basis ?? ""}
-            className={inputClass}
-          />
-        </label>
+        {kind === "exemption" || kind === "health_opinion" ? (
+          <p className="self-end text-xs text-ink-soft">The provision is recorded from the paragraph chosen.</p>
+        ) : (
+          <label className="block space-y-1">
+            <Label text="Provision relied on" hint="Edit to the exact paragraph." />
+            <input
+              name="statutoryBasis"
+              key={`${kind}-${basis}`}
+              defaultValue={test?.provision ?? chosen.basis ?? ""}
+              className={inputClass}
+            />
+          </label>
+        )}
         <label className="block space-y-1">
           <Label text="When it took effect" hint="Leave blank for now. A pause counts from here." />
           <input name="effectiveAt" type="datetime-local" className={inputClass} />

@@ -164,6 +164,36 @@ export async function identityAction(
   return result;
 }
 
+const yesNo = (v: FormDataEntryValue | null) => (v === "yes" ? true : v === "no" ? false : undefined);
+
+/** What a Schedule 2 or 3 paragraph asks to be recorded, or the health professional's opinion. */
+function decisionDetail(kind: string, formData: FormData) {
+  if (kind === "health_opinion") {
+    return {
+      professionalRole: text(formData.get("professionalRole")),
+      appropriate: text(formData.get("appropriate")),
+      givenOn: text(formData.get("givenOn")),
+      testMet: yesNo(formData.get("testMet")),
+    };
+  }
+  if (kind !== "exemption") return undefined;
+  return {
+    secretaryOfState: formData.get("secretaryOfState") === "on",
+    vulnerability: text(formData.get("vulnerability")),
+    substantialRisk: formData.get("substantialRisk") === "on",
+    outweighs: formData.get("outweighs") === "on",
+    necessaryAndProportionate: formData.get("necessaryAndProportionate") === "on",
+    personTold: yesNo(formData.get("personTold")),
+    notToldReason: text(formData.get("notToldReason")) || null,
+    controllerIsHealthProfessional: yesNo(formData.get("controllerIsHealthProfessional")),
+    opinionDecisionId: text(formData.get("opinionDecisionId")) || null,
+    reconsultNotReasonable: text(formData.get("reconsultNotReasonable")) || null,
+    requesterCapacity: (text(formData.get("requesterCapacity")) || null) as never,
+    expectation: (text(formData.get("expectation")) || null) as never,
+    notScotland: formData.get("notScotland") === "on",
+  };
+}
+
 export async function recordRequestDecisionAction(
   requestId: string,
   _prev: RequestResult,
@@ -180,6 +210,8 @@ export async function recordRequestDecisionAction(
       statutoryBasis: text(formData.get("statutoryBasis")) || null,
       processingBasis: (text(formData.get("processingBasis")) || null) as ProcessingBasis | null,
       processingActivityId: text(formData.get("processingActivityId")) || null,
+      exemption: text(formData.get("exemption")) || null,
+      detail: decisionDetail(text(formData.get("kind")), formData),
       rationale: text(formData.get("rationale")),
       effectiveAt: when(formData.get("effectiveAt")) ?? undefined,
       actor: actorOf(active),

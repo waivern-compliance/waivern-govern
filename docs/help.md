@@ -709,6 +709,18 @@ While you weigh an objection to public task or either kind of legitimate interes
 
 An upheld objection means the processing stops for this person. The request will not close until that activity is recorded as acted on in where to look.
 
+### Exemptions
+
+Record each exemption as its own decision and choose the paragraph of the Data Protection Act 2018 relied on, from Schedule 2 (crime and tax, immigration, regulatory functions, other people's information, legal privilege, references, exams, journalism, research and archiving) or Schedule 3 (health, social work and education data, and child abuse data). The form shows the test the paragraph sets, and refuses a paragraph that does not reach the right decided: most of Schedule 2 Part 4 and the serious harm exemptions restrict only the right of access. An exemption applies only as far as its test is met, to the specific information, never to a whole request because part of it is caught.
+
+The immigration exemption (Schedule 2 paragraphs 4 to 4B) is for the Secretary of State only, and is decided for each right separately and afresh each time. The decision records how the person's vulnerability and rights were weighed, confirms a substantial risk of prejudice that outweighs the risk to them and is necessary and proportionate, and says whether the person was told — and if not, why telling them would prejudice immigration control.
+
+Withholding health data because access would be likely to cause serious harm (Schedule 3 paragraph 5) needs, unless you are a health professional yourself, the opinion of the appropriate health professional: the one responsible for the person's care, or the best placed of several, or a qualified one where none is available. Record the opinion on the request first. It counts only if given in the six months ending on the day you rely on it, and only if it would not be reasonable to consult them again; the decision asks why not.
+
+The same opinion, that the serious harm test is not met, is needed before a controller that is not a health professional discloses health data the person has not already seen (paragraph 6). Access requests remind you of it.
+
+The expectations-and-wishes exemptions for health and social work data, and child abuse data, apply only to a request made by a parent with parental responsibility, or by a person a court appointed to manage the person's affairs; the decision asks which. Child abuse data does not apply in Scotland.
+
 ### When people keep objecting
 
 Each objection upheld or overridden counts against its activity, one per request, over twelve months. The count shows on the activity's ROPA record — numbers only, never who objected.
@@ -741,7 +753,7 @@ It will not answer the request, search your systems, or redact anything. It coun
 
 **See also:** Data protection complaints · Personal data breaches · The processing register (Article 30) · Tasks, and being mentioned · The audit trail
 
-<sub>Also searchable as: dsar, sar, subject access, access request, article 15, erasure, right to be forgotten, article 17, objection, object, article 21, rectification, portability, restriction, one month, extension, article 12, direct marketing, rights request, article 19, recipients, search, reasonable and proportionate, processor, article 28, article 18(1)(d), lia, legitimate interests assessment, balancing test, timeliness, on time, response times, export, metrics, web form, intake, public form, privacy notice</sub>
+<sub>Also searchable as: dsar, sar, subject access, access request, article 15, erasure, right to be forgotten, article 17, objection, object, article 21, rectification, portability, restriction, one month, extension, article 12, direct marketing, rights request, article 19, recipients, search, reasonable and proportionate, processor, article 28, article 18(1)(d), lia, legitimate interests assessment, balancing test, timeliness, on time, response times, export, metrics, web form, intake, public form, privacy notice, exemption, schedule 2, schedule 3, serious harm, health professional, immigration exemption, social work, education records, child abuse data</sub>
 
 ## Data protection complaints
 

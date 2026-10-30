@@ -1,6 +1,6 @@
 # Plan: public services under the Data Protection Act 2018, as amended
 
-Status: decisions settled (30 October 2026), all as recommended. Phases 0–2 built.
+Status: decisions settled (30 October 2026), all as recommended. Phases 0–3 built.
 
 ## What is asked for
 
@@ -299,10 +299,36 @@ Built as:
   and patients, service users, pupils, parents and carers, staff, and the Part 3
   categories.
 
-### Phase 3: exemptions in requests (about 1.5 days)
+### Phase 3: exemptions in requests (built)
 - Structured Schedule 2 exemptions; the immigration exemption's case-by-case record and
   notice; Schedule 3 with the serious harm test and the health professional's opinion
   (decision 7).
+
+Built as:
+- `lib/dpa2018/exemptions.ts`: the Schedule 2 and 3 paragraphs a request can meet, each
+  with the rights it can restrict and its test. Checked against Schedules 2 and 3 on
+  legislation.gov.uk, up to date to 29 October 2026 (Sch 2 paras 2 and 3 carry the DUAA's
+  "investigation"). Paragraph 5 (disclosure required by law) and paragraph 17 (an
+  assumption, not an exemption) are left out.
+- On `data_subject_request_decision` (migration 0080): `exemption`, the paragraph, and
+  `detail`, what it asks to be recorded; the provision is written from the paragraph. A
+  paragraph that does not reach the right decided is refused.
+- Immigration (paras 4–4B): the Secretary of State only; one decision per right; how
+  vulnerability, rights and duties were weighed; the three para 4A(4) tests confirmed;
+  whether the person was told, and why not.
+- Health serious harm (Sch 3 para 5): a new decision kind, `health_opinion`, records the
+  appropriate health professional's opinion (role, why they are the appropriate one under
+  para 2(1), the date, and whether the test is met). A controller that is not a health
+  professional can withhold only on an opinion recorded on the same request that the
+  test is met and given in the six months ending that day. Decision 7 had an older
+  opinion allowed with a reason; the Act does not allow that, so an older one is refused.
+  An opinion inside the six months still needs the reason re-consulting would not be
+  reasonable (para 5(3)(b)).
+- Para 6, the same opinion that the test is *not* met before such a controller discloses
+  health data, is shown on access requests as a reminder. Govern cannot know whether an
+  answer includes health data, so it does not enforce it.
+- Paras 4, 10 and 21: the requester's capacity (parental responsibility, or a court
+  appointee); for 4 and 10 which expectation limb; for 21 that it is not Scotland.
 
 ### Phase 4: data sharing agreements (about 1.5 days)
 - The register (decision 8), linked to the ROPA and the third-party register, with gaps:

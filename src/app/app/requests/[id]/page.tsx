@@ -28,6 +28,16 @@ import { RequestDecisionForm } from "../RequestDecisionForm";
 import { closeRequestAction, identityAction, passToControllerAction, respondAction, updateRequestAction } from "../actions";
 import { CHANNEL_LABEL, ChannelSelect, Label, RightsField, inputClass, stamp } from "../fields";
 import { Scope } from "./Scope";
+import {
+  APPROPRIATE_PROFESSIONAL,
+  EXEMPTIONS,
+  EXPECTATION_LIMBS,
+  REQUESTER_CAPACITIES,
+  isExemption,
+  opinionInPeriod,
+  type ExemptionDetail,
+  type HealthOpinion,
+} from "@/lib/dpa2018/exemptions";
 
 const OUTCOME_LABEL: Record<string, string> = {
   done: "done",
@@ -56,6 +66,18 @@ export default async function RequestPage({ params }: { params: Promise<{ id: st
   }
 
   const open = !request.respondedAt && !request.closedAt;
+  const now = new Date();
+  const opinions = decisions
+    .filter((d) => d.kind === "health_opinion")
+    .map((d) => {
+      const o = d.detail as HealthOpinion;
+      return {
+        id: d.id,
+        label: `${o.professionalRole}, ${o.givenOn}: test ${o.testMet ? "met" : "not met"}`,
+        usable: o.testMet && opinionInPeriod(o, now),
+        disclose: !o.testMet && opinionInPeriod(o, now),
+      };
+    });
   const complaints = await complaintsAboutRequest(request.id, active.membership.organisationId);
   const colleagues = await scoped(active.membership.organisationId, () => db
     .select({ id: users.id, email: users.email })
@@ -226,6 +248,7 @@ export default async function RequestPage({ params }: { params: Promise<{ id: st
                   Processing relies on {PROCESSING_BASIS_LABEL[d.processingBasis as ProcessingBasis]?.toLowerCase() ?? d.processingBasis}
                 </p>
               ) : null}
+              <DecisionDetail kind={d.kind} exemption={d.exemption} detail={d.detail} opinions={opinions} />
               <p className="max-w-prose text-sm">{d.rationale}</p>
               <p className="font-mono text-[11px] text-ink-soft">
                 {d.decidedByEmail ?? d.decidedByLabel} · {stamp(d.decidedAt)}
@@ -286,10 +309,22 @@ export default async function RequestPage({ params }: { params: Promise<{ id: st
         </section>
       ) : null}
 
+      {!request.closedAt && request.rights.includes("access") ? (
+        <p className="max-w-prose rounded border border-line bg-ground px-3 py-2 text-xs text-ink-soft">
+          Health data: a controller that is not a health professional may disclose health data the person has not
+          already seen only on the appropriate health professional&apos;s opinion, from the last six months, that
+          the serious harm test is not met (Data Protection Act 2018 Schedule 3 paragraph 6).{" "}
+          {opinions.some((o) => o.disclose)
+            ? "This request has one."
+            : "Record it here as a health professional's opinion if the answer includes health data."}
+        </p>
+      ) : null}
+
       {!request.closedAt ? (
         <RequestDecisionForm
           requestId={request.id}
           rights={request.rights}
+          opinions={opinions}
           activities={scopedActivities.map((a) => ({
             id: a.id,
             label: `${a.reference} ${a.name}`,
@@ -497,4 +532,47 @@ export default async function RequestPage({ params }: { params: Promise<{ id: st
       </EditForm>
     </main>
   );
+}
+
+/** What a Schedule 2 or 3 paragraph asked to be recorded, as it was. */
+function DecisionDetail({
+  kind,
+  exemption,
+  detail,
+  opinions,
+}: {
+  kind: string;
+  exemption: string | null;
+  detail: unknown;
+  opinions: Array<{ id: string; label: string }>;
+}) {
+  if (kind === "health_opinion") {
+    const o = detail as HealthOpinion;
+    return (
+      <p className="text-xs text-ink-soft">
+        {o.professionalRole}, given {o.givenOn} — {APPROPRIATE_PROFESSIONAL[o.appropriate]}. Serious harm test{" "}
+        {o.testMet ? "met" : "not met"}.
+      </p>
+    );
+  }
+  if (kind !== "exemption" || !isExemption(exemption)) return null;
+  const d = detail as ExemptionDetail;
+  const lines: string[] = [`${EXEMPTIONS[exemption].label}.`];
+  if (d.secretaryOfState) {
+    lines.push(
+      "Substantial risk of prejudice, outweighing the risk to the person, necessary and proportionate (para 4A(4)).",
+      `Considered: ${d.vulnerability}`,
+      d.personTold ? "The person was told (para 4B(2))." : `Not told: ${d.notToldReason}`,
+    );
+  }
+  if (d.controllerIsHealthProfessional === true) lines.push("Decided by a health professional.");
+  if (d.controllerIsHealthProfessional === false) {
+    lines.push(
+      `On the opinion of ${opinions.find((o) => o.id === d.opinionDecisionId)?.label ?? "a health professional"}.`,
+      `Not reasonable to consult again: ${d.reconsultNotReasonable}`,
+    );
+  }
+  if (d.requesterCapacity) lines.push(`Asked by someone who ${REQUESTER_CAPACITIES[d.requesterCapacity].charAt(0).toLowerCase()}${REQUESTER_CAPACITIES[d.requesterCapacity].slice(1)}.`);
+  if (d.expectation) lines.push(EXPECTATION_LIMBS[d.expectation]);
+  return <p className="text-xs text-ink-soft">{lines.join(" ")}</p>;
 }

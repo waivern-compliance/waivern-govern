@@ -1,5 +1,6 @@
 import { relations } from "drizzle-orm";
 import { boolean, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import type { ExemptionDetail, ExemptionKey, HealthOpinion } from "@/lib/dpa2018/exemptions";
 import {
   dataProtectionJurisdiction,
   dsrDecisionKind,
@@ -205,6 +206,19 @@ export const dataSubjectRequestDecisions = pgTable(
     processingActivityId: uuid("processing_activity_id").references(() => processingActivities.id, {
       onDelete: "set null",
     }),
+    /**
+     * For an exemption: which paragraph of Data Protection Act 2018 Schedule
+     * 2 or 3, from `lib/dpa2018/exemptions.ts`. Null on exemptions recorded
+     * before the choice existed, which carry only the provision as typed.
+     */
+    exemption: text("exemption").$type<ExemptionKey>(),
+    /**
+     * What the paragraph asks to be recorded beyond the reasons: the
+     * immigration exemption's tests and notice, the health professional's
+     * opinion relied on, the capacity of the person asking. For a
+     * `health_opinion` decision, the opinion itself.
+     */
+    detail: jsonb("detail").$type<ExemptionDetail | HealthOpinion>().notNull().default({}),
     /** Never optional. */
     rationale: text("rationale").notNull(),
     /** When it took effect, which for a pause is when the clock stopped. */
