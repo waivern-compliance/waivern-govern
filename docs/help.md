@@ -639,7 +639,7 @@ From the day the clock starts to the same date next month. Where next month has 
 The clock starts on receipt, unless you had reasonable doubt about who was asking and asked for proof. Then it starts when the proof arrives. Record how identity was checked, never a copy of the document.
 
 - Extension: up to two more months, for complexity or number of requests, decided and explained to the person within the first month. Only once.
-- Pausing for clarification: UK only, for requests received from 19 June 2026, when the Data (Use and Access) Act 2025's changes came into force. Where you hold a lot about somebody and genuinely need to know what they want, the month stops until they answer. The EU GDPR has no such pause, and a request recorded under EU law is not paused.
+- Pausing for clarification: UK only, for requests received from 5 February 2026, when the Data (Use and Access) Act 2025's changes to the time limits came into force. Where you hold a lot about somebody and genuinely need to know what they want, the month stops until they answer. The EU GDPR has no such pause, and a request recorded under EU law is not paused.
 - Each request keeps the law it was recorded under. Changing the organisation's default never moves a deadline already running.
 
 ### Where to look

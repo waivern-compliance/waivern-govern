@@ -1,4 +1,4 @@
-import { clarificationStopsClock } from "@/lib/dsr/statutory";
+import { proportionateSearchApplies } from "@/lib/dsr/statutory";
 import {
   recipientsMustBeTold,
   recipientsStillToTell,
@@ -52,7 +52,7 @@ export function Scope({
   const mustTell = recipientsMustBeTold(decisions);
   const untold = recipientsStillToTell(scope, decisions);
   const toSearch = scope.filter((e) => e.status === "to_search").length;
-  const proportionate = clarificationStopsClock(request.jurisdiction, request.receivedAt);
+  const proportionate = proportionateSearchApplies(request.jurisdiction, request.receivedAt);
 
   return (
     <section className="space-y-3">

@@ -26,20 +26,34 @@ import { basesFromText, type LawfulBasis } from "@/lib/gdpr/lawful-basis";
 export type Jurisdiction = "uk" | "eu";
 
 /**
- * When the DUAA 2025's changes to the data subject rights came into force: the
- * clarification pause, and searches that need only be reasonable and
- * proportionate. All of them commenced on 19 June 2026.
+ * When the DUAA 2025's changes to the time limits came into force: UK GDPR
+ * Article 12A, with the clock stopping while the controller waits for
+ * clarification. Section 76, commenced on 5 February 2026 by S.I. 2026/82
+ * reg 2(h); reg 4 keeps the old rules for a request received before then.
+ * (The complaints duty, s.164A, is later: 19 June 2026.)
  */
-export const DUAA_RIGHTS_IN_FORCE = new Date("2026-06-19T00:00:00Z");
+export const CLARIFICATION_PAUSE_IN_FORCE = new Date("2026-02-05T00:00:00Z");
+
+/**
+ * When subject access became limited to what a reasonable and proportionate
+ * search finds (Article 15(1A)). Section 78 came into force at Royal Assent
+ * but is treated as in force from 1 January 2024 (s.78(5)).
+ */
+export const PROPORTIONATE_SEARCH_IN_FORCE = new Date("2024-01-01T00:00:00Z");
 
 /**
  * Does waiting for clarification stop this request's clock?
  *
- * Only under UK law, and only for a request received once the DUAA's changes
- * were in force. One received before then runs on the rules it arrived under.
+ * Only under UK law, and only for a request received once Article 12A was in
+ * force. One received before then runs on the rules it arrived under.
  */
 export function clarificationStopsClock(jurisdiction: Jurisdiction, receivedAt: Date): boolean {
-  return jurisdiction === "uk" && receivedAt >= DUAA_RIGHTS_IN_FORCE;
+  return jurisdiction === "uk" && receivedAt >= CLARIFICATION_PAUSE_IN_FORCE;
+}
+
+/** Need the search be only reasonable and proportionate (Article 15(1A))? UK only. */
+export function proportionateSearchApplies(jurisdiction: Jurisdiction, receivedAt: Date): boolean {
+  return jurisdiction === "uk" && receivedAt >= PROPORTIONATE_SEARCH_IN_FORCE;
 }
 
 export const JURISDICTION_LABEL: Record<Jurisdiction, string> = {

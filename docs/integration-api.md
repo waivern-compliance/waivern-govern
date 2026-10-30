@@ -432,7 +432,8 @@ first N requests, would read as a summary of everything.
 - `onTime` and `late` count answered requests against the statutory deadline
   as Govern worked it out: one month (three if extended), moved off weekends
   and, for UK requests, bank holidays, waiting for identity where it was asked
-  for, and pausing for clarification under UK law from 19 June 2026.
+  for, and pausing for clarification under UK law for requests received from
+  5 February 2026.
 - A request invoking several rights counts once under each in `byRight`, so
   those rows can add up to more than `totals.received`. Rights nobody invoked
   are left out.

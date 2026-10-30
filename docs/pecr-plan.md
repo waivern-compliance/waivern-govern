@@ -17,8 +17,9 @@ analyser API token.
 ## The law, as checked on legislation.gov.uk
 
 The DUAA's PECR changes are Part 5, Chapter 2 (ss.109–116, with Schedules 12 and 13).
-They have been in force since **5 February 2026** (S.I. 2026/82). That is earlier than
-19 June 2026, when the changes to the rights came in.
+They have been in force since **5 February 2026** (S.I. 2026/82), the same day as the
+changes to the time limits for requests (s.76). The complaints duty (s.164A) followed on
+19 June 2026.
 
 | Provision | What changed |
 |---|---|

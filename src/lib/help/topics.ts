@@ -689,7 +689,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         ],
         points: [
           "Extension: up to two more months, for complexity or number of requests, decided and explained to the person within the first month. Only once.",
-          "Pausing for clarification: UK only, for requests received from 19 June 2026, when the Data (Use and Access) Act 2025's changes came into force. Where you hold a lot about somebody and genuinely need to know what they want, the month stops until they answer. The EU GDPR has no such pause, and a request recorded under EU law is not paused.",
+          "Pausing for clarification: UK only, for requests received from 5 February 2026, when the Data (Use and Access) Act 2025's changes to the time limits came into force. Where you hold a lot about somebody and genuinely need to know what they want, the month stops until they answer. The EU GDPR has no such pause, and a request recorded under EU law is not paused.",
           "Each request keeps the law it was recorded under. Changing the organisation's default never moves a deadline already running.",
         ],
       },
