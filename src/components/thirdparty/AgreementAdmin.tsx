@@ -92,7 +92,7 @@ export function AgreementAdmin({
             label="Transfer mechanism"
             name="transferMechanism"
             defaultValue={dpa.transferMechanism ?? ""}
-            hint="SCCs, UK Addendum, adequacy — if data leaves the UK"
+            hint="IDTA, UK Addendum, approved destination — if data leaves the UK"
           />
           <label className="block space-y-1">
             <span className="block text-xs font-medium uppercase tracking-wider text-ink-soft">

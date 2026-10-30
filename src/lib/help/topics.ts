@@ -1067,12 +1067,13 @@ export const HELP_TOPICS: HelpTopic[] = [
   },
   {
     id: "transfers",
-    title: "Countries, adequacy and transfers",
+    title: "Countries, UK approval and transfers",
     summary:
-      "One shared library of destinations, with adequacy and transfer risk, and a date showing when each was last checked by a person.",
+      "One shared library of destinations, with UK approval, EU adequacy and transfer risk, and a date showing when each was last checked by a person.",
     path: "/app/countries",
     keywords: [
       "adequacy", "transfer", "scc", "idta", "third country", "chapter v",
+      "approved", "45a", "data protection test", "not materially lower", "addendum",
       "safeguard", "dpf", "outside the uk", "uk", "international transfer",
       "restricted transfer", "overseas", "eu",
     ],
@@ -1080,14 +1081,15 @@ export const HELP_TOPICS: HelpTopic[] = [
       {
         heading: "What the library holds",
         body: [
-          "Sending personal data outside the UK needs either a destination covered by adequacy or a safeguard such as the IDTA or SCCs. This library is where that question is answered from, for every assessment and every processing record.",
-          "It holds adequacy status, transfer risk, and when each entry was last reviewed. Some entries are conditional — a destination covered only for organisations certified under a particular framework is not covered for everybody, and the library says so rather than rounding it to 'adequate'.",
+          "Since 5 February 2026, sending personal data outside the UK needs one of three things (UK GDPR Article 44A): a transfer approved by UK regulations under Article 45A — what used to be called adequacy regulations — a safeguard under Article 46 such as the IDTA or the UK Addendum, or an Article 49 derogation. This library is where the first question is answered from, for every assessment and every processing record.",
+          "It holds whether the UK approves each destination, whether the EU finds it adequate, transfer risk, and when each entry was last reviewed. Some entries are conditional — a destination approved only for organisations certified under a particular framework is not approved for everybody, and the library says so rather than rounding it up. The stored statuses did not change with the law; only the words did, so older records still read correctly.",
+          "Relying on an Article 46 safeguard now means applying the data protection test: acting reasonably and proportionately, you must consider that protection after the transfer would be not materially lower than in the UK, judged on everything about the transfer, including the nature and volume of the data. The UK transfer risk assessment asks for that judgement, the steps behind it, and what you will do if the test is not met.",
         ],
       },
       {
         heading: "Seeded is not verified",
         body: [
-          "Entries loaded from the seed are marked as never checked by a person. Adequacy decisions change, and an assessment that cites a stale entry is worse than one that cites nothing. The library flags its own staleness and the sweep raises a monthly task while entries remain unchecked.",
+          "Entries loaded from the seed are marked as never checked by a person. Approvals and adequacy decisions change, and an assessment that cites a stale entry is worse than one that cites nothing. The library flags its own staleness and the sweep raises a monthly task while entries remain unchecked.",
           "Your organisation can override a shared entry. An override applies to you alone.",
         ],
       },

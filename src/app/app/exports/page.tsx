@@ -16,7 +16,7 @@ const BLURB: Record<Dataset, string> = {
   breaches: "Every breach with both statutory decisions and the reasoning for each, including the ones judged not notifiable.",
   requests: "Every request from a data subject: rights, dates, the deadline, each decision with its reasoning, and whether it was answered on time. Who asked and what they wrote stay in Govern.",
   trends: "Twelve months of posture: risks raised and closed, assessments decided, how long decisions took, data subject requests answered on time and late.",
-  countries: "Adequacy and transfer risk per destination, with when each was last checked.",
+  countries: "UK approval, EU adequacy and transfer risk per destination, with when each was last checked.",
   audit: "The complete record of who did what, with the hash chain, so a recipient can verify it themselves.",
 };
 

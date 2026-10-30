@@ -18,6 +18,20 @@ export const ADEQUACY_WORDS: Record<AdequacyStatus, string> = {
   under_review: "Adequacy under review",
 };
 
+/**
+ * The UK side in the words the law now uses. Since 5 February 2026 a
+ * destination is approved by regulations under UK GDPR Article 45A rather
+ * than found adequate under Article 45, which is omitted. The stored values
+ * stay as they were, so older records still read correctly; only the words
+ * change. The EU side keeps the GDPR's own word, adequacy.
+ */
+export const UK_APPROVAL_WORDS: Record<AdequacyStatus, string> = {
+  adequate: "Approved by UK regulations",
+  partial: "Approved for some transfers",
+  not_adequate: "Not approved",
+  under_review: "Approval under review",
+};
+
 export const RISK_WORDS: Record<RiskLevel, string> = {
   low: "Low",
   moderate: "Moderate",

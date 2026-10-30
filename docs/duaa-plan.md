@@ -1,6 +1,6 @@
 # Plan: the UK GDPR as amended by the Data (Use and Access) Act 2025
 
-Status: decisions settled (30 October 2026); 1, 2, 5, 6 and 7 as recommended, 3 and 4 changed. Phases 0–3 built.
+Status: decisions settled (30 October 2026); 1, 2, 5, 6 and 7 as recommended, 3 and 4 changed. Phases 0–4 built.
 
 ## What is asked for
 
@@ -247,12 +247,35 @@ Built as:
   waived for approved medical research); Article 13(5) relied on with no public link.
 - Not carried by the Integration API yet.
 
-### Phase 4: the data protection test for transfers (about 1 day)
+### Phase 4: the data protection test for transfers (built)
 - **UK TRA template, edited in place:** the route is approved destination (Art 45A),
   appropriate safeguards (Art 46) or a derogation (Art 49). For Art 46, the conclusion
   asks whether protection would be **not materially lower**, and records the
   reasonable and proportionate steps taken given the nature and volume of the data.
 - **Countries register** wording as in decision 5.
+
+Built as:
+- Checked on legislation.gov.uk: Article 45 is **omitted** (5 February 2026); Article 44A(2)
+  permits a transfer approved by regulations under 45A, subject to Article 46 safeguards,
+  or relying on an Article 49 derogation. Article 46(1) is omitted too; 46(1A) requires
+  the controller, acting reasonably and proportionately, to consider the data protection
+  test met, 46(6) defines it as "not materially lower", and 46(7) judges reasonableness on
+  all the circumstances including the nature and volume of the data.
+- **UK TRA, edited in place:** the route asks approval (45A), an Article 46 safeguard (IDTA,
+  Addendum, BCRs, or another 46(2) safeguard) or a derogation. An approved destination
+  asks whether the approval covers this recipient, sector and data. Every Article 46 route
+  gets the law-and-practice questions and a new "data protection test" section: nature
+  and volume, the steps taken, the conclusion (met / not met / not yet determined) and,
+  where not met, what will be done instead. Derogations skip the test. Stored option
+  values are unchanged.
+- Reference `ukgdpr.art44a` added; `ukgdpr.art45` kept for older citations and titled as
+  omitted. The DPIA's transfer questions cite 44A and 45A.
+- **Wording (decision 5):** the countries register, its review form, export header, the
+  workflow condition, navigation, third-party hints and the transfers help say "approved
+  by UK regulations (Article 45A)" for the UK. The stored `uk_adequacy` values and the
+  EU's "adequacy" are unchanged. Seed notes are updated, and migration 0075 rewrites
+  the shared library's seeded EEA note and US summary where they still read exactly as
+  seeded; organisations' own entries are left alone.
 
 ### Phase 5: children (about half a day)
 - `children_likely` on the processing activity, and a DPIA question on the children's

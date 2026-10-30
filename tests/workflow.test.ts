@@ -222,7 +222,7 @@ describe("opening approvals", () => {
     assert.match(gates[1].reason, /special category/);
   });
 
-  it("adds the DPO gate for a transfer to a country without adequacy", async () => {
+  it("adds the DPO gate for a transfer to a country not approved by UK regulations", async () => {
     const w = await world("transfer");
     const result = await submitted(w, {
       ...BASE_DPIA,
@@ -233,7 +233,7 @@ describe("opening approvals", () => {
     });
     const gates = await approvalsFor(result.assessment.id);
     assert.equal(gates[1].status, "pending");
-    assert.match(gates[1].reason, /adequacy/);
+    assert.match(gates[1].reason, /not approved by UK regulations \(Article 45A\)/);
   });
 
   it("adds the accountable approver only when the risk is critical", async () => {

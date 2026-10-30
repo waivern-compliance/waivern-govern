@@ -43,13 +43,13 @@ const eeaEntries: SeedEntry[] = EEA.map(([code, name]) => ({
   code,
   name,
   ukAdequacy: "adequate",
-  ukAdequacyNote: "EEA state, covered by UK adequacy regulations.",
+  ukAdequacyNote: "EEA state, approved by UK regulations (formerly adequacy regulations; Article 45A).",
   euAdequacy: "adequate",
   euAdequacyNote: "EEA state; the GDPR applies directly.",
   governmentAccess: "low",
   redress: "high",
   summary: "Within the EEA. No Article 46 transfer tool is required.",
-  sources: [{ title: "UK adequacy regulations for the EEA" }],
+  sources: [{ title: "UK regulations approving transfers to the EEA" }],
 }));
 
 /** Covered by a specific adequacy decision rather than membership. */
@@ -62,7 +62,7 @@ const decided: SeedEntry[] = [
     ukAdequacyNote: "Commercial organisations subject to PIPEDA only. Public bodies and some provincial regimes are outside it.",
     euAdequacy: "partial",
     euAdequacyNote: "Commercial organisations subject to PIPEDA only.",
-    summary: "Adequacy covers PIPEDA-regulated commercial activity. A transfer to a body outside that scope needs an Article 46 route.",
+    summary: "UK approval and EU adequacy cover PIPEDA-regulated commercial activity. A transfer to a body outside that scope needs an Article 46 route.",
   },
   { code: "FO", name: "Faroe Islands", ukAdequacy: "adequate", euAdequacy: "adequate" },
   { code: "GG", name: "Guernsey", ukAdequacy: "adequate", euAdequacy: "adequate" },
@@ -93,7 +93,7 @@ const decided: SeedEntry[] = [
     governmentAccess: "high",
     redress: "moderate",
     summary:
-      "The single most common destination and the one most often got wrong. Adequacy is conditional on the recipient's certification, not on the country. Check certification per recipient, and re-check it — certifications lapse.",
+      "The single most common destination and the one most often got wrong. UK approval and EU adequacy are conditional on the recipient's certification, not on the country. Check certification per recipient, and re-check it — certifications lapse.",
     sources: [
       { title: "CJEU C-311/18 (Schrems II) on s.702 FISA and EO 12333", published: "2020-07-16" },
       { title: "UK Extension to the EU-US Data Privacy Framework" },
