@@ -51,7 +51,7 @@ const OWN_TABLE: ReadonlySet<RecordType> = new Set<RecordType>([
   "comment", "document", "extraction", "extraction_finding", "task", "ai_incident",
   "ai_use_case_request", "atrs_record", "scan_finding", "evidence", "risk_appetite",
   "training_record", "ai_change", "ai_assurance_record", "integration_connection", "template",
-  "workflow_definition", "breach_decision", "framework_profile_item",
+  "workflow_definition", "breach_decision", "framework_profile_item", "digital_property", "storage_item",
 ]);
 
 /** Records that reach their organisation through one parent. */

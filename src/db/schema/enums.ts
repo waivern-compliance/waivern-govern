@@ -67,6 +67,11 @@ export const recordType = pgEnum("record_type", [
   // Added with the register of data protection complaints.
   "data_protection_complaint",
   "data_protection_complaint_event",
+  // Added with the UK PECR cookie inventory.
+  "digital_property",
+  "storage_item",
+  "storage_decision",
+  "consent_scan",
 ]);
 
 /**
@@ -361,6 +366,31 @@ export const complaintEventKind = pgEnum("complaint_event_kind", [
 ]);
 
 /**
+ * Which part of PECR Schedule A1 lets a cookie or similar technology be set,
+ * or that nothing does. See `lib/pecr/statutory.ts`.
+ */
+export const storageBasis = pgEnum("storage_basis", [
+  "consent",
+  "transmission",
+  "strictly_necessary",
+  "statistics",
+  "appearance_function",
+  "emergency",
+  "none",
+]);
+
+/** Whether an inventory item is still in use. `not_seen` means a scan stopped finding it and a person agreed. */
+export const storageItemStatus = pgEnum("storage_item_status", ["active", "not_seen", "removed"]);
+
+/** What a scan proposes for the inventory: something new, or something it no longer saw. */
+export const storageProposalChange = pgEnum("storage_proposal_change", ["new", "not_seen"]);
+
+export const storageProposalStatus = pgEnum("storage_proposal_status", ["pending", "accepted", "rejected"]);
+
+/** A run of the Consent Analyser, uploaded or started from here. */
+export const consentScanStatus = pgEnum("consent_scan_status", ["running", "done", "failed"]);
+
+/**
  * How far an organisation meets one outcome in a framework profile, now or as
  * its target. See `lib/ai-frameworks/profile.ts`.
  */
@@ -474,7 +504,7 @@ export const scheduleAction = pgEnum("schedule_action", [
 export const integrationKind = pgEnum("integration_kind", [
   /** The Waivern Compliance Portal: discovery, DPA extraction, generated documents. */
   "waivern_portal",
-  /** The HAR Analyser: cookie, tracker and consent-behaviour scanning. */
+  /** The Waivern Consent Analyser (once the HAR Analyser): cookie, tracker and consent-behaviour scanning. */
   "har_analyser",
   /** A language model endpoint the organisation chooses and controls. */
   "model_provider",

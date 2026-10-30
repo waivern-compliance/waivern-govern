@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
 /**
- * A scan run from the HAR Analyser.
+ * A scan run from the Waivern Consent Analyser (formerly the HAR Analyser).
  *
  * The run lands as one piece of evidence with its findings attached, so an
  * assessment can cite the scan rather than four hundred loose observations.

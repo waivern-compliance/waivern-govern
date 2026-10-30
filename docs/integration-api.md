@@ -1,7 +1,7 @@
 # Integration API v1
 
 Two systems push records into Waivern Governance Tool: the **Waivern Compliance Portal**
-(discovery, DPA extraction, generated documents) and the **HAR Analyser**
+(discovery, DPA extraction, generated documents) and the **Waivern Consent Analyser** (formerly the HAR Analyser)
 (cookie, tracker and consent-behaviour scanning). Both use the same envelope.
 
 They are separate products on separate infrastructure. Nothing shares a

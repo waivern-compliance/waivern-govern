@@ -39,6 +39,7 @@ import * as aiRegister from "@/services/ai-register";
 import * as aiRiskProfile from "@/services/ai-risk-profile";
 import * as dsr from "@/services/data-subject-requests";
 import * as complaintsSvc from "@/services/complaints";
+import * as inventory from "@/services/storage-inventory";
 import * as dsrIntake from "@/services/dsr-intake";
 import * as routing from "@/services/approval-routing";
 import * as assessmentsSvc from "@/services/assessments";
@@ -189,6 +190,20 @@ async function populated() {
   const requestScope = await dsr.addScopeEntry({
     requestId: subjectRequest.id, organisationId: id, kind: "recipient", label: "B's recipient", actor: SYSTEM,
   });
+  const webProperty = await inventory.createProperty({
+    organisationId: id, entityId: o.entity.id, name: "B's site", url: "https://b.example.com", actor: SYSTEM,
+  });
+  const storageItem = await inventory.addItem({
+    propertyId: webProperty.id, organisationId: id, name: "b_secret_cookie", domain: "b.example.com", actor: SYSTEM,
+  });
+  await inventory.ingestAnalyserReport({
+    propertyId: webProperty.id, organisationId: id, source: "upload", actor: SYSTEM,
+    report: {
+      schema_version: "2.0", run_id: "b-run", summary: {}, metadata: { target_url: "https://b.example.com" },
+      checklist: [{ item_id: "G.1", evidence: [{ name: "b_scanned_cookie", domain: "b.example.com" }] }],
+    },
+  });
+  const storageProposal = (await inventory.loadProperty(webProperty.id, id))!.proposals[0];
   const complaint = await complaintsSvc.recordComplaint({
     organisationId: id, entityId: o.entity.id, channel: "email", receivedAt: new Date(), subject: "request_handling",
     description: "B's complainant's secret grievance.", complainantName: "B's complainant", requestId: subjectRequest.id,
@@ -270,7 +285,7 @@ async function populated() {
 
   return {
     ...o, template, dpiaVersion, workflow: workflows[0], stage, risk, mitigation, acceptance, appetite,
-    supplier, dpa, activity, breach, subjectRequest, requestScope, complaint, intakeLink, useCase, change, assurance, incident, atrsRecord, request,
+    supplier, dpa, activity, breach, subjectRequest, requestScope, complaint, webProperty, storageItem, storageProposal, intakeLink, useCase, change, assurance, incident, atrsRecord, request,
     trainingRecord, assessment, approval, link, comment, document, scanner, finding: finding.finding,
     conversation, task, draft, domainClaim,
   };
@@ -284,6 +299,7 @@ let mine: {
   breach: { id: string };
   subjectRequest: { id: string };
   complaint: { id: string };
+  webProperty: { id: string };
   useCase: { id: string };
   incident: { id: string };
   document: { id: string };
@@ -307,6 +323,9 @@ before(async () => {
     organisationId: A.org.id, entityId: A.entity.id, rights: ["access"], channel: "email",
     receivedAt: new Date(), description: "Mine.", requesterName: "A's requester", actor: SYSTEM,
   });
+  const webProperty = await inventory.createProperty({
+    organisationId: A.org.id, entityId: A.entity.id, name: "A's site", url: "https://a.example.com", actor: SYSTEM,
+  });
   const complaint = await complaintsSvc.recordComplaint({
     organisationId: A.org.id, entityId: A.entity.id, channel: "email", receivedAt: new Date(), subject: "other",
     description: "Mine.", complainantName: "A's complainant", actor: SYSTEM,
@@ -324,7 +343,7 @@ before(async () => {
     organisationId: A.org.id, entityId: null, subjectType: "risk", subjectId: risk.id,
     filename: "a.pdf", contentType: "application/pdf", content: PDF, actor: SYSTEM,
   });
-  mine = { risk, breach, subjectRequest, complaint, useCase, incident, document, dpiaVersion: dpia.version.id };
+  mine = { risk, breach, subjectRequest, complaint, webProperty, useCase, incident, document, dpiaVersion: dpia.version.id };
 });
 after(() => pg.end());
 
@@ -416,6 +435,8 @@ describe("reading another organisation's records", () => {
     ["loadBreach", () => breachesSvc.loadBreach(B.breach.id, A.org.id)],
     ["dsr.loadRequest", () => dsr.loadRequest(B.subjectRequest.id, A.org.id)],
     ["complaintsSvc.loadComplaint", () => complaintsSvc.loadComplaint(B.complaint.id, A.org.id)],
+    ["inventory.loadProperty", () => inventory.loadProperty(B.webProperty.id, A.org.id)],
+    ["inventory.inventoryEntity", () => inventory.inventoryEntity({ property: B.webProperty.id }, A.org.id)],
     ["documentsFor", () => documentsSvc.documentsFor(A.org.id, "supplier", B.supplier.id)],
     ["readDocument", () => documentsSvc.readDocument(B.document.id, A.org.id)],
     ["latestExtraction", () => extraction.latestExtraction(A.org.id, B.dpa.id)],
@@ -488,6 +509,12 @@ describe("changing another organisation's records", () => {
     ["revokeIntakeLink", () => dsrIntake.revokeIntakeLink({ linkId: B.intakeLink.id, organisationId: A.org.id, actor: as() })],
     ["setIntakeLinkComplaints", () => dsrIntake.setIntakeLinkComplaints({ linkId: B.intakeLink.id, organisationId: A.org.id, takesComplaints: false, actor: as() })],
     ["passToController", () => dsr.passToController({ requestId: B.subjectRequest.id, organisationId: A.org.id, controllerName: "taken", actor: as() })],
+    ["updateProperty", () => inventory.updateProperty({ propertyId: B.webProperty.id, organisationId: A.org.id, changes: { name: "taken" }, actor: as() })],
+    ["addItem", () => inventory.addItem({ propertyId: B.webProperty.id, organisationId: A.org.id, name: "taken", actor: as() })],
+    ["updateItem", () => inventory.updateItem({ itemId: B.storageItem.id, organisationId: A.org.id, changes: { purpose: "taken" }, actor: as() })],
+    ["recordStorageDecision", () => inventory.recordStorageDecision({ itemId: B.storageItem.id, organisationId: A.org.id, basis: "consent", rationale: "x", actor: as() })],
+    ["ingestAnalyserReport", () => inventory.ingestAnalyserReport({ propertyId: B.webProperty.id, organisationId: A.org.id, report: { schema_version: "2.0", checklist: [], summary: {}, metadata: {} }, source: "upload", actor: as() })],
+    ["decideProposal", () => inventory.decideProposal({ proposalId: B.storageProposal.id, organisationId: A.org.id, accept: true, actor: as() })],
     ["updateComplaint", () => complaintsSvc.updateComplaint({ complaintId: B.complaint.id, organisationId: A.org.id, changes: { description: "taken" }, actor: as() })],
     ["recordComplaintEvent", () => complaintsSvc.recordComplaintEvent({ complaintId: B.complaint.id, organisationId: A.org.id, kind: "acknowledged", note: "", channel: "email", actor: as() })],
     ["recordComplaintOutcome", () => complaintsSvc.recordComplaintOutcome({ complaintId: B.complaint.id, organisationId: A.org.id, outcome: "upheld", channel: "email", summary: "x", actor: as() })],
@@ -556,6 +583,9 @@ describe("linking one's own records to another organisation's", () => {
     ["a data subject request in B's entity", () => dsr.recordRequest({ organisationId: A.org.id, entityId: B.entity.id, rights: ["access"], channel: "email", receivedAt: new Date(), description: "x", requesterName: "x", actor: as() })],
     ["a request form for B's entity", () => dsrIntake.issueIntakeLink({ organisationId: A.org.id, entityId: B.entity.id, label: "x", actor: as() })],
     ["an objection about B's processing activity", () => dsr.recordRequestDecision({ organisationId: A.org.id, requestId: mine.subjectRequest.id, kind: "objection", processingBasis: "legitimate_interests", processingActivityId: B.activity.id, rationale: "x", actor: as() })],
+    ["a website in B's entity", () => inventory.createProperty({ organisationId: A.org.id, entityId: B.entity.id, name: "x", url: "https://x.example.com", actor: as() })],
+    ["a website owned by B's person", () => inventory.updateProperty({ propertyId: mine.webProperty.id, organisationId: A.org.id, changes: { ownerId: B.owner.user.id }, actor: as() })],
+    ["a cookie collected by B's supplier", () => inventory.addItem({ propertyId: mine.webProperty.id, organisationId: A.org.id, name: "x", supplierId: B.supplier.id, actor: as() })],
     ["a complaint in B's entity", () => complaintsSvc.recordComplaint({ organisationId: A.org.id, entityId: B.entity.id, channel: "email", receivedAt: new Date(), subject: "other", description: "x", complainantName: "x", actor: as() })],
     ["a complaint about B's request", () => complaintsSvc.recordComplaint({ organisationId: A.org.id, entityId: A.entity.id, channel: "email", receivedAt: new Date(), subject: "other", description: "x", complainantName: "x", requestId: B.subjectRequest.id, actor: as() })],
     ["a complaint linked to B's request", () => complaintsSvc.updateComplaint({ complaintId: mine.complaint.id, organisationId: A.org.id, changes: { requestId: B.subjectRequest.id }, actor: as() })],
@@ -604,6 +634,7 @@ describe("lists", () => {
       ["breachesSvc.breachesNeedingAttention", breachesSvc.breachesNeedingAttention(o)] as const,
       ["dsr.requestRegister", dsr.requestRegister(o, null)] as const,
       ["complaintsSvc.complaintRegister", complaintsSvc.complaintRegister(o, null)] as const,
+      ["inventory.propertyRegister", inventory.propertyRegister(o, null)] as const,
       ["complaintsSvc.complaintsNeedingAttention", complaintsSvc.complaintsNeedingAttention(o)] as const,
       ["complaintsSvc.complaintMetrics", complaintsSvc.complaintMetrics(o, null)] as const,
       ["complaintsSvc.complaintsSummary", complaintsSvc.complaintsSummary({ organisationId: o })] as const,
@@ -675,7 +706,7 @@ describe("lists", () => {
       JSON.stringify(v, (_k, x) => (x instanceof Map ? [...x] : x instanceof Set ? [...x] : x)) ?? "";
     const bIds = [
       B.org.id, B.entity.id, B.owner.user.id, B.approver.user.id, B.risk.id, B.supplier.id, B.dpa.id,
-      B.activity.id, B.breach.id, B.subjectRequest.id, B.complaint.id, B.useCase.id, B.incident.id, B.request.id, B.assessment.id,
+      B.activity.id, B.breach.id, B.subjectRequest.id, B.complaint.id, B.webProperty.id, B.storageItem.id, B.useCase.id, B.incident.id, B.request.id, B.assessment.id,
       B.template, B.dpiaVersion, B.workflow.id, B.scanner.id, B.finding.id, B.appetite.id,
       B.domainClaim.id, B.domainClaim.domain, B.intakeLink.id, B.intakeLink.slug,
     ];
