@@ -61,9 +61,16 @@ export function effectiveDpo(organisationDpo: Dpo | null, entityDpo: Dpo | null)
   return entityDpo ?? organisationDpo;
 }
 
-/** Article 37(1)(a): a public authority must have a DPO. */
-export function dpoMissing(entity: { publicAuthority: boolean; dpo: Dpo | null }, organisationDpo: Dpo | null): boolean {
-  return entity.publicAuthority && !effectiveDpo(organisationDpo, entity.dpo);
+/**
+ * Article 37(1)(a): a public authority must have a DPO; so must a competent
+ * authority for its Part 3 processing (DPA 2018 s.69), courts acting
+ * judicially apart.
+ */
+export function dpoMissing(
+  entity: { publicAuthority: boolean; competentAuthority?: boolean; dpo: Dpo | null },
+  organisationDpo: Dpo | null,
+): boolean {
+  return (entity.publicAuthority || entity.competentAuthority === true) && !effectiveDpo(organisationDpo, entity.dpo);
 }
 
 const BARRED: LawfulBasis[] = ["legitimate_interests", "recognised_legitimate_interests"];

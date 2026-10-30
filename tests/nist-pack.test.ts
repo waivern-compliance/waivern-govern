@@ -103,8 +103,8 @@ describe("installing shipped templates", () => {
     assert.ok(!uk.includes("AI risk identification (NIST AI RMF)"));
     assert.ok(nist.includes("AI risk identification (NIST AI RMF)"));
     assert.ok(!nist.includes("AI risk identification (DSIT toolkit)"));
-    // Everything not tied to a framework goes to both.
-    const shared = SYSTEM_TEMPLATES.filter((t) => !t.aiFramework).map((t) => t.name);
+    // Everything not tied to a framework goes to both (the Part 3 DPIA waits for a competent authority).
+    const shared = SYSTEM_TEMPLATES.filter((t) => !t.aiFramework && !t.competentAuthority).map((t) => t.name);
     for (const name of shared) assert.ok(uk.includes(name) && nist.includes(name), name);
   });
 

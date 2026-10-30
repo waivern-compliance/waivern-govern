@@ -1,4 +1,6 @@
-import { SCHEDULE_1, SCHEDULE_1_KEYS, type Schedule1Condition } from "@/lib/dpa2018/schedule-1";
+import { PART3_POLICY_KEYS, describePart3PolicyKey } from "@/lib/dpa2018/part3";
+import type { PolicyKey } from "@/lib/dpa2018/policy-keys";
+import { SCHEDULE_1, SCHEDULE_1_KEYS } from "@/lib/dpa2018/schedule-1";
 import { Label, inputClass } from "../requests/fields";
 
 const PART_TITLES = {
@@ -18,7 +20,7 @@ export function PolicyFields({
   members,
   organisationWide,
 }: {
-  values?: { title: string; version: string | null; conditions: readonly Schedule1Condition[]; ownerId: string | null; entityId: string | null };
+  values?: { title: string; version: string | null; conditions: readonly PolicyKey[]; ownerId: string | null; entityId: string | null };
   entities: Array<{ id: string; name: string }>;
   members: Array<{ id: string; email: string }>;
   /** Whether the person may file one for the whole organisation. */
@@ -75,6 +77,17 @@ export function PolicyFields({
             </div>
           );
         })}
+        <div className="space-y-1.5">
+          <p className="text-xs text-ink-soft">Part 3: sensitive processing for law enforcement (s.42)</p>
+          <div className="grid gap-1.5 sm:grid-cols-2">
+            {PART3_POLICY_KEYS.map((k) => (
+              <label key={k} className="flex items-start gap-2.5 text-sm">
+                <input type="checkbox" name="conditions" value={k} defaultChecked={values?.conditions.includes(k)} className="mt-1 accent-brand" />
+                <span>{describePart3PolicyKey(k)}</span>
+              </label>
+            ))}
+          </div>
+        </div>
       </fieldset>
     </>
   );

@@ -7,6 +7,7 @@ import {
   makeDefaultEntityAction,
   renameEntityAction,
   setProviderAction,
+  setCompetentAuthorityAction,
   setPublicAuthorityAction,
   type AdminResult,
 } from "../actions";
@@ -18,6 +19,8 @@ type Entity = {
   isDefault: boolean;
   publicCommsProvider: boolean;
   publicAuthority: boolean;
+  competentAuthority: boolean;
+  defaultRegime: string;
 };
 
 const input =
@@ -64,6 +67,7 @@ export function EntitiesPanel({ entities, mayManage }: { entities: Entity[]; may
                 {e.isDefault ? " · default" : ""}
                 {e.publicCommsProvider ? " · public communications provider" : ""}
                 {e.publicAuthority ? " · public authority" : ""}
+                {e.competentAuthority ? " · competent authority (Part 3)" : ""}
               </span>
             </li>
           ),
@@ -119,6 +123,9 @@ function EntityRow({ entity }: { entity: Entity }) {
     setPublicAuthorityAction.bind(null, entity.id, !entity.publicAuthority),
     { resetOnSuccess: false },
   );
+  const competent = useRefusableAction<AdminResult>(setCompetentAuthorityAction.bind(null, entity.id), {
+    resetOnSuccess: false,
+  });
 
   return (
     <li className="space-y-2 px-4 py-3">
@@ -197,7 +204,33 @@ function EntityRow({ entity }: { entity: Entity }) {
       <Outcome result={rename.result} />
       <Outcome result={makeDefault.result} />
       <Outcome result={provider.result} />
+      <form
+        key={savedKey(entity.competentAuthority, entity.defaultRegime)}
+        {...competent.formProps}
+        className="flex flex-wrap items-baseline gap-2 text-xs"
+      >
+        <label className="flex flex-wrap items-baseline gap-2">
+          <span className="text-ink-soft">Law enforcement (Data Protection Act 2018 Part 3, s.30):</span>
+          <select
+            name="competentAuthority"
+            defaultValue={!entity.competentAuthority ? "no" : entity.defaultRegime === "dpa_part3" ? "part3" : "yes"}
+            className="rounded border border-line bg-ground px-2 py-1 text-xs"
+          >
+            <option value="no">Not a competent authority</option>
+            <option value="yes">A competent authority; new records start under the UK GDPR</option>
+            <option value="part3">A competent authority; new records start under Part 3</option>
+          </select>
+        </label>
+        <button
+          type="submit"
+          disabled={competent.pending}
+          className="text-ink-soft underline-offset-2 hover:text-brand hover:underline disabled:opacity-50"
+        >
+          Save
+        </button>
+      </form>
       <Outcome result={authority.result} />
+      <Outcome result={competent.result} />
     </li>
   );
 }

@@ -37,6 +37,21 @@ const categories = (formData: FormData, name: string) => [
   ...new Set([...formData.getAll(`${name}Pick`).map(String), ...lines(formData.get(name))]),
 ];
 
+/**
+ * The logging statements, one row per system. A row offered for a system the
+ * record names, and left untouched, is not a statement.
+ */
+function loggingRows(formData: FormData) {
+  const n = Number(formData.get("loggingRows") ?? 0);
+  return Array.from({ length: Number.isFinite(n) ? Math.min(n, 100) : 0 }, (_, i) => ({
+    system: text(formData.get(`logging_system_${i}`)),
+    operations: formData.getAll(`logging_ops_${i}`).map(String) as never[],
+    identifiesPeople: formData.get(`logging_identifies_${i}`) === "on",
+    reviewer: text(formData.get(`logging_reviewer_${i}`)) || null,
+    lastChecked: text(formData.get(`logging_checked_${i}`)) || null,
+  })).filter((r) => r.system && (r.operations.length > 0 || r.reviewer || r.lastChecked || r.identifiesPeople));
+}
+
 const text = (raw: FormDataEntryValue | null) => String(raw ?? "").trim();
 
 const yesNo = (raw: FormDataEntryValue | null) => {
@@ -89,6 +104,30 @@ export async function updateActivityAction(
     const active = await requireCapability("record.write");
     const owner = formData.get("ownerId");
 
+    // Only the regime's own questions are on the form; the other regime's
+    // answers are left as they were, not cleared for being absent.
+    const part3 = text(formData.get("regime")) === "dpa_part3";
+    const ukGdpr = {
+      lawfulBasis: text(formData.get("lawfulBasis")),
+      lawfulBases: formData.getAll("lawfulBases").map(String),
+      recognisedCondition: text(formData.get("recognisedCondition")) || null,
+      childrenLikely: yesNo(formData.get("childrenLikely")),
+      outsidePublicTasks: formData.get("outsidePublicTasks") === "on",
+      specialCategory: yesNo(formData.get("specialCategory")),
+      art9Condition: text(formData.get("art9Condition")) || null,
+      schedule1Condition: text(formData.get("schedule1Condition")) || null,
+      criminalOffence: yesNo(formData.get("criminalOffence")),
+      art10Condition: text(formData.get("art10Condition")) || null,
+    };
+    const lawEnforcement = {
+      part3Basis: text(formData.get("part3Basis")) || null,
+      sensitiveProcessing: yesNo(formData.get("sensitiveProcessing")),
+      sensitiveRoute: text(formData.get("sensitiveRoute")) || null,
+      schedule8Condition: text(formData.get("schedule8Condition")) || null,
+      factOpinionMarked: yesNo(formData.get("factOpinionMarked")),
+      logging: loggingRows(formData),
+    };
+
     await updateActivity({
       activityId,
       organisationId: active.membership.organisationId,
@@ -96,9 +135,8 @@ export async function updateActivityAction(
         name: text(formData.get("name")),
         description: text(formData.get("description")),
         purposes: lines(formData.get("purposes")),
-        lawfulBasis: text(formData.get("lawfulBasis")),
-        lawfulBases: formData.getAll("lawfulBases").map(String),
-        recognisedCondition: text(formData.get("recognisedCondition")) || null,
+        regime: text(formData.get("regime")) || "uk_gdpr",
+        ...(part3 ? lawEnforcement : ukGdpr),
         dataCategories: categories(formData, "dataCategories"),
         subjectCategories: categories(formData, "subjectCategories"),
         recipients: lines(formData.get("recipients")),
@@ -108,13 +146,6 @@ export async function updateActivityAction(
         securityMeasures: text(formData.get("securityMeasures")),
         controllerRole: text(formData.get("controllerRole")),
         controllerName: text(formData.get("controllerName")),
-        childrenLikely: yesNo(formData.get("childrenLikely")),
-        outsidePublicTasks: formData.get("outsidePublicTasks") === "on",
-        specialCategory: yesNo(formData.get("specialCategory")),
-        art9Condition: text(formData.get("art9Condition")) || null,
-        schedule1Condition: text(formData.get("schedule1Condition")) || null,
-        criminalOffence: yesNo(formData.get("criminalOffence")),
-        art10Condition: text(formData.get("art10Condition")) || null,
         retentionFollowsPolicy: yesNo(formData.get("retentionFollowsPolicy")),
         retentionPolicyNote: text(formData.get("retentionPolicyNote")) || null,
         ...(owner !== null ? { ownerId: text(owner) || null } : {}),

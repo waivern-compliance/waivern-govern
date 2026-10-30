@@ -38,6 +38,16 @@ import {
 import { needingSafeguards } from "./countries";
 import { policyCoverage } from "./policy-documents";
 import { controllersWithoutAgreement, sharingCoverage } from "./sharing-agreements";
+import {
+  HARD_PART3_GAPS,
+  PART3_GAP_WORDS,
+  Part3Refused,
+  cleanPart3,
+  isRegime,
+  part3Gaps,
+  type Part3Gap,
+  type Regime,
+} from "@/lib/dpa2018/part3";
 import type { Actor } from "./templates";
 import { assertEntityIn, assertMemberOf, assertRecordIn } from "./tenancy-guards";
 
@@ -70,6 +80,7 @@ export type Article30Gap =
   | "children_dpia_unanswered"
   | "public_authority_legitimate_interests"
   | ConditionGap
+  | Part3Gap
   | "controller_recipient_no_agreement"
   | "no_owner"
   | "review_overdue";
@@ -92,6 +103,7 @@ export const GAP_WORDS: Record<Article30Gap, string> = {
   public_authority_legitimate_interests:
     "Public authority relying on legitimate interests or recognised legitimate interests for its tasks (Article 6(1))",
   ...CONDITION_GAP_WORDS,
+  ...PART3_GAP_WORDS,
   controller_recipient_no_agreement: "Shares with another controller that no current data sharing agreement covers",
   no_owner: "No named owner",
   review_overdue: "Review overdue",
@@ -124,6 +136,7 @@ export const HARD_GAPS: Article30Gap[] = [
   "further_route_closed",
   "public_authority_legitimate_interests",
   ...HARD_CONDITION_GAPS,
+  ...HARD_PART3_GAPS,
 ];
 
 const EMPTY = (a: unknown[] | null | undefined) => !a || a.length === 0;
@@ -154,6 +167,8 @@ export function article30Gaps(
     childrenDpia?: ChildrenDpiaState;
     /** Whether the activity's entity is a public authority (DPA 2018 s.7). */
     publicAuthority?: boolean;
+    /** Whether the activity's entity is a competent authority (s.30), for a Part 3 record. */
+    competentAuthority?: boolean;
     /**
      * What the current appropriate policy documents cover, from
      * `policyCoverage`. Not supplied, the policy document gaps are not
@@ -193,38 +208,45 @@ export function article30Gaps(
 
   if (!activity.retention?.trim()) gaps.push("retention");
   if (!activity.securityMeasures?.trim()) gaps.push("security_measures");
-  // Article 6(1): a basis chosen, not merely described. Free text that named
-  // one unambiguously was turned into a choice; anything else waits for one.
-  for (const gap of lawfulBasisGaps({ bases: activity.lawfulBases ?? [], recognisedCondition: activity.recognisedCondition })) {
-    gaps.push(gap === "no_basis" ? "lawful_basis" : "recognised_condition");
+  if (activity.regime === "dpa_part3") {
+    // Part 3 of the Data Protection Act 2018: section 35 in place of Articles
+    // 6, 9 and 10, with ss.38, 42 and 62. The UK GDPR's own questions do not
+    // apply to law enforcement processing.
+    gaps.push(...part3Gaps(activity, { competentAuthority: context.competentAuthority, coverage: context.policyCoverage }));
+  } else {
+    // Article 6(1): a basis chosen, not merely described. Free text that named
+    // one unambiguously was turned into a choice; anything else waits for one.
+    for (const gap of lawfulBasisGaps({ bases: activity.lawfulBases ?? [], recognisedCondition: activity.recognisedCondition })) {
+      gaps.push(gap === "no_basis" ? "lawful_basis" : "recognised_condition");
+    }
+    // Articles 22A–22C, only where significant decisions are solely automated.
+    gaps.push(...admGaps(activity, activity.lawfulBases ?? []));
+    // Articles 8A, 13(5) and 84C, only where further processing or research is recorded.
+    gaps.push(...furtherProcessingGaps(activity, originalConsent));
+    // Article 6(1), final subparagraph: not for a public authority's tasks.
+    if (
+      barredBasesFor({
+        publicAuthority: context.publicAuthority ?? false,
+        bases: activity.lawfulBases ?? [],
+        outsidePublicTasks: activity.outsidePublicTasks,
+      }).length > 0
+    ) {
+      gaps.push("public_authority_legitimate_interests");
+    }
+    // Articles 9 and 10 with Schedule 1: the conditions, the appropriate policy
+    // document most of them need, and what paragraph 41 adds to the record.
+    gaps.push(...conditionGaps(activity, context.policyCoverage));
+    // Article 25(1A): an online service likely to be accessed by children must
+    // weigh the children's higher protection matters, and a DPIA is where that
+    // is shown.
+    if (activity.childrenLikely && childrenDpia !== undefined) {
+      if (childrenDpia === "none") gaps.push("children_no_dpia");
+      else if (childrenDpia === "unanswered") gaps.push("children_dpia_unanswered");
+    }
   }
-  // Articles 22A–22C, only where significant decisions are solely automated.
-  gaps.push(...admGaps(activity, activity.lawfulBases ?? []));
-  // Articles 8A, 13(5) and 84C, only where further processing or research is recorded.
-  gaps.push(...furtherProcessingGaps(activity, originalConsent));
-  // Article 25(1A): an online service likely to be accessed by children must
-  // weigh the children's higher protection matters, and a DPIA is where that
-  // is shown.
-  // Article 6(1), final subparagraph: not for a public authority's tasks.
-  if (
-    barredBasesFor({
-      publicAuthority: context.publicAuthority ?? false,
-      bases: activity.lawfulBases ?? [],
-      outsidePublicTasks: activity.outsidePublicTasks,
-    }).length > 0
-  ) {
-    gaps.push("public_authority_legitimate_interests");
-  }
-  // Articles 9 and 10 with Schedule 1: the conditions, the appropriate policy
-  // document most of them need, and what paragraph 41 adds to the record.
-  gaps.push(...conditionGaps(activity, context.policyCoverage));
   // Not a legal requirement, as Article 28 is for processors: the data
   // sharing code expects an agreement for routine sharing between controllers.
   if ((context.uncoveredControllers ?? []).length > 0) gaps.push("controller_recipient_no_agreement");
-  if (activity.childrenLikely && childrenDpia !== undefined) {
-    if (childrenDpia === "none") gaps.push("children_no_dpia");
-    else if (childrenDpia === "unanswered") gaps.push("children_dpia_unanswered");
-  }
   if (!activity.ownerId) gaps.push("no_owner");
   if (activity.reviewDueAt && activity.reviewDueAt.getTime() <= Date.now()) {
     gaps.push("review_overdue");
@@ -350,6 +372,7 @@ export async function listActivities(
           activity: processingActivities,
           entityName: entities.name,
           publicAuthority: entities.publicAuthority,
+          competentAuthority: entities.competentAuthority,
           ownerEmail: users.email,
         })
         .from(processingActivities)
@@ -363,11 +386,12 @@ export async function listActivities(
     ]);
     const [coverage, sharing] = await Promise.all([policyCoverage(organisationId), sharingCoverage(organisationId)]);
 
-    return rows.map(({ activity, entityName, ownerEmail, publicAuthority }) => {
+    return rows.map(({ activity, entityName, ownerEmail, publicAuthority, competentAuthority }) => {
       const gaps = article30Gaps(activity, needsSafeguards, {
         originalConsent: originalConsentOf(activity, bases),
         childrenDpia: children.get(activity.id) ?? "none",
         publicAuthority,
+        competentAuthority,
         policyCoverage: coverage,
         uncoveredControllers: controllersWithoutAgreement(activity, sharing),
       });
@@ -389,6 +413,7 @@ export async function loadActivity(activityId: string, organisationId: string) {
         activity: processingActivities,
         entityName: entities.name,
         publicAuthority: entities.publicAuthority,
+        competentAuthority: entities.competentAuthority,
         ownerEmail: users.email,
       })
       .from(processingActivities)
@@ -435,6 +460,7 @@ export async function loadActivity(activityId: string, organisationId: string) {
       originalConsent,
       childrenDpia: children.get(activityId) ?? "none",
       publicAuthority: row.publicAuthority,
+      competentAuthority: row.competentAuthority,
       policyCoverage: coverage,
       uncoveredControllers,
     });
@@ -481,11 +507,22 @@ export async function createActivity(input: {
   controllerName?: string;
   ownerId?: string | null;
   reviewDueAt?: Date;
+  /** Defaults to the entity's: Part 3 only where it is a competent authority. */
+  regime?: Regime;
   actor: Actor;
 }) {
   return withOrganisation(input.organisationId, async () => {
     await assertEntityIn(input.organisationId, input.entityId);
     if (input.ownerId) await assertMemberOf(input.organisationId, input.ownerId);
+    const [entity] = await db
+      .select({ competentAuthority: entities.competentAuthority, defaultRegime: entities.defaultRegime })
+      .from(entities)
+      .where(eq(entities.id, input.entityId));
+    const regime = input.regime ?? entity.defaultRegime;
+    if (!isRegime(regime)) throw new Part3Refused("Choose the regime.");
+    if (regime === "dpa_part3" && !entity.competentAuthority) {
+      throw new Part3Refused("Part 3 is for a competent authority. Mark the entity as one on the Organisation page first.");
+    }
     const bases = cleanLawfulBases(input.lawfulBases ?? [], input.recognisedCondition);
     const reference = await nextReference(input.organisationId, new Date().getUTCFullYear());
 
@@ -512,6 +549,7 @@ export async function createActivity(input: {
           controllerName: input.controllerName,
           ownerId: input.ownerId ?? null,
           reviewDueAt: input.reviewDueAt,
+          regime,
         })
         .returning();
 
@@ -537,6 +575,17 @@ const conditionsOf = (a: Activity) => ({
   schedule1Condition: a.schedule1Condition,
   criminalOffence: a.criminalOffence,
   art10Condition: a.art10Condition,
+  retentionFollowsPolicy: a.retentionFollowsPolicy,
+});
+
+/** The Part 3 answers, kept in the audit chain when they change. */
+const part3Of = (a: Activity) => ({
+  regime: a.regime,
+  part3Basis: a.part3Basis,
+  sensitiveProcessing: a.sensitiveProcessing,
+  sensitiveRoute: a.sensitiveRoute,
+  schedule8Condition: a.schedule8Condition,
+  factOpinionMarked: a.factOpinionMarked,
   retentionFollowsPolicy: a.retentionFollowsPolicy,
 });
 
@@ -570,6 +619,13 @@ export async function updateActivity(input: {
     art10Condition: string | null;
     retentionFollowsPolicy: boolean | null;
     retentionPolicyNote: string | null;
+    regime: string;
+    part3Basis: string | null;
+    sensitiveProcessing: boolean | null;
+    sensitiveRoute: string | null;
+    schedule8Condition: string | null;
+    factOpinionMarked: boolean | null;
+    logging: Parameters<typeof cleanPart3>[0]["logging"];
   }>;
   actor: Actor;
 }) {
@@ -600,13 +656,49 @@ export async function updateActivity(input: {
         art10Condition,
         retentionFollowsPolicy,
         retentionPolicyNote,
+        regime: regimeChange,
+        part3Basis,
+        sensitiveProcessing,
+        sensitiveRoute,
+        schedule8Condition,
+        factOpinionMarked,
+        logging,
         ...rest
       } = input.changes;
+      const regime = regimeChange ?? before.regime;
+      if (!isRegime(regime)) throw new Part3Refused("Choose the regime.");
+      if (regime === "dpa_part3" && before.regime !== "dpa_part3") {
+        const [entity] = await tx
+          .select({ competentAuthority: entities.competentAuthority })
+          .from(entities)
+          .where(eq(entities.id, before.entityId));
+        if (!entity?.competentAuthority) {
+          throw new Part3Refused("Part 3 is for a competent authority. Mark the entity as one on the Organisation page first.");
+        }
+      }
+      const pick = <T,>(given: T | undefined, stored: T) => (given !== undefined ? given : stored);
+      // Each regime keeps its own answers; the retention answer is shared,
+      // because paragraph 41 and s.42(4) ask the same question.
+      const part3Given = [
+        part3Basis, sensitiveProcessing, sensitiveRoute, schedule8Condition, factOpinionMarked, logging, retentionFollowsPolicy, retentionPolicyNote,
+      ].some((v) => v !== undefined);
+      const part3 =
+        regime === "dpa_part3" && (part3Given || regimeChange !== undefined)
+          ? cleanPart3({
+              part3Basis: pick(part3Basis, before.part3Basis),
+              sensitiveProcessing: pick(sensitiveProcessing, before.sensitiveProcessing),
+              sensitiveRoute: pick(sensitiveRoute, before.sensitiveRoute),
+              schedule8Condition: pick(schedule8Condition, before.schedule8Condition),
+              factOpinionMarked: pick(factOpinionMarked, before.factOpinionMarked),
+              logging: pick(logging, before.logging),
+              retentionFollowsPolicy: pick(retentionFollowsPolicy, before.retentionFollowsPolicy),
+              retentionPolicyNote: pick(retentionPolicyNote, before.retentionPolicyNote),
+            })
+          : null;
       const conditionsGiven = [
         specialCategory, art9Condition, schedule1Condition, criminalOffence, art10Condition, retentionFollowsPolicy, retentionPolicyNote,
       ].some((v) => v !== undefined);
-      const pick = <T,>(given: T | undefined, stored: T) => (given !== undefined ? given : stored);
-      const conditions = conditionsGiven
+      const conditions = regime === "uk_gdpr" && (conditionsGiven || regimeChange !== undefined)
         ? cleanSpecialCategory({
             specialCategory: pick(specialCategory, before.specialCategory),
             art9Condition: pick(art9Condition, before.art9Condition),
@@ -627,7 +719,7 @@ export async function updateActivity(input: {
 
       const [after] = await tx
         .update(processingActivities)
-        .set({ ...rest, ...bases, ...conditions, updatedAt: new Date() })
+        .set({ ...rest, ...bases, ...conditions, ...part3, regime, updatedAt: new Date() })
         .where(eq(processingActivities.id, input.activityId))
         .returning();
 
@@ -645,11 +737,13 @@ export async function updateActivity(input: {
           // kept in the chain, not only the fact that something changed.
           ...("lawfulBases" in bases ? { lawfulBases: before.lawfulBases, recognisedCondition: before.recognisedCondition } : {}),
           ...(conditions ? conditionsOf(before) : {}),
+          ...(part3 || regime !== before.regime ? part3Of(before) : {}),
         },
         after: {
           name: after.name,
           ...("lawfulBases" in bases ? { lawfulBases: after.lawfulBases, recognisedCondition: after.recognisedCondition } : {}),
           ...(conditions ? conditionsOf(after) : {}),
+          ...(part3 || regime !== before.regime ? part3Of(after) : {}),
         },
       });
 

@@ -10,6 +10,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import type { Regime } from "@/lib/dpa2018/part3";
 import type { Dpo } from "@/lib/dpa2018/public-authority";
 import { aiFramework, appRole, dataProtectionJurisdiction, guidanceMode, organisationRequestStatus, persona, recordType, riskScale, roleScope } from "./enums";
 
@@ -106,6 +107,14 @@ export const entities = pgTable(
      * (Article 37(1)(a)).
      */
     publicAuthority: boolean("public_authority").notNull().default(false),
+    /**
+     * A competent authority for some of its functions (DPA 2018 s.30 and
+     * Schedule 7): makes Part 3 available on its processing activities, and
+     * requires a data protection officer (s.69).
+     */
+    competentAuthority: boolean("competent_authority").notNull().default(false),
+    /** The regime new processing activities start under. Part 3 only for a competent authority. */
+    defaultRegime: text("default_regime").$type<Regime>().notNull().default("uk_gdpr"),
     /** This entity's own data protection officer, where it is not the organisation's. */
     dpo: jsonb("dpo").$type<Dpo>(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

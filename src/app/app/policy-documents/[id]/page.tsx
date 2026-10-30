@@ -6,7 +6,8 @@ import { entities, memberships, users } from "@/db/schema";
 import { Attachments } from "@/components/documents/Attachments";
 import { EditForm } from "@/components/EditForm";
 import { NotPermitted } from "@/components/NotPermitted";
-import { POLICY_DOCUMENT_GAP_WORDS, SCHEDULE_1, describeSchedule1 } from "@/lib/dpa2018/schedule-1";
+import { POLICY_DOCUMENT_GAP_WORDS } from "@/lib/dpa2018/schedule-1";
+import { describePolicyKey, policyKeyShort } from "@/lib/dpa2018/policy-keys";
 import { savedKey } from "@/lib/saved-key";
 import { can, scopedEntityIds } from "@/lib/rbac";
 import { getActiveSession } from "@/lib/session";
@@ -81,7 +82,7 @@ export default async function PolicyDocumentPage({ params }: { params: Promise<{
         <h2 className="text-sm font-semibold">Conditions it covers</h2>
         {doc.conditions.length > 0 ? (
           <ul className="list-disc space-y-0.5 pl-5 text-sm">
-            {doc.conditions.map((k) => <li key={k}>{describeSchedule1(k)}</li>)}
+            {doc.conditions.map((k) => <li key={k}>{describePolicyKey(k)}</li>)}
           </ul>
         ) : (
           <p className="text-sm text-ink-soft">None chosen.</p>
@@ -101,7 +102,7 @@ export default async function PolicyDocumentPage({ params }: { params: Promise<{
                       <span>{a.name}</span>
                     </span>
                     <span className="text-xs text-ink-soft">
-                      paragraph{a.needing.length === 1 ? "" : "s"} {a.needing.map((k) => SCHEDULE_1[k].paragraph).join(", ")}
+                      {a.needing.map(policyKeyShort).join(", ")}
                     </span>
                   </Link>
                 </li>

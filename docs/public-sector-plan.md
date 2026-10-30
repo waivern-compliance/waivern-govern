@@ -1,6 +1,6 @@
 # Plan: public services under the Data Protection Act 2018, as amended
 
-Status: decisions settled (30 October 2026), all as recommended. Phases 0–4 built.
+Status: decisions settled (30 October 2026), all as recommended. Phases 0–4 and 5a built.
 
 ## What is asked for
 
@@ -364,6 +364,34 @@ Built as:
   with s.35 sensitive processing, the Schedule 8 condition and the policy document;
   s.38 categories and fact / opinion; logging statements (decision 6); the Part 3 DPIA
   template (decision 10).
+
+5a built as:
+- `entity.competent_authority` and `entity.default_regime` (migration 0082), set on the
+  Organisation page and audited as `entity.competent_authority_changed`. Turning the flag
+  off resets the default to the UK GDPR; records already under Part 3 keep it and are
+  flagged red. A competent authority needs a DPO (s.69), flagged as for a public
+  authority.
+- `processing_activity.regime`, defaulting from the entity, with Part 3 only on a
+  competent authority. A Part 3 record asks s.35(2) (task or consent); sensitive
+  processing (s.35(8)) with its route (consent, or strictly necessary and a Schedule 8
+  condition); fact and opinion (s.38(2)); and a logging statement per system (s.62: the
+  six operations, whether consultation and disclosure logs identify who and to whom, the
+  reviewer, when last checked). The UK GDPR's questions are hidden on a Part 3 record and
+  its answers kept, and the other way round; the retention answer (para 41 / s.42(4)) is
+  shared. Rules in `lib/dpa2018/part3.ts`, checked against ss.31, 35, 38, 42, 61, 62 and
+  64 and Schedule 8 (up to date to 29–30 October 2026).
+- Gaps: not a competent authority, no s.35(2) basis, sensitive processing with no route or
+  no Schedule 8 condition, or no current policy document covering it — red. Retention
+  against the policy document unanswered, fact and opinion unanswered, s.38(3) categories
+  not distinguished, a named system with no logging statement, a statement missing an
+  operation or reviewer — amber.
+- The policy document register covers Part 3 grounds (consent, and each Schedule 8
+  condition) as well as Schedule 1 conditions.
+- "Data protection impact assessment (law enforcement, Part 3)" (s.64), offered through
+  "Waivern has updated templates" once an entity is a competent authority.
+- Not in 5a: Part 3's own further processing (s.36) and automated decisions (ss.50A–50D);
+  a Part 3 record hides the UK GDPR versions and says so.
+
 - **5b, what happens to it:** rights under ss.44–48 with s.45(4) restrictions, recorded
   reasons and the s.54 clock; breaches under ss.67–68; automated decisions under
   ss.50A–50D on activities and AI use cases; transfers under ss.73–76 in a Part 3

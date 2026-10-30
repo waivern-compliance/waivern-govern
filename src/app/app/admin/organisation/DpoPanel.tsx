@@ -42,7 +42,8 @@ export function DpoPanel({
       <div className="space-y-1">
         <h2 className="text-sm font-semibold">Data protection officer</h2>
         <p className="max-w-prose text-sm text-ink-soft">
-          Required of a public authority (UK GDPR Article 37(1)(a)) and of an organisation whose core activities
+          Required of a public authority (UK GDPR Article 37(1)(a)), of a competent authority (Data Protection Act
+          2018 s.69), and of an organisation whose core activities
           involve large-scale monitoring or large-scale special category data. Where the person named is a member
           who may decide it, the &ldquo;Data protection officer&rdquo; approval stage goes to them.
         </p>
@@ -50,8 +51,9 @@ export function DpoPanel({
 
       {missing.length > 0 ? (
         <p role="alert" className="max-w-prose rounded border border-red-800 bg-red-50 px-3 py-2 text-xs text-red-900">
-          {missing.map((e) => e.name).join(", ")} {missing.length === 1 ? "is a public authority" : "are public authorities"}{" "}
-          with no data protection officer. Article 37(1)(a) requires one.
+          {missing.map((e) => e.name).join(", ")} {missing.length === 1 ? "is a public or competent authority" : "are public or competent authorities"}{" "}
+          with no data protection officer. UK GDPR Article 37(1)(a) and, for law enforcement processing, Data Protection
+          Act 2018 s.69 require one.
         </p>
       ) : null}
 

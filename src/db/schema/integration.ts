@@ -15,6 +15,7 @@ import type { LawfulBasis, RecognisedCondition } from "@/lib/gdpr/lawful-basis";
 import type { AdmSafeguards, AdmSpecialCondition } from "@/lib/gdpr/automated-decisions";
 import type { Art10Condition, Art9Condition, Schedule1Condition } from "@/lib/dpa2018/schedule-1";
 import type { SupplierRole } from "@/lib/dpa2018/sharing";
+import type { LoggingStatement, Part3Basis, Regime, Schedule8Condition, SensitiveRoute } from "@/lib/dpa2018/part3";
 import type {
   Annex2Condition,
   CompatibilityFactor,
@@ -174,6 +175,23 @@ export const processingActivities = pgTable(
      */
     retentionFollowsPolicy: boolean("retention_follows_policy"),
     retentionPolicyNote: text("retention_policy_note"),
+    /**
+     * The regime: UK GDPR, or law enforcement processing under Part 3 of the
+     * Data Protection Act 2018, available only on a competent authority's
+     * entity. A police force's staff records are UK GDPR; its investigations
+     * are Part 3.
+     */
+    regime: text("regime").$type<Regime>().notNull().default("uk_gdpr"),
+    /** Part 3: how s.35(2) is met. */
+    part3Basis: text("part3_basis").$type<Part3Basis>(),
+    /** Part 3: sensitive processing (s.35(8)), and the route and Schedule 8 condition relied on. */
+    sensitiveProcessing: boolean("sensitive_processing"),
+    sensitiveRoute: text("sensitive_route").$type<SensitiveRoute>(),
+    schedule8Condition: text("schedule8_condition").$type<Schedule8Condition>(),
+    /** Part 3: whether fact is distinguished from personal assessment (s.38(2)). */
+    factOpinionMarked: boolean("fact_opinion_marked"),
+    /** Part 3: what each system logs and who checks (s.62). Statements only; never the logs. */
+    logging: jsonb("logging").$type<LoggingStatement[]>().notNull().default([]),
     /**
      * The basis as somebody wrote it — before the bases above existed, or as the
      * Portal sends it. Kept as a note: where it named a basis unambiguously, that

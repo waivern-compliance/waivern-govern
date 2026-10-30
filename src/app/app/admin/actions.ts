@@ -27,7 +27,7 @@ import { unresolvedPlaceholder } from "@/lib/assistant/models";
 import type { ProviderKind } from "@/lib/assistant/providers";
 import { refusable, type EditResult } from "@/lib/edit-result";
 import { DomainRefused, claimDomain, removeDomain, verifyDomain } from "@/services/domains";
-import { EntityRefused, addEntity, makeDefaultEntity, renameEntity, setDpo, setPublicAuthority, setPublicCommsProvider } from "@/services/entities";
+import { EntityRefused, addEntity, makeDefaultEntity, renameEntity, setCompetentAuthority, setDpo, setPublicAuthority, setPublicCommsProvider } from "@/services/entities";
 import { NotInOrganisation } from "@/services/tenancy-guards";
 
 const text = (v: FormDataEntryValue | null) => String(v ?? "").trim();
@@ -417,6 +417,23 @@ export async function setPublicAuthorityAction(entityId: string, publicAuthority
     return updated.publicAuthority
       ? `${updated.name} is marked as a public authority. Legitimate interests is flagged on its activities, and it needs a data protection officer.`
       : `${updated.name} is no longer marked as a public authority.`;
+  });
+}
+
+/** Whether an entity is a competent authority (s.30), and the regime its new records start under. */
+export async function setCompetentAuthorityAction(entityId: string, _prev: AdminResult, formData: FormData): Promise<AdminResult> {
+  return entityResult(async (active) => {
+    const choice = String(formData.get("competentAuthority") ?? "");
+    const updated = await setCompetentAuthority({
+      organisationId: active.membership.organisationId,
+      entityId,
+      competentAuthority: choice !== "no",
+      defaultRegime: choice === "part3" ? "dpa_part3" : "uk_gdpr",
+      actor: actorOf(active),
+    });
+    return updated.competentAuthority
+      ? `${updated.name} is a competent authority. Part 3 is available on its processing activities${updated.defaultRegime === "dpa_part3" ? " (new ones start under it)" : ""}. It needs a data protection officer.`
+      : `${updated.name} is not marked as a competent authority.`;
   });
 }
 

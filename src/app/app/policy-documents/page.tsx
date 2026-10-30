@@ -6,7 +6,8 @@ import { entities, memberships, users } from "@/db/schema";
 import { EditForm } from "@/components/EditForm";
 import { HelpLink } from "@/components/help/HelpLink";
 import { NotPermitted } from "@/components/NotPermitted";
-import { POLICY_DOCUMENT_GAP_WORDS, SCHEDULE_1 } from "@/lib/dpa2018/schedule-1";
+import { POLICY_DOCUMENT_GAP_WORDS, SCHEDULE_1, isSchedule1Condition } from "@/lib/dpa2018/schedule-1";
+import { policyKeyShort } from "@/lib/dpa2018/policy-keys";
 import { can, scopedEntityIds } from "@/lib/rbac";
 import { getActiveSession, visibleEntityIds } from "@/lib/session";
 import { policyDocumentRegister } from "@/services/policy-documents";
@@ -68,8 +69,8 @@ export default async function PolicyDocumentsPage() {
                 <Link href={`/app/ropa/${a.id}`} className="hover:underline">
                   <span className="font-mono text-xs">{a.reference}</span> {a.name}
                 </Link>{" "}
-                relies on {a.uncovered.map((k) => `paragraph ${SCHEDULE_1[k].paragraph}`).join(", ")}
-                {a.uncovered.every((k) => SCHEDULE_1[k].policyDocument === "unless") ? ", unless its exception applies" : ""}
+                relies on {a.uncovered.map(policyKeyShort).join(", ")}
+                {a.uncovered.every((k) => isSchedule1Condition(k) && SCHEDULE_1[k].policyDocument === "unless") ? ", unless its exception applies" : ""}
               </li>
             ))}
           </ul>
@@ -135,7 +136,7 @@ function PolicyRow({ row }: { row: Awaited<ReturnType<typeof policyDocumentRegis
         </div>
         <p className="text-xs text-ink-soft">
           {doc.conditions.length > 0
-            ? `Covers paragraph${doc.conditions.length === 1 ? "" : "s"} ${doc.conditions.map((k) => SCHEDULE_1[k].paragraph).join(", ")}`
+            ? `Covers ${doc.conditions.map(policyKeyShort).join(", ")}`
             : "Covers nothing yet"}
           {doc.withdrawnAt ? "" : ` · relied on by ${relying.length} activit${relying.length === 1 ? "y" : "ies"}`}
         </p>

@@ -6,6 +6,7 @@ import { AI_SUPPLIER } from "./ai-supplier";
 import { BREACH_SEVERITY } from "./breach";
 import { CNIL_PIA } from "./cnil-pia";
 import { DPIA } from "./dpia";
+import { DPIA_PART3 } from "./dpia-part3";
 import { DSIT_AI_RISK } from "./dsit-ai-risk";
 import { EIA } from "./eia";
 import { LIA } from "./lia";
@@ -30,6 +31,8 @@ export const SYSTEM_TEMPLATES: Array<{
    * framework. Templates without one go to everyone.
    */
   aiFramework?: AiFrameworkId;
+  /** Installed only for an organisation with an entity that is a competent authority (Part 3). */
+  competentAuthority?: boolean;
   definition: TemplateDefinition;
 }> = [
   {
@@ -45,6 +48,15 @@ export const SYSTEM_TEMPLATES: Array<{
     description: "Full DPIA covering the minimum content required by Article 35(7).",
     jurisdiction: "UK",
     definition: DPIA,
+  },
+  {
+    kind: "dpia",
+    name: "Data protection impact assessment (law enforcement, Part 3)",
+    description:
+      "For a competent authority's law enforcement processing (Data Protection Act 2018 s.64): the purpose, sensitive processing and Schedule 8, categories of data subject, fact and opinion, logging and rights restrictions.",
+    jurisdiction: "UK",
+    competentAuthority: true,
+    definition: DPIA_PART3,
   },
   {
     kind: "dpia",

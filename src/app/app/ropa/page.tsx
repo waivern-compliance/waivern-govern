@@ -54,8 +54,9 @@ export default async function RopaPage() {
 
       {withoutDpo.length > 0 ? (
         <p role="alert" className="max-w-prose rounded border border-red-800 bg-red-50 px-3 py-2 text-xs text-red-900">
-          {withoutDpo.map((e) => e.name).join(", ")} {withoutDpo.length === 1 ? "is a public authority" : "are public authorities"}{" "}
-          with no data protection officer recorded. Article 37(1)(a) requires one.{" "}
+          {withoutDpo.map((e) => e.name).join(", ")} {withoutDpo.length === 1 ? "is a public or competent authority" : "are public or competent authorities"}{" "}
+          with no data protection officer recorded. UK GDPR Article 37(1)(a) and, for law enforcement processing, Data
+          Protection Act 2018 s.69 require one.{" "}
           {can(active.membership.grants, "org.manage") ? (
             <Link href="/app/admin/organisation" className="underline">Record the DPO</Link>
           ) : (
@@ -199,7 +200,10 @@ export default async function RopaPage() {
                   <span className="font-mono text-xs text-ink-soft">{activity.reference}</span>
                   <span className="font-medium">{activity.name}</span>
                 </span>
-                <span className="font-mono text-[11px] text-ink-soft">{entityName}</span>
+                <span className="font-mono text-[11px] text-ink-soft">
+                  {entityName}
+                  {activity.regime === "dpa_part3" ? " · Part 3" : ""}
+                </span>
               </div>
               <p className="text-xs text-ink-soft">
                 {(activity.purposes ?? []).slice(0, 2).join(" · ") || "no purpose recorded"}
