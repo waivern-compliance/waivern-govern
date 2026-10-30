@@ -327,7 +327,7 @@ export const HELP_TOPICS: HelpTopic[] = [
       {
         heading: "What the flags mean",
         body: [
-          "Red items are unqualified Article 30 requirements — purposes, categories of data subject and of personal data, recipients, transfer safeguards, and the controller's identity where you act as processor. Missing any of those is a compliance failure, not untidiness.",
+          "Red items are unqualified Article 30 requirements — purposes, categories of data subject and of personal data, recipients, transfer safeguards, and the controller's identity where you act as processor. Missing any of those is a compliance failure, not untidiness. Red is also used where the record describes processing the law does not allow: a solely automated significant decision relying on recognised legitimate interests, or on special category data with no Article 22B condition, and further processing on a route Article 8A(4) closes for data collected on consent.",
           "Amber items are reported without being called a breach. Retention and security measures are qualified in the Regulation by 'where possible', so their absence is worth knowing and is not the same thing.",
         ],
       },

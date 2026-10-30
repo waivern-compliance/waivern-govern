@@ -59,7 +59,7 @@ export default async function RopaPage() {
         <Stat
           label="Would fail an inspection"
           value={health.nonCompliant}
-          note="a required element is missing"
+          note="a required element is missing, or the law does not allow it as recorded"
           tone={health.nonCompliant > 0 ? "stop" : "plain"}
         />
         <Stat

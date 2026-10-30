@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { LAWFUL_BASIS_KEYS, RECOGNISED_CONDITION_KEYS } from "@/lib/gdpr/lawful-basis";
+import { automatedDecisionsWire, furtherProcessingWire, researchWire } from "./duaa";
 
 /**
  * The wire contract, versioned from the first release.
@@ -46,6 +47,14 @@ export const processingActivityIn = z.object({
   controllerRole: z.enum(["controller", "processor", "joint_controller"]).optional(),
   controllerName: z.string().max(200).optional(),
   reviewDueAt: z.iso.datetime().optional(),
+  /**
+   * The Data (Use and Access) Act records (see docs/integration-api.md). Each
+   * group sent replaces what is recorded for it; one left out leaves it alone.
+   */
+  automatedDecisions: automatedDecisionsWire.optional(),
+  furtherProcessing: furtherProcessingWire.optional(),
+  research: researchWire.optional(),
+  childrenLikely: z.boolean().nullable().optional(),
 });
 
 export const vendorIn = z.object({
@@ -146,6 +155,8 @@ export const aiUseCaseIn = z.object({
   deployedIn: z.array(z.string().max(200)).max(50).default([]),
   processesPersonalData: z.boolean().optional(),
   dataCategories: z.array(z.string().max(100)).max(100).default([]),
+  /** Articles 22A–22C, as on a processing activity. Sent replaces; left out leaves it alone. */
+  automatedDecisions: automatedDecisionsWire.optional(),
 });
 
 /** Batches are capped so one request cannot become an unbounded transaction. */

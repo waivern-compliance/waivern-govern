@@ -376,7 +376,7 @@ describe("the governance context", () => {
   it("is versioned, so the Portal can tell what shape it received", async () => {
     const w = await world("version");
     const context = await governanceContext({ organisationId: w.org.id });
-    assert.equal(context.contextVersion, "1.1");
+    assert.equal(context.contextVersion, "1.2");
     assert.ok(context.generatedAt);
     assert.equal(context.organisation.name, w.org.name);
   });

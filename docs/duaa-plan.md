@@ -295,6 +295,21 @@ Built as:
   children's higher protection matters were taken into account". Read from the live
   answers of any DPIA of the activity that is not superseded or rejected.
 
+### Follow-ups (built)
+- **Integration API, contract first** (`docs/integration-api.md`): optional
+  `automatedDecisions`, `furtherProcessing`, `research` and `childrenLikely` groups on
+  processing activities, and `automatedDecisions` on AI systems, in the same shape both
+  ways (`lib/integration/duaa.ts`). A group sent replaces; one left out is left alone.
+  `furtherProcessing.originalExternalRef` links to an activity the same connection sent;
+  a record that names itself is skipped with the reason. The context export (version
+  1.2, additive) carries all four on activities, the original activity's reference, and
+  each AI system's automated decisions and linked activities.
+- **Serious lists.** The ROPA's red list (`HARD_GAPS`) adds what the law does not allow
+  as recorded: `adm_relies_on_ea`, `adm_special_no_condition`, `further_route_closed`.
+  The AI register's `SERIOUS_GAPS` adds `adm_special_no_condition` (a use case has no
+  basis of its own, so it cannot see (ea)). Unknown or unconfirmed gaps stay amber.
+- The cookie inventory export (PECR Phase 6) is separate and not part of this.
+
 ## Rough size
 
 | Phase | Estimate |

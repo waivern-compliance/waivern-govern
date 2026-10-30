@@ -175,13 +175,20 @@ export function suppliedByThirdParty(useCase: typeof aiUseCases.$inferSelect): b
   );
 }
 
-/** Gaps that mean the system is running unexamined, rather than merely untidy. */
+/**
+ * Gaps that mean the system is running unexamined, rather than merely untidy —
+ * or that its record describes something the law does not allow: solely
+ * automated significant decisions on special category data with no Article
+ * 22B condition. Unconfirmed safeguards and unanswered questions are not here;
+ * they are unknowns, not prohibitions.
+ */
 export const SERIOUS_GAPS: Gap[] = [
   "never_assessed",
   "live_without_monitoring",
   "decides_without_oversight",
   "last_test_failed",
   "unresolved_harm",
+  "adm_special_no_condition",
 ];
 
 export type RegisterEntry = {

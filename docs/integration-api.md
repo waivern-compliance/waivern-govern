@@ -132,6 +132,85 @@ interests"); text that does not is kept as the note and no basis is guessed, and
 basis already chosen in Waivern Governance Tool is left as it was. Exports carry all
 three fields, with `lawfulBasis` as the note.
 
+**Automated decisions, further processing, research and children.** Four more
+optional fields on a processing activity, in the same shape both ways. Each is a
+group: on ingest, a group that is sent replaces what is recorded for it, and a
+group that is left out leaves what was recorded here alone. Inside a group, `null`
+means "not yet known".
+
+```json
+{
+  "automatedDecisions": {
+    "solelyAutomated": true,
+    "specialCategory": false,
+    "specialCondition": null,
+    "safeguards": {
+      "information": { "confirmed": true, "note": "Privacy notice, section 6" },
+      "representations": { "confirmed": true },
+      "humanIntervention": { "confirmed": true, "note": "Reviewed by an underwriter on request" },
+      "contest": { "confirmed": false }
+    }
+  },
+  "furtherProcessing": {
+    "isFurtherProcessing": true,
+    "originalExternalRef": "portal-act-7",
+    "originalConsent": null,
+    "route": "assessed",
+    "annex2Condition": null,
+    "consentUnobtainable": null,
+    "factors": { "link": "...", "context": "...", "nature": "...", "consequences": "...", "safeguards": "..." },
+    "note": null
+  },
+  "research": {
+    "isResearch": true,
+    "safeguards": {
+      "noSubstantialHarm": { "confirmed": true },
+      "noIndividualDecisions": { "confirmed": true },
+      "dataMinimisation": { "confirmed": true, "note": "Pseudonymised before analysis" }
+    },
+    "approvedMedicalResearch": false,
+    "art13Exemption": false,
+    "publicInformationUrl": null
+  },
+  "childrenLikely": false
+}
+```
+
+- `automatedDecisions` is UK GDPR Articles 22A–22C: whether significant decisions are
+  taken solely by automated means; whether special category data is behind them and,
+  if so, the Article 22B condition (`explicit_consent` or `contract_or_law`); and the
+  four Article 22C safeguards. Where `solelyAutomated` is `false`, the rest is cleared.
+- `furtherProcessing` is Article 8A. `route` is `consent`, `research`, `compliance`,
+  `annex2`, `article23` or `assessed`. `annex2Condition` is one of
+  `public_task_disclosure`, `archiving_disclosure`, `public_security`, `emergency`,
+  `crime`, `vital_interests`, `safeguarding`, `tax`, `legal_obligation`. `factors`
+  holds the Article 8A(2) assessment where `route` is `assessed`. `originalExternalRef`
+  names the activity the data was first collected for, by the Portal's own reference;
+  where it matches an activity this connection sent, the two are linked and whether
+  that activity relied on consent is read from it. Where it matches nothing, the link
+  is left empty and `originalConsent` is used instead.
+- `research` is Articles 84A–84C and 13(5)–(7): the three Article 84C safeguards,
+  whether it is approved medical research, and whether Article 13(5) is relied on, with
+  the address where the information is published instead. The Article 13(5) fields are
+  kept only where the activity is also further processing.
+- `childrenLikely` is Article 25(1A): whether an online service in the processing is
+  likely to be accessed by children.
+
+Safeguards are reported as confirmed or not; one that is unconfirmed and has no note
+is not stored, so an export leaves it out and a reader treats a missing safeguard as
+unconfirmed.
+
+A group that does not hang together — an Article 22B condition that is not one of the
+two, an `annex2Condition` with another route — is refused per record and reported in
+`skipped` with the reason, so the rest of the batch still lands. Exports carry the four
+fields on every activity, and an export's `furtherProcessing` also names the original
+activity's `originalReference` here.
+
+An AI system (`POST /api/v1/ingest/ai-use-cases`) takes the same `automatedDecisions`
+group, with the same rule: sent replaces, left out leaves alone. In the context export
+each AI system carries it, and `processingActivities` lists the references of the
+processing activities it has been linked to here.
+
 The context document is versioned (`contextVersion`), so the Portal can tell
 what shape it received:
 
@@ -151,8 +230,11 @@ what shape it received:
 }
 ```
 
-Version 1.1 added `aiSystems`. The change is additive: a reader written for 1.0
-that ignores keys it does not know reads 1.1 unchanged.
+Version 1.1 added `aiSystems`. Version 1.2 added `automatedDecisions`,
+`furtherProcessing`, `research` and `childrenLikely` to processing activities, and
+`automatedDecisions` and `processingActivities` to AI systems. Both changes are
+additive: a reader written for 1.0 that ignores keys it does not know reads 1.2
+unchanged.
 
 **Only settled facts are exported.** An assessment appears once it is approved,
 never while it is in draft or in review — generating a compliance document from

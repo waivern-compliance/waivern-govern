@@ -106,9 +106,12 @@ export default async function ActivityPage({
         <GapChips gaps={gaps} words={GAP_WORDS} serious={HARD_GAPS} clear="Article 30 complete" />
         {hardGaps.length > 0 ? (
           <p className="max-w-prose text-xs text-red-900">
-            The red items are unqualified Article 30 requirements. Retention and
-            security measures are qualified by “where possible”, so they are
-            reported without being called a breach.
+            The red items are unqualified Article 30 requirements, or processing
+            the record describes as something the law does not allow — a solely
+            automated decision Article 22B forbids, or further processing on a
+            route Article 8A(4) closes. Retention and security measures are
+            qualified by “where possible”, so they are reported without being
+            called a breach.
           </p>
         ) : null}
         {objections ? (
