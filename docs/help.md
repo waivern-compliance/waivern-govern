@@ -28,6 +28,7 @@ Every help topic the application carries, in the order it presents them.
 **The registers**
 
 - [The processing register (Article 30)](#the-processing-register-article-30) — Every processing activity, checked against what Article 30 actually requires rather than against whether the form was filled in.
+- [Appropriate policy documents (Schedule 1)](#appropriate-policy-documents-schedule-1) — Which Schedule 1 conditions each appropriate policy document covers, and which processing relies on a condition no current document covers.
 - [Third parties and processor agreements (Article 28)](#third-parties-and-processor-agreements-article-28) — Every processor you rely on, whether or not anybody procured it, and whether a contract actually covers them.
 - [Personal data breaches](#personal-data-breaches) — Record every breach, decide the two statutory questions separately, and keep the reasoning for both.
 - [Data subject requests](#data-subject-requests) — Record every request from a person exercising their rights, run the month to answer it, and keep the reasoning for each decision.
@@ -428,6 +429,14 @@ Tick each Article 6(1) basis the processing relies on. Recognised legitimate int
 
 The text field beside it is a note. Where a record's basis used to be written as text and named one basis plainly, that basis was ticked for you; anything less clear was left for you to choose, and shows as 'No lawful basis chosen' until you do.
 
+### Special category and criminal offence data
+
+Tick the categories of data subject and of personal data that apply, and add any others in your own words. The lists include the categories public services hold: patients, people receiving social care, pupils, parents and carers, social care and education records, and safeguarding concerns. Suspects, convicted people, victims and witnesses are the categories a competent authority must distinguish under Part 3 of the Data Protection Act 2018.
+
+Then say whether the processing involves special category data (UK GDPR Article 9) or criminal offence data (Article 10), and choose the condition. For special category data that is the Article 9(2) point and, where that point needs one, the Data Protection Act 2018 Schedule 1 condition: employment, health or social care, public health and research add the Part 1 condition for you, and substantial public interest asks which Part 2 condition — statutory and government purposes, preventing or investigating unlawful acts, safeguarding, and the rest. Criminal offence data asks for its own condition: official authority, or a condition in Part 1, 2 or 3 of Schedule 1.
+
+A record with special category or criminal offence data and no condition is red, because Articles 9 and 10 forbid the processing without one. So is one relying on a Schedule 1 condition that needs an appropriate policy document when no current document covers it; for paragraphs 10, 13 and 27, which have exceptions, it is amber. Where a document is needed, the record also asks whether retention and erasure followed its policy, and why not if they did not, because Schedule 1 paragraph 41 says the record must.
+
 ### Further processing and research
 
 Say whether the activity reuses data first collected for something else. If it does, the new purpose has to be compatible with the old one (UK GDPR Article 8A). Choose the activity the data came from, if it is on the register, and the ground: fresh consent, research, demonstrating compliance, an Annex 2 condition, an Article 23 objective authorised by law, or your own assessment against the five Article 8A(2) factors, which it then asks you to write up.
@@ -454,9 +463,35 @@ The same questions sit on each AI use case. Link a use case to the processing ac
 
 Each transfer needs a destination and, where that destination is not covered by adequacy, a safeguard. The check reads the country library. If the library is empty it escalates rather than clearing everything — an unanswerable question is never answered 'no'.
 
-**See also:** Countries, UK approval and transfers · Third parties and processor agreements (Article 28) · Exports
+**See also:** Countries, UK approval and transfers · Third parties and processor agreements (Article 28) · Exports · Appropriate policy documents (Schedule 1)
 
 <sub>Also searchable as: ropa, article 30, record of processing, purposes, lawful basis, retention, recipients</sub>
+
+## Appropriate policy documents (Schedule 1)
+
+*Which Schedule 1 conditions each appropriate policy document covers, and which processing relies on a condition no current document covers.*
+
+**Screen:** `/app/policy-documents`
+
+### Why it matters
+
+Most Data Protection Act 2018 Schedule 1 conditions — employment (paragraph 1), every substantial public interest condition in Part 2, and paragraph 35 — are met only while the controller has an appropriate policy document in place. Without one the condition is not met, and the processing has no lawful condition for special category or criminal offence data. Paragraphs 10, 13 and 27 do not need one in the particular cases they describe.
+
+The document explains how the controller meets the Article 5 principles for that processing, and its policies on retention and erasure, with an indication of how long the data is likely to be kept (paragraph 39). It must be kept, reviewed and updated from time to time, and given to the Information Commission on request, from when the controller starts relying on the condition until six months after it stops (paragraph 40).
+
+### Recording one
+
+Govern does not write the document. Add each one with the conditions it covers, whom it is for (one entity, or every entity in the organisation), an owner and when it was last reviewed, then attach the document itself.
+
+The register flags a document never reviewed, or not reviewed in twelve months, one with nothing attached, and one with no owner. It also lists each processing activity relying on a condition that no current document covers; the same shows red on the activity's record.
+
+### Withdrawing and deleting
+
+When a document is no longer in force, withdraw it. It stops covering anything at once, so processing that still relies on its conditions shows as uncovered. It can be deleted six months after it was withdrawn, and not before; deleting it removes its attached files too.
+
+**See also:** The processing register (Article 30) · The organisation and its legal entities
+
+<sub>Also searchable as: appropriate policy document, apd, schedule 1, special category, criminal offence, article 9, article 10, substantial public interest</sub>
 
 ## Third parties and processor agreements (Article 28)
 

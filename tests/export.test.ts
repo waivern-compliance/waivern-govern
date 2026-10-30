@@ -29,6 +29,7 @@ const ANSWERS = {
   subject_groups: "Signed-in audience.",
   children_likely: false,
   dpo_consulted: "no_dpo",
+  criminal_offence: false,
   volume: 100000,
   retention: "Thirteen months.",
   necessity: "Required for ranking.",

@@ -35,6 +35,8 @@ import {
 import type { Actor } from "./templates";
 import { AI_STANDING_LABEL } from "@/lib/thirdparty/ai-procurement";
 import { RECOGNISED_CONDITIONS, describeBases } from "@/lib/gdpr/lawful-basis";
+import { ART9_CONDITIONS, describeArt10, describeSchedule1 } from "@/lib/dpa2018/schedule-1";
+
 
 /**
  * Data out, for people rather than machines.
@@ -423,6 +425,7 @@ export async function exportRopa(organisationId: string, entityIds: string[] | n
         "Controller role", "Controller acted for", "Owner",
         "Purposes", "Lawful basis", "Annex 1 condition", "Note on the basis",
         "Categories of data subject", "Categories of personal data",
+        "Special category condition", "Criminal offence condition", "Retention followed the policy document",
         "Categories of recipient", "Transfers", "Retention", "Security measures",
         "Systems", "Article 30 gaps", "Would fail an inspection", "Last updated",
       ],
@@ -435,6 +438,25 @@ export async function exportRopa(organisationId: string, entityIds: string[] | n
         activity.lawfulBasis,
         (activity.subjectCategories ?? []).join("; "),
         (activity.dataCategories ?? []).join("; "),
+        // Schedule 1 paragraph 41: the condition, and whether retention followed the policy document.
+        activity.specialCategory === null
+          ? "not yet known"
+          : !activity.specialCategory
+            ? "none"
+            : [
+                activity.art9Condition ? ART9_CONDITIONS[activity.art9Condition].point : "none chosen",
+                activity.schedule1Condition ? describeSchedule1(activity.schedule1Condition) : "",
+              ].filter(Boolean).join("; "),
+        activity.criminalOffence === null
+          ? "not yet known"
+          : !activity.criminalOffence
+            ? "none"
+            : activity.art10Condition ? describeArt10(activity.art10Condition) : "none chosen",
+        activity.retentionFollowsPolicy === null
+          ? ""
+          : activity.retentionFollowsPolicy
+            ? "yes"
+            : `no${activity.retentionPolicyNote ? `: ${activity.retentionPolicyNote}` : ""}`,
         (activity.recipients ?? []).join("; "),
         (activity.transfers ?? [])
           .map((t) => (t.mechanism ? `${t.country} (${t.mechanism})` : `${t.country} (none recorded)`))

@@ -1,6 +1,6 @@
 # Plan: public services under the Data Protection Act 2018, as amended
 
-Status: decisions settled (30 October 2026), all as recommended. Phases 0–1 built.
+Status: decisions settled (30 October 2026), all as recommended. Phases 0–2 built.
 
 ## What is asked for
 
@@ -258,13 +258,46 @@ Built as:
 - DPIA, edited in place: whether the DPO's advice was sought (or none is designated), and
   what it was and whether it was followed.
 
-### Phase 2: Schedule 1 and the appropriate policy document (about 2 days)
+### Phase 2: Schedule 1 and the appropriate policy document (built)
 - The structured Article 9 / Article 10 / Schedule 1 choice on the ROPA and in the DPIA
   (decision 5).
 - The policy document register and its gaps (decision 4); para 41's record contents.
 - Data categories for social care, education and safeguarding, and a catalogue of
   categories of data subject (patients, service users, pupils, staff; and for Part 3,
   suspects, the convicted, victims, witnesses).
+
+Built as:
+- `lib/dpa2018/schedule-1.ts`: the Article 9(2) points, every Schedule 1 condition
+  (paragraphs 1–4, 6–28, 29–35) with whether it needs a policy document — paragraph 1,
+  all of Part 2 and paragraph 35, with the exceptions in paragraphs 10(2), 13(3) and
+  27(3) — and which points need which condition (s.10). Checked against Schedule 1 on
+  legislation.gov.uk, up to date to 25 October 2026; paragraph 10 carries the DUAA's
+  "investigating".
+- On each activity (migration 0079): `special_category`, `art9_condition`,
+  `schedule1_condition`, `criminal_offence`, `art10_condition`, and paragraph 41(c)'s
+  `retention_follows_policy` with `retention_policy_note`. A Part 1 condition is filled
+  in from the Article 9(2) point; a Part 2 one is asked for (g). Criminal offence data
+  takes official authority or any Part 1–3 condition, a Part 2 one through paragraph 36.
+  What the answers make irrelevant is cleared. Changes are kept in the audit chain.
+- Gaps: no Article 9(2) condition, no Schedule 1 condition, no Article 10 condition, and a
+  condition needing a policy document that no current one covers — all red. For
+  paragraphs 10, 13 and 27 the uncovered gap is amber, because of their exceptions; so is
+  an unanswered paragraph 41(c).
+- `policy_document`: title, version, the conditions covered, for one entity or the whole
+  organisation, owner, last reviewed, withdrawn; the document attached through `document`.
+  Register at `/app/policy-documents`, listing what relies on each and every activity no
+  current document covers. Flags: never reviewed or not in twelve months, nothing
+  attached, no owner. Withdrawn rather than deleted, and deletable six months after
+  withdrawal (para 40(2)). Govern does not track when an activity stopped relying on a
+  condition, so the six months run from withdrawal; anything still relying on it after
+  that shows as uncovered.
+- DPIA, edited in place: the free-text `special_condition` becomes `art9_condition`, then
+  `schedule1_condition` for (g); `criminal_offence` and `art10_condition` asked
+  separately; and which policy document covers it, where one may be needed.
+- The ROPA's categories of data subject and of personal data are ticked from catalogues
+  (with others in the record's own words): social care, education and safeguarding data,
+  and patients, service users, pupils, parents and carers, staff, and the Part 3
+  categories.
 
 ### Phase 3: exemptions in requests (about 1.5 days)
 - Structured Schedule 2 exemptions; the immigration exemption's case-by-case record and

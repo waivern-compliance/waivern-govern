@@ -41,6 +41,7 @@ import * as dsr from "@/services/data-subject-requests";
 import * as complaintsSvc from "@/services/complaints";
 import * as inventory from "@/services/storage-inventory";
 import * as marketingSvc from "@/services/marketing";
+import * as policyDocs from "@/services/policy-documents";
 import * as analyserSvc from "@/services/consent-analyser";
 import * as dsrIntake from "@/services/dsr-intake";
 import * as routing from "@/services/approval-routing";
@@ -90,6 +91,7 @@ const DPIA_ANSWERS = {
   subject_groups: "Signed-in audience.",
   children_likely: false,
   dpo_consulted: "no_dpo",
+  criminal_offence: false,
   volume: 100000,
   retention: "Thirteen months.",
   necessity: "Required for ranking.",
@@ -216,6 +218,9 @@ async function populated() {
   await marketingSvc.recordMarketingDecision({
     activityId: marketingActivity.id, organisationId: id, basis: "screened_calls", rationale: "B's reasons", actor: SYSTEM,
   });
+  const policyDoc = await policyDocs.createPolicyDocument({
+    organisationId: id, entityId: o.entity.id, title: "B's policy document", conditions: ["para6", "para18"], actor: SYSTEM,
+  });
   const complaint = await complaintsSvc.recordComplaint({
     organisationId: id, entityId: o.entity.id, channel: "email", receivedAt: new Date(), subject: "request_handling",
     description: "B's complainant's secret grievance.", complainantName: "B's complainant", requestId: subjectRequest.id,
@@ -299,7 +304,7 @@ async function populated() {
 
   return {
     ...o, template, dpiaVersion, workflow: workflows[0], stage, risk, mitigation, acceptance, appetite,
-    supplier, dpa, activity, breach, subjectRequest, requestScope, complaint, webProperty, storageItem, storageProposal, consentScan, marketingActivity, intakeLink, useCase, change, assurance, incident, atrsRecord, request,
+    supplier, dpa, activity, breach, subjectRequest, requestScope, complaint, webProperty, storageItem, storageProposal, consentScan, marketingActivity, policyDoc, intakeLink, useCase, change, assurance, incident, atrsRecord, request,
     trainingRecord, assessment, approval, link, comment, document, scanner, finding: finding.finding,
     conversation, task, draft, domainClaim,
   };
@@ -309,6 +314,7 @@ let A: Org;
 let B: Awaited<ReturnType<typeof populated>>;
 
 let mine: {
+  policyDoc: { id: string };
   risk: { id: string };
   breach: { id: string };
   subjectRequest: { id: string };
@@ -363,7 +369,8 @@ before(async () => {
     filename: "a.pdf", contentType: "application/pdf", content: PDF, actor: SYSTEM,
   });
   const activity = await ropa.createActivity({ organisationId: A.org.id, entityId: A.entity.id, name: "A's processing", actor: SYSTEM });
-  mine = { risk, breach, subjectRequest, complaint, webProperty, marketingActivity, activity, useCase, incident, document, dpiaVersion: dpia.version.id };
+  const policyDoc = await policyDocs.createPolicyDocument({ organisationId: A.org.id, entityId: A.entity.id, title: "A's policy document", conditions: ["para6"], actor: SYSTEM });
+  mine = { policyDoc, risk, breach, subjectRequest, complaint, webProperty, marketingActivity, activity, useCase, incident, document, dpiaVersion: dpia.version.id };
 });
 after(() => pg.end());
 
@@ -476,6 +483,7 @@ describe("reading another organisation's records", () => {
     ["extractionHistory", () => extraction.extractionHistory(A.org.id, B.dpa.id)],
     ["risksForAssessment", () => risksSvc.risksForAssessment(B.assessment.id, A.org.id)],
     ["historyOf B's person", () => training.historyOf(A.org.id, B.owner.user.id)],
+    ["loadPolicyDocument", () => policyDocs.loadPolicyDocument(B.policyDoc.id, A.org.id)],
   ];
   for (const [name, read] of reads) {
     it(`gives nothing: ${name}`, async () => {
@@ -589,6 +597,10 @@ describe("changing another organisation's records", () => {
     ["makeDefaultEntity", () => entitiesSvc.makeDefaultEntity({ organisationId: A.org.id, entityId: B.entity.id, actor: as() })],
     ["setPublicCommsProvider", () => entitiesSvc.setPublicCommsProvider({ organisationId: A.org.id, entityId: B.entity.id, provider: true, actor: as() })],
     ["setPublicAuthority", () => entitiesSvc.setPublicAuthority({ organisationId: A.org.id, entityId: B.entity.id, publicAuthority: true, actor: as() })],
+    ["updatePolicyDocument", () => policyDocs.updatePolicyDocument({ id: B.policyDoc.id, organisationId: A.org.id, changes: { title: "taken", version: null, conditions: [], ownerId: null, entityId: null }, actor: as() })],
+    ["recordPolicyReview", () => policyDocs.recordPolicyReview({ id: B.policyDoc.id, organisationId: A.org.id, actor: as() })],
+    ["withdrawPolicyDocument", () => policyDocs.withdrawPolicyDocument({ id: B.policyDoc.id, organisationId: A.org.id, actor: as() })],
+    ["deletePolicyDocument", () => policyDocs.deletePolicyDocument({ id: B.policyDoc.id, organisationId: A.org.id, actor: as(), now: new Date(Date.now() + 400 * DAY) })],
     ["setDpo (B's entity)", () => entitiesSvc.setDpo({ organisationId: A.org.id, entityId: B.entity.id, dpo: { name: "Taken", contact: "x@example.com" }, actor: as() })],
     ["handOver (from B's person)", () => handover.handOver({ organisationId: A.org.id, fromUserId: B.owner.user.id, toUserId: A.owner.user.id, actor: as() })],
   ];
@@ -625,6 +637,10 @@ describe("linking one's own records to another organisation's", () => {
     ["a marketing activity in B's entity", () => marketingSvc.createMarketingActivity({ organisationId: A.org.id, entityId: B.entity.id, name: "x", channel: "email", actor: as() })],
     ["a marketing activity under B's processing activity", () => marketingSvc.createMarketingActivity({ organisationId: A.org.id, entityId: A.entity.id, name: "x", channel: "email", processingActivityId: B.activity.id, actor: as() })],
     ["further processing of B's processing activity", () => ropa.setFurtherProcessing({ activityId: mine.activity.id, organisationId: A.org.id, record: { furtherProcessing: true, originalActivityId: B.activity.id }, actor: as() })],
+    ["a policy document for B's entity", () => policyDocs.createPolicyDocument({ organisationId: A.org.id, entityId: B.entity.id, title: "x", conditions: [], actor: as() })],
+    ["a policy document owned by B's person", () => policyDocs.createPolicyDocument({ organisationId: A.org.id, entityId: null, title: "x", conditions: [], ownerId: B.owner.user.id, actor: as() })],
+    ["a policy document moved to B's entity", () => policyDocs.updatePolicyDocument({ id: mine.policyDoc.id, organisationId: A.org.id, changes: { title: "x", version: null, conditions: [], ownerId: null, entityId: B.entity.id }, actor: as() })],
+    ["a document on B's policy document", () => documentsSvc.attachDocument({ organisationId: A.org.id, entityId: null, subjectType: "policy_document", subjectId: B.policyDoc.id, filename: "x.pdf", contentType: "application/pdf", content: PDF, actor: as() })],
     ["a DPO who is B's person", () => entitiesSvc.setDpo({ organisationId: A.org.id, dpo: { name: "B's person", contact: "x@example.com", userId: B.owner.user.id }, actor: as() })],
     ["an AI system linked to B's processing activity", () => adm.linkUseCaseToActivity({ organisationId: A.org.id, useCaseId: mine.useCase.id, activityId: B.activity.id, actor: as() })],
     ["a marketing activity linked to B's processing activity", () => marketingSvc.updateMarketingActivity({ activityId: mine.marketingActivity.id, organisationId: A.org.id, changes: { processingActivityId: B.activity.id }, actor: as() })],
@@ -750,13 +766,15 @@ describe("lists", () => {
       ["domains.domainsFor", domains.domainsFor(o)] as const,
       ["entitiesSvc.entitiesOf", entitiesSvc.entitiesOf(o)] as const,
       ["entitiesSvc.dpoPosition", entitiesSvc.dpoPosition(o)] as const,
+      ["policyDocs.policyDocumentRegister", policyDocs.policyDocumentRegister(o, null)] as const,
+      ["policyDocs.policyCoverage", policyDocs.policyCoverage(o)] as const,
     ].map(async ([n, r]) => [n, await r] as [string, unknown]));
     const text = (v: unknown) =>
       JSON.stringify(v, (_k, x) => (x instanceof Map ? [...x] : x instanceof Set ? [...x] : x)) ?? "";
     const bIds = [
       B.org.id, B.entity.id, B.owner.user.id, B.approver.user.id, B.risk.id, B.supplier.id, B.dpa.id,
       B.activity.id, B.breach.id, B.subjectRequest.id, B.complaint.id, B.webProperty.id, B.storageItem.id, B.useCase.id, B.incident.id, B.request.id, B.assessment.id,
-      B.template, B.dpiaVersion, B.workflow.id, B.scanner.id, B.finding.id, B.appetite.id,
+      B.policyDoc.id, B.template, B.dpiaVersion, B.workflow.id, B.scanner.id, B.finding.id, B.appetite.id,
       B.domainClaim.id, B.domainClaim.domain, B.intakeLink.id, B.intakeLink.slug,
     ];
     const leaks = results.flatMap(([name, r]) => bIds.filter((id) => text(r).includes(id)).map((id) => `${name}: ${id}`));

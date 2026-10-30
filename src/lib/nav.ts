@@ -64,6 +64,12 @@ export const NAV: NavItem[] = [
     capability: "record.read",
   },
   {
+    href: "/app/policy-documents",
+    label: "Appropriate policy documents",
+    hint: "Schedule 1 conditions, and what no current document covers",
+    capability: "record.read",
+  },
+  {
     href: "/app/third-parties",
     label: "Third parties",
     hint: "processors, agreements, and which are not covered",

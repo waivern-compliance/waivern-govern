@@ -25,6 +25,10 @@ import { savedKey } from "@/lib/saved-key";
 import { EditForm } from "@/components/EditForm";
 import { RECOGNISED_CONDITIONS, describeBases } from "@/lib/gdpr/lawful-basis";
 import { LawfulBasisFields } from "../LawfulBasisFields";
+import { SpecialCategoryFields } from "../SpecialCategoryFields";
+import { CategoryPicker } from "../CategoryPicker";
+import { DATA_CATEGORIES, SUBJECT_CATEGORIES } from "@/lib/templates/catalogues";
+import { ART9_CONDITIONS, describeArt10, describeSchedule1 } from "@/lib/dpa2018/schedule-1";
 import { AutomatedDecisions } from "@/components/AutomatedDecisions";
 import { linkedUseCasesOf } from "@/services/automated-decisions";
 
@@ -108,8 +112,10 @@ export default async function ActivityPage({
           <p className="max-w-prose text-xs text-red-900">
             The red items are unqualified Article 30 requirements, or processing
             the record describes as something the law does not allow — a solely
-            automated decision Article 22B forbids, or further processing on a
-            route Article 8A(4) closes. Retention and security measures are
+            automated decision Article 22B forbids, further processing on a
+            route Article 8A(4) closes, or special category or criminal offence
+            data with no condition, or with a Schedule 1 condition no current
+            appropriate policy document covers. Retention and security measures are
             qualified by “where possible”, so they are reported without being
             called a breach.
           </p>
@@ -175,18 +181,21 @@ export default async function ActivityPage({
             publicAuthority={loaded.publicAuthority}
             outsidePublicTasks={activity.outsidePublicTasks}
           />
-          <Area
-            label="Categories of data subject"
+          <CategoryPicker
             name="subjectCategories"
-            hint="Article 30(1)(c) — staff, audience members, contributors…"
-            defaultValue={(activity.subjectCategories ?? []).join("\n")}
+            title="Categories of data subject"
+            hint="Article 30(1)(c)"
+            catalogue={SUBJECT_CATEGORIES}
+            values={activity.subjectCategories ?? []}
           />
-          <Area
-            label="Categories of personal data"
+          <CategoryPicker
             name="dataCategories"
-            hint="Article 30(1)(c) — contact details, viewing history, health…"
-            defaultValue={(activity.dataCategories ?? []).join("\n")}
+            title="Categories of personal data"
+            hint="Article 30(1)(c)"
+            catalogue={DATA_CATEGORIES}
+            values={activity.dataCategories ?? []}
           />
+          <SpecialCategoryFields record={activity} />
           <Area
             label="Categories of recipient"
             name="recipients"
@@ -292,6 +301,31 @@ export default async function ActivityPage({
           {activity.lawfulBasis ? <Read label="Note on the basis" value={activity.lawfulBasis} /> : null}
           <Read label="Data subjects" value={(activity.subjectCategories ?? []).join(" · ")} />
           <Read label="Personal data" value={(activity.dataCategories ?? []).join(" · ")} />
+          <Read
+            label="Special category"
+            value={
+              activity.specialCategory === null
+                ? null
+                : !activity.specialCategory
+                  ? "None"
+                  : [
+                      activity.art9Condition ? ART9_CONDITIONS[activity.art9Condition].point : "No Article 9(2) condition chosen",
+                      activity.schedule1Condition ? describeSchedule1(activity.schedule1Condition) : "",
+                    ].filter(Boolean).join(" — ")
+            }
+          />
+          <Read
+            label="Criminal offence"
+            value={
+              activity.criminalOffence === null
+                ? null
+                : !activity.criminalOffence
+                  ? "None"
+                  : activity.art10Condition
+                    ? describeArt10(activity.art10Condition)
+                    : "No Article 10 condition chosen"
+            }
+          />
           <Read label="Recipients" value={(activity.recipients ?? []).join(" · ")} />
           <Read label="Transfers" value={transfersText.replace(/\n/g, " · ")} />
           <Read label="Retention" value={activity.retention} />

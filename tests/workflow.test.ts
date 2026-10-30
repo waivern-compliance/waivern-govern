@@ -108,6 +108,7 @@ const BASE_DPIA = {
   subject_groups: "Signed-in audience.",
   children_likely: false,
   dpo_consulted: "no_dpo",
+  criminal_offence: false,
   volume: 100000,
   retention: "Thirteen months.",
   necessity: "Required for ranking.",
@@ -218,7 +219,7 @@ describe("opening approvals", () => {
       ...BASE_DPIA,
       data_categories: ["viewing_history", "health"],
       special_category: true,
-      special_condition: "Article 9(2)(a) explicit consent.",
+      art9_condition: "a",
       likelihood: "remote",
       impact: "minimal",
     });
@@ -629,7 +630,7 @@ describe("the data protection officer's stage", () => {
     ...BASE_DPIA,
     data_categories: ["viewing_history", "health"],
     special_category: true,
-    special_condition: "Article 9(2)(h), Schedule 1 paragraph 2.",
+    art9_condition: "h",
     likelihood: "remote",
     impact: "minimal",
   };

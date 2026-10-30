@@ -75,6 +75,8 @@ export const recordType = pgEnum("record_type", [
   // Added with the electronic marketing register.
   "marketing_activity",
   "marketing_decision",
+  // Added with the appropriate policy document register.
+  "policy_document",
 ]);
 
 /**

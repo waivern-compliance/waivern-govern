@@ -21,6 +21,14 @@ import {
 import { ADM_GAP_WORDS, admGaps, type AdmGap } from "@/lib/gdpr/automated-decisions";
 import { barredBasesFor } from "@/lib/dpa2018/public-authority";
 import {
+  CONDITION_GAP_WORDS,
+  HARD_CONDITION_GAPS,
+  cleanSpecialCategory,
+  conditionGaps,
+  type ConditionGap,
+  type PolicyCoverage,
+} from "@/lib/dpa2018/schedule-1";
+import {
   FURTHER_PROCESSING_GAP_WORDS,
   FurtherProcessingRefused,
   cleanFurtherProcessing,
@@ -28,6 +36,7 @@ import {
   type FurtherProcessingGap,
 } from "@/lib/gdpr/further-processing";
 import { needingSafeguards } from "./countries";
+import { policyCoverage } from "./policy-documents";
 import type { Actor } from "./templates";
 import { assertEntityIn, assertMemberOf, assertRecordIn } from "./tenancy-guards";
 
@@ -59,6 +68,7 @@ export type Article30Gap =
   | "children_no_dpia"
   | "children_dpia_unanswered"
   | "public_authority_legitimate_interests"
+  | ConditionGap
   | "no_owner"
   | "review_overdue";
 
@@ -79,6 +89,7 @@ export const GAP_WORDS: Record<Article30Gap, string> = {
   children_dpia_unanswered: "Likely accessed by children; the DPIA does not say how the children's higher protection matters were taken into account",
   public_authority_legitimate_interests:
     "Public authority relying on legitimate interests or recognised legitimate interests for its tasks (Article 6(1))",
+  ...CONDITION_GAP_WORDS,
   no_owner: "No named owner",
   review_overdue: "Review overdue",
 };
@@ -109,6 +120,7 @@ export const HARD_GAPS: Article30Gap[] = [
   "adm_special_no_condition",
   "further_route_closed",
   "public_authority_legitimate_interests",
+  ...HARD_CONDITION_GAPS,
 ];
 
 const EMPTY = (a: unknown[] | null | undefined) => !a || a.length === 0;
@@ -139,6 +151,12 @@ export function article30Gaps(
     childrenDpia?: ChildrenDpiaState;
     /** Whether the activity's entity is a public authority (DPA 2018 s.7). */
     publicAuthority?: boolean;
+    /**
+     * What the current appropriate policy documents cover, from
+     * `policyCoverage`. Not supplied, the policy document gaps are not
+     * reported.
+     */
+    policyCoverage?: readonly PolicyCoverage[];
   } = {},
 ): Article30Gap[] {
   const { childrenDpia } = context;
@@ -189,6 +207,9 @@ export function article30Gaps(
   ) {
     gaps.push("public_authority_legitimate_interests");
   }
+  // Articles 9 and 10 with Schedule 1: the conditions, the appropriate policy
+  // document most of them need, and what paragraph 41 adds to the record.
+  gaps.push(...conditionGaps(activity, context.policyCoverage));
   if (activity.childrenLikely && childrenDpia !== undefined) {
     if (childrenDpia === "none") gaps.push("children_no_dpia");
     else if (childrenDpia === "unanswered") gaps.push("children_dpia_unanswered");
@@ -329,12 +350,14 @@ export async function listActivities(
       basesByActivity(organisationId),
       childrenDpiaStates(organisationId),
     ]);
+    const coverage = await policyCoverage(organisationId);
 
     return rows.map(({ activity, entityName, ownerEmail, publicAuthority }) => {
       const gaps = article30Gaps(activity, needsSafeguards, {
         originalConsent: originalConsentOf(activity, bases),
         childrenDpia: children.get(activity.id) ?? "none",
         publicAuthority,
+        policyCoverage: coverage,
       });
       return {
         activity,
@@ -367,7 +390,7 @@ export async function loadActivity(activityId: string, organisationId: string) {
       );
     if (!row) return null;
 
-    const [needsSafeguards, related, bases, children] = await Promise.all([
+    const [needsSafeguards, related, bases, children, coverage] = await Promise.all([
       needingSafeguards(organisationId, "uk"),
       db
         .select({ assessment: assessments, kind: templates.kind })
@@ -383,6 +406,7 @@ export async function loadActivity(activityId: string, organisationId: string) {
         .orderBy(desc(assessments.createdAt)),
       basesByActivity(organisationId),
       childrenDpiaStates(organisationId),
+      policyCoverage(organisationId),
     ]);
 
     const original = row.activity.originalActivityId
@@ -397,6 +421,7 @@ export async function loadActivity(activityId: string, organisationId: string) {
       originalConsent,
       childrenDpia: children.get(activityId) ?? "none",
       publicAuthority: row.publicAuthority,
+      policyCoverage: coverage,
     });
     return {
       ...row,
@@ -489,6 +514,16 @@ export async function createActivity(input: {
   });
 }
 
+/** The Article 9 and 10 answers, kept in the audit chain when they change. */
+const conditionsOf = (a: Activity) => ({
+  specialCategory: a.specialCategory,
+  art9Condition: a.art9Condition,
+  schedule1Condition: a.schedule1Condition,
+  criminalOffence: a.criminalOffence,
+  art10Condition: a.art10Condition,
+  retentionFollowsPolicy: a.retentionFollowsPolicy,
+});
+
 export async function updateActivity(input: {
   activityId: string;
   organisationId: string;
@@ -512,6 +547,13 @@ export async function updateActivity(input: {
     reviewDueAt: Date | null;
     childrenLikely: boolean | null;
     outsidePublicTasks: boolean;
+    specialCategory: boolean | null;
+    art9Condition: string | null;
+    schedule1Condition: string | null;
+    criminalOffence: boolean | null;
+    art10Condition: string | null;
+    retentionFollowsPolicy: boolean | null;
+    retentionPolicyNote: string | null;
   }>;
   actor: Actor;
 }) {
@@ -532,7 +574,33 @@ export async function updateActivity(input: {
         );
       if (!before) throw new Error("No such processing activity");
 
-      const { lawfulBases, recognisedCondition, ...rest } = input.changes;
+      const {
+        lawfulBases,
+        recognisedCondition,
+        specialCategory,
+        art9Condition,
+        schedule1Condition,
+        criminalOffence,
+        art10Condition,
+        retentionFollowsPolicy,
+        retentionPolicyNote,
+        ...rest
+      } = input.changes;
+      const conditionsGiven = [
+        specialCategory, art9Condition, schedule1Condition, criminalOffence, art10Condition, retentionFollowsPolicy, retentionPolicyNote,
+      ].some((v) => v !== undefined);
+      const pick = <T,>(given: T | undefined, stored: T) => (given !== undefined ? given : stored);
+      const conditions = conditionsGiven
+        ? cleanSpecialCategory({
+            specialCategory: pick(specialCategory, before.specialCategory),
+            art9Condition: pick(art9Condition, before.art9Condition),
+            schedule1Condition: pick(schedule1Condition, before.schedule1Condition),
+            criminalOffence: pick(criminalOffence, before.criminalOffence),
+            art10Condition: pick(art10Condition, before.art10Condition),
+            retentionFollowsPolicy: pick(retentionFollowsPolicy, before.retentionFollowsPolicy),
+            retentionPolicyNote: pick(retentionPolicyNote, before.retentionPolicyNote),
+          })
+        : null;
       const bases =
         lawfulBases !== undefined || recognisedCondition !== undefined
           ? cleanLawfulBases(
@@ -543,7 +611,7 @@ export async function updateActivity(input: {
 
       const [after] = await tx
         .update(processingActivities)
-        .set({ ...rest, ...bases, updatedAt: new Date() })
+        .set({ ...rest, ...bases, ...conditions, updatedAt: new Date() })
         .where(eq(processingActivities.id, input.activityId))
         .returning();
 
@@ -560,10 +628,12 @@ export async function updateActivity(input: {
           // The basis is the field a regulator asks about, so its change is
           // kept in the chain, not only the fact that something changed.
           ...("lawfulBases" in bases ? { lawfulBases: before.lawfulBases, recognisedCondition: before.recognisedCondition } : {}),
+          ...(conditions ? conditionsOf(before) : {}),
         },
         after: {
           name: after.name,
           ...("lawfulBases" in bases ? { lawfulBases: after.lawfulBases, recognisedCondition: after.recognisedCondition } : {}),
+          ...(conditions ? conditionsOf(after) : {}),
         },
       });
 
