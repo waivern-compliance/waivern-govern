@@ -26,6 +26,13 @@ import {
   type Right,
 } from "@/lib/dsr/statutory";
 import { requestTimeliness, type Timeliness } from "@/lib/dsr/metrics";
+import {
+  ExemptionRefused,
+  cleanExemption,
+  cleanHealthOpinion,
+  type ExemptionDetail,
+  type HealthOpinion,
+} from "@/lib/dpa2018/exemptions";
 import { BadQuery } from "@/lib/integration/query";
 import { canonicalise } from "./ingest";
 import { monthsEnding } from "./trends";
@@ -584,6 +591,10 @@ export async function recordRequestDecision(input: {
   processingBasis?: ProcessingBasis | null;
   /** For an objection: the processing activity it is about. */
   processingActivityId?: string | null;
+  /** For an exemption: the Schedule 2 or 3 paragraph, from `lib/dpa2018/exemptions.ts`. */
+  exemption?: string | null;
+  /** What that paragraph asks to be recorded; for a `health_opinion`, the opinion. */
+  detail?: ExemptionDetail | Partial<Record<keyof HealthOpinion, unknown>>;
   rationale: string;
   /** When it took effect. Defaults to now; a pause counts from here. */
   effectiveAt?: Date;
@@ -612,6 +623,20 @@ export async function recordRequestDecision(input: {
   if (processingActivityId && input.kind !== "objection") {
     throw new RequestRefused("Only an objection is recorded against a processing activity.");
   }
+  if (input.exemption && input.kind !== "exemption") {
+    throw new RequestRefused("Only an exemption names a Schedule 2 or 3 paragraph.");
+  }
+  // The paragraphs' own rules, worded for the person deciding.
+  const checked = <T,>(work: () => T): T => {
+    try {
+      return work();
+    } catch (error) {
+      if (error instanceof ExemptionRefused) throw new RequestRefused(error.message);
+      throw error;
+    }
+  };
+  const opinion =
+    input.kind === "health_opinion" ? checked(() => cleanHealthOpinion((input.detail ?? {}) as Record<string, unknown>, new Date())) : null;
 
   return withOrganisation(input.organisationId, async () => {
     if (processingActivityId) await assertRecordIn(input.organisationId, "processing_activity", processingActivityId);
@@ -624,6 +649,22 @@ export async function recordRequestDecision(input: {
         .select()
         .from(dataSubjectRequestDecisions)
         .where(eq(dataSubjectRequestDecisions.requestId, input.requestId));
+
+      const exemption =
+        input.kind === "exemption"
+          ? checked(() =>
+              cleanExemption({
+                exemption: input.exemption,
+                right: input.right ?? null,
+                requestRights: request.rights,
+                detail: (input.detail ?? {}) as ExemptionDetail,
+                opinions: new Map(
+                  earlier.filter((d) => d.kind === "health_opinion").map((d) => [d.id, d.detail as HealthOpinion]),
+                ),
+                reliedOn: effectiveAt,
+              }),
+            )
+          : null;
 
       if (input.kind === "extension" && outcome !== "not_applicable" && outcome !== "refused") {
         if (isExtended(earlier)) throw new RequestRefused("The time has already been extended. Article 12(3) allows one extension of up to two months.");
@@ -670,9 +711,11 @@ export async function recordRequestDecision(input: {
           kind: input.kind,
           outcome,
           right: input.right ?? null,
-          statutoryBasis: input.statutoryBasis ?? null,
+          statutoryBasis: exemption?.statutoryBasis ?? (opinion ? "DPA 2018 Sch. 3 paras 2, 5–6" : input.statutoryBasis ?? null),
           processingBasis: input.processingBasis ?? null,
           processingActivityId,
+          exemption: exemption?.exemption ?? null,
+          detail: exemption?.detail ?? opinion ?? {},
           rationale,
           effectiveAt,
           decidedBy: input.actor.actorUserId ?? null,
@@ -709,9 +752,10 @@ export async function recordRequestDecision(input: {
           kind: input.kind,
           outcome,
           right: input.right ?? null,
-          basis: input.statutoryBasis ?? null,
+          basis: row.statutoryBasis,
           processingBasis: input.processingBasis ?? null,
           processingActivity: processingActivityId,
+          ...(row.exemption || opinion ? { exemption: row.exemption, detail: row.detail } : {}),
           effectiveAt: effectiveAt.toISOString(),
           rationale,
         },

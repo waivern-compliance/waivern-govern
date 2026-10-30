@@ -285,6 +285,8 @@ export const dsrDecisionKind = pgEnum("dsr_decision_kind", [
   "portability",
   "automated_decision",
   "recipients_notified",
+  // A health professional's opinion on the serious harm test (DPA 2018 Sch 3 paras 5–6).
+  "health_opinion",
   "other",
 ]);
 
