@@ -243,11 +243,11 @@ function runningClock(dueAt: Date, now: Date, overdueWords = "Past seventy-two h
  *
  * It differs from Article 33 in the one way that matters under pressure: it is
  * not gated on risk. Every personal data breach arising in providing the
- * service goes to the Information Commissioner — since the Data (Use and
+ * service goes to the Information Commission — since the Data (Use and
  * Access) Act 2025, where feasible within seventy-two hours of becoming aware,
  * with reasons if later. Subscribers and users are told without undue delay
  * where the breach is likely to adversely affect their personal data or
- * privacy, unless the Commissioner has accepted that the data was rendered
+ * privacy, unless the Commission has accepted that the data was rendered
  * unintelligible (reg 5A(6)).
  */
 
@@ -268,7 +268,7 @@ export function pecrObligationsFor(input: { discoveredAt: Date }): Obligation[] 
     {
       kind: "pecr_commissioner",
       basis: "PECR reg 5A(2)",
-      what: "Notify the Information Commissioner — every breach in providing the service, whatever the risk",
+      what: "Notify the Information Commission — every breach in providing the service, whatever the risk",
       dueAt: notificationDeadline(input.discoveredAt),
       deadlineWords: "where feasible within seventy-two hours of becoming aware, with reasons if later",
     },

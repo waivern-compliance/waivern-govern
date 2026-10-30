@@ -465,8 +465,8 @@ async function raiseBreachDeadlines(organisationId: string): Promise<number> {
           `${clock.words}. ` +
           (pecr
             ? overdue
-              ? "PECR reg 5A still requires the Information Commissioner to be told, with the reasons for the delay."
-              : "Notify the Information Commissioner under PECR reg 5A. There is no risk test: every breach in providing the service is notified."
+              ? "PECR reg 5A still requires the Information Commission to be told, with the reasons for the delay."
+              : "Notify the Information Commission under PECR reg 5A. There is no risk test: every breach in providing the service is notified."
             : overdue
               ? "Article 33(1) still requires notification, accompanied by the reasons for the delay."
               : "Notify the supervisory authority, or record why Article 33 does not require it."),

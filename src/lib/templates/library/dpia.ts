@@ -22,7 +22,7 @@ import type { TemplateDefinition } from "../schema";
  *
  * `residual_accepted` and `ico_consultation` are read by the AI register's
  * lifecycle gate: a system whose DPIA leaves high risk cannot go live until
- * the ICO has been consulted, because Article 36 requires consultation before
+ * the Information Commission has been consulted, because Article 36 requires consultation before
  * processing starts.
  */
 export const DPIA: TemplateDefinition = {
@@ -45,7 +45,7 @@ export const DPIA: TemplateDefinition = {
           { key: "processors", label: "Which processors act for us here, and under what agreement?", type: "long_text", required: false,
             help: "Name them as they appear on the third-party register, so the agreements can be checked.",
             legalRefs: ["ukgdpr.art28"], evidence: "none" },
-          { key: "lawful_basis", label: "Lawful basis", type: "single_select", required: true, legalRefs: ["ukgdpr.art6"], evidence: "none",
+          { key: "lawful_basis", label: "Lawful basis", type: "single_select", required: true, legalRefs: ["ukgdpr.art6", "uk.dpa2018.s8"], evidence: "none",
             options: [
               { value: "consent", label: "Consent" },
               { value: "contract", label: "Contract" },
@@ -77,11 +77,12 @@ export const DPIA: TemplateDefinition = {
         title: "Data and people",
         questions: [
           { key: "data_categories", label: "Categories of personal data", type: "data_category", required: true, help: "Categories only. This platform does not hold or correlate individuals' data.", legalRefs: ["ukgdpr.art30"], evidence: "none" },
-          { key: "special_category", label: "Does this include special category or criminal offence data?", type: "boolean", required: true, legalRefs: ["ukgdpr.art9"], evidence: "none" },
+          { key: "special_category", label: "Does this include special category or criminal offence data?", type: "boolean", required: true, legalRefs: ["ukgdpr.art9", "ukgdpr.art10"], evidence: "none" },
           { key: "special_condition", label: "Which Article 9 condition applies?", type: "long_text", required: false,
+            help: "The Article 9(2) point, and the Data Protection Act 2018 Schedule 1 condition where that point needs one (such as health or social care, statutory purposes or safeguarding). Most Schedule 1 conditions also need an appropriate policy document. Criminal offence data needs a Schedule 1 condition of its own (Article 10).",
             showWhen: { op: "equals", question: "special_category", value: true },
             requireWhen: { op: "equals", question: "special_category", value: true },
-            legalRefs: ["ukgdpr.art9"], evidence: "none" },
+            legalRefs: ["ukgdpr.art9", "uk.dpa2018.sch1", "uk.dpa2018.sch1.part4"], evidence: "none" },
           { key: "sources_and_flows", label: "Where does the data come from, where does it go, and where is each part processed?", type: "long_text", required: true,
             help: "Map it through each stage — collection, preparation, training, testing, use, monitoring. Processing outside the UK may need a transfer assessment.",
             legalRefs: ["ukgdpr.art35.7", "gds.aiplaybook"], evidence: "optional" },
@@ -105,7 +106,7 @@ export const DPIA: TemplateDefinition = {
           { key: "necessity", label: "Why is this processing necessary to achieve the purpose?", type: "long_text", required: true, legalRefs: ["ukgdpr.art35.7"], evidence: "none" },
           { key: "alternatives", label: "What less intrusive options did you consider, and why were they rejected?", type: "long_text", required: true, legalRefs: ["ukgdpr.art25"], evidence: "none" },
           { key: "transparency", label: "How will people be told about this?", type: "long_text", required: true, legalRefs: ["ukgdpr.art5"], evidence: "none" },
-          { key: "rights_support", label: "How will you support access, erasure, objection and the other rights?", type: "long_text", required: true, legalRefs: [], evidence: "none" },
+          { key: "rights_support", label: "How will you support access, erasure, objection and the other rights?", type: "long_text", required: true, legalRefs: ["ukgdpr.art15", "uk.duaa2025", "uk.dpa2018.sch2", "uk.dpa2018.sch3"], evidence: "none" },
           { key: "views_sought", label: "Whose views did you seek about this processing, and what did they say?", type: "long_text", required: true,
             help: "Including whether the people concerned know it is happening. Where seeking views was not appropriate, say why.",
             legalRefs: ["ukgdpr.art35", "gds.aiplaybook"], evidence: "optional" },
@@ -210,20 +211,20 @@ export const DPIA: TemplateDefinition = {
               { value: "severe", label: "Severe — serious or irreversible harm" },
             ] },
           { key: "measures", label: "What measures will reduce this risk?", type: "long_text", required: true, legalRefs: ["ukgdpr.art32", "ukgdpr.art25"], evidence: "optional" },
-          { key: "residual_accepted", label: "Is residual risk still high after those measures?", type: "boolean", required: true, help: "If yes, prior consultation with the ICO may be required before proceeding.", legalRefs: ["ukgdpr.art36"], evidence: "none" },
+          { key: "residual_accepted", label: "Is residual risk still high after those measures?", type: "boolean", required: true, help: "If yes, prior consultation with the Information Commission may be required before proceeding.", legalRefs: ["ukgdpr.art36"], evidence: "none" },
           { key: "consultation_plan", label: "What is the plan for prior consultation?", type: "long_text", required: false,
             showWhen: { op: "equals", question: "residual_accepted", value: true },
             requireWhen: { op: "equals", question: "residual_accepted", value: true },
             legalRefs: ["ukgdpr.art36"], evidence: "none" },
-          { key: "ico_consultation", label: "Where has prior consultation with the ICO got to?", type: "single_select", required: false,
-            help: "Article 36 requires consultation before the processing starts. The ICO has eight weeks to give written advice, which it can extend by six.",
+          { key: "ico_consultation", label: "Where has prior consultation with the Information Commission got to?", type: "single_select", required: false,
+            help: "Article 36 requires consultation before the processing starts. The Information Commission has eight weeks to give written advice, which it can extend by six.",
             showWhen: { op: "equals", question: "residual_accepted", value: true },
             requireWhen: { op: "equals", question: "residual_accepted", value: true },
             legalRefs: ["ukgdpr.art36"], evidence: "optional",
             options: [
               { value: "not_started", label: "Not yet consulted" },
-              { value: "submitted", label: "Submitted, awaiting the ICO's advice" },
-              { value: "advice_received", label: "The ICO's advice has been received" },
+              { value: "submitted", label: "Submitted, awaiting the Information Commission's advice" },
+              { value: "advice_received", label: "The Information Commission's advice has been received" },
             ] },
         ],
       },

@@ -148,7 +148,7 @@ export const LIA: TemplateDefinition = {
               { value: "some", label: "Some may be", weight: 3 },
               { value: "yes", label: "Yes — children, or people in a position of dependence", weight: 5 },
             ] },
-          { key: "special_category", label: "Does it involve special category or criminal offence data?", type: "single_select", required: true, help: "Article 9 needs a condition of its own; legitimate interests is not one.", legalRefs: ["ukgdpr.art9"], evidence: "none",
+          { key: "special_category", label: "Does it involve special category or criminal offence data?", type: "single_select", required: true, help: "Article 9 needs a condition of its own; legitimate interests is not one.", legalRefs: ["ukgdpr.art9", "ukgdpr.art10"], evidence: "none",
             options: [
               { value: "no", label: "No", weight: 0 },
               { value: "yes", label: "Yes — and an Article 9 condition is identified separately", weight: 4 },

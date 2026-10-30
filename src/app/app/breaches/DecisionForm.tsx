@@ -25,7 +25,7 @@ const KINDS: Array<{ value: string; label: string; basis?: string; note: string 
   },
   {
     value: "pecr_commissioner",
-    label: "The Information Commissioner, under PECR",
+    label: "The Information Commission, under PECR",
     basis: "PECR reg 5A(2)",
     note: "A public communications provider notifies every breach in providing the service, whatever the risk — where feasible within seventy-two hours.",
   },
@@ -33,7 +33,7 @@ const KINDS: Array<{ value: string; label: string; basis?: string; note: string 
     value: "pecr_subscribers",
     label: "The subscribers or users affected, under PECR",
     basis: "PECR reg 5A(3)",
-    note: "Without undue delay where it is likely to adversely affect their personal data or privacy, unless the Commissioner accepts the data was unintelligible (reg 5A(6)).",
+    note: "Without undue delay where it is likely to adversely affect their personal data or privacy, unless the Commission accepts the data was unintelligible (reg 5A(6)).",
   },
   {
     value: "insurer",
@@ -194,7 +194,7 @@ export function DecisionForm({ breachId, pecr = false }: { breachId: string; pec
             text="Reasons for any delay"
             hint={
               kind === "pecr_commissioner"
-                ? "Reg 5A requires these where the Commissioner is told after seventy-two hours."
+                ? "Reg 5A requires these where the Commission is told after seventy-two hours."
                 : "Article 33(1) requires these to accompany a notification made after seventy-two hours."
             }
           />

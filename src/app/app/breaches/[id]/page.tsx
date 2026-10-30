@@ -184,7 +184,7 @@ export default async function BreachPage({
                 {breach.pecrServiceBreach === null
                   ? ", and whether this breach arose in providing the service is not yet answered, so reg 5A is shown as applying."
                   : ", and this breach arose in providing the service."}{" "}
-                Unlike Article 33 there is no risk test: the Commissioner is told of every such breach. Where
+                Unlike Article 33 there is no risk test: the Information Commission is told of every such breach. Where
                 reg 5A applies, UK GDPR Article 95 means Article 33 does not add a second duty to notify;
                 if that is your position, record the Article 33 decision as not required, citing Article 95.
               </p>
@@ -307,7 +307,7 @@ export default async function BreachPage({
             <Tri
               label="Did it arise in providing the public communications service?"
               name="pecrServiceBreach"
-              hint="If so, PECR reg 5A applies: the Commissioner is told of it whatever the risk."
+              hint="If so, PECR reg 5A applies: the Information Commission is told of it whatever the risk."
               value={breach.pecrServiceBreach}
             />
           ) : null}
