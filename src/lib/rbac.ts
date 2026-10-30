@@ -225,6 +225,17 @@ export function mayConfigureRequests(grants: readonly Grant[]): boolean {
 }
 
 /**
+ * May this person set the Consent Analyser and its API token?
+ *
+ * Somebody who configures the whole organisation: an owner or a privacy
+ * administrator with an organisation-wide grant. The token spends its owner's
+ * scan credits, so it is not for a grant confined to one entity.
+ */
+export function mayConfigureAnalyser(grants: readonly Grant[]): boolean {
+  return grants.some((g) => g.scope === "organisation" && ROLE_CAPABILITIES[g.role].includes("workflow.configure"));
+}
+
+/**
  * May this person record where the organisation stands against NIST AI RMF?
  *
  * The people who do and direct AI governance — AI governance, its lead, a

@@ -462,7 +462,9 @@ export async function ingestAnalyserReport(input: {
         analyserRunId: summary.runId,
         targetUrl: summary.targetUrl,
         mode: summary.mode,
-        region: summary.probeLocation,
+        // A run started from here already knows its region; a report's own probe
+        // location is used only where it says one.
+        ...(summary.probeLocation ? { region: summary.probeLocation } : {}),
         summary: summary as unknown as Record<string, unknown>,
         evidenceId: ev.id,
         observed: observed.length,
@@ -868,6 +870,14 @@ export async function loadProperty(propertyId: string, organisationId: string) {
         sql`select id, name from supplier where organisation_id = ${organisationId}`,
       ),
     ]);
+    // A scan taken in before its checks were counted is summarised again from
+    // the report kept as evidence, so the latest one reads like any other.
+    const latest = scans.find((s) => s.status === "done");
+    if (latest?.evidenceId && !("checks" in latest.summary)) {
+      const [ev] = await db.select({ payload: evidence.payload }).from(evidence).where(eq(evidence.id, latest.evidenceId));
+      const valid = ev ? validateReport(ev.payload) : null;
+      if (valid?.ok) latest.summary = { ...latest.summary, ...reportSummary(valid.report) };
+    }
     const supplierName = new Map(supplierNames.map((s) => [s.id, s.name]));
     const loaded = items.map((i) =>
       assembleItem(i, decisions.get(i.id) ?? [], row.property, i.supplierId ? supplierName.get(i.supplierId) ?? null : null),

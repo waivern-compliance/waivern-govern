@@ -29,6 +29,7 @@ import { objectionCounts, objectionReviewThreshold, requestsNeedingAttention } f
 import { pruneIntakeAttempts } from "./dsr-intake";
 import { complaintsNeedingAttention } from "./complaints";
 import { propertiesDueForRescan } from "./storage-inventory";
+import { finishRunningScans } from "./consent-analyser";
 import { objectionReviewDue } from "@/lib/dsr/statutory";
 import { EXPIRING_WITHIN_LABEL, dpasNeedingAttention } from "./third-party";
 import { appetitesDueForReview } from "./risk-policy";
@@ -68,6 +69,7 @@ export type SweepResult = {
   requestDeadlinesRaised: number;
   complaintDeadlinesRaised: number;
   rescansRaised: number;
+  consentScansFinished: number;
   objectionReviewsRaised: number;
   intakeAttemptsForgotten: number;
   lapsedReviewsRaised: number;
@@ -861,6 +863,9 @@ export async function sweepOrganisation(organisationId: string): Promise<SweepRe
     breachDeadlinesRaised: await raiseBreachDeadlines(organisationId),
     requestDeadlinesRaised: await raiseRequestDeadlines(organisationId),
     complaintDeadlinesRaised: await raiseComplaintDeadlines(organisationId),
+    // Scans nobody stayed to watch: take their reports in, or give up on them.
+    // Before rescans, so a scan finished here moves the next due date on.
+    consentScansFinished: await finishRunningScans(organisationId),
     rescansRaised: await raiseRescans(organisationId),
     objectionReviewsRaised: await raiseObjectionReviews(organisationId),
     // Kept a day for rate limiting, then forgotten.

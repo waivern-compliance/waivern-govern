@@ -262,20 +262,79 @@ export function failingChecks(report: AnalyserReport) {
     }));
 }
 
+/**
+ * Where the analyser's browser was when it scanned.
+ *
+ * 2.0 reports give a short code ("eu"); 2.1 an object with the country. The UK
+ * is recorded as "uk", like the region a run is started with, so the two read
+ * the same; anywhere else by its country's name.
+ */
+function probeLocationOf(v: unknown): string | null {
+  if (isObject(v)) {
+    if (text(v.country_code)?.toUpperCase() === "GB") return "uk";
+    return text(v.country) ?? text(v.country_code);
+  }
+  return text(v);
+}
+
+export type CheckToLookAt = {
+  itemId: string;
+  result: "FAIL" | "PARTIAL" | "MANUAL";
+  description: string;
+  notes: string | null;
+  recommendation: string | null;
+};
+
+/**
+ * How the run's checks came out, counted from the checklist itself, and the
+ * ones a person has to do something about: those that failed, and those the
+ * analyser could not decide and left to be checked by hand.
+ */
+export function checkOutcome(report: AnalyserReport) {
+  const count = (r: string) => report.checklist.filter((c) => c.result === r).length;
+  const toLookAt: CheckToLookAt[] = report.checklist
+    .filter((c) => c.result === "FAIL" || c.result === "PARTIAL" || c.result === "MANUAL")
+    .map((c) => ({
+      itemId: text(c.item_id) ?? "?",
+      result: c.result as CheckToLookAt["result"],
+      description: text(c.description) ?? "Check",
+      notes: text(c.notes),
+      recommendation: text(c.recommendation),
+    }));
+  return {
+    passed: count("PASS"),
+    failed: count("FAIL") + count("PARTIAL"),
+    manual: count("MANUAL"),
+    info: count("INFO"),
+    toLookAt,
+  };
+}
+
 /** The headline facts of a run, for the scan record. */
 export function reportSummary(report: AnalyserReport) {
   const m = report.metadata;
   const s = report.summary;
+  const seen = observedStorage(report);
   return {
     runId: text(report.run_id),
     targetUrl: text(m.target_url),
-    testedAt: text(m.test_date) ?? text(report.generated_at),
+    // The full timestamp where there is one; test_date alone is midnight.
+    testedAt: text(report.generated_at) ?? text(m.test_date),
     cmp: text(m.cmp_detected),
     mode: text(m.analysis_mode),
-    probeLocation: text(m.probe_location),
+    probeLocation: probeLocationOf(m.probe_location),
     overall: text(s.overall),
     passCount: typeof s.pass_count === "number" ? s.pass_count : null,
     failCount: typeof s.fail_count === "number" ? s.fail_count : null,
     aiClassified: aiCategories(report).size > 0,
+    checks: checkOutcome(report),
+    seen: {
+      total: seen.length,
+      beforeConsent: seen.filter((o) => o.seenBeforeConsent).length,
+      afterReject: seen.filter((o) => o.seenAfterReject).length,
+      thirdParty: seen.filter((o) => o.party === "third").length,
+    },
   };
 }
+
+export type ScanSummary = ReturnType<typeof reportSummary>;

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireCapability, requireSession } from "@/lib/session";
-import { can } from "@/lib/rbac";
+import { can, mayConfigureAnalyser } from "@/lib/rbac";
 import type { ConditionKey, StorageBasis } from "@/lib/pecr/statutory";
 import { refusable, type EditResult } from "@/lib/edit-result";
 import type { RequestResult } from "../requests/actions";
@@ -19,6 +19,7 @@ import {
   updateProperty,
   ITEM_KINDS,
 } from "@/services/storage-inventory";
+import { checkPropertyScan, setAnalyserSettings, startPropertyScan, type ScanProgress } from "@/services/consent-analyser";
 
 const text = (v: FormDataEntryValue | null) => String(v ?? "").trim();
 
@@ -216,4 +217,50 @@ export async function decideBasisAction(itemId: string, propertyId: string, _pre
   }, "Recorded.");
   refresh(propertyId);
   return result;
+}
+
+export async function analyserSettingsAction(_prev: RequestResult, formData: FormData): Promise<RequestResult> {
+  const active = await requireSession();
+  if (!mayConfigureAnalyser(active.membership.grants)) {
+    return { ok: false, message: "Only somebody who configures the whole organisation can set the analyser." };
+  }
+  const token = text(formData.get("token"));
+  const remove = formData.get("removeToken") === "on";
+  const result = await refused(async () => {
+    await setAnalyserSettings({
+      organisationId: active.membership.organisationId,
+      url: text(formData.get("url")),
+      token: remove ? null : token || undefined,
+      actor: actorOf(active),
+    });
+  }, remove ? "Saved. The token is removed." : token ? "Saved. The analyser accepted the token." : "Saved.");
+  refresh();
+  return result;
+}
+
+export async function startScanAction(propertyId: string): Promise<RequestResult> {
+  const active = await writerFor({ property: propertyId });
+  if (!active) return NOT_YOURS;
+  let note: string | null = null;
+  const result = await refused(async () => {
+    const scan = await startPropertyScan({ propertyId, organisationId: active.membership.organisationId, actor: actorOf(active) });
+    note = scan.note;
+  }, "Scan started.");
+  refresh(propertyId);
+  return result?.ok && note ? { ok: true, message: `Scan started. ${note}` } : result;
+}
+
+/** Polled by the page while a scan runs. Reading is enough to ask: it changes nothing but the scan's own progress. */
+export async function checkScanAction(scanId: string, propertyId: string): Promise<ScanProgress> {
+  const active = await requireSession();
+  const entityId = await inventoryEntity({ property: propertyId }, active.membership.organisationId);
+  if (!entityId || !can(active.membership.grants, "record.read", entityId)) return { state: "failed", reason: "Not yours to see." };
+  const progress = await checkPropertyScan({
+    scanId,
+    propertyId,
+    organisationId: active.membership.organisationId,
+    actor: actorOf(active),
+  });
+  if (progress.state !== "running") refresh(propertyId);
+  return progress;
 }

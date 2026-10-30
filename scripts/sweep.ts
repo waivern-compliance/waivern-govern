@@ -30,6 +30,7 @@ async function main() {
       r.requestDeadlinesRaised +
       r.complaintDeadlinesRaised +
       r.rescansRaised +
+      r.consentScansFinished +
       r.objectionReviewsRaised +
       r.lapsedReviewsRaised +
       r.aiReviewsRaised +
@@ -56,6 +57,7 @@ async function main() {
           r.requestDeadlinesRaised && `${r.requestDeadlinesRaised} data subject request deadline(s) flagged`,
           r.complaintDeadlinesRaised && `${r.complaintDeadlinesRaised} complaint deadline(s) flagged`,
           r.rescansRaised && `${r.rescansRaised} cookie rescan(s) due`,
+          r.consentScansFinished && `${r.consentScansFinished} consent scan(s) finished`,
           r.objectionReviewsRaised && `${r.objectionReviewsRaised} LIA review(s) raised by objections`,
           r.lapsedReviewsRaised && `${r.lapsedReviewsRaised} assessment(s) past review`,
           r.aiReviewsRaised && `${r.aiReviewsRaised} AI system(s) past review`,

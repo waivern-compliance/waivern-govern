@@ -778,6 +778,14 @@ Checks that failed become findings, as from any scanner. The analyser's checks p
 
 A report that was blocked by the site's bot protection is refused: it saw a block page, not the site. A report for another address is refused unless you confirm it belongs here.
 
+### Scanning from here
+
+An owner or privacy administrator can save a Consent Analyser API token on the cookies page. The analyser checks it before it is saved; it is stored encrypted, and only its last four characters are ever shown. Each scan is charged to whoever owns the token on the analyser, and is private to them there.
+
+With a token set, each website's page has a Scan now button. It runs the analyser from the UK where the analyser can, otherwise from the EU, in GDPR mode with AI classification, and usually takes one to five minutes. The page follows the scan while it is open; if you leave, the hourly scheduler finishes it. The report is then taken in exactly as an uploaded one would be.
+
+A scan that fails, is cancelled, or has not finished after fifteen minutes is recorded as failed with the reason, and nothing changes in the inventory. One scan runs at a time for each website.
+
 ### Recording the basis
 
 For each item, choose the basis it relies on and say why. The form shows what that paragraph needs, and you confirm each condition. The scanner's category is shown as a suggestion only: the analyser's own rules put Google Analytics under advertising, and a cookie called analytics that is shared with an advertiser is not statistics.
@@ -800,7 +808,7 @@ It will not decide a basis from a scan, change the website or its consent banner
 
 **See also:** Scan findings · Third parties and processor agreements (Article 28) · Exports
 
-<sub>Also searchable as: cookie, cookies, pecr, regulation 6, schedule a1, storage, access, terminal equipment, analytics, statistics, preferences, functional, strictly necessary, consent, opt out, object, duaa, data use and access act, consent analyser, scan, pixel, local storage, sdk, cookie notice, rescan, reminder, gaps</sub>
+<sub>Also searchable as: cookie, cookies, pecr, regulation 6, schedule a1, storage, access, terminal equipment, analytics, statistics, preferences, functional, strictly necessary, consent, opt out, object, duaa, data use and access act, consent analyser, scan, pixel, local storage, sdk, cookie notice, rescan, reminder, gaps, scan now, api token, credits</sub>
 
 ## The AI register
 

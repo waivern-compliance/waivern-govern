@@ -7,17 +7,22 @@ import { BASES, suggestedBasis } from "@/lib/pecr/statutory";
 import { can } from "@/lib/rbac";
 import { savedKey } from "@/lib/saved-key";
 import { getActiveSession } from "@/lib/session";
+import { analyserSettings } from "@/services/consent-analyser";
 import { loadProperty, ITEM_KINDS } from "@/services/storage-inventory";
 import { ActionForm } from "../../requests/ActionForm";
 import { Label, inputClass, stamp } from "../../requests/fields";
 import {
   addItemAction,
+  checkScanAction,
   decideBasisAction,
   decideProposalAction,
   updateItemAction,
+  startScanAction,
   updatePropertyAction,
   uploadReportAction,
 } from "../actions";
+import { ScanStatus } from "../ScanStatus";
+import { LatestScan, ScanHistory } from "../ScanReport";
 import { BasisForm } from "../BasisForm";
 import { UploadReport } from "../UploadReport";
 
@@ -29,6 +34,36 @@ const KIND_LABEL: Record<string, string> = {
   sdk: "App SDK",
   other: "Other",
 };
+
+/**
+ * What the last scan saw of an item, and whether that is a problem for the
+ * basis recorded. Strictly necessary items may be set before any choice and
+ * stay after Reject; anything else should do neither.
+ */
+function sightings(o: { seenBeforeConsent: boolean | null; seenAfterReject: boolean | null }, basis: string | null) {
+  const exempt = basis === "strictly_necessary";
+  const out: Array<{ text: string; problem: boolean }> = [];
+  if (o.seenBeforeConsent) out.push({ text: "set before any choice", problem: !exempt });
+  if (o.seenAfterReject) out.push({ text: "still there after Reject", problem: !exempt });
+  if (out.length === 0 && o.seenBeforeConsent === false) out.push({ text: "only after Accept", problem: false });
+  return out;
+}
+
+function Sightings({ list, note }: { list: ReturnType<typeof sightings>; note?: string }) {
+  if (list.length === 0) return null;
+  return (
+    <span className="block text-xs">
+      <span className="text-ink-soft">Last scan: </span>
+      {list.map((x, i) => (
+        <span key={x.text} className={x.problem ? "text-red-800" : "text-ink-soft"}>
+          {i > 0 ? "; " : ""}
+          {x.text}
+        </span>
+      ))}
+      {note ? <span className="text-ink-soft"> ({note})</span> : null}
+    </span>
+  );
+}
 
 const save =
   "rounded bg-brand px-4 py-2 text-sm font-medium text-white hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand";
@@ -44,6 +79,9 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
     return <NotPermitted what={`${property.reference} is a website's cookie inventory, and`} organisationName={active.membership.organisationName} />;
   }
   const mayWrite = can(active.membership.grants, "record.write", property.entityId);
+  const analyser = await analyserSettings(active.membership.organisationId);
+  const running = scans.find((s) => s.status === "running");
+  const latestScan = scans.find((s) => s.status === "done") ?? null;
   const inUse = items.filter((i) => i.status === "active");
   const retired = items.filter((i) => i.status !== "active");
   const rescan = rescanState(rescanDueAt);
@@ -86,63 +124,19 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
         <p className="text-sm text-emerald-900">Every item in use has a basis, and nothing is missing from the record.</p>
       ) : null}
 
-      <EditForm
-        key={savedKey(property)}
-        action={updatePropertyAction.bind(null, property.id)}
-        className="space-y-3 rounded border border-line bg-surface p-5"
-      >
-        <h2 className="text-sm font-semibold">What people are told, and how they object</h2>
-        <p className="max-w-prose text-xs text-ink-soft">
-          Schedule A1 paragraphs 5 and 6 let statistics and appearance cookies be set without consent only
-          if people get clear and comprehensive information and a simple, free way to object. Record both
-          once here; every such cookie on this site is checked against them.
-        </p>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="block space-y-1">
-            <Label text="Name" />
-            <input name="name" defaultValue={property.name} disabled={!mayWrite} className={inputClass} />
-          </label>
-          <label className="block space-y-1">
-            <Label text="Address" />
-            <input name="url" defaultValue={property.url} disabled={!mayWrite} className={inputClass} />
-          </label>
-        </div>
-        <label className="block space-y-1">
-          <Label text="Where people are told" hint="The cookie notice's address." />
-          <input name="informationUrl" type="url" defaultValue={property.informationUrl ?? ""} disabled={!mayWrite} className={inputClass} />
-        </label>
-        <label className="block space-y-1">
-          <Label text="How people object" hint="For example: the analytics switch in Cookie settings, linked from every page footer." />
-          <textarea name="objectionMechanism" rows={2} defaultValue={property.objectionMechanism ?? ""} disabled={!mayWrite} className={inputClass} />
-        </label>
-        <label className="block space-y-1">
-          <Label text="Scan it again" hint="A reminder is raised a fortnight before each scan is due. Sites change without anyone telling you." />
-          <select
-            name="rescanIntervalMonths"
-            defaultValue={property.rescanIntervalMonths ? String(property.rescanIntervalMonths) : ""}
-            disabled={!mayWrite}
-            className={inputClass}
-          >
-            {RESCAN_INTERVALS.map((m) => (
-              <option key={m} value={m}>{m === 1 ? "Every month" : m === 12 ? "Every year" : `Every ${m} months`}</option>
-            ))}
-            <option value="">No reminders</option>
-          </select>
-        </label>
-        {mayWrite ? <button type="submit" className={save}>Save</button> : null}
-      </EditForm>
-
-      {mayWrite ? (
-        <section className="space-y-3 rounded border border-line bg-surface p-5">
-          <h2 className="text-sm font-semibold">Upload a Consent Analyser report</h2>
-          <p className="max-w-prose text-xs text-ink-soft">
-            Download the report as JSON from the Waivern Consent Analyser and choose it here. Screenshots
-            and cookie values are not kept. New items, and items no longer seen, wait below for you to
-            review; failing checks are added to Findings.
-          </p>
-          <UploadReport action={uploadReportAction.bind(null, property.id)} />
-        </section>
-      ) : null}
+      <LatestScan scan={latestScan}>
+        {running ? (
+          <div className="w-full">
+            <ScanStatus key={running.id} check={checkScanAction.bind(null, running.id, property.id)} startedAt={running.startedAt.toISOString()} />
+          </div>
+        ) : property.kind === "website" && mayWrite && analyser.configured ? (
+          <ActionForm action={startScanAction.bind(null, property.id)} submit={latestScan ? "Scan again now" : "Scan now"} pendingLabel="Starting…">
+            <span className="block max-w-xs text-[11px] text-ink-soft">
+              From the UK where the analyser can. Uses one of the token owner&apos;s scan credits; takes one to five minutes.
+            </span>
+          </ActionForm>
+        ) : null}
+      </LatestScan>
 
       {proposals.length > 0 ? (
         <section className="space-y-2">
@@ -164,9 +158,9 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
                     <span className="font-mono text-[11px] text-ink-soft">
                       {o.domain ? String(o.domain) : "domain unknown"}
                       {o.party ? ` · ${o.party} party` : ""}
-                      {o.category ? ` · scanner says ${String(o.category).replace(/_/g, " ")}` : ""}
-                      {o.seenBeforeConsent ? " · seen before consent" : ""}
-                      {o.seenAfterReject ? " · seen after Reject" : ""}
+                      {o.category ? ` · the analyser calls it ${String(o.category).replace(/_/g, " ")}` : ""}
+                      {o.seenBeforeConsent ? " · set before any choice" : ""}
+                      {o.seenAfterReject ? " · still there after Reject" : ""}
                     </span>
                   </div>
                   {mayWrite ? (
@@ -203,25 +197,31 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
                     <span className="font-mono">{item.name}</span>{" "}
                     <span className="text-xs font-normal text-ink-soft">{KIND_LABEL[item.kind] ?? item.kind}</span>
                   </span>
-                  <span className={`text-xs ${item.gaps.length ? "text-amber-900" : "text-emerald-900"}`}>
-                    {item.decision ? BASES[item.decision.basis].label : "No basis"}
-                    {item.gaps.length ? ` · ${item.gaps.length} gap${item.gaps.length === 1 ? "" : "s"}` : item.decision ? " · complete" : ""}
+                  <span className={`text-xs font-medium ${!item.decision || item.gaps.length ? "text-amber-900" : "text-emerald-900"}`}>
+                    {item.decision ? BASES[item.decision.basis].label : "No basis recorded yet"}
+                    {item.gaps.length ? ` · ${item.gaps.length} thing${item.gaps.length === 1 ? "" : "s"} missing` : item.decision ? " · nothing missing" : ""}
                   </span>
                 </span>
-                <span className="block font-mono text-[11px] text-ink-soft">
-                  {item.domain ?? "domain unknown"} · {item.party} party
-                  {item.expiry ? ` · ${item.expiry}` : ""}
-                  {item.suggestedCategory ? ` · scanner says ${item.suggestedCategory.replace(/_/g, " ")}` : ""}
-                  {item.seenBeforeConsent ? " · seen before consent" : ""}
-                  {item.seenAfterReject ? " · seen after Reject" : ""}
+                <span className="block text-xs text-ink-soft">
+                  {item.party === "first" ? "First party" : item.party === "third" ? "Third party" : "Party not known"}
+                  {item.domain ? `, set on ${item.domain}` : ""}
+                  {item.expiry ? ` · lasts ${item.expiry}` : ""}
+                  {item.suggestedCategory ? ` · the analyser calls it ${item.suggestedCategory.replace(/_/g, " ")}` : ""}
                   {item.source === "manual" ? " · added by hand" : ""}
                 </span>
+                <Sightings
+                  list={sightings(item, item.decision?.basis ?? null)}
+                  note={item.decision?.basis === "strictly_necessary" && (item.seenBeforeConsent || item.seenAfterReject) ? "expected for strictly necessary" : undefined}
+                />
               </summary>
               <div className="space-y-3 border-t border-line px-4 py-3">
                 {item.gaps.length > 0 ? (
                   <ul className="list-disc space-y-0.5 pl-5 text-xs text-amber-900">
                     {item.gaps.map((g) => <li key={g}>{g}</li>)}
                   </ul>
+                ) : null}
+                {item.history.length > 0 ? (
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-ink-soft">Basis recorded</h3>
                 ) : null}
                 {item.history.length > 0 ? (
                   <ul className="space-y-1.5">
@@ -274,11 +274,22 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
                   {mayWrite ? <div className="sm:col-span-2"><button type="submit" className={save}>Save</button></div> : null}
                 </EditForm>
                 {mayWrite ? (
-                  <BasisForm
-                    action={decideBasisAction.bind(null, item.id, property.id)}
-                    current={item.decision?.basis ?? null}
-                    suggested={suggested}
-                  />
+                  item.decision ? (
+                    <details className="border-t border-line pt-3">
+                      <summary className="cursor-pointer text-xs font-medium text-brand">Record a different basis</summary>
+                      <BasisForm
+                        action={decideBasisAction.bind(null, item.id, property.id)}
+                        current={item.decision.basis}
+                        suggested={suggested}
+                      />
+                    </details>
+                  ) : (
+                    <BasisForm
+                      action={decideBasisAction.bind(null, item.id, property.id)}
+                      current={null}
+                      suggested={suggested}
+                    />
+                  )
                 ) : null}
               </div>
             </details>
@@ -344,25 +355,65 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
         </section>
       ) : null}
 
-      <section className="space-y-2">
-        <h2 className="text-sm font-semibold">Scans ({scans.length})</h2>
-        <ul className="divide-y divide-line overflow-hidden rounded border border-line bg-surface text-xs">
-          {scans.map((s) => {
-            const summary = s.summary as Record<string, string | number | null>;
-            return (
-              <li key={s.id} className="flex flex-wrap justify-between gap-2 px-4 py-2">
-                <span>
-                  <span className="font-mono">{s.analyserRunId ?? "no run id"}</span> · {s.source === "upload" ? "uploaded" : "run from here"} by {s.startedByLabel}
-                </span>
-                <span className="text-ink-soft">
-                  {s.status} · {s.observed} seen · overall {summary.overall ?? "?"} · {stamp(s.completedAt ?? s.startedAt)}
-                </span>
-              </li>
-            );
-          })}
-          {scans.length === 0 ? <li className="px-4 py-3 text-ink-soft">None yet.</li> : null}
-        </ul>
-      </section>
+      <EditForm
+        key={savedKey(property)}
+        action={updatePropertyAction.bind(null, property.id)}
+        className="space-y-3 rounded border border-line bg-surface p-5"
+      >
+        <h2 className="text-sm font-semibold">What people are told, and how they object</h2>
+        <p className="max-w-prose text-xs text-ink-soft">
+          Schedule A1 paragraphs 5 and 6 let statistics and appearance cookies be set without consent only
+          if people get clear and comprehensive information and a simple, free way to object. Record both
+          once here; every such cookie on this site is checked against them.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="block space-y-1">
+            <Label text="Name" />
+            <input name="name" defaultValue={property.name} disabled={!mayWrite} className={inputClass} />
+          </label>
+          <label className="block space-y-1">
+            <Label text="Address" />
+            <input name="url" defaultValue={property.url} disabled={!mayWrite} className={inputClass} />
+          </label>
+        </div>
+        <label className="block space-y-1">
+          <Label text="Where people are told" hint="The cookie notice's address." />
+          <input name="informationUrl" type="url" defaultValue={property.informationUrl ?? ""} disabled={!mayWrite} className={inputClass} />
+        </label>
+        <label className="block space-y-1">
+          <Label text="How people object" hint="For example: the analytics switch in Cookie settings, linked from every page footer." />
+          <textarea name="objectionMechanism" rows={2} defaultValue={property.objectionMechanism ?? ""} disabled={!mayWrite} className={inputClass} />
+        </label>
+        <label className="block space-y-1">
+          <Label text="Scan it again" hint="A reminder is raised a fortnight before each scan is due. Sites change without anyone telling you." />
+          <select
+            name="rescanIntervalMonths"
+            defaultValue={property.rescanIntervalMonths ? String(property.rescanIntervalMonths) : ""}
+            disabled={!mayWrite}
+            className={inputClass}
+          >
+            {RESCAN_INTERVALS.map((m) => (
+              <option key={m} value={m}>{m === 1 ? "Every month" : m === 12 ? "Every year" : `Every ${m} months`}</option>
+            ))}
+            <option value="">No reminders</option>
+          </select>
+        </label>
+        {mayWrite ? <button type="submit" className={save}>Save</button> : null}
+      </EditForm>
+
+      {mayWrite ? (
+        <section className="space-y-3 rounded border border-line bg-surface p-5">
+          <h2 className="text-sm font-semibold">Upload a Consent Analyser report</h2>
+          <p className="max-w-prose text-xs text-ink-soft">
+            Download the report as JSON from the Waivern Consent Analyser and choose it here. Screenshots
+            and cookie values are not kept. New items, and items no longer seen, wait below for you to
+            review; failing checks are added to Findings.
+          </p>
+          <UploadReport action={uploadReportAction.bind(null, property.id)} />
+        </section>
+      ) : null}
+
+      <ScanHistory scans={scans} />
     </main>
   );
 }

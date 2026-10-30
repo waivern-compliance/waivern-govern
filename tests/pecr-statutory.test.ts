@@ -131,4 +131,28 @@ describe("reading a Consent Analyser report", () => {
     const s = reportSummary(r);
     assert.deepEqual([s.runId, s.targetUrl, s.cmp, s.overall, s.aiClassified], ["a1b2c3d4", "https://www.example.co.uk/", "OneTrust", "FAIL", true]);
   });
+
+  it("counts the checks, keeps those a person must look at, and says what was seen", () => {
+    const r = sample() as AnalyserReport;
+    r.checklist.push({ item_id: "K.2", result: "MANUAL", description: "Non-essential categories default to OFF", notes: "Could not open the panel." });
+    const s = reportSummary(r);
+    assert.deepEqual(
+      { passed: s.checks.passed > 0, failed: s.checks.failed, manual: s.checks.manual },
+      { passed: true, failed: 2, manual: 1 },
+    );
+    assert.deepEqual(s.checks.toLookAt.map((t) => [t.itemId, t.result]), [["B.2", "FAIL"], ["F.1", "FAIL"], ["K.2", "MANUAL"]]);
+    assert.equal(s.seen.total, 5);
+    assert.ok(s.seen.beforeConsent >= 1, "_ga is set before consent in the sample");
+    assert.equal(s.testedAt, "2026-10-28T10:15:00Z", "the full timestamp, not test_date's midnight");
+  });
+
+  it("reads where a 2.1 report scanned from", () => {
+    const r = sample() as AnalyserReport;
+    r.metadata.probe_location = { country: "United Kingdom", country_code: "GB", org: "UK proxy" };
+    assert.equal(reportSummary(r).probeLocation, "uk");
+    r.metadata.probe_location = { country: "The Netherlands", country_code: "NL" };
+    assert.equal(reportSummary(r).probeLocation, "The Netherlands");
+    r.metadata.probe_location = "eu";
+    assert.equal(reportSummary(r).probeLocation, "eu");
+  });
 });

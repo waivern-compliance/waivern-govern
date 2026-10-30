@@ -824,6 +824,7 @@ export const HELP_TOPICS: HelpTopic[] = [
       "analytics", "statistics", "preferences", "functional", "strictly necessary", "consent", "opt out", "object",
       "duaa", "data use and access act", "consent analyser", "scan", "pixel", "local storage", "sdk", "cookie notice",
       "rescan", "reminder", "gaps",
+      "scan now", "api token", "credits",
     ],
     sections: [
       {
@@ -854,6 +855,14 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Nothing is added to the inventory automatically. New items, and items a previous scan found but this one did not, wait for somebody to accept or reject them. Rejecting needs a reason; something rejected that the next scan still finds is proposed again.",
           "Checks that failed become findings, as from any scanner. The analyser's checks predate the DUAA: it reports analytics before consent as a failure even where Schedule A1 para 5 may allow it. The finding says so — check the inventory before treating it as a breach.",
           "A report that was blocked by the site's bot protection is refused: it saw a block page, not the site. A report for another address is refused unless you confirm it belongs here.",
+        ],
+      },
+      {
+        heading: "Scanning from here",
+        body: [
+          "An owner or privacy administrator can save a Consent Analyser API token on the cookies page. The analyser checks it before it is saved; it is stored encrypted, and only its last four characters are ever shown. Each scan is charged to whoever owns the token on the analyser, and is private to them there.",
+          "With a token set, each website's page has a Scan now button. It runs the analyser from the UK where the analyser can, otherwise from the EU, in GDPR mode with AI classification, and usually takes one to five minutes. The page follows the scan while it is open; if you leave, the hourly scheduler finishes it. The report is then taken in exactly as an uploaded one would be.",
+          "A scan that fails, is cancelled, or has not finished after fifteen minutes is recorded as failed with the reason, and nothing changes in the inventory. One scan runs at a time for each website.",
         ],
       },
       {

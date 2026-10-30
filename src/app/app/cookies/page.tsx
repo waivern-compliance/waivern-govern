@@ -5,13 +5,14 @@ import { db, scoped } from "@/db/client";
 import { entities } from "@/db/schema";
 import { HelpLink } from "@/components/help/HelpLink";
 import { NotPermitted } from "@/components/NotPermitted";
-import { can } from "@/lib/rbac";
+import { can, mayConfigureAnalyser } from "@/lib/rbac";
 import { getActiveSession, visibleEntityIds } from "@/lib/session";
 import { rescanState } from "@/lib/pecr/rescan";
+import { analyserSettings } from "@/services/consent-analyser";
 import { propertyRegister } from "@/services/storage-inventory";
 import { ActionForm } from "../requests/ActionForm";
 import { Label, inputClass } from "../requests/fields";
-import { createPropertyAction } from "./actions";
+import { analyserSettingsAction, createPropertyAction } from "./actions";
 
 export default async function CookiesPage() {
   const active = await getActiveSession();
@@ -21,10 +22,12 @@ export default async function CookiesPage() {
   }
 
   const org = active.membership.organisationId;
-  const [register, orgEntities] = await Promise.all([
+  const [register, orgEntities, analyser] = await Promise.all([
     propertyRegister(org, visibleEntityIds(active)),
     scoped(org, () => db.select().from(entities).where(eq(entities.organisationId, org))),
+    analyserSettings(org),
   ]);
+  const mayConfigure = mayConfigureAnalyser(active.membership.grants);
   const mayAddIn = orgEntities.filter((e) => can(active.membership.grants, "record.write", e.id));
   const totals = register.reduce(
     (t, r) => ({ active: t.active + r.active, noBasis: t.noBasis + r.noBasis, gaps: t.gaps + r.withGaps, pending: t.pending + r.pending }),
@@ -146,6 +149,37 @@ export default async function CookiesPage() {
           </li>
         ) : null}
       </ul>
+
+      <section className="space-y-3 rounded border border-line bg-surface p-5">
+        <h2 className="text-sm font-semibold">Scanning with the Waivern Consent Analyser</h2>
+        <p className="max-w-prose text-xs text-ink-soft">
+          {analyser.configured
+            ? `A token ending …${analyser.hint} is set for ${analyser.url}. Each website's page has a Scan now button.`
+            : "No API token is set, so scans can only be uploaded as reports. Add a token to scan from here."}{" "}
+          Scans are charged to whoever owns the token on the analyser, and are private to them there. Create a
+          token at /account/tokens on the analyser.
+        </p>
+        {mayConfigure ? (
+          <ActionForm action={analyserSettingsAction} submit="Save" className="space-y-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block space-y-1">
+                <Label text="Analyser address" />
+                <input name="url" defaultValue={analyser.url} className={inputClass} />
+              </label>
+              <label className="block space-y-1">
+                <Label text={analyser.configured ? "Replace the token" : "API token"} hint="wvn_ followed by 32 letters and digits. Checked with the analyser before it is saved." />
+                <input name="token" type="password" autoComplete="off" placeholder={analyser.configured ? "Leave blank to keep it" : "wvn_…"} className={inputClass} />
+              </label>
+            </div>
+            {analyser.configured ? (
+              <label className="flex items-start gap-2.5 text-sm">
+                <input type="checkbox" name="removeToken" className="mt-1 accent-brand" />
+                <span>Remove the token</span>
+              </label>
+            ) : null}
+          </ActionForm>
+        ) : null}
+      </section>
     </main>
   );
 }
