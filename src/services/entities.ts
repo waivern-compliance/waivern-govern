@@ -1,8 +1,9 @@
 import { and, asc, eq, ne } from "drizzle-orm";
 import { db, withOrganisation, type Db } from "@/db/client";
-import { entities } from "@/db/schema";
+import { entities, organisations } from "@/db/schema";
 import { appendAuditEvent } from "@/lib/audit";
-import { NotInOrganisation } from "./tenancy-guards";
+import { cleanDpo, dpoMissing, type Dpo } from "@/lib/dpa2018/public-authority";
+import { NotInOrganisation, assertMemberOf } from "./tenancy-guards";
 import type { Actor } from "./templates";
 
 /**
@@ -216,4 +217,109 @@ export async function setPublicCommsProvider(input: {
       return after;
     }),
   );
+}
+
+/**
+ * Mark an entity as a public authority (Data Protection Act 2018 s.7), or not.
+ * Its activities then may not rest on legitimate interests or recognised
+ * legitimate interests for its tasks, and it must have a data protection
+ * officer.
+ */
+export async function setPublicAuthority(input: {
+  organisationId: string;
+  entityId: string;
+  publicAuthority: boolean;
+  actor: Actor;
+}) {
+  return withOrganisation(input.organisationId, () =>
+    db.transaction(async (tx) => {
+      const before = await entityIn(tx, input.organisationId, input.entityId);
+      if (before.publicAuthority === input.publicAuthority) return before;
+      const [after] = await tx
+        .update(entities)
+        .set({ publicAuthority: input.publicAuthority, updatedAt: new Date() })
+        .where(eq(entities.id, before.id))
+        .returning();
+      await appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        action: "entity.public_authority_changed",
+        subjectType: "entity",
+        subjectId: before.id,
+        entityId: before.id,
+        before: { publicAuthority: before.publicAuthority },
+        after: { publicAuthority: input.publicAuthority },
+      });
+      return after;
+    }),
+  );
+}
+
+/**
+ * Record the data protection officer, for the whole organisation or — with an
+ * `entityId` — for one entity that has its own. Null clears it. A member named
+ * as the DPO must belong to this organisation.
+ */
+export async function setDpo(input: {
+  organisationId: string;
+  entityId?: string | null;
+  dpo: Parameters<typeof cleanDpo>[0];
+  actor: Actor;
+}) {
+  const dpo = cleanDpo(input.dpo);
+  return withOrganisation(input.organisationId, () =>
+    db.transaction(async (tx) => {
+      if (dpo?.userId) await assertMemberOf(input.organisationId, dpo.userId, tx);
+      if (input.entityId) {
+        const before = await entityIn(tx, input.organisationId, input.entityId);
+        await tx.update(entities).set({ dpo, updatedAt: new Date() }).where(eq(entities.id, before.id));
+        await appendAuditEvent(tx, {
+          ...input.actor,
+          organisationId: input.organisationId,
+          action: "entity.dpo_changed",
+          subjectType: "entity",
+          subjectId: before.id,
+          entityId: before.id,
+          before: { dpo: before.dpo },
+          after: { dpo },
+        });
+        return dpo;
+      }
+      const [before] = await tx.select().from(organisations).where(eq(organisations.id, input.organisationId));
+      await tx.update(organisations).set({ dpo }).where(eq(organisations.id, input.organisationId));
+      await appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        action: "organisation.dpo_changed",
+        subjectType: "organisation",
+        subjectId: input.organisationId,
+        before: { dpo: before?.dpo ?? null },
+        after: { dpo },
+      });
+      return dpo;
+    }),
+  );
+}
+
+/**
+ * The organisation's DPO, each entity's effective one, and the public
+ * authorities with none — which Article 37(1)(a) does not allow.
+ */
+export async function dpoPosition(organisationId: string) {
+  return withOrganisation(organisationId, async () => {
+    const [org] = await db.select({ dpo: organisations.dpo }).from(organisations).where(eq(organisations.id, organisationId));
+    const rows = await db.select().from(entities).where(eq(entities.organisationId, organisationId)).orderBy(asc(entities.name));
+    const organisationDpo: Dpo | null = org?.dpo ?? null;
+    return {
+      organisationDpo,
+      entities: rows.map((e) => ({
+        id: e.id,
+        name: e.name,
+        publicAuthority: e.publicAuthority,
+        ownDpo: e.dpo ?? null,
+        effectiveDpo: e.dpo ?? organisationDpo,
+        missing: dpoMissing({ publicAuthority: e.publicAuthority, dpo: e.dpo ?? null }, organisationDpo),
+      })),
+    };
+  });
 }

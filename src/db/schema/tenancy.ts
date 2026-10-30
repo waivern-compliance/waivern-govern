@@ -10,6 +10,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import type { Dpo } from "@/lib/dpa2018/public-authority";
 import { aiFramework, appRole, dataProtectionJurisdiction, guidanceMode, organisationRequestStatus, persona, recordType, riskScale, roleScope } from "./enums";
 
 /** A client of the platform. One organisation, one governance programme. */
@@ -53,6 +54,11 @@ export const organisations = pgTable("organisation", {
   /** How often a complainant is told how things stand while it is open (s.164A(5)(b)). Zero turns it off. */
   complaintUpdateIntervalDays: integer("complaint_update_interval_days").notNull().default(30),
   /**
+   * The data protection officer (UK GDPR Articles 37–39). An entity may name its
+   * own; otherwise this one acts for it. Null: none designated.
+   */
+  dpo: jsonb("dpo").$type<Dpo>(),
+  /**
    * The Waivern Consent Analyser this organisation scans its websites with, and
    * its API token, sealed like an integration secret: a dump of the tables
    * alone does not yield a token that can spend the owner's scan credits. The
@@ -93,6 +99,15 @@ export const entities = pgTable(
      * regulation 5A, which runs its own seventy-two hours with no risk test.
      */
     publicCommsProvider: boolean("public_comms_provider").notNull().default(false),
+    /**
+     * A public authority within the Data Protection Act 2018 s.7. For its tasks
+     * it may not rely on legitimate interests or recognised legitimate
+     * interests (Article 6(1)), and it must have a data protection officer
+     * (Article 37(1)(a)).
+     */
+    publicAuthority: boolean("public_authority").notNull().default(false),
+    /** This entity's own data protection officer, where it is not the organisation's. */
+    dpo: jsonb("dpo").$type<Dpo>(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

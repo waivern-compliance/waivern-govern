@@ -4,7 +4,9 @@ import { and, eq, sql } from "drizzle-orm";
 import { db, sql as pg } from "@/db/client";
 import {
   entities,
+  memberships,
   organisations,
+  roleAssignments,
   riskAcceptances,
   schedules,
   slaPolicies,
@@ -22,6 +24,7 @@ import { seedSharedLibrary } from "@/services/countries";
 import { createRisk, setResidual } from "@/services/risks";
 import { sweepOrganisation } from "@/services/sweep";
 import { createTemplate, publishVersion } from "@/services/templates";
+import { setDpo } from "@/services/entities";
 import {
   DecisionRefused,
   NotYourDecision,
@@ -104,6 +107,7 @@ const BASE_DPIA = {
   special_category: false,
   subject_groups: "Signed-in audience.",
   children_likely: false,
+  dpo_consulted: "no_dpo",
   volume: 100000,
   retention: "Thirteen months.",
   necessity: "Required for ranking.",
@@ -617,5 +621,45 @@ describe("default workflows", () => {
       const positions = w.stages.map((s) => s.position).sort((a, b) => a - b);
       assert.deepEqual(positions, positions.map((_, i) => i + 1));
     }
+  });
+});
+
+describe("the data protection officer's stage", () => {
+  const SPECIAL = {
+    ...BASE_DPIA,
+    data_categories: ["viewing_history", "health"],
+    special_category: true,
+    special_condition: "Article 9(2)(h), Schedule 1 paragraph 2.",
+    likelihood: "remote",
+    impact: "minimal",
+  };
+
+  async function dpoTask(role: "privacy_admin" | "contributor") {
+    const w = await world(`dpo-${role}`);
+    const [person] = await db.insert(users).values({ email: `dpo-${crypto.randomUUID().slice(0, 8)}@example.com` }).returning();
+    const [membership] = await db.insert(memberships).values({ organisationId: w.org.id, userId: person.id }).returning();
+    await db.insert(roleAssignments).values({ membershipId: membership.id, role, scope: "organisation" });
+    await setDpo({ organisationId: w.org.id, dpo: { name: "Dana Officer", contact: "dpo@example.com", userId: person.id }, actor: SYSTEM });
+
+    const result = await submitted(w, SPECIAL);
+    const gates = await approvalsFor(result.assessment.id);
+    assert.equal(gates[1].name, "Data protection officer");
+    await decideApproval({
+      approvalId: gates[0].id, organisationId: w.org.id, decision: "approved",
+      rationale: "Fine.", callerRoles: ["owner"], actor: actor("owner@example.com"),
+    });
+    const [task] = await db.select().from(tasks).where(eq(tasks.idempotencyKey, `approve:${gates[1].id}`));
+    return { task, person };
+  }
+
+  it("goes to the named DPO where they may decide it", async () => {
+    const { task, person } = await dpoTask("privacy_admin");
+    assert.equal(task.assigneeUserId, person.id);
+    assert.equal(task.assigneeRole, "privacy_admin", "the role still sees it");
+  });
+
+  it("stays with the role where the DPO could not decide it", async () => {
+    const { task } = await dpoTask("contributor");
+    assert.equal(task.assigneeUserId, null);
   });
 });

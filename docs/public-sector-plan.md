@@ -1,6 +1,6 @@
 # Plan: public services under the Data Protection Act 2018, as amended
 
-Status: decisions settled (30 October 2026), all as recommended. Phase 0 built.
+Status: decisions settled (30 October 2026), all as recommended. Phases 0–1 built.
 
 ## What is asked for
 
@@ -235,11 +235,28 @@ Built as:
   supervisory authority". The breach help says the Commission replaced the Commissioner
   and still publishes as the ICO.
 
-### Phase 1: public authority and the DPO (about a day)
+### Phase 1: public authority and the DPO (built)
 - The entity flag and the red gap for legitimate interests or recognised legitimate
   interests (decision 2).
 - The DPO record (decision 3), the workflow stage routed to them, the DPIA's DPO-advice
   question, and a gap where a public authority has no DPO.
+
+Built as:
+- `entity.public_authority` and `entity.dpo`, `organisation.dpo` (migration 0078), with
+  the rules in `lib/dpa2018/public-authority.ts`. Toggled on the Organisation page,
+  audited as `entity.public_authority_changed`.
+- The Article 6(1) bar reaches only processing "in the performance of their tasks", so
+  each activity also has `outside_public_tasks`, asked on the ROPA form only where the
+  entity is a public authority and (f) or (ea) is ticked. A person records it; nothing
+  infers it. Otherwise the gap `public_authority_legitimate_interests` is red.
+- The DPO (name, contact, member, reports to, published) on the organisation, with an
+  entity's own overriding it; audited as `organisation.dpo_changed` / `entity.dpo_changed`.
+  A public authority with none is flagged on the Organisation page and the ROPA register.
+- The "Data protection officer" approval stage (by its shipped name) assigns its task to
+  the DPO where they are an active member holding a role that may decide it; otherwise it
+  stays with the role alone.
+- DPIA, edited in place: whether the DPO's advice was sought (or none is designated), and
+  what it was and whether it was followed.
 
 ### Phase 2: Schedule 1 and the appropriate policy document (about 2 days)
 - The structured Article 9 / Article 10 / Schedule 1 choice on the ROPA and in the DPIA

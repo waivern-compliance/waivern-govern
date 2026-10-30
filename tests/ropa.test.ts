@@ -29,6 +29,7 @@ function complete(over: Partial<Activity> = {}): Activity {
     art13Exemption: null,
     publicInformationUrl: null,
     childrenLikely: null,
+    outsidePublicTasks: false,
     dataCategories: ["Bank details"],
     subjectCategories: ["Staff"],
     recipients: ["Payroll bureau"],

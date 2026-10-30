@@ -19,6 +19,7 @@ import {
   type RecognisedCondition,
 } from "@/lib/gdpr/lawful-basis";
 import { ADM_GAP_WORDS, admGaps, type AdmGap } from "@/lib/gdpr/automated-decisions";
+import { barredBasesFor } from "@/lib/dpa2018/public-authority";
 import {
   FURTHER_PROCESSING_GAP_WORDS,
   FurtherProcessingRefused,
@@ -57,6 +58,7 @@ export type Article30Gap =
   | FurtherProcessingGap
   | "children_no_dpia"
   | "children_dpia_unanswered"
+  | "public_authority_legitimate_interests"
   | "no_owner"
   | "review_overdue";
 
@@ -75,6 +77,8 @@ export const GAP_WORDS: Record<Article30Gap, string> = {
   ...FURTHER_PROCESSING_GAP_WORDS,
   children_no_dpia: "Likely accessed by children, with no DPIA",
   children_dpia_unanswered: "Likely accessed by children; the DPIA does not say how the children's higher protection matters were taken into account",
+  public_authority_legitimate_interests:
+    "Public authority relying on legitimate interests or recognised legitimate interests for its tasks (Article 6(1))",
   no_owner: "No named owner",
   review_overdue: "Review overdue",
 };
@@ -104,6 +108,7 @@ export const HARD_GAPS: Article30Gap[] = [
   "adm_relies_on_ea",
   "adm_special_no_condition",
   "further_route_closed",
+  "public_authority_legitimate_interests",
 ];
 
 const EMPTY = (a: unknown[] | null | undefined) => !a || a.length === 0;
@@ -119,19 +124,25 @@ const EMPTY = (a: unknown[] | null | undefined) => !a || a.length === 0;
 export function article30Gaps(
   activity: Activity,
   needsSafeguards: ReadonlySet<string>,
-  /**
-   * Whether the data was first collected on consent, read from the original
-   * activity where one is linked (`originalConsentOf`). Defaults to what the
-   * record itself says.
-   */
-  originalConsent: boolean | null = activity.originalConsent,
-  /**
-   * What the DPIAs of this activity say about children, from
-   * `childrenDpiaStates`. A gap that depends on it is not reported when it is
-   * not supplied, rather than claiming no DPIA exists.
-   */
-  childrenDpia?: ChildrenDpiaState,
+  context: {
+    /**
+     * Whether the data was first collected on consent, read from the original
+     * activity where one is linked (`originalConsentOf`). Defaults to what the
+     * record itself says.
+     */
+    originalConsent?: boolean | null;
+    /**
+     * What the DPIAs of this activity say about children, from
+     * `childrenDpiaStates`. A gap that depends on it is not reported when it
+     * is not supplied, rather than claiming no DPIA exists.
+     */
+    childrenDpia?: ChildrenDpiaState;
+    /** Whether the activity's entity is a public authority (DPA 2018 s.7). */
+    publicAuthority?: boolean;
+  } = {},
 ): Article30Gap[] {
+  const { childrenDpia } = context;
+  const originalConsent = context.originalConsent !== undefined ? context.originalConsent : activity.originalConsent;
   const gaps: Article30Gap[] = [];
 
   if (EMPTY(activity.purposes)) gaps.push("purposes");
@@ -168,6 +179,16 @@ export function article30Gaps(
   // Article 25(1A): an online service likely to be accessed by children must
   // weigh the children's higher protection matters, and a DPIA is where that
   // is shown.
+  // Article 6(1), final subparagraph: not for a public authority's tasks.
+  if (
+    barredBasesFor({
+      publicAuthority: context.publicAuthority ?? false,
+      bases: activity.lawfulBases ?? [],
+      outsidePublicTasks: activity.outsidePublicTasks,
+    }).length > 0
+  ) {
+    gaps.push("public_authority_legitimate_interests");
+  }
   if (activity.childrenLikely && childrenDpia !== undefined) {
     if (childrenDpia === "none") gaps.push("children_no_dpia");
     else if (childrenDpia === "unanswered") gaps.push("children_dpia_unanswered");
@@ -296,6 +317,7 @@ export async function listActivities(
         .select({
           activity: processingActivities,
           entityName: entities.name,
+          publicAuthority: entities.publicAuthority,
           ownerEmail: users.email,
         })
         .from(processingActivities)
@@ -308,13 +330,12 @@ export async function listActivities(
       childrenDpiaStates(organisationId),
     ]);
 
-    return rows.map(({ activity, entityName, ownerEmail }) => {
-      const gaps = article30Gaps(
-        activity,
-        needsSafeguards,
-        originalConsentOf(activity, bases),
-        children.get(activity.id) ?? "none",
-      );
+    return rows.map(({ activity, entityName, ownerEmail, publicAuthority }) => {
+      const gaps = article30Gaps(activity, needsSafeguards, {
+        originalConsent: originalConsentOf(activity, bases),
+        childrenDpia: children.get(activity.id) ?? "none",
+        publicAuthority,
+      });
       return {
         activity,
         entityName,
@@ -332,6 +353,7 @@ export async function loadActivity(activityId: string, organisationId: string) {
       .select({
         activity: processingActivities,
         entityName: entities.name,
+        publicAuthority: entities.publicAuthority,
         ownerEmail: users.email,
       })
       .from(processingActivities)
@@ -371,7 +393,11 @@ export async function loadActivity(activityId: string, organisationId: string) {
           .then((r) => r[0] ?? null)
       : null;
     const originalConsent = originalConsentOf(row.activity, bases);
-    const gaps = article30Gaps(row.activity, needsSafeguards, originalConsent, children.get(activityId) ?? "none");
+    const gaps = article30Gaps(row.activity, needsSafeguards, {
+      originalConsent,
+      childrenDpia: children.get(activityId) ?? "none",
+      publicAuthority: row.publicAuthority,
+    });
     return {
       ...row,
       assessments: related,
@@ -485,6 +511,7 @@ export async function updateActivity(input: {
     ownerId: string | null;
     reviewDueAt: Date | null;
     childrenLikely: boolean | null;
+    outsidePublicTasks: boolean;
   }>;
   actor: Actor;
 }) {

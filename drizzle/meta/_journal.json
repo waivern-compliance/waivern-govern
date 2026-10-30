@@ -547,6 +547,13 @@
       "when": 1793381166705,
       "tag": "0077_dsr_clarification_commencement",
       "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1793384302817,
+      "tag": "0078_public_authority_dpo",
+      "breakpoints": true
     }
   ]
 }

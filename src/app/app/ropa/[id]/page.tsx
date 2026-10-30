@@ -172,6 +172,8 @@ export default async function ActivityPage({
             bases={activity.lawfulBases ?? []}
             condition={activity.recognisedCondition}
             note={activity.lawfulBasis ?? ""}
+            publicAuthority={loaded.publicAuthority}
+            outsidePublicTasks={activity.outsidePublicTasks}
           />
           <Area
             label="Categories of data subject"

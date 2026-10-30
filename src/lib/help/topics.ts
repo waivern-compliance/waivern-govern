@@ -334,7 +334,7 @@ export const HELP_TOPICS: HelpTopic[] = [
       {
         heading: "Lawful basis",
         body: [
-          "Tick each Article 6(1) basis the processing relies on. Recognised legitimate interests, which the Data (Use and Access) Act 2025 added, covers only the five conditions in Annex 1 — disclosure for another's public task, national security, emergencies, crime and safeguarding — and asks which one. It needs no balancing test, but people can still object to it, and a significant decision may not rest solely on automated processing under it.",
+          "Tick each Article 6(1) basis the processing relies on. Recognised legitimate interests, which the Data (Use and Access) Act 2025 added, covers only the five conditions in Annex 1 — disclosure for another's public task, national security, emergencies, crime and safeguarding — and asks which one. It needs no balancing test, but people can still object to it, and a significant decision may not rest solely on automated processing under it. A public authority may not rely on it, or on ordinary legitimate interests, for its tasks.",
           "The text field beside it is a note. Where a record's basis used to be written as text and named one basis plainly, that basis was ticked for you; anything less clear was left for you to choose, and shows as 'No lawful basis chosen' until you do.",
         ],
       },
@@ -1363,6 +1363,13 @@ export const HELP_TOPICS: HelpTopic[] = [
           "An organisation holds one or more legal entities — for the BBC, BBC Public Service and BBC Studios. They are the companies or bodies records are classified, reported and access-scoped by; services, products and departments are not entities. Records arriving with no entity named land in the default one.",
           "An owner of the whole organisation adds entities, renames them and chooses the default, on the Organisation page. Nobody else can — not privacy administrators, and not an owner confined to one entity, who sees the list only. Every change is in the audit log.",
           "Renaming keeps every record with its entity. The Portal and any script that names an entity does so by its name or its reference, so tell them the new one; for the same reason no two entities may share a name or reference. Entities cannot be removed, because records and their history point at them.",
+        ],
+      },
+      {
+        heading: "Public authorities and the data protection officer",
+        body: [
+          "Mark an entity as a public authority where it is one within the Data Protection Act 2018 s.7 — broadly, a body under the Freedom of Information Act. Two things follow. For processing in the performance of its tasks it may not rely on legitimate interests or recognised legitimate interests (UK GDPR Article 6(1)), so a ROPA record that does is shown in red; where the processing is genuinely not one of its tasks, the record can say so. And it must have a data protection officer (Article 37(1)(a)).",
+          "Record the data protection officer on the Organisation page: their name, how to reach them, whom they report to and whether their details are published. An entity can have its own; otherwise the organisation's acts for it. A public authority with none is flagged here and on the ROPA. Where the DPO is a member who may decide it, the 'Data protection officer' approval stage goes to them by name; otherwise it stays with the role. The DPIA asks whether the DPO's advice was sought and what it was (Article 35(2)).",
         ],
       },
       {
