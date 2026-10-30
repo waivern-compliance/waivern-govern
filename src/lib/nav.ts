@@ -88,6 +88,12 @@ export const NAV: NavItem[] = [
     capability: "dsr.handle",
   },
   {
+    href: "/app/cookies",
+    label: "Cookies and similar technologies",
+    hint: "the inventory, and the PECR Schedule A1 basis for each",
+    capability: "record.read",
+  },
+  {
     href: "/app/complaints",
     label: "Data protection complaints",
     hint: "complaints made to you, and the 30 days to acknowledge them",

@@ -1,0 +1,53 @@
+{
+  "schema_version": "2.0",
+  "component": 2,
+  "run_id": "a1b2c3d4",
+  "generated_at": "2026-10-28T10:15:00Z",
+  "metadata": {
+    "target_url": "https://www.example.co.uk/",
+    "test_date": "2026-10-28",
+    "cmp_detected": "OneTrust",
+    "analysis_mode": "gdpr",
+    "probe_location": "eu",
+    "bot_blocked": false,
+    "cookie_ai_classification": {
+      "classifications": [
+        { "cookie_name": "_ga", "declared": true, "category": "analytics", "strictly_necessary_test": "not_exempt" },
+        { "cookie_name": "lang", "declared": true, "category": "functional", "strictly_necessary_test": "unclear" },
+        { "cookie_name": "_fbp", "declared": false, "category": "advertising", "strictly_necessary_test": "not_exempt" }
+      ],
+      "summary": "3 classified"
+    }
+  },
+  "cmp_interaction": { "banner_detected": true, "reject_at_first_screen": true },
+  "screenshots": { "pre_consent": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==" },
+  "checklist": [
+    {
+      "item_id": "B.2", "section": "B. Pre-Consent State", "description": "No analytics/marketing cookies in Storage pre-consent",
+      "har_coverage": "FULL", "result": "FAIL",
+      "evidence": [ { "name": "_ga", "domain": ".example.co.uk", "value_snippet": "GA1.2.123456789.1700000000" } ],
+      "notes": "1 advertising cookie(s) present before consent.", "recommendation": "Gate it behind consent."
+    },
+    {
+      "item_id": "F.1", "section": "F. Cookie Verification (Third-Party)", "description": "No analytics/marketing cookies present after reject-all",
+      "har_coverage": "FULL", "result": "FAIL",
+      "evidence": [
+        { "name": "_fbp", "domain": ".facebook.com", "party": "third-party", "expires_days": 90, "disposition": "fail", "detail": "set after reject" },
+        { "name": "_gid", "domain": ".example.co.uk", "party": "first-party", "expires_days": 1, "disposition": "dormant", "detail": "untouched" }
+      ],
+      "notes": "1 collecting after reject.", "recommendation": "Fix the reject path."
+    },
+    {
+      "item_id": "G.1", "section": "G. First-Party Cookie Classification", "description": "Complete first-party cookie inventory with full metadata",
+      "har_coverage": "FULL", "result": "INFO",
+      "evidence": [
+        { "name": "_ga", "domain": ".example.co.uk", "expires_days": 400, "http_only": false, "secure": true, "same_site": "Lax", "classification": "AD" },
+        { "name": "session_id", "domain": "www.example.co.uk", "expires_days": "session", "http_only": true, "secure": true, "same_site": "Strict", "classification": "ESSENTIAL" },
+        { "name": "lang", "domain": "www.example.co.uk", "expires_days": 365, "http_only": false, "secure": true, "same_site": "Lax", "classification": "ESSENTIAL" }
+      ],
+      "notes": "3 first-party cookies."
+    },
+    { "item_id": "C.1", "section": "C. Banner", "description": "Reject on first screen", "har_coverage": "FULL", "result": "PASS", "evidence": [], "notes": "" }
+  ],
+  "summary": { "overall": "FAIL", "pass_count": 1, "fail_count": 2, "manual_count": 0, "info_count": 1, "fail_items": ["B.2", "F.1"] }
+}

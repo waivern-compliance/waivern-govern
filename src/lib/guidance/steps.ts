@@ -324,6 +324,23 @@ export const MAINTAIN: Step[] = [
       "run from when it arrived, wherever it landed.",
   },
   {
+    id: "cookies",
+    title: "Know what your websites store, and why",
+    what:
+      "Add each website and app, upload a Waivern Consent Analyser report for it, and record the basis " +
+      "every cookie and similar item relies on.",
+    why:
+      "UK PECR regulation 6 restricts storing anything on a person's device. Since 5 February 2026, " +
+      "Schedule A1 lets statistics and appearance cookies go without consent — but only where people " +
+      "are told about them and can object simply and for free. Everything else needs consent or must " +
+      "be strictly necessary.",
+    finishedWhen: "Every item in use on every site has a basis with no gaps.",
+    href: "/app/cookies",
+    watchOut:
+      "A scanner's category is a guess. Analytics shared with an advertiser is not statistics under " +
+      "Schedule A1, however the cookie is named.",
+  },
+  {
     id: "evidence",
     title: "Take an export when you need to show your work",
     what:

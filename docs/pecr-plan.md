@@ -1,6 +1,6 @@
 # Plan: UK PECR as amended by the Data (Use and Access) Act 2025
 
-Status: plan only, awaiting decisions. Written 30 October 2026.
+Status: decisions settled as recommended (30 October 2026); Phases 0 and 1 built.
 
 ## What is asked for
 
@@ -89,7 +89,7 @@ From `waivern-consent-analyser`, `main.py` unless noted:
     gives strictly_necessary, functional, analytics, advertising or unknown.
   - Nothing knows Schedule A1. Checks B.2 and E.1 will mark exempt analytics as FAIL.
 
-## Decisions for you before building
+## Decisions (all settled as recommended, 30 October 2026)
 
 1. **What the inventory is organised by.** *Recommendation:* a **digital property** (a
    website or app) belonging to an entity, with the inventory per property. Schedule A1
@@ -175,13 +175,13 @@ One row per name, domain and property:
 
 ## Phases
 
-### Phase 0: the statutory module and references (about half a day)
+### Phase 0: the statutory module and references (built)
 - `lib/pecr/statutory.ts` and its tests.
 - Legal references for PECR regs 2, 5A, 6, 21, 22 and Schedule A1, DUAA ss.110–116, and
   the ICO's storage and access guidance.
 - Rename `har_analyser` to "Consent Analyser" where it is shown (the enum value stays).
 
-### Phase 1: the inventory, by hand and by upload (about 3 days)
+### Phase 1: the inventory, by hand and by upload (built)
 - **Data:** a migration for the four tables, with row-level security.
 - **Service:** `services/storage-inventory.ts`: properties, items, decisions and gaps.
 - **Pages:**
@@ -199,6 +199,21 @@ One row per name, domain and property:
   - Failing checks become scan findings, as the scans ingest already does.
 - **Wiring:** nav, records, help topic, guidance step, audit actions (`pecr.*`),
   retention subject types and tenant-isolation tests.
+- **As built:**
+  - Proposals are a fifth table, `storage_proposal`.
+  - A scan's observations about items already on the inventory are facts and update
+    straight away: last seen, seen before consent, seen after Reject, and the scanner's
+    category. Gaps then flag conflicts, such as a consent-based cookie seen before
+    consent. Only additions to the inventory and retirements from it wait for a person.
+  - A rejected "new" item that a later scan still finds is proposed again.
+  - Items added by hand are never proposed as not seen.
+  - Cookie values (`value`, `value_snippet`, `set_cookie_header`) are stripped along
+    with the screenshots, because a value can identify whoever ran the scan.
+  - The analyser's rule-based `AD` class is read as "advertising or analytics" and
+    suggests no basis. The AI category is preferred where there is one.
+  - The browser removes the screenshots before upload, so large reports fit within the
+    12 MB server action limit. The server strips them again.
+  - Writes check the entity the website belongs to (`record.write` there).
 
 ### Phase 2: scanning through the analyser API (about 1.5 days, after decision 4)
 - **Settings:** the token and base URL, set by owners and privacy admins.

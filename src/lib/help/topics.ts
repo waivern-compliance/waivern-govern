@@ -814,6 +814,65 @@ export const HELP_TOPICS: HelpTopic[] = [
     related: ["data-subject-requests", "breaches", "audit"],
   },
   {
+    id: "cookies",
+    title: "Cookies and similar technologies",
+    summary:
+      "Inventory every cookie, pixel and stored item on your websites and apps, from Consent Analyser reports or by hand, and record the basis each relies on under UK PECR.",
+    path: "/app/cookies",
+    keywords: [
+      "cookie", "cookies", "pecr", "regulation 6", "schedule a1", "storage", "access", "terminal equipment",
+      "analytics", "statistics", "preferences", "functional", "strictly necessary", "consent", "opt out", "object",
+      "duaa", "data use and access act", "consent analyser", "scan", "pixel", "local storage", "sdk", "cookie notice",
+    ],
+    sections: [
+      {
+        heading: "What the law requires",
+        body: [
+          "PECR regulation 6 restricts storing information on a person's device, or reading what is stored there. The Data (Use and Access) Act 2025 rewrote the exceptions into Schedule A1, in force from 5 February 2026. Something may be stored or read if one of these applies:",
+        ],
+        points: [
+          "Consent, after clear and comprehensive information about the purpose (para 2).",
+          "Solely to carry a communication over a network (para 3).",
+          "Strictly necessary for a service the person asked for — security, fraud prevention, fault detection, authentication, remembering what they entered (para 4).",
+          "Statistics: collected by the provider, solely to improve the service, shared only with someone helping to do that, with clear information and a simple, free way to object (para 5).",
+          "Appearance and function: solely to adapt how a website or app looks or works to the person's preferences, with clear information and a simple, free way to object (para 6).",
+          "Emergency assistance: solely to locate somebody who asked for help (para 7).",
+        ],
+      },
+      {
+        heading: "Websites and apps",
+        body: [
+          "Add each website and app the organisation runs. Record, once for each, where people are told about cookies — the cookie notice — and how they object to statistics and preference cookies. Every statistics and appearance decision on that site is checked against both.",
+          "This register covers UK law. The EU ePrivacy Directive has no statistics or appearance exception, so an EU site's analytics still need consent.",
+        ],
+      },
+      {
+        heading: "Uploading a Consent Analyser report",
+        body: [
+          "Download a run's report as JSON from the Waivern Consent Analyser and upload it on the website's page. Govern keeps the report as evidence, without its screenshots or any cookie values, and reads what the scan saw: each cookie, whether it was set before consent, and whether it was still collecting after Reject All.",
+          "Nothing is added to the inventory automatically. New items, and items a previous scan found but this one did not, wait for somebody to accept or reject them. Rejecting needs a reason; something rejected that the next scan still finds is proposed again.",
+          "Checks that failed become findings, as from any scanner. The analyser's checks predate the DUAA: it reports analytics before consent as a failure even where Schedule A1 para 5 may allow it. The finding says so — check the inventory before treating it as a breach.",
+          "A report that was blocked by the site's bot protection is refused: it saw a block page, not the site. A report for another address is refused unless you confirm it belongs here.",
+        ],
+      },
+      {
+        heading: "Recording the basis",
+        body: [
+          "For each item, choose the basis it relies on and say why. The form shows what that paragraph needs, and you confirm each condition. The scanner's category is shown as a suggestion only: the analyser's own rules put Google Analytics under advertising, and a cookie called analytics that is shared with an advertiser is not statistics.",
+          "Decisions are kept, never overwritten. Changing your mind is a second decision.",
+          "What is still missing shows as a gap: an unconfirmed condition, no information or objection route for the site, a third-party statistics cookie with no supplier recorded, or a cookie that relies on consent but was seen before consent was given.",
+        ],
+      },
+      {
+        heading: "What the platform will not do",
+        body: [
+          "It will not decide a basis from a scan, change the website or its consent banner, or tell you a cookie is lawful. It holds the inventory, the reasoning, and what is still to be shown.",
+        ],
+      },
+    ],
+    related: ["findings", "third-parties", "exports"],
+  },
+  {
     id: "ai-register",
     title: "The AI register",
     summary:
@@ -1530,7 +1589,7 @@ export const HELP_GROUPS: Array<{ heading: string; ids: string[] }> = [
   },
   {
     heading: "The registers",
-    ids: ["ropa", "third-parties", "breaches", "data-subject-requests", "complaints", "ai-register", "ai-intake", "ai-chain", "ai-incidents", "ai-profile", "transparency-records", "transfers", "findings"],
+    ids: ["ropa", "third-parties", "breaches", "data-subject-requests", "complaints", "cookies", "ai-register", "ai-intake", "ai-chain", "ai-incidents", "ai-profile", "transparency-records", "transfers", "findings"],
   },
   {
     heading: "Seeing where you stand",

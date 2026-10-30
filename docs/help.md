@@ -32,6 +32,7 @@ Every help topic the application carries, in the order it presents them.
 - [Personal data breaches](#personal-data-breaches) — Record every breach, decide the two statutory questions separately, and keep the reasoning for both.
 - [Data subject requests](#data-subject-requests) — Record every request from a person exercising their rights, run the month to answer it, and keep the reasoning for each decision.
 - [Data protection complaints](#data-protection-complaints) — Record each complaint a person makes to you about how their data was handled, acknowledge it within 30 days, and keep what you looked into and what you told them.
+- [Cookies and similar technologies](#cookies-and-similar-technologies) — Inventory every cookie, pixel and stored item on your websites and apps, from Consent Analyser reports or by hand, and record the basis each relies on under UK PECR.
 - [The AI register](#the-ai-register) — Every AI system the organisation is accountable for, including the ones nobody has assessed.
 - [Proposals to use AI](#proposals-to-use-ai) — Ideas for using AI, captured before anything is built or bought, scored on value and feasibility, and decided with a reason.
 - [The AI assurance chain](#the-ai-assurance-chain) — Each AI system drawn through to what was done about it — and, more usefully, where that chain stops.
@@ -743,6 +744,55 @@ It will not decide whether a complaint is justified, write to the complainant, o
 **See also:** Data subject requests · Personal data breaches · The audit trail
 
 <sub>Also searchable as: complaint, complaints, 164a, section 164a, dpa 2018, data use and access act, duaa, acknowledge, acknowledgement, 30 days, thirty days, undue delay, outcome, grievance, information commission, ico, regulator, progress update, deadline, task, timeliness, metrics, 164b, return, counts, web form, public form, complaint form, online, intake</sub>
+
+## Cookies and similar technologies
+
+*Inventory every cookie, pixel and stored item on your websites and apps, from Consent Analyser reports or by hand, and record the basis each relies on under UK PECR.*
+
+**Screen:** `/app/cookies`
+
+### What the law requires
+
+PECR regulation 6 restricts storing information on a person's device, or reading what is stored there. The Data (Use and Access) Act 2025 rewrote the exceptions into Schedule A1, in force from 5 February 2026. Something may be stored or read if one of these applies:
+
+- Consent, after clear and comprehensive information about the purpose (para 2).
+- Solely to carry a communication over a network (para 3).
+- Strictly necessary for a service the person asked for — security, fraud prevention, fault detection, authentication, remembering what they entered (para 4).
+- Statistics: collected by the provider, solely to improve the service, shared only with someone helping to do that, with clear information and a simple, free way to object (para 5).
+- Appearance and function: solely to adapt how a website or app looks or works to the person's preferences, with clear information and a simple, free way to object (para 6).
+- Emergency assistance: solely to locate somebody who asked for help (para 7).
+
+### Websites and apps
+
+Add each website and app the organisation runs. Record, once for each, where people are told about cookies — the cookie notice — and how they object to statistics and preference cookies. Every statistics and appearance decision on that site is checked against both.
+
+This register covers UK law. The EU ePrivacy Directive has no statistics or appearance exception, so an EU site's analytics still need consent.
+
+### Uploading a Consent Analyser report
+
+Download a run's report as JSON from the Waivern Consent Analyser and upload it on the website's page. Govern keeps the report as evidence, without its screenshots or any cookie values, and reads what the scan saw: each cookie, whether it was set before consent, and whether it was still collecting after Reject All.
+
+Nothing is added to the inventory automatically. New items, and items a previous scan found but this one did not, wait for somebody to accept or reject them. Rejecting needs a reason; something rejected that the next scan still finds is proposed again.
+
+Checks that failed become findings, as from any scanner. The analyser's checks predate the DUAA: it reports analytics before consent as a failure even where Schedule A1 para 5 may allow it. The finding says so — check the inventory before treating it as a breach.
+
+A report that was blocked by the site's bot protection is refused: it saw a block page, not the site. A report for another address is refused unless you confirm it belongs here.
+
+### Recording the basis
+
+For each item, choose the basis it relies on and say why. The form shows what that paragraph needs, and you confirm each condition. The scanner's category is shown as a suggestion only: the analyser's own rules put Google Analytics under advertising, and a cookie called analytics that is shared with an advertiser is not statistics.
+
+Decisions are kept, never overwritten. Changing your mind is a second decision.
+
+What is still missing shows as a gap: an unconfirmed condition, no information or objection route for the site, a third-party statistics cookie with no supplier recorded, or a cookie that relies on consent but was seen before consent was given.
+
+### What the platform will not do
+
+It will not decide a basis from a scan, change the website or its consent banner, or tell you a cookie is lawful. It holds the inventory, the reasoning, and what is still to be shown.
+
+**See also:** Scan findings · Third parties and processor agreements (Article 28) · Exports
+
+<sub>Also searchable as: cookie, cookies, pecr, regulation 6, schedule a1, storage, access, terminal equipment, analytics, statistics, preferences, functional, strictly necessary, consent, opt out, object, duaa, data use and access act, consent analyser, scan, pixel, local storage, sdk, cookie notice</sub>
 
 ## The AI register
 
