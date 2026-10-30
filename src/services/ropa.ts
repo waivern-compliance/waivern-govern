@@ -18,9 +18,16 @@ import {
   type RecognisedCondition,
 } from "@/lib/gdpr/lawful-basis";
 import { ADM_GAP_WORDS, admGaps, type AdmGap } from "@/lib/gdpr/automated-decisions";
+import {
+  FURTHER_PROCESSING_GAP_WORDS,
+  FurtherProcessingRefused,
+  cleanFurtherProcessing,
+  furtherProcessingGaps,
+  type FurtherProcessingGap,
+} from "@/lib/gdpr/further-processing";
 import { needingSafeguards } from "./countries";
 import type { Actor } from "./templates";
-import { assertEntityIn, assertMemberOf } from "./tenancy-guards";
+import { assertEntityIn, assertMemberOf, assertRecordIn } from "./tenancy-guards";
 
 /**
  * Records of processing activities — the Article 30 register.
@@ -46,6 +53,7 @@ export type Article30Gap =
   | "lawful_basis"
   | "recognised_condition"
   | AdmGap
+  | FurtherProcessingGap
   | "no_owner"
   | "review_overdue";
 
@@ -61,6 +69,7 @@ export const GAP_WORDS: Record<Article30Gap, string> = {
   lawful_basis: "No lawful basis chosen",
   recognised_condition: "Recognised legitimate interests with no Annex 1 condition",
   ...ADM_GAP_WORDS,
+  ...FURTHER_PROCESSING_GAP_WORDS,
   no_owner: "No named owner",
   review_overdue: "Review overdue",
 };
@@ -94,6 +103,12 @@ const EMPTY = (a: unknown[] | null | undefined) => !a || a.length === 0;
 export function article30Gaps(
   activity: Activity,
   needsSafeguards: ReadonlySet<string>,
+  /**
+   * Whether the data was first collected on consent, read from the original
+   * activity where one is linked (`originalConsentOf`). Defaults to what the
+   * record itself says.
+   */
+  originalConsent: boolean | null = activity.originalConsent,
 ): Article30Gap[] {
   const gaps: Article30Gap[] = [];
 
@@ -126,12 +141,36 @@ export function article30Gaps(
   }
   // Articles 22A–22C, only where significant decisions are solely automated.
   gaps.push(...admGaps(activity, activity.lawfulBases ?? []));
+  // Articles 8A, 13(5) and 84C, only where further processing or research is recorded.
+  gaps.push(...furtherProcessingGaps(activity, originalConsent));
   if (!activity.ownerId) gaps.push("no_owner");
   if (activity.reviewDueAt && activity.reviewDueAt.getTime() <= Date.now()) {
     gaps.push("review_overdue");
   }
 
   return gaps;
+}
+
+/**
+ * Whether the data behind further processing was first collected on consent:
+ * from the original activity's bases where one is linked and known, otherwise
+ * as the record says. Article 8A(4) turns on it.
+ */
+export function originalConsentOf(
+  activity: Activity,
+  basesById: ReadonlyMap<string, readonly LawfulBasis[]>,
+): boolean | null {
+  if (!activity.originalActivityId) return activity.originalConsent;
+  const bases = basesById.get(activity.originalActivityId);
+  return bases ? bases.includes("consent") : null;
+}
+
+async function basesByActivity(organisationId: string) {
+  const rows = await db
+    .select({ id: processingActivities.id, lawfulBases: processingActivities.lawfulBases })
+    .from(processingActivities)
+    .where(eq(processingActivities.organisationId, organisationId));
+  return new Map(rows.map((r) => [r.id, r.lawfulBases ?? []] as const));
 }
 
 export class LawfulBasisRefused extends Error {}
@@ -184,7 +223,7 @@ export async function listActivities(
   entityIds: string[] | null,
 ): Promise<RegisterRow[]> {
   return withOrganisation(organisationId, async () => {
-    const [rows, needsSafeguards] = await Promise.all([
+    const [rows, needsSafeguards, bases] = await Promise.all([
       db
         .select({
           activity: processingActivities,
@@ -197,10 +236,11 @@ export async function listActivities(
         .where(await scopeOf(organisationId, entityIds))
         .orderBy(asc(processingActivities.reference)),
       needingSafeguards(organisationId, "uk"),
+      basesByActivity(organisationId),
     ]);
 
     return rows.map(({ activity, entityName, ownerEmail }) => {
-      const gaps = article30Gaps(activity, needsSafeguards);
+      const gaps = article30Gaps(activity, needsSafeguards, originalConsentOf(activity, bases));
       return {
         activity,
         entityName,
@@ -231,7 +271,7 @@ export async function loadActivity(activityId: string, organisationId: string) {
       );
     if (!row) return null;
 
-    const [needsSafeguards, related] = await Promise.all([
+    const [needsSafeguards, related, bases] = await Promise.all([
       needingSafeguards(organisationId, "uk"),
       db
         .select({ assessment: assessments, kind: templates.kind })
@@ -245,12 +285,23 @@ export async function loadActivity(activityId: string, organisationId: string) {
           ),
         )
         .orderBy(desc(assessments.createdAt)),
+      basesByActivity(organisationId),
     ]);
 
-    const gaps = article30Gaps(row.activity, needsSafeguards);
+    const original = row.activity.originalActivityId
+      ? await db
+          .select({ id: processingActivities.id, reference: processingActivities.reference, name: processingActivities.name })
+          .from(processingActivities)
+          .where(eq(processingActivities.id, row.activity.originalActivityId))
+          .then((r) => r[0] ?? null)
+      : null;
+    const originalConsent = originalConsentOf(row.activity, bases);
+    const gaps = article30Gaps(row.activity, needsSafeguards, originalConsent);
     return {
       ...row,
       assessments: related,
+      original,
+      originalConsent,
       gaps,
       hardGaps: gaps.filter((g) => HARD_GAPS.includes(g)),
     };
@@ -414,6 +465,58 @@ export async function updateActivity(input: {
       });
 
       return after;
+    });
+  });
+}
+
+/**
+ * Record whether this is further processing or research, and on what ground.
+ * Its own write, so the audit chain keeps the before and after of the answers
+ * a regulator asks about, not only that something changed.
+ */
+export async function setFurtherProcessing(input: {
+  activityId: string;
+  organisationId: string;
+  record: Parameters<typeof cleanFurtherProcessing>[0];
+  actor: Actor;
+}) {
+  const record = cleanFurtherProcessing(input.record);
+  if (record.originalActivityId === input.activityId) {
+    throw new FurtherProcessingRefused("An activity cannot be further processing of itself.");
+  }
+  return withOrganisation(input.organisationId, async () => {
+    if (record.originalActivityId) {
+      await assertRecordIn(input.organisationId, "processing_activity", record.originalActivityId);
+    }
+    return db.transaction(async (tx) => {
+      const [before] = await tx
+        .select()
+        .from(processingActivities)
+        .where(
+          and(
+            eq(processingActivities.id, input.activityId),
+            eq(processingActivities.organisationId, input.organisationId),
+          ),
+        );
+      if (!before) throw new Error("No such processing activity");
+
+      await tx
+        .update(processingActivities)
+        .set({ ...record, updatedAt: new Date() })
+        .where(eq(processingActivities.id, input.activityId));
+
+      const keys = Object.keys(record) as Array<keyof typeof record>;
+      await appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        action: "processing_activity.further_processing_recorded",
+        subjectType: "processing_activity",
+        subjectId: input.activityId,
+        entityId: before.entityId,
+        before: Object.fromEntries(keys.map((k) => [k, before[k]])),
+        after: record,
+      });
+      return record;
     });
   });
 }

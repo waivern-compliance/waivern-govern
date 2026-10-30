@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { asc, eq } from "drizzle-orm";
 import { db, scoped } from "@/db/client";
-import { memberships, users } from "@/db/schema";
+import { memberships, processingActivities, users } from "@/db/schema";
 import { GapChips } from "@/components/GapChips";
 import { Discussion } from "@/components/Discussion";
 import { NotPermitted } from "@/components/NotPermitted";
@@ -11,7 +11,16 @@ import { getActiveSession } from "@/lib/session";
 import { GAP_WORDS, HARD_GAPS, loadActivity } from "@/services/ropa";
 import { objectionCounts, objectionReviewThreshold } from "@/services/data-subject-requests";
 import { objectionReviewDue } from "@/lib/dsr/statutory";
-import { updateActivityAction } from "../actions";
+import { saveFurtherProcessingAction, updateActivityAction } from "../actions";
+import { FurtherProcessingFields } from "../FurtherProcessingFields";
+import {
+  ANNEX2_CONDITIONS,
+  COMPATIBILITY_FACTORS,
+  COMPATIBILITY_FACTOR_KEYS,
+  RESEARCH_SAFEGUARDS,
+  RESEARCH_SAFEGUARD_KEYS,
+  describeFurtherProcessing,
+} from "@/lib/gdpr/further-processing";
 import { savedKey } from "@/lib/saved-key";
 import { EditForm } from "@/components/EditForm";
 import { RECOGNISED_CONDITIONS, describeBases } from "@/lib/gdpr/lawful-basis";
@@ -37,7 +46,7 @@ export default async function ActivityPage({
   const loaded = await loadActivity(id, active.membership.organisationId);
   if (!loaded) notFound();
 
-  const { activity, entityName, gaps, hardGaps, assessments } = loaded;
+  const { activity, entityName, gaps, hardGaps, assessments, original } = loaded;
   if (!can(active.membership.grants, "record.read", activity.entityId)) {
     return (
       <NotPermitted
@@ -56,10 +65,24 @@ export default async function ActivityPage({
     .orderBy(asc(users.email)));
 
   // Counts only — no requester — so anyone who may read the record may see them.
-  const [objections, threshold, linkedUseCases] = await Promise.all([
+  const [objections, threshold, linkedUseCases, otherActivities] = await Promise.all([
     objectionCounts(active.membership.organisationId, [activity.id]).then((m) => m.get(activity.id)),
     objectionReviewThreshold(active.membership.organisationId),
     linkedUseCasesOf(active.membership.organisationId, activity),
+    // What this activity could reuse data from, for the further-processing link.
+    mayEdit
+      ? scoped(active.membership.organisationId, () => db
+          .select({
+            id: processingActivities.id,
+            entityId: processingActivities.entityId,
+            reference: processingActivities.reference,
+            name: processingActivities.name,
+            lawfulBases: processingActivities.lawfulBases,
+          })
+          .from(processingActivities)
+          .where(eq(processingActivities.organisationId, active.membership.organisationId))
+          .orderBy(asc(processingActivities.reference)))
+      : Promise.resolve([]),
   ]);
 
   const transfersText = (activity.transfers ?? [])
@@ -255,6 +278,62 @@ export default async function ActivityPage({
           <Read label="Security measures" value={activity.securityMeasures} />
         </section>
       )}
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold">
+          Further processing and research{" "}
+          <span className="font-normal text-ink-soft">· UK GDPR Articles 8A, 13(5) and 84A–84C</span>
+        </h2>
+        {mayEdit ? (
+          <EditForm
+            key={savedKey(activity)}
+            action={saveFurtherProcessingAction.bind(null, activity.id)}
+            className="space-y-4 rounded border border-line bg-surface p-4"
+          >
+            <FurtherProcessingFields
+              record={activity}
+              activities={otherActivities
+                .filter((a) => a.id !== activity.id && can(active.membership.grants, "record.read", a.entityId))
+                .map((a) => ({ id: a.id, label: `${a.reference} ${a.name}`, consent: (a.lawfulBases ?? []).includes("consent") }))}
+            />
+            <button
+              type="submit"
+              className="rounded border border-line bg-surface px-4 py-2 text-sm hover:border-brand focus-visible:outline-2 focus-visible:outline-brand"
+            >
+              Save further processing and research
+            </button>
+          </EditForm>
+        ) : (
+          <div className="space-y-1 rounded border border-line bg-surface p-4 text-sm">
+            <p>{describeFurtherProcessing(activity)}</p>
+            <ul className="space-y-0.5 text-xs text-ink-soft">
+              {original ? <li>Collected for {original.reference} {original.name}</li> : null}
+              {activity.annex2Condition ? <li>{ANNEX2_CONDITIONS[activity.annex2Condition].label} ({ANNEX2_CONDITIONS[activity.annex2Condition].paragraph})</li> : null}
+              {activity.compatibilityRoute === "assessed"
+                ? COMPATIBILITY_FACTOR_KEYS.map((k) => (
+                    <li key={k}>{COMPATIBILITY_FACTORS[k].label}: {activity.compatibilityFactors?.[k] ?? "not recorded"}</li>
+                  ))
+                : null}
+              {activity.compatibilityNote ? <li>{activity.compatibilityNote}</li> : null}
+              {activity.research
+                ? RESEARCH_SAFEGUARD_KEYS.map((k) => (
+                    <li key={k}>
+                      {activity.researchSafeguards?.[k]?.confirmed ? "✓" : "✗"} {RESEARCH_SAFEGUARDS[k].label}
+                      {activity.researchSafeguards?.[k]?.note ? ` — ${activity.researchSafeguards[k]!.note}` : ""}
+                    </li>
+                  ))
+                : null}
+              {activity.publicInformationUrl ? (
+                <li>
+                  <a href={activity.publicInformationUrl} className="underline" rel="noreferrer" target="_blank">
+                    Published information (Article 13(7))
+                  </a>
+                </li>
+              ) : null}
+            </ul>
+          </div>
+        )}
+      </section>
 
       <AutomatedDecisions
         side="processing_activity"

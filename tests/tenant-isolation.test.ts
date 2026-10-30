@@ -313,6 +313,7 @@ let mine: {
   complaint: { id: string };
   webProperty: { id: string };
   marketingActivity: { id: string };
+  activity: { id: string };
   useCase: { id: string };
   incident: { id: string };
   document: { id: string };
@@ -359,7 +360,8 @@ before(async () => {
     organisationId: A.org.id, entityId: null, subjectType: "risk", subjectId: risk.id,
     filename: "a.pdf", contentType: "application/pdf", content: PDF, actor: SYSTEM,
   });
-  mine = { risk, breach, subjectRequest, complaint, webProperty, marketingActivity, useCase, incident, document, dpiaVersion: dpia.version.id };
+  const activity = await ropa.createActivity({ organisationId: A.org.id, entityId: A.entity.id, name: "A's processing", actor: SYSTEM });
+  mine = { risk, breach, subjectRequest, complaint, webProperty, marketingActivity, activity, useCase, incident, document, dpiaVersion: dpia.version.id };
 });
 after(() => pg.end());
 
@@ -562,6 +564,7 @@ describe("changing another organisation's records", () => {
     ["revokeAcceptance", () => risksSvc.revokeAcceptance({ acceptanceId: B.acceptance.id, organisationId: A.org.id, reason: "x", actor: as() })],
     ["closeRisk", () => risksSvc.closeRisk({ riskId: B.risk.id, organisationId: A.org.id, reason: "x", actor: as() })],
     ["updateActivity", () => ropa.updateActivity({ activityId: B.activity.id, organisationId: A.org.id, changes: { name: "taken" }, actor: as() })],
+    ["setFurtherProcessing", () => ropa.setFurtherProcessing({ activityId: B.activity.id, organisationId: A.org.id, record: { furtherProcessing: false }, actor: as() })],
     ["setAutomatedDecisions", () => adm.setAutomatedDecisions({ organisationId: A.org.id, side: "processing_activity", id: B.activity.id, record: { automatedDecisions: false }, actor: as() })],
     ["copyAutomatedDecisions", () => adm.copyAutomatedDecisions({ organisationId: A.org.id, useCaseId: B.useCase.id, activityId: B.activity.id, to: "ai_use_case", actor: as() })],
     ["unlinkUseCaseFromActivity", () => adm.unlinkUseCaseFromActivity({ organisationId: A.org.id, useCaseId: B.useCase.id, activityId: B.activity.id, actor: as() })],
@@ -617,6 +620,7 @@ describe("linking one's own records to another organisation's", () => {
     ["a cookie collected by B's supplier", () => inventory.addItem({ propertyId: mine.webProperty.id, organisationId: A.org.id, name: "x", supplierId: B.supplier.id, actor: as() })],
     ["a marketing activity in B's entity", () => marketingSvc.createMarketingActivity({ organisationId: A.org.id, entityId: B.entity.id, name: "x", channel: "email", actor: as() })],
     ["a marketing activity under B's processing activity", () => marketingSvc.createMarketingActivity({ organisationId: A.org.id, entityId: A.entity.id, name: "x", channel: "email", processingActivityId: B.activity.id, actor: as() })],
+    ["further processing of B's processing activity", () => ropa.setFurtherProcessing({ activityId: mine.activity.id, organisationId: A.org.id, record: { furtherProcessing: true, originalActivityId: B.activity.id }, actor: as() })],
     ["an AI system linked to B's processing activity", () => adm.linkUseCaseToActivity({ organisationId: A.org.id, useCaseId: mine.useCase.id, activityId: B.activity.id, actor: as() })],
     ["a marketing activity linked to B's processing activity", () => marketingSvc.updateMarketingActivity({ activityId: mine.marketingActivity.id, organisationId: A.org.id, changes: { processingActivityId: B.activity.id }, actor: as() })],
     ["a marketing activity owned by B's person", () => marketingSvc.updateMarketingActivity({ activityId: mine.marketingActivity.id, organisationId: A.org.id, changes: { ownerId: B.owner.user.id }, actor: as() })],

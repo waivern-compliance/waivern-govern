@@ -6,7 +6,8 @@ import { and, eq } from "drizzle-orm";
 import { db, scoped } from "@/db/client";
 import { entities } from "@/db/schema";
 import { requireCapability } from "@/lib/session";
-import { createActivity, updateActivity } from "@/services/ropa";
+import { createActivity, setFurtherProcessing, updateActivity } from "@/services/ropa";
+import { COMPATIBILITY_FACTOR_KEYS, RESEARCH_SAFEGUARD_KEYS } from "@/lib/gdpr/further-processing";
 import { refusable, type EditResult } from "@/lib/edit-result";
 
 /** "GB", "US: SCCs", "us — scc" — all three are what people actually type. */
@@ -98,6 +99,54 @@ export async function updateActivityAction(
         controllerRole: text(formData.get("controllerRole")),
         controllerName: text(formData.get("controllerName")),
         ...(owner !== null ? { ownerId: text(owner) || null } : {}),
+      },
+      actor: { actorKind: "user", actorUserId: active.userId, actorLabel: active.email },
+    });
+
+    revalidatePath(`/app/ropa/${activityId}`);
+    revalidatePath("/app/ropa");
+  });
+}
+
+const yesNo = (raw: FormDataEntryValue | null) => {
+  const v = String(raw ?? "");
+  return v === "yes" ? true : v === "no" ? false : null;
+};
+
+export async function saveFurtherProcessingAction(
+  activityId: string,
+  _previous: EditResult,
+  formData: FormData,
+): Promise<EditResult> {
+  return refusable(async () => {
+    const active = await requireCapability("record.write");
+    await setFurtherProcessing({
+      activityId,
+      organisationId: active.membership.organisationId,
+      record: {
+        furtherProcessing: yesNo(formData.get("furtherProcessing")),
+        originalActivityId: text(formData.get("originalActivityId")) || null,
+        originalConsent: yesNo(formData.get("originalConsent")),
+        compatibilityRoute: text(formData.get("compatibilityRoute")) || null,
+        annex2Condition: text(formData.get("annex2Condition")) || null,
+        consentUnobtainable: yesNo(formData.get("consentUnobtainable")),
+        compatibilityFactors: Object.fromEntries(
+          COMPATIBILITY_FACTOR_KEYS.map((k) => [k, text(formData.get(`factor_${k}`))]),
+        ),
+        compatibilityNote: text(formData.get("compatibilityNote")) || null,
+        research: yesNo(formData.get("research")),
+        researchSafeguards: Object.fromEntries(
+          RESEARCH_SAFEGUARD_KEYS.map((k) => [
+            k,
+            {
+              confirmed: formData.get(`researchSafeguard_${k}`) === "on",
+              note: text(formData.get(`researchSafeguardNote_${k}`)),
+            },
+          ]),
+        ),
+        approvedMedicalResearch: formData.get("approvedMedicalResearch") === "on" ? true : null,
+        art13Exemption: yesNo(formData.get("art13Exemption")),
+        publicInformationUrl: text(formData.get("publicInformationUrl")) || null,
       },
       actor: { actorKind: "user", actorUserId: active.userId, actorLabel: active.email },
     });

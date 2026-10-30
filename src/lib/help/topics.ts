@@ -339,6 +339,14 @@ export const HELP_TOPICS: HelpTopic[] = [
         ],
       },
       {
+        heading: "Further processing and research",
+        body: [
+          "Say whether the activity reuses data first collected for something else. If it does, the new purpose has to be compatible with the old one (UK GDPR Article 8A). Choose the activity the data came from, if it is on the register, and the ground: fresh consent, research, demonstrating compliance, an Annex 2 condition, an Article 23 objective authorised by law, or your own assessment against the five Article 8A(2) factors, which it then asks you to write up.",
+          "Where the data was first collected on consent, Article 8A(4) narrows the choice: research cannot make the new purpose compatible, and Annex 2 or Article 23 only where consent cannot reasonably be sought. Those routes are shown closed, with the reason, and a record that relies on one anyway is flagged.",
+          "Separately, say whether the activity is for research, archiving in the public interest or statistics. Research includes commercial research. It then asks for the Article 84C safeguards: no substantial damage or distress, no decisions about a particular person (unless it is approved medical research) and data minimisation. Where it is further processing for research and telling people would be impossible or disproportionate, Article 13(5) lifts the duty, and the record asks where you have published the information instead.",
+        ],
+      },
+      {
         heading: "Automated decisions",
         body: [
           "Say whether the processing takes significant decisions about people solely by automated means — decisions with a legal or similarly significant effect, with no person meaningfully involved (UK GDPR Article 22A). Answer 'not yet known' rather than guess; nothing is flagged until you say yes.",

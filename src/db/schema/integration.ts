@@ -1,5 +1,6 @@
 import { relations, sql } from "drizzle-orm";
 import {
+  type AnyPgColumn,
   boolean,
   index,
   integer,
@@ -12,6 +13,13 @@ import {
 } from "drizzle-orm/pg-core";
 import type { LawfulBasis, RecognisedCondition } from "@/lib/gdpr/lawful-basis";
 import type { AdmSafeguards, AdmSpecialCondition } from "@/lib/gdpr/automated-decisions";
+import type {
+  Annex2Condition,
+  CompatibilityFactor,
+  CompatibilityRoute,
+  Confirmations,
+  ResearchSafeguard,
+} from "@/lib/gdpr/further-processing";
 import {
   deliveryStatus,
   evidenceKind,
@@ -99,6 +107,40 @@ export const processingActivities = pgTable(
     admSpecialCategory: boolean("adm_special_category"),
     admSpecialCondition: text("adm_special_condition").$type<AdmSpecialCondition>(),
     admSafeguards: jsonb("adm_safeguards").$type<AdmSafeguards>().notNull().default({}),
+    /**
+     * Further processing (Article 8A): whether this purpose reuses data first
+     * collected for another, and on what ground the new purpose is compatible.
+     * The original activity is optional; where it is not linked, whether the
+     * data was collected on consent is recorded instead, because Article 8A(4)
+     * turns on it.
+     */
+    furtherProcessing: boolean("further_processing"),
+    originalActivityId: uuid("original_activity_id").references((): AnyPgColumn => processingActivities.id, {
+      onDelete: "set null",
+    }),
+    originalConsent: boolean("original_consent"),
+    compatibilityRoute: text("compatibility_route").$type<CompatibilityRoute>(),
+    annex2Condition: text("annex2_condition").$type<Annex2Condition>(),
+    consentUnobtainable: boolean("consent_unobtainable"),
+    compatibilityFactors: jsonb("compatibility_factors")
+      .$type<Partial<Record<CompatibilityFactor, string>>>()
+      .notNull()
+      .default({}),
+    compatibilityNote: text("compatibility_note"),
+    /**
+     * Research, archiving in the public interest or statistics (Articles
+     * 84A–84C) — a purpose of the processing, so a flag here rather than a
+     * register of its own — with the 84C safeguards confirmed, and Article
+     * 13(5) where telling people would be impossible or disproportionate.
+     */
+    research: boolean("research"),
+    researchSafeguards: jsonb("research_safeguards")
+      .$type<Confirmations<ResearchSafeguard>>()
+      .notNull()
+      .default({}),
+    approvedMedicalResearch: boolean("approved_medical_research"),
+    art13Exemption: boolean("art13_exemption"),
+    publicInformationUrl: text("public_information_url"),
     /**
      * The basis as somebody wrote it — before the bases above existed, or as the
      * Portal sends it. Kept as a note: where it named a basis unambiguously, that
