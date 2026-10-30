@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { after, describe, it } from "node:test";
 import { and, eq } from "drizzle-orm";
 import { db, sql as pg } from "@/db/client";
-import { auditEvents, entities, memberships, organisations, tasks, users } from "@/db/schema";
+import { auditEvents, dataSubjectRequests, entities, memberships, organisations, tasks, users } from "@/db/schema";
 import { verifyAuditChain } from "@/lib/audit";
 import { can } from "@/lib/rbac";
 import { SYSTEM_TEMPLATES } from "@/lib/templates/library";
@@ -477,5 +478,31 @@ describe("objections against the ROPA", () => {
     const [task] = await db.select().from(tasks).where(and(eq(tasks.organisationId, w.org.id), eq(tasks.type, "reassess")));
     assert.equal(task.subjectId, lia.id);
     assert.match(task.title, /people keep objecting/);
+  });
+});
+
+describe("the clarification pause's commencement", () => {
+  it("pauses an open UK request received after 5 February 2026 that was left running under the old date", async () => {
+    const w = await world("commencement");
+    const request = await aRequest(w, { receivedAt: new Date("2026-03-02T09:00:00Z") });
+    await recordRequestDecision({
+      organisationId: w.org.id, requestId: request.id, kind: "clarification_requested",
+      rationale: "Asked which period they mean.", actor: SYSTEM,
+    });
+    assert.equal((await loadRequest(request.id, w.org.id))!.clock.state, "paused", "the corrected date pauses it");
+
+    // What the old date left behind: the decision recorded, the status still running.
+    await db.update(dataSubjectRequests).set({ status: "in_progress" }).where(eq(dataSubjectRequests.id, request.id));
+    const answered = await aRequest(w, { receivedAt: new Date("2026-03-03T09:00:00Z") });
+    await recordRequestDecision({ organisationId: w.org.id, requestId: answered.id, kind: "clarification_requested", rationale: "Which period?", actor: SYSTEM });
+    await recordRequestDecision({ organisationId: w.org.id, requestId: answered.id, kind: "clarification_received", rationale: "2025.", actor: SYSTEM });
+
+    const migration = readFileSync("drizzle/0077_dsr_clarification_commencement.sql", "utf8");
+    await pg.unsafe(migration.slice(migration.indexOf("UPDATE")));
+
+    const [fixed] = await db.select().from(dataSubjectRequests).where(eq(dataSubjectRequests.id, request.id));
+    const [untouched] = await db.select().from(dataSubjectRequests).where(eq(dataSubjectRequests.id, answered.id));
+    assert.equal(fixed.status, "paused");
+    assert.equal(untouched.status, "in_progress", "clarification already received: left running");
   });
 });

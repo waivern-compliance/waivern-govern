@@ -2,13 +2,15 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { BANK_HOLIDAYS_KNOWN_THROUGH } from "@/lib/dsr/bank-holidays";
 import {
-  DUAA_RIGHTS_IN_FORCE,
+  CLARIFICATION_PAUSE_IN_FORCE,
+  PROPORTIONATE_SEARCH_IN_FORCE,
   RIGHT_KEYS,
   RIGHTS,
   basisSuggestedBy,
   objectionReviewDue,
   clarificationStopsClock,
   clockStartsAt,
+  proportionateSearchApplies,
   extensionNoticeDeadline,
   isWorkingDay,
   objectionTest,
@@ -72,7 +74,7 @@ describe("when the clock starts", () => {
 });
 
 describe("pausing for clarification", () => {
-  // After the DUAA's changes came into force on 19 June 2026.
+  // After Article 12A came into force on 5 February 2026.
   const startsAt = at("2026-07-01T09:00:00Z");
   const pauses = [{ from: at("2026-07-05T09:00:00Z"), to: at("2026-07-15T16:00:00Z") }];
 
@@ -107,15 +109,32 @@ describe("pausing for clarification", () => {
     assert.equal(clock.state, "running");
   });
 
-  it("does not stop a UK clock for a request received before the DUAA's changes came into force", () => {
-    assert.equal(clarificationStopsClock("uk", at("2026-06-18T23:59:00Z")), false);
-    assert.equal(clarificationStopsClock("uk", DUAA_RIGHTS_IN_FORCE), true);
-    const receivedAt = at("2026-06-01T09:00:00Z");
-    const open = [{ from: at("2026-06-05T09:00:00Z"), to: null }];
-    const clock = requestClock({ jurisdiction: "uk", receivedAt, pauses: open, now: at("2026-06-20T09:00:00Z") });
+  it("does not stop a UK clock for a request received before Article 12A came into force", () => {
+    assert.equal(clarificationStopsClock("uk", at("2026-02-04T23:59:00Z")), false);
+    assert.equal(clarificationStopsClock("uk", CLARIFICATION_PAUSE_IN_FORCE), true);
+    assert.equal(CLARIFICATION_PAUSE_IN_FORCE.toISOString(), "2026-02-05T00:00:00.000Z", "S.I. 2026/82 reg 2(h)");
+    const receivedAt = at("2026-01-12T09:00:00Z");
+    const open = [{ from: at("2026-01-15T09:00:00Z"), to: null }];
+    const clock = requestClock({ jurisdiction: "uk", receivedAt, pauses: open, now: at("2026-02-01T09:00:00Z") });
     assert.equal(clock.state, "running");
     assert.ok("dueAt" in clock);
-    assert.equal(day(clock.dueAt), "2026-07-01");
+    assert.equal(day(clock.dueAt), "2026-02-12");
+  });
+
+  it("stops a UK clock for a request received between 5 February and 19 June 2026", () => {
+    // Govern once dated the pause from 19 June 2026, the complaints duty's date.
+    const receivedAt = at("2026-03-02T09:00:00Z");
+    assert.equal(clarificationStopsClock("uk", receivedAt), true);
+    const open = [{ from: at("2026-03-05T09:00:00Z"), to: null }];
+    const clock = requestClock({ jurisdiction: "uk", receivedAt, pauses: open, now: at("2026-03-20T09:00:00Z") });
+    assert.equal(clock.state, "paused");
+  });
+
+  it("limits a UK search to what is reasonable and proportionate from 1 January 2024 (s.78(5))", () => {
+    assert.equal(PROPORTIONATE_SEARCH_IN_FORCE.toISOString(), "2024-01-01T00:00:00.000Z");
+    assert.equal(proportionateSearchApplies("uk", at("2025-03-01T09:00:00Z")), true);
+    assert.equal(proportionateSearchApplies("uk", at("2023-12-31T09:00:00Z")), false);
+    assert.equal(proportionateSearchApplies("eu", at("2026-03-01T09:00:00Z")), false);
   });
 });
 

@@ -51,8 +51,12 @@ What the plan reuses, all already in Govern:
    these, and Govern has no jurisdiction setting. *Recommendation:* add a
    `jurisdiction` field (`uk` | `eu`) to each request, defaulting from a new
    organisation setting. The CNIL template already carries a `jurisdiction`.
-   *Settled:* all the DUAA's changes to the rights came into force on 19 June 2026. A UK
-   request received before then is not paused for clarification.
+   *Settled:* the DUAA's changes to the time limits (s.76, Article 12A, including the
+   clarification pause) came into force on 5 February 2026 (S.I. 2026/82 reg 2(h), with
+   reg 4 saving the old rules for requests received before then). Searches limited to
+   what is reasonable and proportionate (s.78, Article 15(1A)) are treated as in force
+   from 1 January 2024. The complaints duty (s.164A) followed on 19 June 2026. *Corrected
+   30 October 2026:* this previously gave 19 June 2026 for all three.
 2. **What is kept about the requester.** *Recommendation:* store a name, a contact
    route and how their identity was checked (method, who checked, when), never a copy
    of the ID document. This keeps to data minimisation, and Govern's `evidence` table
