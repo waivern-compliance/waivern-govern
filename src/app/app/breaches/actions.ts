@@ -109,6 +109,8 @@ export async function updateBreachAction(
         likelyConsequences: text(formData.get("likelyConsequences")),
         measuresTaken: text(formData.get("measuresTaken")),
         dataUnintelligible: tri(formData.get("dataUnintelligible")),
+        // Asked only where the entity is a public communications provider.
+        ...(formData.has("pecrServiceBreach") ? { pecrServiceBreach: tri(formData.get("pecrServiceBreach")) } : {}),
         ...(owner !== null ? { ownerId: text(owner) || null } : {}),
       },
       actor: { actorKind: "user", actorUserId: active.userId, actorLabel: active.email },

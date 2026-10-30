@@ -61,6 +61,7 @@ export default async function OrganisationPage() {
           name: e.name,
           legalEntityRef: e.legalEntityRef,
           isDefault: e.isDefault,
+          publicCommsProvider: e.publicCommsProvider,
         }))}
       />
 

@@ -34,7 +34,9 @@ export type Obligation = {
   kind:
     | "supervisory_authority"
     | "data_subjects"
-    | "processor_to_controller";
+    | "processor_to_controller"
+    | "pecr_commissioner"
+    | "pecr_subscribers";
   /** The provision that engages it. */
   basis: string;
   /** What has to happen. */
@@ -221,27 +223,82 @@ export function clockFor(input: {
     };
   }
 
+  return runningClock(dueAt, now);
+}
+
+/** Where no notification has been made yet: how much of the window is left. */
+function runningClock(dueAt: Date, now: Date, overdueWords = "Past seventy-two hours — notification must still be made, with reasons for the delay"): ClockState {
   const remaining = (dueAt.getTime() - now.getTime()) / 3_600_000;
   if (remaining < 0) {
+    return { state: "overdue", hoursOver: Math.abs(remaining), dueAt, words: overdueWords };
+  }
+  const words = `${Math.floor(remaining)} hours left of the seventy-two`;
+  if (remaining <= DUE_SOON_HOURS) return { state: "due_soon", hoursRemaining: remaining, dueAt, words };
+  return { state: "running", hoursRemaining: remaining, dueAt, words };
+}
+
+/*
+ * PECR regulation 5A: the duty of a provider of a public electronic
+ * communications service.
+ *
+ * It differs from Article 33 in the one way that matters under pressure: it is
+ * not gated on risk. Every personal data breach arising in providing the
+ * service goes to the Information Commissioner — since the Data (Use and
+ * Access) Act 2025, where feasible within seventy-two hours of becoming aware,
+ * with reasons if later. Subscribers and users are told without undue delay
+ * where the breach is likely to adversely affect their personal data or
+ * privacy, unless the Commissioner has accepted that the data was rendered
+ * unintelligible (reg 5A(6)).
+ */
+
+/**
+ * Whether reg 5A applies to a breach.
+ *
+ * The entity has to be a public communications provider, and the breach has to
+ * arise in connection with providing the service. Not yet answered counts as
+ * applying, for the same reason an unassessed risk engages Article 33: the
+ * clock does not wait for the question to be settled.
+ */
+export function reg5aApplies(input: { provider: boolean; serviceBreach: boolean | null }): boolean {
+  return input.provider && input.serviceBreach !== false;
+}
+
+export function pecrObligationsFor(input: { discoveredAt: Date }): Obligation[] {
+  return [
+    {
+      kind: "pecr_commissioner",
+      basis: "PECR reg 5A(2)",
+      what: "Notify the Information Commissioner — every breach in providing the service, whatever the risk",
+      dueAt: notificationDeadline(input.discoveredAt),
+      deadlineWords: "where feasible within seventy-two hours of becoming aware, with reasons if later",
+    },
+    {
+      kind: "pecr_subscribers",
+      basis: "PECR reg 5A(3)",
+      what: "Tell the subscribers or users affected, if it is likely to adversely affect their personal data or privacy, unless reg 5A(6) applies",
+      dueAt: null,
+      deadlineWords: "without undue delay",
+    },
+  ];
+}
+
+/** How the reg 5A seventy-two hours stands. No risk test can switch it off. */
+export function pecrClockFor(input: { discoveredAt: Date; notifiedAt?: Date | null; now?: Date }): ClockState {
+  const dueAt = notificationDeadline(input.discoveredAt);
+  if (input.notifiedAt) {
     return {
-      state: "overdue",
-      hoursOver: Math.abs(remaining),
+      state: "met",
       dueAt,
-      words: "Past seventy-two hours — notification must still be made, with reasons for the delay",
+      notifiedAt: input.notifiedAt,
+      words:
+        input.notifiedAt <= dueAt
+          ? "Commissioner notified within seventy-two hours"
+          : "Commissioner notified late — reg 5A requires the reasons for the delay",
     };
   }
-  if (remaining <= DUE_SOON_HOURS) {
-    return {
-      state: "due_soon",
-      hoursRemaining: remaining,
-      dueAt,
-      words: `${Math.floor(remaining)} hours left of the seventy-two`,
-    };
-  }
-  return {
-    state: "running",
-    hoursRemaining: remaining,
+  return runningClock(
     dueAt,
-    words: `${Math.floor(remaining)} hours left of the seventy-two`,
-  };
+    input.now ?? new Date(),
+    "Past seventy-two hours — reg 5A still requires notification, with reasons for the delay",
+  );
 }

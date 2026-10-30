@@ -1,6 +1,6 @@
 # Plan: UK PECR as amended by the Data (Use and Access) Act 2025
 
-Status: decisions settled as recommended (30 October 2026); Phases 0–4 built.
+Status: decisions settled as recommended (30 October 2026); Phases 0–5 built.
 
 ## What is asked for
 
@@ -310,11 +310,25 @@ One row per name, domain and property:
     references for regs 19 and 23 and the ICO's direct marketing guidance, and the
     tenant-isolation tests.
 
-### Phase 5: reg 5A breach notification (about half a day, only if needed)
+### Phase 5: reg 5A breach notification (built)
 - **Provider flag:** a flag on the entity marking it as a public electronic
   communications provider.
 - **The clock:** for such an entity the breach register runs the reg 5A clock beside
   Article 33's: 72 hours where feasible, with reasons if later.
+
+Built as:
+- `entity.public_comms_provider`, set from the Organisation page and audited as
+  `entity.provider_flag_changed`.
+- `breach.pecr_service_breach`: whether the breach arose in providing the service.
+  Asked only for a provider's breach; unanswered counts as yes, so the clock runs.
+- `reg5aApplies`, `pecrObligationsFor` and `pecrClockFor` in `lib/breach/statutory.ts`.
+  No risk test: the Commissioner is told of every such breach (reg 5A(2)); subscribers
+  without undue delay where adversely affected, unless reg 5A(6) applies.
+- Decision kinds `pecr_commissioner` and `pecr_subscribers`. Recording the Commissioner
+  as told marks the breach notified.
+- The sweep raises its own deadline task (`breach-deadline-5a:…`) beside Article 33's.
+- The breach page shows both clocks, and notes that Article 95 means Article 33 adds no
+  second duty where reg 5A applies — recorded as a decision, not assumed.
 
 ### Phase 6: the Portal (about 1 day in Govern; the Portal work is separate)
 - **Export:** `GET /api/v1/export/storage`, documented first in `integration-api.md`. It

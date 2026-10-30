@@ -87,6 +87,12 @@ export const entities = pgTable(
     legalEntityRef: text("legal_entity_ref"),
     /** Where a record arrives with no entity stated, it lands here. */
     isDefault: boolean("is_default").notNull().default(false),
+    /**
+     * A provider of a public electronic communications service — a telecoms or
+     * internet provider. Its breaches in providing that service fall under PECR
+     * regulation 5A, which runs its own seventy-two hours with no risk test.
+     */
+    publicCommsProvider: boolean("public_comms_provider").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

@@ -826,6 +826,8 @@ export const breachDecisionKind = pgEnum("breach_decision_kind", [
   "supervisory_authority",
   "data_subjects",
   "processor_to_controller",
+  "pecr_commissioner",
+  "pecr_subscribers",
   "insurer",
   "law_enforcement",
   "other_regulator",

@@ -6,10 +6,11 @@ import {
   addEntityAction,
   makeDefaultEntityAction,
   renameEntityAction,
+  setProviderAction,
   type AdminResult,
 } from "../actions";
 
-type Entity = { id: string; name: string; legalEntityRef: string | null; isDefault: boolean };
+type Entity = { id: string; name: string; legalEntityRef: string | null; isDefault: boolean; publicCommsProvider: boolean };
 
 const input =
   "rounded border border-line bg-ground px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-brand";
@@ -53,6 +54,7 @@ export function EntitiesPanel({ entities, mayManage }: { entities: Entity[]; may
               <span className="font-mono text-[11px] text-ink-soft">
                 {e.legalEntityRef ?? "no reference"}
                 {e.isDefault ? " · default" : ""}
+                {e.publicCommsProvider ? " · public communications provider" : ""}
               </span>
             </li>
           ),
@@ -99,6 +101,10 @@ function EntityRow({ entity }: { entity: Entity }) {
   const makeDefault = useRefusableAction<AdminResult>(makeDefaultEntityAction.bind(null, entity.id), {
     resetOnSuccess: false,
   });
+  const provider = useRefusableAction<AdminResult>(
+    setProviderAction.bind(null, entity.id, !entity.publicCommsProvider),
+    { resetOnSuccess: false },
+  );
 
   return (
     <li className="space-y-2 px-4 py-3">
@@ -146,8 +152,23 @@ function EntityRow({ entity }: { entity: Entity }) {
           </button>
         </form>
       )}
+      <form {...provider.formProps} className="flex flex-wrap items-baseline gap-2 text-xs">
+        {entity.publicCommsProvider ? (
+          <span className="rounded border border-line px-2 py-0.5 font-mono text-[11px]">public communications provider</span>
+        ) : null}
+        <button
+          type="submit"
+          disabled={provider.pending}
+          className="text-ink-soft underline-offset-2 hover:text-brand hover:underline disabled:opacity-50"
+        >
+          {entity.publicCommsProvider
+            ? "Not a public communications provider"
+            : "Mark as a public communications provider (PECR reg 5A)"}
+        </button>
+      </form>
       <Outcome result={rename.result} />
       <Outcome result={makeDefault.result} />
+      <Outcome result={provider.result} />
     </li>
   );
 }

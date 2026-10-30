@@ -68,7 +68,7 @@ export default async function BreachesPage() {
       {mayRecord ? <RecordBreachForm entities={orgEntities} /> : null}
 
       <ul className="space-y-3">
-        {register.rows.map(({ breach, entityName, clock, risk, decisions }) => (
+        {register.rows.map(({ breach, entityName, clock, pecr, risk, decisions }) => (
           <li key={breach.id}>
             <Link
               href={`/app/breaches/${breach.id}`}
@@ -92,6 +92,7 @@ export default async function BreachesPage() {
                 {decisions.length > 0 ? ` · ${decisions.length} decision(s)` : ""}
               </p>
               <Clock clock={clock} />
+              {pecr ? <Clock clock={pecr.clock} regime="pecr" /> : null}
             </Link>
           </li>
         ))}
