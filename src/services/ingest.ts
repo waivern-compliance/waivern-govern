@@ -29,6 +29,8 @@ import { sql } from "drizzle-orm";
 import type { Actor } from "./templates";
 import { createUseCase } from "./ai-register";
 import { canonicalise as canonicaliseByHand } from "./third-party";
+import { basesFromText } from "@/lib/gdpr/lawful-basis";
+import { cleanLawfulBases } from "./ropa";
 
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
@@ -116,11 +118,19 @@ export async function ingestProcessingActivities(
             ),
           );
 
+        // Structured bases win; otherwise read them from the text where it is
+        // unambiguous. Where neither says anything, a basis somebody chose in
+        // Govern is left alone rather than wiped by a push that had no view.
+        const bases = r.lawfulBases ?? basesFromText(r.lawfulBasis) ?? undefined;
+        const condition =
+          r.recognisedCondition ??
+          (bases?.includes("recognised_legitimate_interests") ? existing?.recognisedCondition : undefined);
         const values = {
           name: r.name,
           description: r.description,
           purposes: r.purposes,
           lawfulBasis: r.lawfulBasis,
+          ...(bases ? cleanLawfulBases(bases, condition ?? null) : {}),
           dataCategories: r.dataCategories,
           subjectCategories: r.subjectCategories,
           recipients: r.recipients,

@@ -137,6 +137,9 @@ describe("legitimate interests scoring", () => {
   );
 
   const base: Answers = {
+    // Fraud detection could be crime prevention under Annex 1; answered "no"
+    // here so the three-part test is what is exercised.
+    recognised_condition: "no",
     activity_name: "Fraud detection on card payments",
     interest: "Detecting fraudulent transactions before they complete",
     whose_interest: ["controller"],

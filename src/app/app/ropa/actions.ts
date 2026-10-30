@@ -86,6 +86,8 @@ export async function updateActivityAction(
         description: text(formData.get("description")),
         purposes: lines(formData.get("purposes")),
         lawfulBasis: text(formData.get("lawfulBasis")),
+        lawfulBases: formData.getAll("lawfulBases").map(String),
+        recognisedCondition: text(formData.get("recognisedCondition")) || null,
         dataCategories: lines(formData.get("dataCategories")),
         subjectCategories: lines(formData.get("subjectCategories")),
         recipients: lines(formData.get("recipients")),

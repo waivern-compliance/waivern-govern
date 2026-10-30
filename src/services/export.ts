@@ -107,7 +107,12 @@ export type ContextActivity = {
   name: string;
   description: string | null;
   purposes: string[];
+  /** The note, as written. */
   lawfulBasis: string | null;
+  /** The Article 6(1) bases chosen. Empty where none has been. */
+  lawfulBases: string[];
+  /** The Annex 1 condition, with recognised legitimate interests. */
+  recognisedCondition: string | null;
   dataCategories: string[];
   subjectCategories: string[];
   recipients: string[];
@@ -465,6 +470,8 @@ export async function governanceContext(scope: ExportScope): Promise<GovernanceC
         description: a.description,
         purposes: a.purposes,
         lawfulBasis: a.lawfulBasis,
+        lawfulBases: a.lawfulBases,
+        recognisedCondition: a.recognisedCondition,
         dataCategories: a.dataCategories,
         subjectCategories: a.subjectCategories,
         recipients: a.recipients,

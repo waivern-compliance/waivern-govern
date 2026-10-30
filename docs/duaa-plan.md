@@ -1,6 +1,6 @@
 # Plan: the UK GDPR as amended by the Data (Use and Access) Act 2025
 
-Status: decisions settled (30 October 2026); 1, 2, 5, 6 and 7 as recommended, 3 and 4 changed. Phase 0 built.
+Status: decisions settled (30 October 2026); 1, 2, 5, 6 and 7 as recommended, 3 and 4 changed. Phases 0–1 built.
 
 ## What is asked for
 
@@ -149,7 +149,7 @@ Built as:
 - The request register's automated-decision right cites Article 22C; guidance, help and
   the AI incident schema comment cite 22A–22D or 22C.
 
-### Phase 1: lawful basis and objections (about 2 days)
+### Phase 1: lawful basis and objections (built)
 - The structured basis on the processing activity (decision 1), with the migration of
   existing text, the ROPA form and page, and the Portal mapping (decision 2).
 - **Objections:** add recognised legitimate interests to `ProcessingBasis`;
@@ -159,6 +159,29 @@ Built as:
   does, it records the condition and why the processing is necessary for it, and skips
   the balancing test. UK references replace the EU ones.
 - **Gaps:** recognised legitimate interests chosen with no condition.
+
+Built as:
+- `processing_activity.lawful_bases` (jsonb) and `recognised_condition`, with
+  `lib/gdpr/lawful-basis.ts` naming the bases and Annex 1 conditions. Migration 0072
+  chose a basis from existing text only where the whole text named exactly one; the
+  text stays as the note. `basesFromText` (used on ingest) also reads lists where every
+  part names exactly one basis.
+- The ROPA form ticks bases and asks for the Annex 1 condition only when recognised
+  legitimate interests is ticked. Gaps: "No lawful basis chosen" and "Recognised
+  legitimate interests with no Annex 1 condition". Basis changes are kept in the audit
+  chain, before and after.
+- Integration API: optional `lawfulBases` and `recognisedCondition` on ingest and
+  export. Structured bases win; text is read where unambiguous; a push with no clear
+  basis leaves one chosen in Govern alone.
+- Objections: `recognised_legitimate_interests` is a `ProcessingBasis`, and Article
+  21(1) applies to it and is overridable. `basisSuggestedBy` reads the chosen bases
+  first.
+- LIA, edited in place and now UK: an Annex 1 question first. Where a condition
+  applies, it asks why the processing is necessary, who asked (for paragraph 1), how
+  objections are handled and whether any significant decision is solely automated
+  (Article 22B), and hides the three-part test. UK GDPR and ICO references replace the
+  EU ones; EDPB Guidelines 1/2024 stay as persuasive. The DPIA's lawful basis question
+  offers recognised legitimate interests and asks for the condition.
 
 ### Phase 2: automated decisions (about 1.5 days)
 - The ADM fields on the processing activity, `admRestriction`, and gaps:

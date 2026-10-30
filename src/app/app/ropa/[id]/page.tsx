@@ -14,6 +14,8 @@ import { objectionReviewDue } from "@/lib/dsr/statutory";
 import { updateActivityAction } from "../actions";
 import { savedKey } from "@/lib/saved-key";
 import { EditForm } from "@/components/EditForm";
+import { RECOGNISED_CONDITIONS, describeBases } from "@/lib/gdpr/lawful-basis";
+import { LawfulBasisFields } from "../LawfulBasisFields";
 
 const ROLE_WORDS: Record<string, string> = {
   controller: "Controller — you decide why and how",
@@ -137,11 +139,10 @@ export default async function ActivityPage({
             hint="Article 30(1)(b) — one per line"
             defaultValue={(activity.purposes ?? []).join("\n")}
           />
-          <Field
-            label="Lawful basis"
-            name="lawfulBasis"
-            hint="Consent, contract, legal obligation, vital interests, public task, recognised legitimate interests (Annex 1), legitimate interests"
-            defaultValue={activity.lawfulBasis ?? ""}
+          <LawfulBasisFields
+            bases={activity.lawfulBases ?? []}
+            condition={activity.recognisedCondition}
+            note={activity.lawfulBasis ?? ""}
           />
           <Area
             label="Categories of data subject"
@@ -233,7 +234,16 @@ export default async function ActivityPage({
         <section className="space-y-4 rounded border border-line bg-surface p-5 text-sm">
           <h2 className="text-sm font-semibold">The record</h2>
           <Read label="Purposes" value={(activity.purposes ?? []).join(" · ")} />
-          <Read label="Lawful basis" value={activity.lawfulBasis} />
+          <Read
+            label="Lawful basis"
+            value={
+              [
+                describeBases(activity.lawfulBases ?? []),
+                activity.recognisedCondition ? `${RECOGNISED_CONDITIONS[activity.recognisedCondition].label} (${RECOGNISED_CONDITIONS[activity.recognisedCondition].paragraph})` : "",
+              ].filter(Boolean).join(" — ")
+            }
+          />
+          {activity.lawfulBasis ? <Read label="Note on the basis" value={activity.lawfulBasis} /> : null}
           <Read label="Data subjects" value={(activity.subjectCategories ?? []).join(" · ")} />
           <Read label="Personal data" value={(activity.dataCategories ?? []).join(" · ")} />
           <Read label="Recipients" value={(activity.recipients ?? []).join(" · ")} />
