@@ -564,7 +564,7 @@ Every breach goes on the register, including the ones you decide not to report. 
 
 ### Two questions, not one
 
-Article 33 asks whether the breach is likely to result in a risk to people's rights and freedoms. If it is, the supervisory authority must be told within seventy-two hours.
+Article 33 asks whether the breach is likely to result in a risk to people's rights and freedoms. If it is, the supervisory authority must be told within seventy-two hours. In the UK that is the Information Commission, which replaced the Information Commissioner on 30 September 2026 and still publishes its guidance as the ICO.
 
 Article 34 asks whether that risk is high. If it is, the people affected must be told without undue delay — a different test, a different deadline, and a breach can be notifiable without being communicable.
 
@@ -588,7 +588,7 @@ Your obligation under Article 33(2) is to tell the controller without undue dela
 
 A provider of a public electronic communications service has its own breach duty under PECR regulation 5A. Mark the legal entity as a public communications provider on the Organisation page, and each of its breaches asks whether it arose in providing the service.
 
-Where it did, or until that is answered, a second seventy-two hours runs beside Article 33's. It has no risk test: the Information Commissioner is told of every such breach. The subscribers or users affected are told without undue delay where it is likely to adversely affect their personal data or privacy, unless the Commissioner has accepted the data was unintelligible.
+Where it did, or until that is answered, a second seventy-two hours runs beside Article 33's. It has no risk test: the Information Commission is told of every such breach. The subscribers or users affected are told without undue delay where it is likely to adversely affect their personal data or privacy, unless the Commission has accepted the data was unintelligible.
 
 Article 95 of the UK GDPR means Article 33 does not add a second duty where reg 5A applies. If that is your position, record the Article 33 decision as not required and cite Article 95.
 
@@ -608,7 +608,7 @@ A missed deadline does not remove the obligation. Article 33(1) still requires n
 
 **See also:** The risk register · Service levels and things that come round again · The audit trail · The processing register (Article 30)
 
-<sub>Also searchable as: breach, incident, 72 hours, seventy-two, article 33, article 34, notify, ico, supervisory authority, data subjects, ransomware, leak, pecr, reg 5a, telecoms, communications provider</sub>
+<sub>Also searchable as: breach, incident, 72 hours, seventy-two, article 33, article 34, notify, ico, information commission, supervisory authority, data subjects, ransomware, leak, pecr, reg 5a, telecoms, communications provider</sub>
 
 ## Data subject requests
 
@@ -919,7 +919,7 @@ Approving an assessment of a system sets its next review from the assessment's c
 
 A system can be added at whatever stage it is really at. Moving it live afterwards — into pilot, or from pilot to production — is checked: it needs a named owner and an approved AI assessment that is not past its review and was approved after the last change to the model, data or use.
 
-If the system's approved DPIA says high risk remains after mitigation, it also needs the ICO's advice recorded on that DPIA: Article 36 requires prior consultation before the processing starts.
+If the system's approved DPIA says high risk remains after mitigation, it also needs the Information Commission's advice recorded on that DPIA: Article 36 requires prior consultation before the processing starts.
 
 Where those are missing, somebody who decides approvals can let it go ahead with a reason. The move is recorded with what was missing and why, so the history shows a system that went live without an assessment did.
 

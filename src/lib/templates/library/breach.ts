@@ -67,7 +67,7 @@ export const BREACH_SEVERITY: TemplateDefinition = {
               { value: "special", label: "Special category or criminal offence data", weight: 5 },
               { value: "combination", label: "A combination that builds a profile of the person", weight: 4 },
             ] },
-          { key: "special_category", label: "Does it include special category or criminal offence data?", type: "boolean", required: true, legalRefs: ["ukgdpr.art9"], evidence: "none" },
+          { key: "special_category", label: "Does it include special category or criminal offence data?", type: "boolean", required: true, legalRefs: ["ukgdpr.art9", "ukgdpr.art10"], evidence: "none" },
           { key: "special_category_detail", label: "Which, and about how many people?", type: "long_text", required: false,
             showWhen: { op: "equals", question: "special_category", value: true },
             requireWhen: { op: "equals", question: "special_category", value: true },

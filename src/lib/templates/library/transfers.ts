@@ -29,7 +29,7 @@ export const TRA_UK: TemplateDefinition = {
           { key: "importer", label: "Who receives the data?", type: "short_text", required: true, help: "Organisation name and role — processor, controller or sub-processor.", legalRefs: [], evidence: "none" },
           { key: "destination", label: "Destination country", type: "country", required: true, legalRefs: ["ukgdpr.art44a"], evidence: "none" },
           { key: "data_categories", label: "Categories of personal data transferred", type: "data_category", required: true, legalRefs: [], evidence: "none" },
-          { key: "special_category", label: "Does the transfer include special category or criminal offence data?", type: "boolean", required: true, legalRefs: ["ukgdpr.art9"], evidence: "none" },
+          { key: "special_category", label: "Does the transfer include special category or criminal offence data?", type: "boolean", required: true, legalRefs: ["ukgdpr.art9", "ukgdpr.art10"], evidence: "none" },
           { key: "frequency", label: "How often does the transfer happen?", type: "single_select", required: true, legalRefs: [], evidence: "none",
             options: [
               { value: "one_off", label: "One-off" },

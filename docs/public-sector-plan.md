@@ -1,0 +1,297 @@
+# Plan: public services under the Data Protection Act 2018, as amended
+
+Status: decisions settled (30 October 2026), all as recommended. Phase 0 built.
+
+## What is asked for
+
+Govern handles the UK GDPR well for any organisation, public bodies included, and is
+current with the Data (Use and Access) Act 2025 (`docs/duaa-plan.md`). What it does not
+know is the Data Protection Act 2018's own regime for public services: the Schedule 1
+conditions and appropriate policy documents that health and social care rely on, the
+Schedule 2 and 3 exemptions they use when answering requests, the rules that bind a
+public authority as such, and — for police, prosecutors, courts, prisons, probation and
+youth offending — the whole of Part 3, law enforcement processing.
+
+This plan covers those, for UK public services: healthcare, social work and social
+care, education, and criminal justice. It is written against the Act as it stands now,
+not as enacted.
+
+## The law, as checked on legislation.gov.uk
+
+Checked on 30 October 2026 against the current text and its amendment notes (pages
+"up to date with all changes known to be in force on or before 25 October 2026").
+Amendments are by the DUAA unless stated; commencement is by S.I. 2025/904 (20 August
+2025), S.I. 2025/996 (5 September and 17 November 2025), S.I. 2026/82 (5 February and
+19 June 2026), S.I. 2026/126 (12 February 2026) and S.I. 2026/1015 (30 September 2026).
+The Act now names the regulator **the Information Commission** throughout (S.I.
+2026/386, 30 September 2026).
+
+### Part 2: the UK GDPR, as the Act supplements it
+
+| Provision | What it requires now | Change since 2018 |
+|---|---|---|
+| UK GDPR Art 6(1), final subparagraph | A **public authority** may not rely on legitimate interests (f) or recognised legitimate interests (ea) for processing in the performance of its tasks. | (ea) added and the bar extended to it: DUAA s.70, 5 February 2026. |
+| DPA s.7, s.8 | A public authority is an FOIA / FOI(S)A public authority or a body named in regulations, and only when performing a public task. Art 6(1)(e) includes administering justice and statutory and Crown functions. | ARIA added (2023). Words omitted from s.8 by DUAA s.70(7) — *wording unconfirmed*. |
+| UK GDPR Art 37(1)(a) | A **data protection officer** is mandatory for a public authority, except courts — and now tribunals — acting judicially. | "and tribunals" added 20 August 2025 — *amending section unconfirmed*. |
+| DPA Sch 1 Part 1 paras 2–3 | Special category data for **health or social care** purposes (para 2, with the Art 9(3) secrecy duty) and **public health** (para 3). | None. |
+| DPA Sch 1 Part 2 paras 6, 10, 18 | **Statutory and government purposes** (6); **preventing, investigating or detecting unlawful acts** (10); **safeguarding of children and individuals at risk** (18). Each needs substantial public interest and, under para 5, an appropriate policy document. | Para 10: "investigating" added (Sch 11 para 28, 5 February 2026). No new conditions since 2018. Art 11A (DUAA s.74) lets regulations add special categories; none found. |
+| DPA Sch 1 Part 4 paras 38–41 | An **appropriate policy document**: how the Art 5 principles are met and the retention and erasure policy, with likely periods; kept, reviewed, and given to the Commission on request, from first reliance until six months after it ends. The Art 30 record must name the condition, how Art 6 is met, and whether retention followed the document, with reasons if not (para 41). | "Commission" (30 September 2026). |
+| DPA Sch 2 para 2 | **Crime and taxation**: listed rights disapplied so far as applying them would be likely to prejudice crime or tax purposes. | "investigation" added (Sch 11 para 29, 5 February 2026). |
+| DPA Sch 2 paras 4–4B | **Immigration** (Secretary of State only): decided case by case, per provision, afresh each time, with vulnerability considered and a substantial risk of prejudice that outweighs the risk to the person; the decision and reasons recorded, and the person told unless that would prejudice the purpose. | Rewritten by S.I. 2024/342 (8 March 2024), after S.I. 2022/76. |
+| DPA Sch 3 | **Health, social work and education data**. Access may be withheld where the **serious harm test** is met; a controller that is not a health professional may withhold health data only on the opinion of the appropriate health professional, given within the last six months. Social work data has its own test and Principal Reporter notice (Scotland); child abuse data in requests by parents (not Scotland). | No DUAA change. Para 8 amended by the Health and Care Act 2022. |
+| UK GDPR Art 12A, 15(1A); DPA s.164A | Request clocks, reasonable and proportionate search, the complaints duty. | **Already built** (corrected in #44). |
+
+### Part 3: law enforcement processing
+
+Applies to a **competent authority** (s.30, Sch 7): police forces, the DPP, courts and
+tribunals, probation, the Youth Justice Board, the Parole Board, youth offending teams,
+private prison and escort contractors, government departments (covering prisons), and
+now the Border Security Commander (2026) and the Information Commission itself — and to
+anyone else so far as it has statutory functions for law enforcement purposes. The
+purposes (s.31) are unchanged: preventing, investigating, detecting or prosecuting
+offences and executing penalties, including safeguarding against threats to public
+security.
+
+| Provision | What it requires now | Change since 2018 |
+|---|---|---|
+| s.35, Sch 8, s.42 | **Sensitive processing** only with consent, or where strictly necessary and a Schedule 8 condition applies; either way with an **appropriate policy document** (s.42). | s.42A lets regulations change the categories (DUAA s.74, 2025); none found. |
+| s.36, s.40A, s.41 | Further processing, conditions for consent, archiving and research. | DUAA ss.69, 71, 86 (2025–26). |
+| s.38(2)–(3) | Distinguish **fact from personal assessment**, and **categories of data subject** — suspects, the convicted, victims, witnesses — so far as possible. | None. |
+| s.61 | **Records** of processing, including the Sch 8 condition relied on and whether retention followed the policy document. | "Commission" only. |
+| s.62 | **Logging** in automated systems of collection, alteration, consultation, disclosure, combination and erasure; consultation and disclosure logs show date and time and, so far as possible, who and to whom. | The duty to log the **justification** for consultation and disclosure was **removed** (DUAA s.82, 19 August 2025). Confirmed against the enacted text. |
+| ss.64–65 | **DPIA** before likely high-risk processing; prior consultation with the Commission (six weeks, extendable by a month). | "Commission" only. |
+| ss.67–68 | **Breach** notification within 72 hours where feasible, unless unlikely to result in risk; tell people of high risk. | s.68(7)(d) omitted (national security now under s.78A). |
+| ss.69–71 | **DPO** mandatory, except courts acting judicially. | s.71A codes of conduct added. |
+| ss.44–48, 53–54 | **Rights**, which may be restricted where necessary and proportionate to avoid obstructing inquiries, prejudicing crime work, protecting public security or others' rights (s.45(4)); the person told of the restriction and reasons unless that would undermine it, and reasons recorded. Reasonable and proportionate search (s.45(2A)); clock and clarification (s.54); manifestly unfounded or excessive (s.53, with reasons and complaint rights). | DUAA ss.75, 76, 78; complaint to the controller (Sch 10, 19 June 2026). |
+| ss.50A–50D | **Automated decisions**: solely automated means no meaningful human involvement. With sensitive processing, only on explicit consent or where required or authorised by law (s.50B). Otherwise four safeguards (s.50C), which may be set aside for listed reasons only if a person reconsiders the decision as soon as reasonably practicable. | Substituted for ss.49–50 (DUAA s.80, 5 February 2026). |
+| s.78A | **National security** exemption from much of Part 3, where required. | DUAA s.88, 5 September 2025. |
+| ss.82A–82E | **Joint processing** with an intelligence service under a designation notice. | DUAA s.89, 17 November 2025. |
+| ss.72–78 | **Transfers**: approved by regulations (s.74AA, data protection test s.74AB), appropriate safeguards (s.75), or special circumstances (s.76). | Rebuilt by DUAA s.85, 5 February 2026; s.74A omitted. |
+
+### Other law these services meet
+
+- **Health and adult social care information standards** (Health and Social Care Act
+  2012, as amended by DUAA Sch 15, 5 February 2026) now bind the IT suppliers to those
+  services, with compliance notices and accreditation.
+- **Public service delivery** sharing under the Digital Economy Act 2017 s.35 now
+  extends to businesses and charities (DUAA s.123, 12 February 2026).
+
+Not yet confirmed: the exact words inserted or omitted in s.8, Sch 1 paras 13, 14 and 24,
+Sch 8 para 8 and s.34(2)(aa); the text of ss.44, 46–48, 50D and 82B–82E; and whether any
+regulations have been made under Art 11A, s.42A, s.124A (codes) or s.164B. Each is to be
+read before the phase that relies on it.
+
+## Where Govern stands
+
+- **No public-authority setting.** Entities carry only `public_comms_provider` (PECR).
+  A council or NHS trust can tick legitimate interests or recognised legitimate
+  interests on the ROPA with no warning.
+- **No data protection officer.** The approval workflows have a stage named "Data
+  protection officer", filled by the `privacy_admin` role; nothing records who the DPO
+  is, how to contact them or to whom they report, and the UK DPIA does not ask for the
+  DPO's advice (Art 35(2)).
+- **No Schedule 1.** The DPIA asks "Which Article 9 condition applies?" as free text;
+  the ROPA records nothing about special category or criminal offence data. Article 10
+  data is folded into special category data everywhere. No appropriate policy document
+  exists anywhere.
+- **Exemptions as free text.** A request's "exemption" decision is "DPA 2018 Schedule 2"
+  plus a paragraph typed in. Nothing for Schedule 3, the serious harm test, the health
+  professional's opinion, or the immigration exemption's recording duties. The library
+  holds `uk.dpa2018.sch2` but nothing cites it.
+- **No Part 3.** No competent authority, law enforcement purpose, Schedule 8 condition,
+  categories of data subject, logging, Part 3 breach, rights restriction, automated
+  decision or transfer. Govern's breach, request, automated-decision and transfer
+  modules would all apply the UK GDPR's rules to a police force's investigations.
+- **No data sharing agreements.** The agreements register holds Article 28 processor
+  agreements only; sharing between controllers — the everyday tool of safeguarding
+  partnerships and multi-agency working — has nowhere to live.
+- **Regulator named "ICO"** on about 45 lines of the source; only the complaints module says
+  "Information Commission".
+- **Already right for public bodies:** the Algorithmic Transparency Recording Standard,
+  equality impact assessment and the public sector equality duty, public-sector risk
+  scales, and every DUAA change to the UK GDPR.
+
+## Decisions (settled 30 October 2026, all as recommended)
+
+1. **Where the regime is recorded.** A police force processes its staff's data under the
+   UK GDPR and its investigations under Part 3; a council's youth offending team is a
+   competent authority while the rest of the council is not.
+   *Recommendation:* a `regime` on each processing activity (`uk_gdpr` | `dpa_part3`),
+   defaulting from the entity, with a `competent_authority` flag on the entity that only
+   makes Part 3 available. Requests, breaches and assessments take their regime from the
+   activities they concern, and say which they are applying.
+2. **Public authority.** *Recommendation:* a `public_authority` flag on the entity (s.7
+   is about the body). Where set: legitimate interests or recognised legitimate
+   interests on an activity is a **red** gap (the law does not allow it as recorded, as
+   for the Article 22B gaps), and a DPO is required.
+3. **The data protection officer.** *Recommendation:* recorded on the organisation, with
+   an optional override per entity: name, contact, the user it is (if a member), whom
+   they report to, and whether the contact details are published. The workflows' "Data
+   protection officer" stage goes to that person where they are a member. The UK DPIA
+   gains "What did the DPO advise?" (Art 35(2)).
+4. **The appropriate policy document.** Govern does not write it; it needs to know it
+   exists and what it covers, because para 41 and s.61 turn on that.
+   *Recommendation:* a small register: title, version, the Schedule 1 / Schedule 8
+   conditions it covers, owner, last reviewed, and the document itself attached. Gaps:
+   an activity relying on a condition no current document covers; a document not reviewed
+   in twelve months; a document withdrawn less than six months after an activity stopped
+   relying on it.
+5. **How Schedule 1 is asked.** *Recommendation:* on the ROPA, a structured Article 9(2)
+   point and, where that point needs one, the Schedule 1 paragraph; Article 10 data asked
+   separately, with its Schedule 1 condition. The DPIA's free-text `special_condition`
+   becomes the same structured choice, edited in place as the DUAA phases did.
+6. **Logging (s.62).** Govern is not where logs are kept and should not ingest them.
+   *Recommendation:* on each Part 3 activity, a statement per system of what is logged
+   (the six operations), who reviews the logs and when they were last checked, with a
+   gap where an automated system has no statement.
+7. **The health professional's opinion (Sch 3).** *Recommendation:* a decision on the
+   request recording the opinion: the professional's role, whether they are the
+   appropriate one under para 2, the date, and the outcome. Withholding health data
+   without one, or on one older than six months, is refused unless the reason for not
+   re-consulting is given.
+8. **Data sharing agreements.** *Recommendation:* a register of their own, separate from
+   processor agreements: the parties (from the third-party register), purpose, each
+   party's lawful basis and Schedule 1 condition, the legal gateway (an enactment, such
+   as the Digital Economy Act 2017 s.35, or the parties' own powers), what is shared, the
+   review date and the agreement attached. Linked to the ROPA activities whose recipients
+   it covers.
+9. **The regulator's name.** *Recommendation:* "the Information Commission" wherever the
+   law is described; the regulator's published guidance keeps whatever title it is
+   published under. *To confirm:* what name the Commission now uses for itself in
+   practice.
+10. **Part 3 templates.** *Recommendation:* a separate "DPIA (law enforcement, Part 3)"
+    template rather than branches in the UK GDPR DPIA: s.64 asks different things
+    (categories of data subject, sensitive processing under s.35, logging, s.45 rights
+    restrictions), and the two are scored and approved differently in practice.
+11. **Order.** *Recommendation:* Phases 0–3 first. They serve every public body — health,
+    social care, councils, schools — and are smaller. Then data sharing agreements, then
+    Part 3, which only competent authorities need and is the largest.
+
+## Data model
+
+### `entity` additions
+- `public_authority` (boolean): a public authority within s.7.
+- `competent_authority` (boolean): a competent authority within s.30 for some of its
+  functions; makes Part 3 available on its activities.
+- `default_regime` (`uk_gdpr` | `dpa_part3`).
+
+### `organisation` / `entity`: the DPO
+- `dpo_name`, `dpo_contact`, `dpo_user_id` (optional), `dpo_reports_to`,
+  `dpo_published` — on the organisation, overridable per entity.
+
+### `processing_activity` additions
+- `regime` (`uk_gdpr` | `dpa_part3`).
+- `special_category` (boolean | null), `art9_condition` (the Art 9(2) point),
+  `schedule1_condition` (paragraph key).
+- `criminal_offence` (boolean | null), `art10_condition` (Schedule 1 paragraph key, or
+  official authority).
+- Part 3 only: `sensitive_processing` (boolean | null), `schedule8_condition`,
+  `subject_categories_part3` (suspects, convicted, victims, witnesses, others),
+  `fact_opinion_marked` (boolean), `logging` (jsonb: per system, the operations logged,
+  reviewer, last checked).
+
+### New tables
+- `policy_document`: the appropriate policy document register (decision 4), with
+  `conditions` (Schedule 1 and Schedule 8 keys) and the document attached through the
+  existing `document` table.
+- `sharing_agreement`: data sharing agreements between controllers (decision 8).
+
+### Requests, breaches
+- The `exemption` decision gains a structured `exemption` key (Schedule 2 and 3
+  paragraphs, and s.45(4) grounds for Part 3), with the immigration exemption's and
+  Schedule 3's extra fields.
+- Breaches take the regime of the activities affected; Part 3 runs ss.67–68.
+
+### `lib/dpa2018/` (pure)
+- `SCHEDULE_1`, `SCHEDULE_8`, `SCHEDULE_2_EXEMPTIONS`, `SCHEDULE_3`, `PART_3_RESTRICTIONS`:
+  each with its paragraph, label and what it requires.
+- `conditionGaps(activity, policyDocuments)`, `publicAuthorityGaps(activity, entity)`,
+  `part3Gaps(activity)`, `seriousHarmOpinionValid(opinion, now)`.
+
+## Phases
+
+### Phase 0: references and wording (built)
+- Legal references for Sch 1 (paras 2, 3, 6, 10, 18 and Part 4), Sch 2 paras 2 and 4–4B,
+  Sch 3, Sch 7, Sch 8, ss.7–8, 30–31, 35, 38, 42, 45, 50A–50D, 61–62, 64–65, 67–71,
+  73–78A, 82A, UK GDPR Arts 10 and 37. Cite the library-only codes that already exist.
+- The regulator named the Information Commission (decision 9).
+
+Built as:
+- 33 references: the Act's ss.7–8, Schedule 1 (with paras 2, 3, 6, 10, 18 and Part 4),
+  Schedule 2 paras 2 and 4–4B, Schedules 3, 7 and 8, and Part 3's ss.30–31, 35, 38, 42,
+  45, 50A–50D, 61–62, 64–65, 67–69 (69–71), Chapter 5, 78A and 82A; and UK GDPR Articles
+  10 and 37. Each links to the section, schedule, paragraph, part or chapter.
+- Cited where they apply now: Article 10 beside Article 9 in the DPIA, LIA, breach and UK
+  transfer templates; Schedule 1 and its Part 4 on the DPIA's condition question (with
+  help on Schedule 1 and the policy document until Phase 2 structures it); s.8 on the
+  DPIA's lawful basis; Schedules 2 and 3 and the DUAA's access changes on its rights
+  question.
+- The regulator's name, confirmed: UK GDPR Art 33 and PECR reg 5A now say "the
+  Commission" / "the Information Commission" (S.I. 2026/386, 30 September 2026); its own
+  site reads "Information Commission's Office" and still uses "ICO". So the statutory
+  role — Article 36 prior consultation in the DPIA and the AI lifecycle gate, and PECR
+  reg 5A notification — now names the Information Commission; mentions of the ICO's
+  guidance, factors, tools and codes keep "ICO"; text shared with the EU keeps "the
+  supervisory authority". The breach help says the Commission replaced the Commissioner
+  and still publishes as the ICO.
+
+### Phase 1: public authority and the DPO (about a day)
+- The entity flag and the red gap for legitimate interests or recognised legitimate
+  interests (decision 2).
+- The DPO record (decision 3), the workflow stage routed to them, the DPIA's DPO-advice
+  question, and a gap where a public authority has no DPO.
+
+### Phase 2: Schedule 1 and the appropriate policy document (about 2 days)
+- The structured Article 9 / Article 10 / Schedule 1 choice on the ROPA and in the DPIA
+  (decision 5).
+- The policy document register and its gaps (decision 4); para 41's record contents.
+- Data categories for social care, education and safeguarding, and a catalogue of
+  categories of data subject (patients, service users, pupils, staff; and for Part 3,
+  suspects, the convicted, victims, witnesses).
+
+### Phase 3: exemptions in requests (about 1.5 days)
+- Structured Schedule 2 exemptions; the immigration exemption's case-by-case record and
+  notice; Schedule 3 with the serious harm test and the health professional's opinion
+  (decision 7).
+
+### Phase 4: data sharing agreements (about 1.5 days)
+- The register (decision 8), linked to the ROPA and the third-party register, with gaps:
+  a recipient on a ROPA activity that is another controller with no agreement; an
+  agreement past its review date.
+
+### Phase 5: Part 3, law enforcement processing (about 4–5 days, in two parts)
+- **5a, the record:** the competent authority flag and regime (decision 1); s.61 records
+  with s.35 sensitive processing, the Schedule 8 condition and the policy document;
+  s.38 categories and fact / opinion; logging statements (decision 6); the Part 3 DPIA
+  template (decision 10).
+- **5b, what happens to it:** rights under ss.44–48 with s.45(4) restrictions, recorded
+  reasons and the s.54 clock; breaches under ss.67–68; automated decisions under
+  ss.50A–50D on activities and AI use cases; transfers under ss.73–76 in a Part 3
+  variant of the transfer assessment; s.78A noted where national security is relied on.
+
+## Rough size
+
+| Phase | Estimate |
+|---|---|
+| Phase 0 | about half a day |
+| Phase 1 | about a day |
+| Phase 2 | about 2 days |
+| Phase 3 | about 1.5 days |
+| Phase 4 | about 1.5 days |
+| Phase 5 | about 4–5 days |
+
+Phases 0–3 serve every public body. Phase 5 serves competent authorities only.
+
+## Out of scope
+
+- Part 4 (the intelligence services), and ss.82A–82E beyond noting that a designation
+  notice exists.
+- Freedom of information and the Environmental Information Regulations.
+- NHS-specific assurance (the Data Security and Protection Toolkit, Caldicott
+  principles, section 251 support): not the Data Protection Act, and worth a plan of
+  their own if NHS bodies are a target.
+- Holding or analysing system logs (decision 6), or any individual's data: Govern
+  records categories and decisions, as everywhere else.
+- Deciding a condition, exemption or restriction automatically. As elsewhere in Govern,
+  the platform shows what the law asks and a named person records the decision and why.
+- The Integration API and the Portal's side, which follow once the records exist.

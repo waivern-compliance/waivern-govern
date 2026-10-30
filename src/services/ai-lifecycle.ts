@@ -48,11 +48,11 @@ async function latestApprovedAiAssessment(useCaseId: string) {
 
 /**
  * Whether the system's latest approved DPIA leaves high residual risk without
- * the ICO's advice on record.
+ * the Information Commission's advice on record.
  *
  * Read from the answers as approved. A DPIA approved before the template asked
  * where consultation had got to says nothing either way; where it records high
- * residual risk, that counts as outstanding, because nothing shows the ICO was
+ * residual risk, that counts as outstanding, because nothing shows the Information Commission was
  * consulted.
  */
 export async function icoConsultationOutstanding(useCaseId: string): Promise<boolean> {
