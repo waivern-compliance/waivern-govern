@@ -242,6 +242,7 @@ describe("shipped templates, kept current", () => {
         uses_ai: true,
         ai_impact_stages: "Claims are flagged.",
         human_involvement: "An investigator decides.",
+        solely_automated: false,
         bias_inaccuracy: "False flags fall on some groups more.",
         risk_description: "Wrongful suspicion.",
         likelihood: "likely",

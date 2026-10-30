@@ -28,6 +28,7 @@ import {
   atrsStatus,
   riskTier,
 } from "./enums";
+import type { AdmSafeguards, AdmSpecialCondition } from "@/lib/gdpr/automated-decisions";
 import { integrationConnections, suppliers } from "./integration";
 import { risks } from "./risks";
 import { entities, organisations, users } from "./tenancy";
@@ -114,6 +115,17 @@ export const aiUseCases = pgTable(
     /** Categories only, as everywhere else. Never identities. */
     processesPersonalData: boolean("processes_personal_data"),
     dataCategories: jsonb("data_categories").$type<string[]>().notNull().default([]),
+
+    /**
+     * Significant decisions taken solely by automated means (UK GDPR 22A–22C).
+     * The same record is kept on processing activities; where a linked pair disagrees,
+     * the page offers to copy one across, and a person decides.
+     * Null: not yet known.
+     */
+    automatedDecisions: boolean("automated_decisions"),
+    admSpecialCategory: boolean("adm_special_category"),
+    admSpecialCondition: text("adm_special_condition").$type<AdmSpecialCondition>(),
+    admSafeguards: jsonb("adm_safeguards").$type<AdmSafeguards>().notNull().default({}),
 
     nextReviewAt: timestamp("next_review_at", { withTimezone: true }),
     /**

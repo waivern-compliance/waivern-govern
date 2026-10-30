@@ -17,6 +17,7 @@ import {
   type LawfulBasis,
   type RecognisedCondition,
 } from "@/lib/gdpr/lawful-basis";
+import { ADM_GAP_WORDS, admGaps, type AdmGap } from "@/lib/gdpr/automated-decisions";
 import { needingSafeguards } from "./countries";
 import type { Actor } from "./templates";
 import { assertEntityIn, assertMemberOf } from "./tenancy-guards";
@@ -44,6 +45,7 @@ export type Article30Gap =
   | "security_measures"
   | "lawful_basis"
   | "recognised_condition"
+  | AdmGap
   | "no_owner"
   | "review_overdue";
 
@@ -58,6 +60,7 @@ export const GAP_WORDS: Record<Article30Gap, string> = {
   security_measures: "No security measures described",
   lawful_basis: "No lawful basis chosen",
   recognised_condition: "Recognised legitimate interests with no Annex 1 condition",
+  ...ADM_GAP_WORDS,
   no_owner: "No named owner",
   review_overdue: "Review overdue",
 };
@@ -121,6 +124,8 @@ export function article30Gaps(
   for (const gap of lawfulBasisGaps({ bases: activity.lawfulBases ?? [], recognisedCondition: activity.recognisedCondition })) {
     gaps.push(gap === "no_basis" ? "lawful_basis" : "recognised_condition");
   }
+  // Articles 22A–22C, only where significant decisions are solely automated.
+  gaps.push(...admGaps(activity, activity.lawfulBases ?? []));
   if (!activity.ownerId) gaps.push("no_owner");
   if (activity.reviewDueAt && activity.reviewDueAt.getTime() <= Date.now()) {
     gaps.push("review_overdue");

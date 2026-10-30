@@ -512,6 +512,13 @@
       "when": 1793367302444,
       "tag": "0072_duaa_lawful_bases",
       "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1793371738660,
+      "tag": "0073_duaa_automated_decisions",
+      "breakpoints": true
     }
   ]
 }
