@@ -519,6 +519,13 @@
       "when": 1793371738660,
       "tag": "0073_duaa_automated_decisions",
       "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1793373143910,
+      "tag": "0074_duaa_further_processing",
+      "breakpoints": true
     }
   ]
 }

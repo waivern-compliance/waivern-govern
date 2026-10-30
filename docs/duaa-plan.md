@@ -1,6 +1,6 @@
 # Plan: the UK GDPR as amended by the Data (Use and Access) Act 2025
 
-Status: decisions settled (30 October 2026); 1, 2, 5, 6 and 7 as recommended, 3 and 4 changed. Phases 0–2 built.
+Status: decisions settled (30 October 2026); 1, 2, 5, 6 and 7 as recommended, 3 and 4 changed. Phases 0–3 built.
 
 ## What is asked for
 
@@ -217,12 +217,35 @@ Built as:
   scope records about the 22C safeguards. The Integration API does not carry the record
   yet.
 
-### Phase 3: further processing and research (about 1.5 days)
+### Phase 3: further processing and research (built)
 - Confirm the unchecked provisions above first.
 - The further-processing and research fields, `compatibilityRoutes`, and the ROPA form
   sections for them. Choosing "assessed" asks for the Art 8A(2) factors.
 - Gaps: further processing with no route; research without the 84C safeguards confirmed;
   Art 13(5) relied on with no public information link.
+
+Built as:
+- The three provisions above were checked on legislation.gov.uk (30 October 2026). Research
+  is defined in Article 4(2)–(3), "whether carried out as a commercial or non-commercial
+  activity"; consent to an area of scientific research is Article 4(6)–(7); the
+  legitimate interests examples are Article 6(11)–(12). Article 8A(4) was confirmed:
+  where the original basis was consent, (a) and (c) apply, (d) and (e) only where consent
+  cannot reasonably be obtained, and (b) research not at all.
+- Thirteen columns on `processing_activity` (migration 0074): `further_processing`,
+  `original_activity_id` (optional link, same organisation checked in the service),
+  `original_consent` (asked only where no original activity is linked),
+  `compatibility_route`, `annex2_condition`, `consent_unobtainable`,
+  `compatibility_factors`, `compatibility_note`, `research`, `research_safeguards`,
+  `approved_medical_research`, `art13_exemption`, `public_information_url`. Rules in
+  `lib/gdpr/further-processing.ts` (`compatibilityRoutes`, `cleanFurtherProcessing`,
+  `furtherProcessingGaps`).
+- A "Further processing and research" section on the ROPA page with its own save and
+  audit event. Routes 8A(4) closes are shown closed with the reason; "assessed" asks for
+  each 8A(2) factor; Article 23 asks for the objective and the law.
+- Gaps: no route; a route 8A(4) closes; a route not fully recorded (no Annex 2 condition,
+  an unweighed factor, no Article 23 note); 84C safeguards unconfirmed (the decisions one
+  waived for approved medical research); Article 13(5) relied on with no public link.
+- Not carried by the Integration API yet.
 
 ### Phase 4: the data protection test for transfers (about 1 day)
 - **UK TRA template, edited in place:** the route is approved destination (Art 45A),
