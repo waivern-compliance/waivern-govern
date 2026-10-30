@@ -91,6 +91,7 @@ const COMPLETE_DPIA = {
   subject_groups: "Signed-in audience members in the UK.",
   children_likely: false,
   dpo_consulted: "no_dpo",
+  criminal_offence: false,
   volume: 2400000,
   retention: "Thirteen months from last activity, then aggregated.",
   necessity: "Ranking cannot be personalised without behavioural signal.",

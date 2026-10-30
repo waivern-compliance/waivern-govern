@@ -36,9 +36,10 @@ describe("the Data Protection Act 2018 in the library", () => {
   it("is cited where the DPIA asks about conditions, the public task and rights", () => {
     const dpia = templateDefinition.parse(SYSTEM_TEMPLATES.find((t) => t.kind === "dpia")!.definition).schema;
     const refs = (key: string) => dpia.sections.flatMap((s) => s.questions).find((q) => q.key === key)!.legalRefs;
-    assert.ok(refs("special_category").includes("ukgdpr.art10"));
-    assert.ok(refs("special_condition").includes("uk.dpa2018.sch1"));
-    assert.ok(refs("special_condition").includes("uk.dpa2018.sch1.part4"));
+    assert.ok(refs("criminal_offence").includes("ukgdpr.art10"));
+    assert.ok(refs("art9_condition").includes("uk.dpa2018.sch1"));
+    assert.ok(refs("schedule1_condition").includes("uk.dpa2018.sch1.part4"));
+    assert.ok(refs("policy_document").includes("uk.dpa2018.sch1.part4"));
     assert.ok(refs("lawful_basis").includes("uk.dpa2018.s8"));
     for (const c of ["uk.dpa2018.sch2", "uk.dpa2018.sch3", "uk.duaa2025"]) assert.ok(refs("rights_support").includes(c), c);
   });

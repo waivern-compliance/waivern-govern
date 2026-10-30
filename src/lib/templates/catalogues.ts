@@ -18,6 +18,9 @@ export const DATA_CATEGORIES = [
   { value: "employment", label: "Employment and HR records" },
   { value: "contractual", label: "Contractual and contributor records" },
   { value: "correspondence", label: "Correspondence and complaints" },
+  { value: "social_care", label: "Social care records and assessments of need" },
+  { value: "education", label: "Education records: attainment, attendance, exclusions, special educational needs" },
+  { value: "safeguarding", label: "Safeguarding concerns, referrals and child protection plans" },
   { value: "images_audio", label: "Images, audio and video of people" },
   { value: "health", label: "Health data" },
   { value: "racial_ethnic", label: "Racial or ethnic origin" },
@@ -28,6 +31,28 @@ export const DATA_CATEGORIES = [
   { value: "sex_life_orientation", label: "Sex life or sexual orientation" },
   { value: "criminal_offence", label: "Criminal offence data" },
   { value: "children", label: "Data about children" },
+] as const;
+
+/**
+ * Categories of data subject (Article 30(1)(c)), including those public
+ * services hold. The Part 3 ones are the categories section 38(3) asks a
+ * competent authority to distinguish, where relevant and as far as possible.
+ */
+export const SUBJECT_CATEGORIES = [
+  { value: "staff", label: "Staff, including former staff and applicants" },
+  { value: "volunteers", label: "Volunteers and contractors" },
+  { value: "customers", label: "Customers and service users" },
+  { value: "patients", label: "Patients" },
+  { value: "social_care_users", label: "People receiving social care, and their carers" },
+  { value: "pupils", label: "Pupils and students" },
+  { value: "parents_carers", label: "Parents, guardians and carers" },
+  { value: "children", label: "Children" },
+  { value: "residents", label: "Residents and members of the public" },
+  { value: "complainants", label: "Complainants and enquirers" },
+  { value: "suspects", label: "Suspects (Part 3, s.38(3))" },
+  { value: "convicted", label: "People convicted of an offence (Part 3, s.38(3))" },
+  { value: "victims", label: "Victims (Part 3, s.38(3))" },
+  { value: "witnesses", label: "Witnesses (Part 3, s.38(3))" },
 ] as const;
 
 /** Categories that engage Article 9 or the criminal-offence regime. */

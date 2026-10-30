@@ -40,6 +40,7 @@ const DPIA_BASE = {
   subject_groups: "Audience members and staff, in the UK.",
   children_likely: false,
   dpo_consulted: "no_dpo",
+  criminal_offence: false,
   necessity: "The processing is required to deliver the stated purpose.",
   alternatives: "Less intrusive options were considered and documented.",
   transparency: "Covered by the privacy notice and an in-product explainer.",
@@ -103,7 +104,7 @@ const SPECS: Spec[] = [
     answers: dpia({
       activity_name: "Casting database",
       data_categories: ["images_audio", "contact_details", "racial_ethnic"],
-      special_category: true, special_condition: "Article 9(2)(a) explicit consent for diversity monitoring.",
+      special_category: true, art9_condition: "a",
       likelihood: "likely", impact: "significant", volume: 26000,
     }),
   },

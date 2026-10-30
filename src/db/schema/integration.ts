@@ -13,6 +13,7 @@ import {
 } from "drizzle-orm/pg-core";
 import type { LawfulBasis, RecognisedCondition } from "@/lib/gdpr/lawful-basis";
 import type { AdmSafeguards, AdmSpecialCondition } from "@/lib/gdpr/automated-decisions";
+import type { Art10Condition, Art9Condition, Schedule1Condition } from "@/lib/dpa2018/schedule-1";
 import type {
   Annex2Condition,
   CompatibilityFactor,
@@ -154,6 +155,24 @@ export const processingActivities = pgTable(
      * A person says so; nothing infers it.
      */
     outsidePublicTasks: boolean("outside_public_tasks").notNull().default(false),
+    /**
+     * Special category data (Article 9) and criminal offence data (Article
+     * 10), with the conditions relied on: the Article 9(2) point, the Data
+     * Protection Act 2018 Schedule 1 condition where that point needs one,
+     * and the Article 10 condition. Null: not yet known.
+     */
+    specialCategory: boolean("special_category"),
+    art9Condition: text("art9_condition").$type<Art9Condition>(),
+    schedule1Condition: text("schedule1_condition").$type<Schedule1Condition>(),
+    criminalOffence: boolean("criminal_offence"),
+    art10Condition: text("art10_condition").$type<Art10Condition>(),
+    /**
+     * Schedule 1 paragraph 41(c): where a condition needs an appropriate
+     * policy document, whether retention and erasure followed its policy,
+     * and why not where they did not.
+     */
+    retentionFollowsPolicy: boolean("retention_follows_policy"),
+    retentionPolicyNote: text("retention_policy_note"),
     /**
      * The basis as somebody wrote it — before the bases above existed, or as the
      * Portal sends it. Kept as a note: where it named a basis unambiguously, that

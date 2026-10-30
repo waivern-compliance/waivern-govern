@@ -32,6 +32,11 @@ const lines = (raw: FormDataEntryValue | null) =>
     .map((s) => s.trim())
     .filter(Boolean);
 
+/** Ticked catalogue entries (whose words may contain commas) and any others typed. */
+const categories = (formData: FormData, name: string) => [
+  ...new Set([...formData.getAll(`${name}Pick`).map(String), ...lines(formData.get(name))]),
+];
+
 const text = (raw: FormDataEntryValue | null) => String(raw ?? "").trim();
 
 const yesNo = (raw: FormDataEntryValue | null) => {
@@ -94,8 +99,8 @@ export async function updateActivityAction(
         lawfulBasis: text(formData.get("lawfulBasis")),
         lawfulBases: formData.getAll("lawfulBases").map(String),
         recognisedCondition: text(formData.get("recognisedCondition")) || null,
-        dataCategories: lines(formData.get("dataCategories")),
-        subjectCategories: lines(formData.get("subjectCategories")),
+        dataCategories: categories(formData, "dataCategories"),
+        subjectCategories: categories(formData, "subjectCategories"),
         recipients: lines(formData.get("recipients")),
         systems: lines(formData.get("systems")),
         transfers: parseTransfers(String(formData.get("transfers") ?? "")),
@@ -105,6 +110,13 @@ export async function updateActivityAction(
         controllerName: text(formData.get("controllerName")),
         childrenLikely: yesNo(formData.get("childrenLikely")),
         outsidePublicTasks: formData.get("outsidePublicTasks") === "on",
+        specialCategory: yesNo(formData.get("specialCategory")),
+        art9Condition: text(formData.get("art9Condition")) || null,
+        schedule1Condition: text(formData.get("schedule1Condition")) || null,
+        criminalOffence: yesNo(formData.get("criminalOffence")),
+        art10Condition: text(formData.get("art10Condition")) || null,
+        retentionFollowsPolicy: yesNo(formData.get("retentionFollowsPolicy")),
+        retentionPolicyNote: text(formData.get("retentionPolicyNote")) || null,
         ...(owner !== null ? { ownerId: text(owner) || null } : {}),
       },
       actor: { actorKind: "user", actorUserId: active.userId, actorLabel: active.email },
