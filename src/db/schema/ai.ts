@@ -348,7 +348,7 @@ export const aiAssuranceRecords = pgTable(
  *
  * Each has a named person deciding what happens to it, and every step is in
  * `ai_incident_event`. A challenge to an outcome is decided by a person, as
- * UK GDPR Article 22 and the Playbook require; the outcome is recorded here.
+ * UK GDPR Article 22C and the Playbook require; the outcome is recorded here.
  * Confidential reports keep who raised them from anyone but the person
  * handling them and those entitled to see confidential concerns.
  */

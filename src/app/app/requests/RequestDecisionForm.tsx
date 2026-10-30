@@ -83,8 +83,8 @@ const KINDS: Array<{
   {
     value: "automated_decision",
     label: "Decided on an automated decision",
-    basis: "Article 22",
-    note: "Human intervention, their point of view heard, the decision contested.",
+    basis: "Article 22C",
+    note: "Told about the decision, their representations heard, reviewed by a person, the decision contested.",
     outcomes: [["complied", "Reviewed by a person"], ["refused", "Not reviewed"], ["not_applicable", "Not solely automated"]],
   },
   {

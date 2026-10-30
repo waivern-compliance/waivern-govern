@@ -52,11 +52,11 @@ export const AI_RISK: TemplateDefinition = {
         key: "exposure",
         title: "Reach and consequence",
         questions: [
-          { key: "affects_people", label: "Does the system affect people, directly or indirectly?", type: "boolean", required: true, legalRefs: ["ukgdpr.art22"], evidence: "none" },
+          { key: "affects_people", label: "Does the system affect people, directly or indirectly?", type: "boolean", required: true, legalRefs: ["ukgdpr.art22a"], evidence: "none" },
           { key: "consequence", label: "What is the strongest consequence for someone affected?", type: "single_select", required: false,
             showWhen: { op: "equals", question: "affects_people", value: true },
             requireWhen: { op: "equals", question: "affects_people", value: true },
-            legalRefs: ["ukgdpr.art22", "euaiact.art6"], evidence: "none",
+            legalRefs: ["ukgdpr.art22a", "euaiact.art6"], evidence: "none",
             options: [
               { value: "informational", label: "Informational only — no decision follows", weight: 0 },
               { value: "influences", label: "Influences a decision a person then takes", weight: 2 },
@@ -119,7 +119,7 @@ export const AI_RISK: TemplateDefinition = {
             requireWhen: { op: "equals", question: "bias_considered", value: "tested" },
             legalRefs: [], evidence: "required" },
           { key: "affected_groups", label: "Which groups could be disadvantaged, and how would you know?", type: "long_text", required: true, help: "Answer this even where testing found nothing — naming the groups is what makes later monitoring possible.", legalRefs: [], evidence: "none" },
-          { key: "contestability", label: "Can someone affected challenge or appeal an outcome?", type: "single_select", required: true, legalRefs: ["ukgdpr.art22"], evidence: "none",
+          { key: "contestability", label: "Can someone affected challenge or appeal an outcome?", type: "single_select", required: true, legalRefs: ["ukgdpr.art22c"], evidence: "none",
             options: [
               { value: "documented_route", label: "Yes — a documented route, with a human decision-maker", weight: 0 },
               { value: "informal", label: "Informally, through existing complaints channels", weight: 2 },

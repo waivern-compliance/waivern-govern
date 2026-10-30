@@ -90,8 +90,8 @@ export const RIGHTS: Record<Right, { label: string; article: string; summary: st
   },
   automated_decision: {
     label: "Automated decisions",
-    article: "Article 22",
-    summary: "Human intervention in, or a challenge to, a decision made solely by automated means.",
+    article: "Article 22C",
+    summary: "Representations, a review by a person, or a challenge to a significant decision made solely by automated means.",
   },
   withdraw_consent: {
     label: "Withdrawing consent",
