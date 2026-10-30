@@ -13,6 +13,9 @@ import {
   clockFor,
   missingContent,
   obligationsFor,
+  pecrClockFor,
+  pecrObligationsFor,
+  reg5aApplies,
   type ControllerRole,
   type RiskLevel,
 } from "@/lib/breach/statutory";
@@ -55,15 +58,28 @@ export type LoadedBreach = {
   obligations: ReturnType<typeof obligationsFor>;
   clock: ReturnType<typeof clockFor>;
   outstandingContent: ReturnType<typeof missingContent>;
+  /** Whether the entity is a public communications provider at all. */
+  publicCommsProvider: boolean;
+  /** PECR reg 5A, where it applies to this breach. */
+  pecr: { obligations: ReturnType<typeof pecrObligationsFor>; clock: ReturnType<typeof pecrClockFor> } | null;
 };
+
+/** The reg 5A clock for a breach, or null where reg 5A does not apply. */
+function pecrClockOf(breach: Breach, provider: boolean, decisions: readonly BreachDecision[], now: Date) {
+  if (!reg5aApplies({ provider, serviceBreach: breach.pecrServiceBreach })) return null;
+  const told = decisions.find((d) => d.kind === "pecr_commissioner" && d.outcome === "done");
+  return pecrClockFor({ discoveredAt: breach.discoveredAt, notifiedAt: told?.completedAt ?? null, now });
+}
 
 function assemble(
   breach: Breach,
   entityName: string,
   ownerEmail: string | null,
   decisions: Array<BreachDecision & { decidedByEmail: string | null }>,
+  provider: boolean,
   now = new Date(),
 ): LoadedBreach {
+  const pecrClock = pecrClockOf(breach, provider, decisions, now);
   const risk = riskFrom(decisions);
   const role = breach.controllerRole as ControllerRole;
   const notified = decisions.find(
@@ -93,6 +109,8 @@ function assemble(
       now,
     }),
     outstandingContent: missingContent(breach),
+    publicCommsProvider: provider,
+    pecr: pecrClock ? { obligations: pecrObligationsFor({ discoveredAt: breach.discoveredAt }), clock: pecrClock } : null,
   };
 }
 
@@ -178,6 +196,7 @@ export async function updateBreach(input: {
     likelyConsequences: string;
     measuresTaken: string;
     dataUnintelligible: boolean | null;
+    pecrServiceBreach: boolean | null;
     status: Breach["status"];
     ownerId: string | null;
   }>;
@@ -279,8 +298,9 @@ export async function recordDecision(input: {
         })
         .returning();
 
-      // Once the authority has been told, the breach is past assessment.
-      if (input.kind === "supervisory_authority" && input.outcome === "done") {
+      // Once the authority has been told, under either regime, the breach is
+      // past assessment.
+      if ((input.kind === "supervisory_authority" || input.kind === "pecr_commissioner") && input.outcome === "done") {
         await tx
           .update(breaches)
           .set({ status: "notified", updatedAt: new Date() })
@@ -364,7 +384,7 @@ export async function loadBreach(
 ): Promise<LoadedBreach | null> {
   return withOrganisation(organisationId, async () => {
     const [row] = await db
-      .select({ breach: breaches, entityName: entities.name, ownerEmail: users.email })
+      .select({ breach: breaches, entityName: entities.name, provider: entities.publicCommsProvider, ownerEmail: users.email })
       .from(breaches)
       .innerJoin(entities, eq(entities.id, breaches.entityId))
       .leftJoin(users, eq(users.id, breaches.ownerId))
@@ -375,14 +395,14 @@ export async function loadBreach(
       ...d.decision,
       decidedByEmail: d.decidedByEmail,
     }));
-    return assemble(row.breach, row.entityName, row.ownerEmail, decisions);
+    return assemble(row.breach, row.entityName, row.ownerEmail, decisions, row.provider);
   });
 }
 
 export async function breachRegister(organisationId: string, entityIds: string[] | null) {
   return withOrganisation(organisationId, async () => {
     const rows = await db
-      .select({ breach: breaches, entityName: entities.name, ownerEmail: users.email })
+      .select({ breach: breaches, entityName: entities.name, provider: entities.publicCommsProvider, ownerEmail: users.email })
       .from(breaches)
       .innerJoin(entities, eq(entities.id, breaches.entityId))
       .leftJoin(users, eq(users.id, breaches.ownerId))
@@ -406,30 +426,35 @@ export async function breachRegister(organisationId: string, entityIds: string[]
 
     const now = new Date();
     const loaded = rows.map((r) =>
-      assemble(r.breach, r.entityName, r.ownerEmail, byBreach.get(r.breach.id) ?? [], now),
+      assemble(r.breach, r.entityName, r.ownerEmail, byBreach.get(r.breach.id) ?? [], r.provider, now),
     );
 
     return {
       total: loaded.length,
       open: loaded.filter((b) => b.breach.status !== "closed").length,
       // The number that matters at a glance: a clock running out.
-      urgent: loaded.filter(
-        (b) => b.clock.state === "overdue" || b.clock.state === "due_soon",
+      urgent: loaded.filter((b) =>
+        [b.clock.state, b.pecr?.clock.state].some((s) => s === "overdue" || s === "due_soon"),
       ).length,
       unassessed: loaded.filter((b) => b.risk === null && b.breach.status !== "closed").length,
       notified: loaded.filter((b) =>
-        b.decisions.some((d) => d.kind === "supervisory_authority" && d.outcome === "done"),
+        b.decisions.some((d) => (d.kind === "supervisory_authority" || d.kind === "pecr_commissioner") && d.outcome === "done"),
       ).length,
       rows: loaded,
     };
   });
 }
 
-/** Breaches whose clock is running out or already past. Used by the sweep. */
+/**
+ * Breaches whose clock is running out or already past. Used by the sweep.
+ *
+ * One entry per clock: a provider's breach in providing its service can have
+ * the Article 33 and the PECR reg 5A seventy-two hours running side by side.
+ */
 export async function breachesNeedingAttention(organisationId: string) {
   return withOrganisation(organisationId, async () => {
     const open = await db
-      .select({ breach: breaches, entityName: entities.name })
+      .select({ breach: breaches, entityName: entities.name, provider: entities.publicCommsProvider })
       .from(breaches)
       .innerJoin(entities, eq(entities.id, breaches.entityId))
       .where(
@@ -450,7 +475,7 @@ export async function breachesNeedingAttention(organisationId: string) {
 
     const now = new Date();
     return open
-      .map(({ breach, entityName }) => {
+      .flatMap(({ breach, entityName, provider }) => {
         const decisions = byBreach.get(breach.id) ?? [];
         const notified = decisions.find(
           (d) => d.kind === "supervisory_authority" && d.outcome === "done",
@@ -458,9 +483,10 @@ export async function breachesNeedingAttention(organisationId: string) {
         const notRequired = decisions.some(
           (d) => d.kind === "supervisory_authority" && d.outcome === "not_required",
         );
-        return {
+        const article33 = {
           breach,
           entityName,
+          regime: "article_33" as const,
           clock: clockFor({
             role: breach.controllerRole as ControllerRole,
             discoveredAt: breach.discoveredAt,
@@ -469,6 +495,8 @@ export async function breachesNeedingAttention(organisationId: string) {
             now,
           }),
         };
+        const pecr = pecrClockOf(breach, provider, decisions, now);
+        return pecr ? [article33, { breach, entityName, regime: "pecr_5a" as const, clock: pecr }] : [article33];
       })
       .filter((b) => b.clock.state === "overdue" || b.clock.state === "due_soon");
   });

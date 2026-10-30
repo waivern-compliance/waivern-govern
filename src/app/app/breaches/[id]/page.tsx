@@ -34,7 +34,7 @@ export default async function BreachPage({
   const loaded = await loadBreach(id, active.membership.organisationId);
   if (!loaded) notFound();
 
-  const { breach, entityName, decisions, risk, obligations, clock, outstandingContent } = loaded;
+  const { breach, entityName, decisions, risk, obligations, clock, outstandingContent, publicCommsProvider, pecr } = loaded;
   if (!can(active.membership.grants, "record.read", breach.entityId)) {
     return (
       <NotPermitted
@@ -69,6 +69,7 @@ export default async function BreachPage({
           {breach.categories.length > 0 ? ` · ${breach.categories.join(", ")}` : ""}
         </p>
         <Clock clock={clock} />
+        {pecr ? <Clock clock={pecr.clock} regime="pecr" /> : null}
       </header>
 
       <section className="space-y-3">
@@ -162,6 +163,41 @@ export default async function BreachPage({
         </p>
       </section>
 
+      {publicCommsProvider ? (
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold">What PECR regulation 5A requires here</h2>
+          {pecr ? (
+            <>
+              <ul className="divide-y divide-line overflow-hidden rounded border border-line bg-surface">
+                {pecr.obligations.map((o) => (
+                  <li key={o.kind} className="space-y-1 px-4 py-3">
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-4">
+                      <span className="text-sm font-medium">{o.what}</span>
+                      <span className="font-mono text-[11px] text-ink-soft">{o.basis}</span>
+                    </div>
+                    <p className="text-xs text-ink-soft">{o.deadlineWords}</p>
+                  </li>
+                ))}
+              </ul>
+              <p className="max-w-prose text-xs text-ink-soft">
+                {entityName} is a public communications provider
+                {breach.pecrServiceBreach === null
+                  ? ", and whether this breach arose in providing the service is not yet answered, so reg 5A is shown as applying."
+                  : ", and this breach arose in providing the service."}{" "}
+                Unlike Article 33 there is no risk test: the Commissioner is told of every such breach. Where
+                reg 5A applies, UK GDPR Article 95 means Article 33 does not add a second duty to notify;
+                if that is your position, record the Article 33 decision as not required, citing Article 95.
+              </p>
+            </>
+          ) : (
+            <p className="max-w-prose text-sm text-ink-soft">
+              {entityName} is a public communications provider, but this breach did not arise in providing
+              the service, so reg 5A does not apply and Article 33 is the duty.
+            </p>
+          )}
+        </section>
+      ) : null}
+
       {outstandingContent.length > 0 ? (
         <section className="space-y-2">
           <h2 className="text-sm font-semibold">Not yet recorded for a notification</h2>
@@ -220,7 +256,7 @@ export default async function BreachPage({
         </ul>
       </section>
 
-      {mayEdit ? <DecisionForm breachId={breach.id} /> : null}
+      {mayEdit ? <DecisionForm breachId={breach.id} pecr={publicCommsProvider} /> : null}
 
       {mayEdit ? (
         <EditForm
@@ -266,6 +302,15 @@ export default async function BreachPage({
               value={breach.dataUnintelligible}
             />
           </div>
+
+          {publicCommsProvider ? (
+            <Tri
+              label="Did it arise in providing the public communications service?"
+              name="pecrServiceBreach"
+              hint="If so, PECR reg 5A applies: the Commissioner is told of it whatever the risk."
+              value={breach.pecrServiceBreach}
+            />
+          ) : null}
 
           <Area label="Likely consequences" name="likelyConsequences" hint="Article 33(3)(c)"
             defaultValue={breach.likelyConsequences ?? ""} />

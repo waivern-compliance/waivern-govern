@@ -556,6 +556,14 @@ It proposes. The decisions remain acts a named person records with their reasoni
 
 Your obligation under Article 33(2) is to tell the controller without undue delay. You do not notify the authority in your own right, and no seventy-two hour clock is shown — setting your role correctly is what makes the platform stop offering you the wrong deadline.
 
+### If you are a telecoms or internet provider
+
+A provider of a public electronic communications service has its own breach duty under PECR regulation 5A. Mark the legal entity as a public communications provider on the Organisation page, and each of its breaches asks whether it arose in providing the service.
+
+Where it did, or until that is answered, a second seventy-two hours runs beside Article 33's. It has no risk test: the Information Commissioner is told of every such breach. The subscribers or users affected are told without undue delay where it is likely to adversely affect their personal data or privacy, unless the Commissioner has accepted the data was unintelligible.
+
+Article 95 of the UK GDPR means Article 33 does not add a second duty where reg 5A applies. If that is your position, record the Article 33 decision as not required and cite Article 95.
+
 ### Decisions, including the ones nobody required
 
 Contacting an insurer, calling the police, telling a partner organisation, offering credit monitoring — none of it is required by the Regulation, and all of it is worth an audit trail. Each is recorded the same way, and what separates them is the provision relied on: an Article reference where the law compelled it, blank where you chose to act.
@@ -572,7 +580,7 @@ A missed deadline does not remove the obligation. Article 33(1) still requires n
 
 **See also:** The risk register · Service levels and things that come round again · The audit trail · The processing register (Article 30)
 
-<sub>Also searchable as: breach, incident, 72 hours, seventy-two, article 33, article 34, notify, ico, supervisory authority, data subjects, ransomware, leak</sub>
+<sub>Also searchable as: breach, incident, 72 hours, seventy-two, article 33, article 34, notify, ico, supervisory authority, data subjects, ransomware, leak, pecr, reg 5a, telecoms, communications provider</sub>
 
 ## Data subject requests
 

@@ -449,21 +449,27 @@ async function raiseBreachDeadlines(organisationId: string): Promise<number> {
   if (pressing.length === 0) return 0;
 
   let raised = 0;
-  for (const { breach, clock } of pressing) {
+  for (const { breach, clock, regime } of pressing) {
     const overdue = clock.state === "overdue";
+    const pecr = regime === "pecr_5a";
     await db.transaction(async (tx) => {
       const task = await raiseTask(tx, {
         organisationId,
         entityId: breach.entityId,
         type: "breach_deadline",
-        title: overdue
-          ? `${breach.reference}: past seventy-two hours`
-          : `${breach.reference}: seventy-two hours running out`,
+        title:
+          (overdue
+            ? `${breach.reference}: past seventy-two hours`
+            : `${breach.reference}: seventy-two hours running out`) + (pecr ? " (PECR reg 5A)" : ""),
         description:
           `${clock.words}. ` +
-          (overdue
-            ? "Article 33(1) still requires notification, accompanied by the reasons for the delay."
-            : "Notify the supervisory authority, or record why Article 33 does not require it."),
+          (pecr
+            ? overdue
+              ? "PECR reg 5A still requires the Information Commissioner to be told, with the reasons for the delay."
+              : "Notify the Information Commissioner under PECR reg 5A. There is no risk test: every breach in providing the service is notified."
+            : overdue
+              ? "Article 33(1) still requires notification, accompanied by the reasons for the delay."
+              : "Notify the supervisory authority, or record why Article 33 does not require it."),
         subjectType: "breach",
         subjectId: breach.id,
         assigneeRole: "privacy_admin",
@@ -471,7 +477,7 @@ async function raiseBreachDeadlines(organisationId: string): Promise<number> {
         // Without this the task inherits 72 hours from its own creation and
         // shows "in 4d" for something due this afternoon.
         dueAt: notificationDeadline(breach.discoveredAt),
-        idempotencyKey: `breach-deadline:${breach.id}:${clock.state}`,
+        idempotencyKey: pecr ? `breach-deadline-5a:${breach.id}:${clock.state}` : `breach-deadline:${breach.id}:${clock.state}`,
         actor: SYSTEM,
       });
       if (task) raised += 1;

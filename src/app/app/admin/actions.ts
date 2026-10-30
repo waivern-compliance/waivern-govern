@@ -26,7 +26,7 @@ import { unresolvedPlaceholder } from "@/lib/assistant/models";
 import type { ProviderKind } from "@/lib/assistant/providers";
 import { refusable, type EditResult } from "@/lib/edit-result";
 import { DomainRefused, claimDomain, removeDomain, verifyDomain } from "@/services/domains";
-import { EntityRefused, addEntity, makeDefaultEntity, renameEntity } from "@/services/entities";
+import { EntityRefused, addEntity, makeDefaultEntity, renameEntity, setPublicCommsProvider } from "@/services/entities";
 import { NotInOrganisation } from "@/services/tenancy-guards";
 
 const text = (v: FormDataEntryValue | null) => String(v ?? "").trim();
@@ -388,5 +388,19 @@ export async function makeDefaultEntityAction(entityId: string, _prev: AdminResu
       actor: actorOf(active),
     });
     return `${chosen.name} is now the default.`;
+  });
+}
+
+export async function setProviderAction(entityId: string, provider: boolean, _prev: AdminResult): Promise<AdminResult> {
+  return entityResult(async (active) => {
+    const updated = await setPublicCommsProvider({
+      organisationId: active.membership.organisationId,
+      entityId,
+      provider,
+      actor: actorOf(active),
+    });
+    return updated.publicCommsProvider
+      ? `${updated.name} is marked as a public communications provider. Its breaches now run the PECR reg 5A clock.`
+      : `${updated.name} is no longer marked as a public communications provider.`;
   });
 }

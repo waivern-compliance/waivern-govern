@@ -574,6 +574,7 @@ describe("changing another organisation's records", () => {
     ["removeDomain", () => domains.removeDomain({ organisationId: A.org.id, claimId: B.domainClaim.id, actor: as() })],
     ["renameEntity", () => entitiesSvc.renameEntity({ organisationId: A.org.id, entityId: B.entity.id, name: "taken", actor: as() })],
     ["makeDefaultEntity", () => entitiesSvc.makeDefaultEntity({ organisationId: A.org.id, entityId: B.entity.id, actor: as() })],
+    ["setPublicCommsProvider", () => entitiesSvc.setPublicCommsProvider({ organisationId: A.org.id, entityId: B.entity.id, provider: true, actor: as() })],
     ["handOver (from B's person)", () => handover.handOver({ organisationId: A.org.id, fromUserId: B.owner.user.id, toUserId: A.owner.user.id, actor: as() })],
   ];
 

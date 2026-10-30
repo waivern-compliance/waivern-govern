@@ -557,6 +557,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     keywords: [
       "breach", "incident", "72 hours", "seventy-two", "article 33", "article 34",
       "notify", "ico", "supervisory authority", "data subjects", "ransomware", "leak",
+      "pecr", "reg 5a", "telecoms", "communications provider",
     ],
     sections: [
       {
@@ -590,6 +591,14 @@ export const HELP_TOPICS: HelpTopic[] = [
         heading: "If you are the processor",
         body: [
           "Your obligation under Article 33(2) is to tell the controller without undue delay. You do not notify the authority in your own right, and no seventy-two hour clock is shown — setting your role correctly is what makes the platform stop offering you the wrong deadline.",
+        ],
+      },
+      {
+        heading: "If you are a telecoms or internet provider",
+        body: [
+          "A provider of a public electronic communications service has its own breach duty under PECR regulation 5A. Mark the legal entity as a public communications provider on the Organisation page, and each of its breaches asks whether it arose in providing the service.",
+          "Where it did, or until that is answered, a second seventy-two hours runs beside Article 33's. It has no risk test: the Information Commissioner is told of every such breach. The subscribers or users affected are told without undue delay where it is likely to adversely affect their personal data or privacy, unless the Commissioner has accepted the data was unintelligible.",
+          "Article 95 of the UK GDPR means Article 33 does not add a second duty where reg 5A applies. If that is your position, record the Article 33 decision as not required and cite Article 95.",
         ],
       },
       {

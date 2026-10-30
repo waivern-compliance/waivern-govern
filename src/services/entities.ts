@@ -182,3 +182,38 @@ export async function makeDefaultEntity(input: { organisationId: string; entityI
     }),
   );
 }
+
+/**
+ * Mark an entity as a provider of a public electronic communications service,
+ * or not. Its breaches in providing that service then run the PECR reg 5A
+ * clock beside Article 33's.
+ */
+export async function setPublicCommsProvider(input: {
+  organisationId: string;
+  entityId: string;
+  provider: boolean;
+  actor: Actor;
+}) {
+  return withOrganisation(input.organisationId, () =>
+    db.transaction(async (tx) => {
+      const before = await entityIn(tx, input.organisationId, input.entityId);
+      if (before.publicCommsProvider === input.provider) return before;
+      const [after] = await tx
+        .update(entities)
+        .set({ publicCommsProvider: input.provider, updatedAt: new Date() })
+        .where(eq(entities.id, before.id))
+        .returning();
+      await appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        action: "entity.provider_flag_changed",
+        subjectType: "entity",
+        subjectId: before.id,
+        entityId: before.id,
+        before: { publicCommsProvider: before.publicCommsProvider },
+        after: { publicCommsProvider: input.provider },
+      });
+      return after;
+    }),
+  );
+}

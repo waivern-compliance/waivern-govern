@@ -92,6 +92,13 @@ export const breaches = pgTable(
      */
     dataUnintelligible: boolean("data_unintelligible"),
 
+    /**
+     * Whether it arose in connection with providing a public electronic
+     * communications service. Asked only where the entity is such a provider;
+     * not yet answered counts as yes, so the PECR reg 5A clock runs meanwhile.
+     */
+    pecrServiceBreach: boolean("pecr_service_breach"),
+
     status: breachStatus("status").notNull().default("discovered"),
 
     ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),

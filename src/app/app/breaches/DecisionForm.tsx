@@ -24,6 +24,18 @@ const KINDS: Array<{ value: string; label: string; basis?: string; note: string 
     note: "Our obligation where we are the processor. Without undue delay, no fixed period.",
   },
   {
+    value: "pecr_commissioner",
+    label: "The Information Commissioner, under PECR",
+    basis: "PECR reg 5A(2)",
+    note: "A public communications provider notifies every breach in providing the service, whatever the risk — where feasible within seventy-two hours.",
+  },
+  {
+    value: "pecr_subscribers",
+    label: "The subscribers or users affected, under PECR",
+    basis: "PECR reg 5A(3)",
+    note: "Without undue delay where it is likely to adversely affect their personal data or privacy, unless the Commissioner accepts the data was unintelligible (reg 5A(6)).",
+  },
+  {
     value: "insurer",
     label: "Our insurer",
     note: "Not required by the Regulation. Recorded because a policy usually requires prompt notice and the decision matters later.",
@@ -58,13 +70,15 @@ const KINDS: Array<{ value: string; label: string; basis?: string; note: string 
  * able to defend, and an absence of notification with nothing written down is
  * indistinguishable from having forgotten.
  */
-export function DecisionForm({ breachId }: { breachId: string }) {
+export function DecisionForm({ breachId, pecr = false }: { breachId: string; pecr?: boolean }) {
   const [result, action, pending] = useActionState<BreachResult, FormData>(
     recordDecisionAction.bind(null, breachId),
     null,
   );
-  const [kind, setKind] = useState(KINDS[0].value);
-  const chosen = KINDS.find((k) => k.value === kind)!;
+  // The PECR kinds are offered only where the entity is a public communications provider.
+  const kinds = pecr ? KINDS : KINDS.filter((k) => !k.value.startsWith("pecr_"));
+  const [kind, setKind] = useState(kinds[0].value);
+  const chosen = kinds.find((k) => k.value === kind)!;
   const statutory = Boolean(chosen.basis);
 
   return (
@@ -79,7 +93,7 @@ export function DecisionForm({ breachId }: { breachId: string }) {
           onChange={(e) => setKind(e.target.value)}
           className="w-full rounded border border-line bg-ground px-3 py-2 text-sm"
         >
-          {KINDS.map((k) => (
+          {kinds.map((k) => (
             <option key={k.value} value={k.value}>
               {k.label}
               {k.basis ? ` — ${k.basis}` : ""}
@@ -120,6 +134,14 @@ export function DecisionForm({ breachId }: { breachId: string }) {
             <option value="Article 33(1)" />
             <option value="Article 33(2)" />
             <option value="Article 34(1)" />
+            {pecr ? (
+              <>
+                <option value="PECR reg 5A(2)" />
+                <option value="PECR reg 5A(3)" />
+                <option value="PECR reg 5A(6)">The Commissioner accepted the data was unintelligible</option>
+                <option value="Article 95">Reg 5A applies, so Article 33 adds no second duty</option>
+              </>
+            ) : null}
             {Object.entries(COMMUNICATION_EXEMPTIONS).map(([code, words]) => (
               <option key={code} value={`Article ${code}`}>{words}</option>
             ))}
@@ -166,11 +188,15 @@ export function DecisionForm({ breachId }: { breachId: string }) {
         </label>
       </div>
 
-      {kind === "supervisory_authority" ? (
+      {kind === "supervisory_authority" || kind === "pecr_commissioner" ? (
         <label className="block space-y-1">
           <Label
             text="Reasons for any delay"
-            hint="Article 33(1) requires these to accompany a notification made after seventy-two hours."
+            hint={
+              kind === "pecr_commissioner"
+                ? "Reg 5A requires these where the Commissioner is told after seventy-two hours."
+                : "Article 33(1) requires these to accompany a notification made after seventy-two hours."
+            }
           />
           <textarea name="lateReason" rows={2} className="w-full rounded border border-line bg-ground px-3 py-2 text-sm" />
         </label>

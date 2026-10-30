@@ -6,7 +6,7 @@ import type { ClockState } from "@/lib/breach/statutory";
  * The state is never conveyed by colour alone: somebody acting on this is
  * usually doing so under pressure, and often forwarding a screenshot.
  */
-export function Clock({ clock }: { clock: ClockState }) {
+export function Clock({ clock, regime = "article33" }: { clock: ClockState; regime?: "article33" | "pecr" }) {
   const tone =
     clock.state === "overdue"
       ? "border-red-700 bg-red-50 text-red-900"
@@ -17,15 +17,16 @@ export function Clock({ clock }: { clock: ClockState }) {
           : "border-line bg-surface text-ink-soft";
 
   const heading =
-    clock.state === "overdue"
+    (clock.state === "overdue"
       ? "Past the deadline"
       : clock.state === "due_soon"
         ? "Deadline approaching"
         : clock.state === "met"
           ? "Notified"
           : clock.state === "running"
-            ? "Article 33 clock running"
-            : "No seventy-two hour deadline";
+            ? regime === "pecr" ? "Reg 5A clock running" : "Article 33 clock running"
+            : "No seventy-two hour deadline") +
+    (regime === "pecr" && clock.state !== "running" ? " — PECR reg 5A" : "");
 
   return (
     <div className={`rounded border px-4 py-3 ${tone}`}>
