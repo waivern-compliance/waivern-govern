@@ -34,6 +34,11 @@ export const SYSTEM_TEMPLATES: Array<{
   aiFramework?: AiFrameworkId;
   /** Installed only for an organisation with an entity that is a competent authority (Part 3). */
   competentAuthority?: boolean;
+  /**
+   * A UK data protection template — built on the UK GDPR and the Data
+   * Protection Act 2018 — installed only where some entity is subject to UK law.
+   */
+  ukLaw?: true;
   definition: TemplateDefinition;
 }> = [
   {
@@ -41,6 +46,7 @@ export const SYSTEM_TEMPLATES: Array<{
     name: "DPIA screening questionnaire",
     description: "Short triage deciding whether a full DPIA is required.",
     jurisdiction: "UK",
+    ukLaw: true,
     definition: SCREENING,
   },
   {
@@ -48,6 +54,7 @@ export const SYSTEM_TEMPLATES: Array<{
     name: "Data protection impact assessment",
     description: "Full DPIA covering the minimum content required by Article 35(7).",
     jurisdiction: "UK",
+    ukLaw: true,
     definition: DPIA,
   },
   {
@@ -73,6 +80,7 @@ export const SYSTEM_TEMPLATES: Array<{
     description:
       "Whether an Annex 1 recognised legitimate interest applies (UK GDPR Article 6(1)(ea)), and if not the three-part test under Article 6(1)(f): purpose, necessity, and the balance against data subjects' rights.",
     jurisdiction: "UK",
+    ukLaw: true,
     definition: LIA,
   },
   {
@@ -80,6 +88,7 @@ export const SYSTEM_TEMPLATES: Array<{
     name: "Transfer risk assessment (UK)",
     description: "UK international transfer assessment following the ICO's TRA structure.",
     jurisdiction: "UK",
+    ukLaw: true,
     definition: TRA_UK,
   },
   {
@@ -104,6 +113,7 @@ export const SYSTEM_TEMPLATES: Array<{
     description:
       "The ICO's factors for judging whether a breach must be reported, and whether the people affected must be told.",
     jurisdiction: "UK",
+    ukLaw: true,
     definition: BREACH_SEVERITY,
   },
   {

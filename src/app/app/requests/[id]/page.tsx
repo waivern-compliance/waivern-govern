@@ -316,7 +316,7 @@ export default async function RequestPage({ params }: { params: Promise<{ id: st
         </section>
       ) : null}
 
-      {!request.closedAt && !part3 && request.rights.includes("access") ? (
+      {!request.closedAt && !part3 && request.jurisdiction === "uk" && request.rights.includes("access") ? (
         <p className="max-w-prose rounded border border-line bg-ground px-3 py-2 text-xs text-ink-soft">
           Health data: a controller that is not a health professional may disclose health data the person has not
           already seen only on the appropriate health professional&apos;s opinion, from the last six months, that
@@ -332,6 +332,7 @@ export default async function RequestPage({ params }: { params: Promise<{ id: st
           requestId={request.id}
           rights={request.rights}
           part3={part3}
+          ukLaw={request.jurisdiction === "uk"}
           opinions={opinions}
           activities={scopedActivities.map((a) => ({
             id: a.id,

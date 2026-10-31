@@ -8,9 +8,11 @@ import {
   renameEntityAction,
   setProviderAction,
   setCompetentAuthorityAction,
+  setDataProtectionLawAction,
   setPublicAuthorityAction,
   type AdminResult,
 } from "../actions";
+import { DATA_PROTECTION_LAWS, ukLawApplies, type DataProtectionLaw } from "@/lib/dpa2018/applies";
 
 type Entity = {
   id: string;
@@ -21,6 +23,7 @@ type Entity = {
   publicAuthority: boolean;
   competentAuthority: boolean;
   defaultRegime: string;
+  dataProtectionLaw: DataProtectionLaw;
 };
 
 const input =
@@ -126,6 +129,10 @@ function EntityRow({ entity }: { entity: Entity }) {
   const competent = useRefusableAction<AdminResult>(setCompetentAuthorityAction.bind(null, entity.id), {
     resetOnSuccess: false,
   });
+  const law = useRefusableAction<AdminResult>(setDataProtectionLawAction.bind(null, entity.id), {
+    resetOnSuccess: false,
+  });
+  const uk = ukLawApplies(entity.dataProtectionLaw);
 
   return (
     <li className="space-y-2 px-4 py-3">
@@ -173,6 +180,32 @@ function EntityRow({ entity }: { entity: Entity }) {
           </button>
         </form>
       )}
+      <Outcome result={rename.result} />
+      <Outcome result={makeDefault.result} />
+      <form key={savedKey(entity.dataProtectionLaw)} {...law.formProps} className="flex flex-wrap items-baseline gap-2 text-xs">
+        <label className="flex flex-wrap items-baseline gap-2">
+          <span className="text-ink-soft">Data protection law it is subject to:</span>
+          <select
+            name="dataProtectionLaw"
+            defaultValue={entity.dataProtectionLaw}
+            className="rounded border border-line bg-ground px-2 py-1 text-xs"
+          >
+            {(Object.keys(DATA_PROTECTION_LAWS) as DataProtectionLaw[]).map((k) => (
+              <option key={k} value={k}>{DATA_PROTECTION_LAWS[k]}</option>
+            ))}
+          </select>
+        </label>
+        <button
+          type="submit"
+          disabled={law.pending}
+          className="text-ink-soft underline-offset-2 hover:text-brand hover:underline disabled:opacity-50"
+        >
+          Save
+        </button>
+      </form>
+      <Outcome result={law.result} />
+      {uk ? (
+      <>
       <form {...provider.formProps} className="flex flex-wrap items-baseline gap-2 text-xs">
         {entity.publicCommsProvider ? (
           <span className="rounded border border-line px-2 py-0.5 font-mono text-[11px]">public communications provider</span>
@@ -201,8 +234,6 @@ function EntityRow({ entity }: { entity: Entity }) {
             : "Mark as a public authority (Data Protection Act 2018 s.7)"}
         </button>
       </form>
-      <Outcome result={rename.result} />
-      <Outcome result={makeDefault.result} />
       <Outcome result={provider.result} />
       <form
         key={savedKey(entity.competentAuthority, entity.defaultRegime)}
@@ -231,6 +262,13 @@ function EntityRow({ entity }: { entity: Entity }) {
       </form>
       <Outcome result={authority.result} />
       <Outcome result={competent.result} />
+      </>
+      ) : (
+        <p className="text-xs text-ink-soft">
+          The public authority, competent authority and PECR settings are UK law, so are not offered for an entity
+          subject to EU law only.
+        </p>
+      )}
     </li>
   );
 }

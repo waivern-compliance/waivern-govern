@@ -83,8 +83,6 @@ describe("AI risk scoring", () => {
     lifecycle_stage: "production",
     affects_people: true,
     audience: ["public"],
-    editorial_output: true,
-    disclosure: "Labelled as machine-generated in the player",
     personal_data: false,
     data_provenance: "vendor_asserted",
     sensitive_inputs: "no",

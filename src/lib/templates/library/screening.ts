@@ -53,7 +53,7 @@ export const SCREENING: TemplateDefinition = {
             type: "boolean",
             required: true,
             help: "Includes predictive models, generative tools and agentic systems, whether built here or bought in.",
-            legalRefs: ["euaiact.art6"],
+            legalRefs: ["ukgdpr.art35"],
             evidence: "none",
           },
           {

@@ -603,6 +603,13 @@
       "when": 1793446579324,
       "tag": "0085_part3_further_processing",
       "breakpoints": true
+    },
+    {
+      "idx": 86,
+      "version": "7",
+      "when": 1793447984653,
+      "tag": "0086_entity_data_protection_law",
+      "breakpoints": true
     }
   ]
 }

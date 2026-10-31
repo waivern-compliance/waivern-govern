@@ -9,6 +9,7 @@ import type { AiFrameworkId } from "@/lib/ai-frameworks";
 import { aiFrameworkOf } from "./ai-framework";
 import { templateDefinition, type TemplateDefinition } from "@/lib/templates/schema";
 import { validateTemplate, type TemplateProblem } from "@/lib/templates/validate";
+import { ukLawApplies } from "@/lib/dpa2018/applies";
 
 export type TemplateKind = (typeof templateKind.enumValues)[number];
 
@@ -302,29 +303,34 @@ export async function publishVersion(input: {
  * Matched by name among its system templates. A client who copied one of ours
  * and renamed the copy still has the original under its own name, so this
  * never offers to install something they already hold. A template tied to an
- * AI governance framework is offered only to organisations following it.
+ * AI governance framework is offered only to organisations following it, and a
+ * UK data protection one only where some entity is subject to UK law.
  */
 export async function shippedTemplatesMissing(organisationId: string) {
   const framework = await aiFrameworkOf(organisationId);
   return withOrganisation(organisationId, async () => {
-    const [held, [competent]] = await Promise.all([
+    const [held, owned] = await Promise.all([
       db
         .select({ name: templates.name })
         .from(templates)
         .where(and(eq(templates.organisationId, organisationId), eq(templates.isSystem, true))),
       db
-        .select({ id: entities.id })
+        .select({ competentAuthority: entities.competentAuthority, law: entities.dataProtectionLaw })
         .from(entities)
-        .where(and(eq(entities.organisationId, organisationId), eq(entities.competentAuthority, true)))
-        .limit(1),
+        .where(eq(entities.organisationId, organisationId)),
     ]);
     const names = new Set(held.map((h) => h.name));
+    const competent = owned.some((e) => e.competentAuthority);
+    // With no entity yet, as when an organisation is first set up, its default will be UK law.
+    const ukLaw = owned.length === 0 || owned.some((e) => ukLawApplies(e.law));
     return SYSTEM_TEMPLATES.filter(
       (t) =>
         !names.has(t.name) &&
         (t.aiFramework === undefined || t.aiFramework === framework) &&
-        // The Part 3 DPIA is offered once an entity is a competent authority.
-        (!t.competentAuthority || competent !== undefined),
+        // The Part 3 templates are offered once an entity is a competent authority.
+        (!t.competentAuthority || competent) &&
+        // UK data protection templates, once an entity is subject to UK law.
+        (!t.ukLaw || ukLaw),
     );
   });
 }

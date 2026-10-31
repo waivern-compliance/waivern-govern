@@ -107,6 +107,9 @@ export async function updateActivityAction(
     // Only the regime's own questions are on the form; the other regime's
     // answers are left as they were, not cleared for being absent.
     const part3 = text(formData.get("regime")) === "dpa_part3";
+    // For an entity subject to EU law only, Schedule 1 and paragraph 41 are not
+    // asked, so what was recorded under UK law is kept, not cleared.
+    const ukLaw = formData.get("ukLaw") !== "no";
     const ukGdpr = {
       lawfulBasis: text(formData.get("lawfulBasis")),
       lawfulBases: formData.getAll("lawfulBases").map(String),
@@ -115,7 +118,7 @@ export async function updateActivityAction(
       outsidePublicTasks: formData.get("outsidePublicTasks") === "on",
       specialCategory: yesNo(formData.get("specialCategory")),
       art9Condition: text(formData.get("art9Condition")) || null,
-      schedule1Condition: text(formData.get("schedule1Condition")) || null,
+      ...(ukLaw ? { schedule1Condition: text(formData.get("schedule1Condition")) || null } : {}),
       criminalOffence: yesNo(formData.get("criminalOffence")),
       art10Condition: text(formData.get("art10Condition")) || null,
     };
@@ -146,8 +149,12 @@ export async function updateActivityAction(
         securityMeasures: text(formData.get("securityMeasures")),
         controllerRole: text(formData.get("controllerRole")),
         controllerName: text(formData.get("controllerName")),
-        retentionFollowsPolicy: yesNo(formData.get("retentionFollowsPolicy")),
-        retentionPolicyNote: text(formData.get("retentionPolicyNote")) || null,
+        ...(ukLaw || part3
+          ? {
+              retentionFollowsPolicy: yesNo(formData.get("retentionFollowsPolicy")),
+              retentionPolicyNote: text(formData.get("retentionPolicyNote")) || null,
+            }
+          : {}),
         ...(owner !== null ? { ownerId: text(owner) || null } : {}),
       },
       actor: { actorKind: "user", actorUserId: active.userId, actorLabel: active.email },

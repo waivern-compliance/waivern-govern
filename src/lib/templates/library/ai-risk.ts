@@ -10,6 +10,11 @@ import type { TemplateDefinition } from "../schema";
  * that pretends to measure disparate impact would be worse than one that asks
  * who measured it and where the result is filed.
  *
+ * Grounded in UK law (UK GDPR Articles 5, 9, 22A–22C and 35) and the UK and
+ * international AI frameworks. It does not apply the EU AI Act, which reaches
+ * a UK organisation only where it places a system on the EU market or its
+ * output is used in the EU; that is to be added as its own option later.
+ *
  * Scored as a weighted sum rather than likelihood x impact. AI risk does not
  * reduce cleanly to two axes — autonomy, contestability and data provenance
  * contribute independently, and collapsing them early loses the reason a system
@@ -24,7 +29,7 @@ export const AI_RISK: TemplateDefinition = {
         questions: [
           { key: "use_case_name", label: "What is the system called?", type: "short_text", required: true, legalRefs: [], evidence: "none" },
           { key: "purpose", label: "What is it for, and what decision or output does it produce?", type: "long_text", required: true, legalRefs: [], evidence: "none" },
-          { key: "ai_type", label: "What kind of system is it?", type: "single_select", required: true, legalRefs: ["euaiact.art6"], evidence: "none",
+          { key: "ai_type", label: "What kind of system is it?", type: "single_select", required: true, legalRefs: [], evidence: "none",
             options: [
               { value: "predictive", label: "Predictive or classification model" },
               { value: "generative", label: "Generative — text, image, audio or video" },
@@ -56,7 +61,7 @@ export const AI_RISK: TemplateDefinition = {
           { key: "consequence", label: "What is the strongest consequence for someone affected?", type: "single_select", required: false,
             showWhen: { op: "equals", question: "affects_people", value: true },
             requireWhen: { op: "equals", question: "affects_people", value: true },
-            legalRefs: ["ukgdpr.art22a", "euaiact.art6"], evidence: "none",
+            legalRefs: ["ukgdpr.art22a"], evidence: "none",
             options: [
               { value: "informational", label: "Informational only — no decision follows", weight: 0 },
               { value: "influences", label: "Influences a decision a person then takes", weight: 2 },
@@ -72,11 +77,6 @@ export const AI_RISK: TemplateDefinition = {
               { value: "children", label: "Children, or an audience likely to include them", weight: 4 },
               { value: "vulnerable", label: "People in a vulnerable position", weight: 4 },
             ] },
-          { key: "editorial_output", label: "Does any output reach an audience as published content?", type: "boolean", required: true, help: "Including drafts, summaries, subtitles, translations, recommendations and metadata.", legalRefs: ["euaiact.art50"], evidence: "none" },
-          { key: "disclosure", label: "How is AI involvement disclosed to the audience?", type: "long_text", required: false,
-            showWhen: { op: "equals", question: "editorial_output", value: true },
-            requireWhen: { op: "equals", question: "editorial_output", value: true },
-            legalRefs: ["euaiact.art50"], evidence: "none" },
         ],
       },
       {
@@ -87,7 +87,7 @@ export const AI_RISK: TemplateDefinition = {
           { key: "dpia_reference", label: "Reference of the related DPIA", type: "short_text", required: false,
             showWhen: { op: "equals", question: "personal_data", value: true },
             legalRefs: ["ukgdpr.art35"], evidence: "none" },
-          { key: "data_provenance", label: "How well understood is the training and input data?", type: "single_select", required: true, legalRefs: ["euaiact.art10"], evidence: "optional",
+          { key: "data_provenance", label: "How well understood is the training and input data?", type: "single_select", required: true, legalRefs: ["ukgdpr.art5"], evidence: "optional",
             options: [
               { value: "documented", label: "Fully documented, with rights and licensing confirmed", weight: 0 },
               { value: "partial", label: "Partly documented — the main sources are known", weight: 2 },
@@ -107,7 +107,7 @@ export const AI_RISK: TemplateDefinition = {
         title: "Bias and fairness",
         description: "A structured assessment with evidence. Where statistical testing has been done, record where the results are held.",
         questions: [
-          { key: "bias_considered", label: "Has bias and fairness been assessed for this system?", type: "single_select", required: true, legalRefs: ["euaiact.art10", "iso42001"], evidence: "optional",
+          { key: "bias_considered", label: "Has bias and fairness been assessed for this system?", type: "single_select", required: true, legalRefs: ["ukgdpr.art5", "iso42001"], evidence: "optional",
             options: [
               { value: "tested", label: "Yes — tested, with documented results", weight: 0 },
               { value: "reviewed", label: "Yes — reviewed qualitatively, not measured", weight: 2 },
@@ -132,7 +132,7 @@ export const AI_RISK: TemplateDefinition = {
         key: "oversight",
         title: "Oversight and monitoring",
         questions: [
-          { key: "human_oversight", label: "What human oversight is in place?", type: "single_select", required: true, legalRefs: ["euaiact.art14"], evidence: "none",
+          { key: "human_oversight", label: "What human oversight is in place?", type: "single_select", required: true, legalRefs: ["ukgdpr.art22a", "ukgdpr.art22c"], evidence: "none",
             options: [
               { value: "in_the_loop", label: "A person reviews every output before it has effect", weight: 0 },
               { value: "on_the_loop", label: "A person monitors and can intervene", weight: 2 },
@@ -144,7 +144,7 @@ export const AI_RISK: TemplateDefinition = {
               { op: "equals", question: "lifecycle_stage", value: "production" },
               { op: "equals", question: "lifecycle_stage", value: "pilot" },
             ] },
-            legalRefs: ["euaiact.art9"], evidence: "optional",
+            legalRefs: ["ukgdpr.art5", "iso42001"], evidence: "optional",
             options: [
               { value: "accuracy", label: "Accuracy or quality", weight: 0 },
               { value: "drift", label: "Input or output drift", weight: 0 },
@@ -153,7 +153,7 @@ export const AI_RISK: TemplateDefinition = {
               { value: "usage", label: "Usage volume and pattern", weight: 0 },
               { value: "none", label: "Nothing is monitored", weight: 4 },
             ] },
-          { key: "kill_switch", label: "Can the system be turned off quickly, and who can do it?", type: "long_text", required: true, legalRefs: ["euaiact.art14"], evidence: "none" },
+          { key: "kill_switch", label: "Can the system be turned off quickly, and who can do it?", type: "long_text", required: true, legalRefs: ["iso42001", "gds.aiplaybook"], evidence: "none" },
           { key: "review_interval", label: "How often should this assessment be revisited?", type: "single_select", required: true, legalRefs: [], evidence: "none",
             options: [
               { value: "quarterly", label: "Quarterly" },
@@ -177,10 +177,10 @@ export const AI_RISK: TemplateDefinition = {
       "monitoring",
     ],
     bands: [
-      { min: 0, max: 5, label: "Minimal", tier: "low" },
-      { min: 6, max: 13, label: "Limited", tier: "medium" },
+      { min: 0, max: 5, label: "Low", tier: "low" },
+      { min: 6, max: 13, label: "Medium", tier: "medium" },
       { min: 14, max: 22, label: "High", tier: "high" },
-      { min: 23, max: 100, label: "Unacceptable without change", tier: "critical" },
+      { min: 23, max: 100, label: "Critical", tier: "critical" },
     ],
   },
   reviewIntervalMonths: 12,

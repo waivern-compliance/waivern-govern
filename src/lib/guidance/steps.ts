@@ -31,6 +31,8 @@ export type Step = {
   /** How you know you are finished. Concrete, checkable, not a feeling. */
   finishedWhen: string;
   href: string;
+  /** Shown only where some entity is subject to UK law. */
+  ukLaw?: true;
   /**
    * Said when somebody is likely to get this wrong in a way that costs them
    * later. Omitted where there is nothing worth warning about — a caution on
@@ -59,16 +61,19 @@ export const SETUP: Step[] = [
     title: "Say which organisations are covered",
     what:
       "Add each legal entity you are recording for. One company is one entity. If you " +
-      "have a group, a subsidiary that signs its own contracts is its own entity.",
+      "have a group, a subsidiary that signs its own contracts is its own entity. For each, " +
+      "say which data protection law it is subject to: UK law, EU law, or both.",
     why:
       "Everything else hangs off an entity: an assessment belongs to one, a contract is " +
       "signed by one, and a regulator asks a named company for its records. Getting this " +
       "wrong means your reports describe nobody in particular.",
-    finishedWhen: "At least one entity exists, and its name matches what is on your contracts.",
+    finishedWhen:
+      "At least one entity exists, its name matches what is on your contracts, and the law it is subject to is right.",
     href: "/app/admin/organisation",
     watchOut:
       "Do not create an entity per department or per product. It is a legal question, " +
-      "not an organisational chart.",
+      "not an organisational chart. An entity starts as subject to UK law; one subject to EU " +
+      "law only is not asked the Data Protection Act 2018's questions.",
   },
   {
     id: "people",
@@ -147,8 +152,7 @@ export const SETUP: Step[] = [
       "model: a chatbot, a scoring tool, a transcription service, a recommendation engine.",
     why:
       "Automated decisions with legal or similarly significant effects carry specific " +
-      "obligations under UK GDPR Articles 22A–22D, and the EU AI Act sets duties by risk " +
-      "category. You cannot classify what you have not listed.",
+      "obligations under UK GDPR Articles 22A–22D. You cannot assess what you have not listed.",
     finishedWhen: "Every AI system in use appears, including ones bought as a feature of something else.",
     href: "/app/ai",
     watchOut:
@@ -308,6 +312,7 @@ export const MAINTAIN: Step[] = [
   },
   {
     id: "complaints",
+    ukLaw: true,
     title: "Know what to do when somebody complains about their data",
     what:
       "Read this before the first one arrives. When a person complains to you about how their " +

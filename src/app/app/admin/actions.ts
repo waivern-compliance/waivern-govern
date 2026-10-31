@@ -27,7 +27,8 @@ import { unresolvedPlaceholder } from "@/lib/assistant/models";
 import type { ProviderKind } from "@/lib/assistant/providers";
 import { refusable, type EditResult } from "@/lib/edit-result";
 import { DomainRefused, claimDomain, removeDomain, verifyDomain } from "@/services/domains";
-import { EntityRefused, addEntity, makeDefaultEntity, renameEntity, setCompetentAuthority, setDpo, setPublicAuthority, setPublicCommsProvider } from "@/services/entities";
+import { EntityRefused, addEntity, makeDefaultEntity, renameEntity, setCompetentAuthority, setDataProtectionLaw, setDpo, setPublicAuthority, setPublicCommsProvider } from "@/services/entities";
+import { DATA_PROTECTION_LAWS, isDataProtectionLaw } from "@/lib/dpa2018/applies";
 import { NotInOrganisation } from "@/services/tenancy-guards";
 
 const text = (v: FormDataEntryValue | null) => String(v ?? "").trim();
@@ -417,6 +418,23 @@ export async function setPublicAuthorityAction(entityId: string, publicAuthority
     return updated.publicAuthority
       ? `${updated.name} is marked as a public authority. Legitimate interests is flagged on its activities, and it needs a data protection officer.`
       : `${updated.name} is no longer marked as a public authority.`;
+  });
+}
+
+/** Which data protection law an entity is subject to: UK, EU or both. */
+export async function setDataProtectionLawAction(entityId: string, _prev: AdminResult, formData: FormData): Promise<AdminResult> {
+  return entityResult(async (active) => {
+    const law = String(formData.get("dataProtectionLaw") ?? "");
+    if (!isDataProtectionLaw(law)) throw new Error("Choose UK law, EU law, or both.");
+    const updated = await setDataProtectionLaw({
+      organisationId: active.membership.organisationId,
+      entityId,
+      law,
+      actor: actorOf(active),
+    });
+    return law === "eu"
+      ? `${updated.name} is subject to EU law only. The Data Protection Act 2018's questions and flags are no longer shown for it.`
+      : `${updated.name} is subject to ${DATA_PROTECTION_LAWS[law].charAt(0).toLowerCase()}${DATA_PROTECTION_LAWS[law].slice(1)}.`;
   });
 }
 

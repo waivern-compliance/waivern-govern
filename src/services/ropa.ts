@@ -57,6 +57,7 @@ import {
   part3ReuseGaps,
   type Part3FurtherGap,
 } from "@/lib/dpa2018/part3-further";
+import { ukLawApplies } from "@/lib/dpa2018/applies";
 import type { Actor } from "./templates";
 import { assertEntityIn, assertMemberOf, assertRecordIn } from "./tenancy-guards";
 
@@ -179,6 +180,11 @@ export function article30Gaps(
      * is not supplied, rather than claiming no DPIA exists.
      */
     childrenDpia?: ChildrenDpiaState;
+    /**
+     * Whether the activity's entity is subject to UK law (`lib/dpa2018/applies.ts`).
+     * False: the Data Protection Act 2018's own gaps are not reported.
+     */
+    ukLaw?: boolean;
     /** Whether the activity's entity is a public authority (DPA 2018 s.7). */
     publicAuthority?: boolean;
     /** Whether the activity's entity is a competent authority (s.30), for a Part 3 record. */
@@ -255,7 +261,7 @@ export function article30Gaps(
     }
     // Articles 9 and 10 with Schedule 1: the conditions, the appropriate policy
     // document most of them need, and what paragraph 41 adds to the record.
-    gaps.push(...conditionGaps(activity, context.policyCoverage));
+    gaps.push(...conditionGaps(activity, context.policyCoverage, context.ukLaw ?? true));
     // Article 25(1A): an online service likely to be accessed by children must
     // weigh the children's higher protection matters, and a DPIA is where that
     // is shown.
@@ -266,7 +272,8 @@ export function article30Gaps(
   }
   // Not a legal requirement, as Article 28 is for processors: the data
   // sharing code expects an agreement for routine sharing between controllers.
-  if ((context.uncoveredControllers ?? []).length > 0) gaps.push("controller_recipient_no_agreement");
+  // The data sharing code is the Data Protection Act 2018's (s.121).
+  if ((context.ukLaw ?? true) && (context.uncoveredControllers ?? []).length > 0) gaps.push("controller_recipient_no_agreement");
   if (!activity.ownerId) gaps.push("no_owner");
   if (activity.reviewDueAt && activity.reviewDueAt.getTime() <= Date.now()) {
     gaps.push("review_overdue");
@@ -396,6 +403,7 @@ export async function listActivities(
           entityName: entities.name,
           publicAuthority: entities.publicAuthority,
           competentAuthority: entities.competentAuthority,
+          dataProtectionLaw: entities.dataProtectionLaw,
           ownerEmail: users.email,
         })
         .from(processingActivities)
@@ -409,8 +417,9 @@ export async function listActivities(
     ]);
     const [coverage, sharing] = await Promise.all([policyCoverage(organisationId), sharingCoverage(organisationId)]);
 
-    return rows.map(({ activity, entityName, ownerEmail, publicAuthority, competentAuthority }) => {
+    return rows.map(({ activity, entityName, ownerEmail, publicAuthority, competentAuthority, dataProtectionLaw }) => {
       const gaps = article30Gaps(activity, needsSafeguards, {
+        ukLaw: ukLawApplies(dataProtectionLaw),
         originalConsent: originalConsentOf(activity, bases),
         originalPart3: activity.originalActivityId ? bases.part3.has(activity.originalActivityId) : false,
         childrenDpia: children.get(activity.id) ?? "none",
@@ -438,6 +447,7 @@ export async function loadActivity(activityId: string, organisationId: string) {
         entityName: entities.name,
         publicAuthority: entities.publicAuthority,
         competentAuthority: entities.competentAuthority,
+        dataProtectionLaw: entities.dataProtectionLaw,
         ownerEmail: users.email,
       })
       .from(processingActivities)
@@ -481,6 +491,7 @@ export async function loadActivity(activityId: string, organisationId: string) {
     const originalConsent = originalConsentOf(row.activity, bases);
     const uncoveredControllers = controllersWithoutAgreement(row.activity, sharing);
     const gaps = article30Gaps(row.activity, needsSafeguards, {
+      ukLaw: ukLawApplies(row.dataProtectionLaw),
       originalConsent,
       originalPart3: row.activity.originalActivityId ? bases.part3.has(row.activity.originalActivityId) : false,
       childrenDpia: children.get(activityId) ?? "none",

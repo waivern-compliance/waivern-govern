@@ -228,7 +228,7 @@ describe("approving an AI assessment dates the system's next review", () => {
     affects_people: true,
     consequence: "influences",
     audience: ["internal_wide"],
-    editorial_output: false,
+   
     personal_data: false,
     data_provenance: "documented",
     sensitive_inputs: "no",
