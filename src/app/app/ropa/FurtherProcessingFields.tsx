@@ -62,9 +62,9 @@ export function FurtherProcessingFields({
   record,
   activities,
 }: {
-  record: FurtherProcessingRecord;
-  /** Other activities this one could reuse data from, and whether each relies on consent. */
-  activities: Array<{ id: string; label: string; consent: boolean }>;
+  record: FurtherProcessingRecord & { furtherAuthorisedBy?: string | null };
+  /** Other activities this one could reuse data from, whether each relies on consent, and whether it is under Part 3. */
+  activities: Array<{ id: string; label: string; consent: boolean; part3?: boolean }>;
 }) {
   const [further, setFurther] = useState(yesNo(record.furtherProcessing));
   const [original, setOriginal] = useState(record.originalActivityId ?? "");
@@ -103,6 +103,20 @@ export function FurtherProcessingFields({
               ))}
             </select>
           </label>
+
+          {original && activities.find((a) => a.id === original)?.part3 ? (
+            <label className="block space-y-1">
+              <span className={label}>
+                Which law authorises processing it for this purpose?
+                <span className={hint}>
+                  That activity is law enforcement processing under Part 3. Data collected for a law enforcement purpose
+                  may be processed for any other purpose only where that is authorised by law (Data Protection Act 2018
+                  s.36(4)) — as well as compatible under Article 8A.
+                </span>
+              </span>
+              <input name="furtherAuthorisedBy" defaultValue={record.furtherAuthorisedBy ?? ""} className={input} />
+            </label>
+          ) : null}
 
           {original ? (
             <p className="text-xs text-ink-soft">

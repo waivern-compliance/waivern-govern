@@ -13,6 +13,8 @@ import { objectionCounts, objectionReviewThreshold } from "@/services/data-subje
 import { objectionReviewDue } from "@/lib/dsr/statutory";
 import { saveFurtherProcessingAction, updateActivityAction } from "../actions";
 import { FurtherProcessingFields } from "../FurtherProcessingFields";
+import { Part3FurtherFields } from "../Part3FurtherFields";
+import { PART3_RESEARCH_SAFEGUARDS, PART3_RESEARCH_SAFEGUARD_KEYS, describePart3Further } from "@/lib/dpa2018/part3-further";
 import {
   ANNEX2_CONDITIONS,
   COMPATIBILITY_FACTORS,
@@ -85,6 +87,7 @@ export default async function ActivityPage({
             reference: processingActivities.reference,
             name: processingActivities.name,
             lawfulBases: processingActivities.lawfulBases,
+            regime: processingActivities.regime,
           })
           .from(processingActivities)
           .where(eq(processingActivities.organisationId, active.membership.organisationId))
@@ -420,11 +423,53 @@ export default async function ActivityPage({
       )}
 
       {activity.regime === "dpa_part3" ? (
-        <p className="max-w-prose rounded border border-line bg-ground px-3 py-2 text-xs text-ink-soft">
-          Recorded under Part 3 of the Data Protection Act 2018, so the UK GDPR&apos;s further processing and research
-          questions do not apply here, and automated decisions are recorded under ss.50A–50D below. Part 3&apos;s own
-          rule on further processing (s.36) is not yet recorded in Govern.
-        </p>
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold">
+            Further processing and research{" "}
+            <span className="font-normal text-ink-soft">· Data Protection Act 2018 ss.36 and 41 (Part 3)</span>
+          </h2>
+          {mayEdit ? (
+            <EditForm
+              key={savedKey(activity)}
+              action={saveFurtherProcessingAction.bind(null, activity.id)}
+              className="space-y-4 rounded border border-line bg-surface p-4"
+            >
+              <Part3FurtherFields
+                record={activity}
+                activities={otherActivities
+                  .filter((a) => a.id !== activity.id && can(active.membership.grants, "record.read", a.entityId))
+                  .map((a) => ({ id: a.id, label: `${a.reference} ${a.name}` }))}
+              />
+              <button
+                type="submit"
+                className="rounded border border-line bg-surface px-4 py-2 text-sm hover:border-brand focus-visible:outline-2 focus-visible:outline-brand"
+              >
+                Save further processing and research
+              </button>
+            </EditForm>
+          ) : (
+            <div className="space-y-1 rounded border border-line bg-surface p-4 text-sm">
+              <p>{describePart3Further(activity)}</p>
+              <ul className="space-y-0.5 text-xs text-ink-soft">
+                {original ? <li>Collected for {original.reference} {original.name}</li> : null}
+                {activity.furtherProcessing ? (
+                  <li>
+                    Necessary and proportionate (s.36(3)(b)):{" "}
+                    {activity.furtherNecessaryProportionate === null ? "not confirmed" : activity.furtherNecessaryProportionate ? "yes" : "no"}
+                  </li>
+                ) : null}
+                {activity.research
+                  ? PART3_RESEARCH_SAFEGUARD_KEYS.map((k) => (
+                      <li key={k}>
+                        {activity.researchSafeguards?.[k]?.confirmed ? "✓" : "✗"} {PART3_RESEARCH_SAFEGUARDS[k]!.label}
+                        {activity.researchSafeguards?.[k]?.note ? ` — ${activity.researchSafeguards[k]!.note}` : ""}
+                      </li>
+                    ))
+                  : null}
+              </ul>
+            </div>
+          )}
+        </section>
       ) : null}
 
       {activity.regime !== "dpa_part3" ? (
@@ -443,7 +488,12 @@ export default async function ActivityPage({
               record={activity}
               activities={otherActivities
                 .filter((a) => a.id !== activity.id && can(active.membership.grants, "record.read", a.entityId))
-                .map((a) => ({ id: a.id, label: `${a.reference} ${a.name}`, consent: (a.lawfulBases ?? []).includes("consent") }))}
+                .map((a) => ({
+                  id: a.id,
+                  label: `${a.reference} ${a.name}`,
+                  consent: (a.lawfulBases ?? []).includes("consent"),
+                  part3: a.regime === "dpa_part3",
+                }))}
             />
             <button
               type="submit"
@@ -457,6 +507,7 @@ export default async function ActivityPage({
             <p>{describeFurtherProcessing(activity)}</p>
             <ul className="space-y-0.5 text-xs text-ink-soft">
               {original ? <li>Collected for {original.reference} {original.name}</li> : null}
+              {activity.furtherAuthorisedBy ? <li>Authorised by law (DPA 2018 s.36(4)): {activity.furtherAuthorisedBy}</li> : null}
               {activity.annex2Condition ? <li>{ANNEX2_CONDITIONS[activity.annex2Condition].label} ({ANNEX2_CONDITIONS[activity.annex2Condition].paragraph})</li> : null}
               {activity.compatibilityRoute === "assessed"
                 ? COMPATIBILITY_FACTOR_KEYS.map((k) => (
