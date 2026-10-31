@@ -436,7 +436,16 @@ async function bSnapshot() {
   out.role_assignment = await db.execute(sql`
     select g.* from role_assignment g join membership m on m.id = g.membership_id
     where m.organisation_id = ${B.org.id} order by g.id`);
-  return Object.fromEntries(Object.entries(out).map(([k, v]) => [k, JSON.stringify(v)]));
+  // Sorted here rather than by SQL: `order by 1` is organisation_id on tables
+  // keyed by it (reference_counter, audit_chain_head, sharing_agreement_activity),
+  // which leaves B's rows in whatever order the planner returns — and that
+  // shifts when other test files write to the same table concurrently.
+  return Object.fromEntries(
+    Object.entries(out).map(([k, v]) => [
+      k,
+      JSON.stringify((v as unknown[]).map((r) => JSON.stringify(r)).sort().map((r) => JSON.parse(r))),
+    ]),
+  );
 }
 
 /** Which of B's tables differ, and the first changed row of each, for a readable failure. */
