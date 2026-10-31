@@ -10,6 +10,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import type { Regime } from "@/lib/dpa2018/part3";
 import {
   breachCategory,
   breachDecisionKind,
@@ -55,6 +56,12 @@ export const breaches = pgTable(
      * have processors reporting breaches they should be escalating.
      */
     controllerRole: text("controller_role").notNull().default("controller"),
+    /**
+     * UK GDPR (Articles 33–34), or law enforcement processing under Part 3 of
+     * the Data Protection Act 2018 (ss.67–68). Part 3 only on a competent
+     * authority's entity.
+     */
+    regime: text("regime").$type<Regime>().notNull().default("uk_gdpr"),
 
     /**
      * When the organisation became aware. This starts the seventy-two hours,

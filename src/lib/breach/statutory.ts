@@ -76,9 +76,16 @@ export function obligationsFor(input: {
   discoveredAt: Date;
   /** Article 34(3)(a): settled as a question of fact before it is relied on. */
   dataUnintelligible?: boolean | null;
+  /**
+   * Law enforcement processing under Part 3 of the Data Protection Act 2018:
+   * ss.67–68 in place of Articles 33–34, with the same thresholds and clock,
+   * and s.68(7) letting telling the people affected be restricted.
+   */
+  regime?: "uk_gdpr" | "dpa_part3";
 }): Obligation[] {
   const { role, risk, discoveredAt } = input;
   const deadline = notificationDeadline(discoveredAt);
+  const part3 = input.regime === "dpa_part3";
 
   // A processor does not notify the authority. Its duty runs to the controller,
   // without undue delay and with no fixed period attached.
@@ -86,7 +93,7 @@ export function obligationsFor(input: {
     return [
       {
         kind: "processor_to_controller",
-        basis: "Article 33(2)",
+        basis: part3 ? "DPA 2018 s.67(9)" : "Article 33(2)",
         what: "Tell the controller, without undue delay",
         dueAt: null,
         deadlineWords: "without undue delay — no fixed period, and not seventy-two hours",
@@ -101,11 +108,11 @@ export function obligationsFor(input: {
   if (risk === null || risk === "risk" || risk === "high_risk") {
     obligations.push({
       kind: "supervisory_authority",
-      basis: "Article 33(1)",
+      basis: part3 ? "DPA 2018 s.67(1)" : "Article 33(1)",
       what:
         risk === null
-          ? "Assess the risk, and notify the supervisory authority unless it is unlikely to result in a risk to rights and freedoms"
-          : "Notify the supervisory authority",
+          ? `Assess the risk, and notify the ${part3 ? "Information Commission" : "supervisory authority"} unless it is unlikely to result in a risk to rights and freedoms`
+          : `Notify the ${part3 ? "Information Commission" : "supervisory authority"}`,
       dueAt: deadline,
       deadlineWords: "within seventy-two hours of becoming aware",
     });
@@ -114,8 +121,10 @@ export function obligationsFor(input: {
   if (risk === "high_risk") {
     obligations.push({
       kind: "data_subjects",
-      basis: "Article 34(1)",
-      what: "Tell the people affected, unless an Article 34(3) exemption applies",
+      basis: part3 ? "DPA 2018 s.68(1)" : "Article 34(1)",
+      what: part3
+        ? "Tell the people affected, unless a s.68(3) exception applies or it is restricted under s.68(7)"
+        : "Tell the people affected, unless an Article 34(3) exemption applies",
       // No fixed period: "without undue delay" is the standard, and inventing
       // a number would misstate the law in the one place it matters most.
       dueAt: null,
@@ -195,9 +204,12 @@ export function clockFor(input: {
   /** Where a person has recorded that Article 33 does not bite. */
   notRequired?: boolean;
   now?: Date;
+  /** Part 3 cites s.67 where the UK GDPR cites Article 33. */
+  regime?: "uk_gdpr" | "dpa_part3";
 }): ClockState {
   const now = input.now ?? new Date();
   const dueAt = notificationDeadline(input.discoveredAt);
+  const provision = input.regime === "dpa_part3" ? "s.67" : "Article 33(1)";
 
   if (input.role === "processor") {
     return {
@@ -208,7 +220,7 @@ export function clockFor(input: {
   if (input.notRequired) {
     return {
       state: "not_applicable",
-      words: "Assessed as unlikely to result in a risk, so Article 33(1) does not require notification",
+      words: `Assessed as unlikely to result in a risk, so ${provision === "s.67" ? "s.67(2)" : provision} does not require notification`,
     };
   }
   if (input.notifiedAt) {
@@ -219,7 +231,7 @@ export function clockFor(input: {
       words:
         input.notifiedAt <= dueAt
           ? "Notified within seventy-two hours"
-          : "Notified late — Article 33(1) requires the reasons for the delay to accompany it",
+          : `Notified late — ${provision === "s.67" ? "s.67(3)" : provision} requires the reasons for the delay to accompany it`,
     };
   }
 

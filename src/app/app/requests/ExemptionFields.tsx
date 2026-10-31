@@ -10,6 +10,7 @@ import {
   exemptionProvision,
   isExemption,
 } from "@/lib/dpa2018/exemptions";
+import { RESTRICTION_GROUNDS, RESTRICTION_PROVISIONS } from "@/lib/dpa2018/part3-rights";
 import { Label, inputClass } from "./fields";
 
 const PARTS: Array<{ title: string; keys: string[] }> = [
@@ -174,6 +175,65 @@ export function HealthOpinionFields() {
           <option value="no">The serious harm test is not met</option>
         </select>
       </label>
+    </div>
+  );
+}
+
+/** A Part 3 restriction (ss.44(4), 45(4), 45A, 48(3)): what is restricted, on what ground, and whether the person was told. */
+export function Part3RestrictionFields() {
+  const [provision, setProvision] = useState("s45_4");
+  const [told, setTold] = useState("");
+  return (
+    <div className="space-y-3 rounded border border-line px-3 py-3">
+      <label className="block space-y-1">
+        <Label text="What is restricted" />
+        <select name="provision" value={provision} onChange={(ev) => setProvision(ev.target.value)} className={inputClass}>
+          {Object.entries(RESTRICTION_PROVISIONS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+        </select>
+      </label>
+      {provision !== "s45a" ? (
+        <>
+          <fieldset className="space-y-1.5">
+            <legend>
+              <Label text="On what ground" hint="National security is not among them since 5 September 2025: it is the s.78A exemption." />
+            </legend>
+            {Object.entries(RESTRICTION_GROUNDS).map(([k, v]) => (
+              <label key={k} className="flex items-start gap-2.5 text-sm">
+                <input type="checkbox" name="grounds" value={k} className="mt-1 accent-brand" />
+                <span>
+                  <span className="font-mono text-[11px] text-ink-soft">({k})</span> {v}
+                </span>
+              </label>
+            ))}
+          </fieldset>
+          <Tick name="necessaryAndProportionate">
+            Necessary and proportionate, having regard to the person&apos;s fundamental rights and legitimate interests — and only
+            for as long as it stays so
+          </Tick>
+        </>
+      ) : (
+        <p className="text-xs text-ink-soft">
+          Legal professional privilege, or a professional legal adviser&apos;s duty of confidentiality to a client.
+        </p>
+      )}
+      <label className="block space-y-1">
+        <Label
+          text="Was the person told of the restriction and why?"
+          hint="With their rights to ask the Information Commission to check (s.51), to complain to you and to the Commission, and to go to court."
+        />
+        <select name="personTold" value={told} onChange={(ev) => setTold(ev.target.value)} className={inputClass}>
+          <option value="">Choose</option>
+          <option value="yes">Yes</option>
+          <option value="no">No</option>
+        </select>
+      </label>
+      {told === "no" ? (
+        <label className="block space-y-1">
+          <Label text="Why telling them would undermine its purpose" />
+          <input name="notToldReason" className={inputClass} />
+        </label>
+      ) : null}
+      <p className="text-xs text-ink-soft">The reasons below are the record the Commission can ask for (ss.44(7), 45(7), 48(6)).</p>
     </div>
   );
 }

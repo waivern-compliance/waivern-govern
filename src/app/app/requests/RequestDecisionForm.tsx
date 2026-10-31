@@ -11,7 +11,7 @@ import {
 } from "@/lib/dsr/statutory";
 import { recordRequestDecisionAction, type RequestResult } from "./actions";
 import { Label, inputClass } from "./fields";
-import { ExemptionFields, HealthOpinionFields } from "./ExemptionFields";
+import { ExemptionFields, HealthOpinionFields, Part3RestrictionFields } from "./ExemptionFields";
 
 type Outcome = "done" | "complied" | "partly" | "refused" | "not_applicable";
 
@@ -128,6 +128,34 @@ const KINDS: Array<{
 const BASES = Object.keys(PROCESSING_BASIS_LABEL) as ProcessingBasis[];
 
 /**
+ * The same decisions on a request under Part 3 of the Data Protection Act
+ * 2018, citing its sections. Objection, portability and the Schedule 2 and 3
+ * exemptions do not exist there; a restriction takes the exemption's place.
+ */
+const PART3_KINDS: Record<string, { basis?: string; note?: string } | null> = {
+  clarification_requested: { basis: "DPA 2018 s.54(3C)", note: "The month stops until they answer. Only for an access request where you reasonably need it to identify the information or processing." },
+  extension: { basis: "DPA 2018 s.54(3A)", note: "Up to two more months, for complexity or number of requests. Tell them within the first month, with the reasons." },
+  objection: null,
+  portability: null,
+  exemption: null,
+  health_opinion: null,
+  erasure: { basis: "DPA 2018 s.47", note: "Erase where the processing would breach Part 3, or the law requires it — but where the data must be kept as evidence, restrict instead (s.47(2))." },
+  rectification: { basis: "DPA 2018 s.46", note: "Correct or complete it; where it must be kept as evidence, restrict instead (s.46(4)). Tell the competent authority it came from (s.48(7))." },
+  restriction: { basis: "DPA 2018 s.47", note: "Where accuracy is contested and cannot be settled (s.47(3)), or as evidence. Tell them before lifting it (s.48(10))." },
+  automated_decision: { basis: "DPA 2018 s.50C", note: "The safeguards for a significant decision taken solely by automated means (ss.50A–50C)." },
+  fee: { basis: "DPA 2018 s.53", note: "Only where the request is manifestly unfounded or excessive." },
+  refusal: { basis: "DPA 2018 s.53", note: "The burden of showing it is yours. Tell them why, and that they may complain to the Information Commission." },
+  recipients_notified: { basis: "DPA 2018 s.48(9)", note: "Each recipient of data that was rectified, erased or restricted." },
+};
+
+const PART3_RESTRICTION_KIND: (typeof KINDS)[number] = {
+  value: "part3_restriction",
+  label: "Restricted under Part 3",
+  outcomes: [["partly", "Restricted in part"], ["refused", "Restricted in whole"]],
+  note: "Information (s.44(4)), access (s.45(4)) or the reasons for a refusal (s.48(3)) withheld in whole or part, or privileged information (s.45A). Recorded with the reasons whether or not the person is told.",
+};
+
+/**
  * Record one decision about a request, with its reasoning.
  *
  * The reasoning is required whatever the outcome. The pause and extension
@@ -146,6 +174,7 @@ export function RequestDecisionForm({
   rights,
   activities = [],
   opinions = [],
+  part3 = false,
 }: {
   requestId: string;
   rights: string[];
@@ -153,23 +182,31 @@ export function RequestDecisionForm({
   activities?: ObjectableActivity[];
   /** Health professionals' opinions recorded on this request, for an exemption to rely on. */
   opinions?: Array<{ id: string; label: string; usable: boolean }>;
+  /** Law enforcement processing under Part 3. */
+  part3?: boolean;
 }) {
   // A refusal keeps what was typed: an exemption can be refused for one
   // missing answer among several.
   const { result, pending, formProps } = useRefusableAction<RequestResult>(
     recordRequestDecisionAction.bind(null, requestId),
   );
-  const [kind, setKind] = useState(KINDS[0].value);
+  const kinds = part3
+    ? [
+        ...KINDS.filter((k) => PART3_KINDS[k.value] !== null).map((k) => ({ ...k, ...(PART3_KINDS[k.value] ?? {}) })),
+        PART3_RESTRICTION_KIND,
+      ]
+    : KINDS;
+  const [kind, setKind] = useState(kinds[0].value);
   // The form is cleared once a decision is recorded; the choice of kind goes with it.
   const [seen, setSeen] = useState(result);
   if (result !== seen) {
     setSeen(result);
-    if (result?.ok) setKind(KINDS[0].value);
+    if (result?.ok) setKind(kinds[0].value);
   }
   const [activityId, setActivityId] = useState(activities[0]?.id ?? "");
   const activity = activities.find((a) => a.id === activityId);
   const [basis, setBasis] = useState<ProcessingBasis>(activities[0]?.suggested ?? "legitimate_interests");
-  const chosen = KINDS.find((k) => k.value === kind)!;
+  const chosen = kinds.find((k) => k.value === kind) ?? kinds[0];
   const test = kind === "objection" ? objectionTest(basis) : null;
   // An objection offers only what Article 21 allows on that basis: upheld
   // alone for direct marketing, not applicable alone where it does not reach.
@@ -184,7 +221,7 @@ export function RequestDecisionForm({
       <label className="block space-y-1">
         <Label text="What was decided" />
         <select name="kind" value={kind} onChange={(e) => setKind(e.target.value)} className={inputClass}>
-          {KINDS.map((k) => (
+          {kinds.map((k) => (
             <option key={k.value} value={k.value}>{k.label}</option>
           ))}
         </select>
@@ -253,6 +290,7 @@ export function RequestDecisionForm({
 
       {kind === "exemption" ? <ExemptionFields opinions={opinions} /> : null}
       {kind === "health_opinion" ? <HealthOpinionFields /> : null}
+      {kind === "part3_restriction" ? <Part3RestrictionFields /> : null}
 
       <div className="grid gap-3 sm:grid-cols-2">
         {outcomes ? (
@@ -283,7 +321,7 @@ export function RequestDecisionForm({
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        {kind === "exemption" || kind === "health_opinion" ? (
+        {kind === "exemption" || kind === "health_opinion" || kind === "part3_restriction" ? (
           <p className="self-end text-xs text-ink-soft">The provision is recorded from the paragraph chosen.</p>
         ) : (
           <label className="block space-y-1">

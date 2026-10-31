@@ -112,6 +112,8 @@ export async function updateBreachAction(
         // Asked only where the entity is a public communications provider.
         ...(formData.has("pecrServiceBreach") ? { pecrServiceBreach: tri(formData.get("pecrServiceBreach")) } : {}),
         ...(owner !== null ? { ownerId: text(owner) || null } : {}),
+        // Offered only where the entity is a competent authority, or the breach is already under Part 3.
+        ...(formData.has("regime") ? { regime: text(formData.get("regime")) } : {}),
       },
       actor: { actorKind: "user", actorUserId: active.userId, actorLabel: active.email },
     });

@@ -1,6 +1,6 @@
 # Plan: public services under the Data Protection Act 2018, as amended
 
-Status: decisions settled (30 October 2026), all as recommended. Phases 0–4 and 5a built.
+Status: decisions settled (30 October 2026), all as recommended. Phases 0–4, 5a and the requests and breaches half of 5b built.
 
 ## What is asked for
 
@@ -392,10 +392,34 @@ Built as:
 - Not in 5a: Part 3's own further processing (s.36) and automated decisions (ss.50A–50D);
   a Part 3 record hides the UK GDPR versions and says so.
 
-- **5b, what happens to it:** rights under ss.44–48 with s.45(4) restrictions, recorded
-  reasons and the s.54 clock; breaches under ss.67–68; automated decisions under
+- **5b, what happens to it**, split in two: requests and breaches (built), then automated
+  decisions, transfers and s.78A (to come). Rights under ss.44–48 with s.45(4)
+  restrictions, recorded reasons and the s.54 clock; breaches under ss.67–68; automated decisions under
   ss.50A–50D on activities and AI use cases; transfers under ss.73–76 in a Part 3
   variant of the transfer assessment; s.78A noted where national security is relied on.
+
+5b requests and breaches built as:
+- Checked against Part 3 Chapter 3 (ss.43–54) and ss.67–68 (up to date to 27–31 October
+  2026). The DUAA took national security out of the restriction grounds in ss.44(4),
+  45(4), 48(3) and 68(7) on 5 September 2025 (it is now s.78A), added s.45A (legal
+  professional privilege) the same day, and from 5 February 2026 made s.54's clock run as
+  the UK GDPR's does: a month, extendable by two, paused for a reasonably needed
+  clarification.
+- `data_subject_request.regime` and `breach.regime` (migration 0083), defaulting from the
+  entity and Part 3 only on a competent authority. A request starts under Part 3 only if
+  every right asked for is one Part 3 gives (access, rectification, erasure or
+  restriction, automated decision safeguards), so the public web form never fails; one
+  recorded or moved to Part 3 with an objection or portability is refused.
+- A new decision kind, `part3_restriction`, records what is restricted (s.44(4), 45(4),
+  48(3), or s.45A), the grounds, the necessity and proportionality confirmed, and whether
+  the person was told, or why telling them would undermine it; the rationale is the
+  record the Commission can ask for. Schedule 2 and 3 exemptions, the health opinion,
+  objection and portability are refused on a Part 3 request, and a Part 3 restriction on
+  a UK GDPR one. The decision form cites Part 3's sections, and the response must say
+  what ss.45(5) and 48(2) require. Rules in `lib/dpa2018/part3-rights.ts`.
+- Breaches under Part 3 have the same thresholds and clock; the obligations and decision
+  form cite ss.67–68, and the people affected need not be told where s.68(3) applies or
+  it is restricted under s.68(7).
 
 ## Rough size
 

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireCapability } from "@/lib/session";
 import { mayConfigureRequests } from "@/lib/rbac";
+import type { Regime } from "@/lib/dpa2018/part3";
 import type { Jurisdiction, ProcessingBasis } from "@/lib/dsr/statutory";
 import { refusable, type EditResult } from "@/lib/edit-result";
 import {
@@ -81,6 +82,7 @@ export async function recordRequestAction(_prev: RequestResult, formData: FormDa
       representative: text(formData.get("representative")) || null,
       controllerRole: (text(formData.get("controllerRole")) || "controller") as ControllerRole,
       jurisdiction: (text(formData.get("jurisdiction")) || undefined) as Jurisdiction | undefined,
+      regime: (text(formData.get("regime")) || undefined) as Regime | undefined,
       subjectCategories: lines(formData.get("subjectCategories")),
       ownerId: formData.get("ownMe") === "on" ? active.userId : null,
       actor: actorOf(active),
@@ -132,6 +134,8 @@ export async function updateRequestAction(
         controllerRole: text(formData.get("controllerRole")),
         subjectCategories: lines(formData.get("subjectCategories")),
         ...(owner !== null ? { ownerId: text(owner) || null } : {}),
+        // Offered only where Part 3 is available, or the request is already under it.
+        ...(formData.has("regime") ? { regime: text(formData.get("regime")) } : {}),
       },
       actor: actorOf(active),
     });
@@ -168,6 +172,15 @@ const yesNo = (v: FormDataEntryValue | null) => (v === "yes" ? true : v === "no"
 
 /** What a Schedule 2 or 3 paragraph asks to be recorded, or the health professional's opinion. */
 function decisionDetail(kind: string, formData: FormData) {
+  if (kind === "part3_restriction") {
+    return {
+      provision: text(formData.get("provision")),
+      grounds: formData.getAll("grounds").map(String),
+      necessaryAndProportionate: formData.get("necessaryAndProportionate") === "on",
+      personTold: yesNo(formData.get("personTold")),
+      notToldReason: text(formData.get("notToldReason")) || null,
+    };
+  }
   if (kind === "health_opinion") {
     return {
       professionalRole: text(formData.get("professionalRole")),

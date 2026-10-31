@@ -15,6 +15,7 @@ import { appendAuditEvent } from "@/lib/audit";
 import {
   OBJECTION_WINDOW_MONTHS,
   RIGHT_KEYS,
+  RIGHTS,
   clarificationStopsClock,
   clockStartsAt,
   extensionNoticeDeadline,
@@ -26,6 +27,14 @@ import {
   type Right,
 } from "@/lib/dsr/statutory";
 import { requestTimeliness, type Timeliness } from "@/lib/dsr/metrics";
+import { isRegime, type Regime } from "@/lib/dpa2018/part3";
+import {
+  PART3_RIGHTS,
+  Part3RightsRefused,
+  cleanPart3Restriction,
+  restrictionProvision,
+  type Part3Restriction,
+} from "@/lib/dpa2018/part3-rights";
 import {
   ExemptionRefused,
   cleanExemption,
@@ -281,6 +290,42 @@ async function nextReference(organisationId: string, year: number) {
   return `DSR-${year}-${String(Number(rows[0]?.next_value ?? 1)).padStart(4, "0")}`;
 }
 
+/**
+ * The regime a request is handled under, refused where it is not available:
+ * Part 3 only on a UK request to a competent authority's entity, and only
+ * for the rights Part 3 gives.
+ */
+async function checkedRegime(
+  executor: Pick<typeof db, "select">,
+  input: { entityId: string; regime: string | undefined; jurisdiction: Jurisdiction; rights: readonly Right[] },
+): Promise<Regime> {
+  const [entity] = await executor
+    .select({ competentAuthority: entities.competentAuthority, defaultRegime: entities.defaultRegime })
+    .from(entities)
+    .where(eq(entities.id, input.entityId));
+  // A default never refuses a request: one asking for a right Part 3 does not
+  // give (an objection through the public form, say) starts under the UK GDPR.
+  const regime =
+    input.regime ??
+    (entity?.competentAuthority && input.jurisdiction === "uk" && input.rights.every((r) => PART3_RIGHTS.includes(r))
+      ? entity.defaultRegime
+      : "uk_gdpr");
+  if (!isRegime(regime)) throw new RequestRefused("Choose the regime.");
+  if (regime === "dpa_part3") {
+    if (!entity?.competentAuthority) {
+      throw new RequestRefused("Part 3 is for a competent authority. Mark the entity as one on the Organisation page first.");
+    }
+    if (input.jurisdiction !== "uk") throw new RequestRefused("Part 3 of the Data Protection Act 2018 is UK law. Record the request under UK law.");
+    const outside = input.rights.filter((r) => !PART3_RIGHTS.includes(r));
+    if (outside.length > 0) {
+      throw new RequestRefused(
+        `Part 3 gives no right of ${outside.map((r) => RIGHTS[r].label.toLowerCase()).join(" or ")}. Its rights are access, rectification, erasure or restriction, and the automated decision safeguards.`,
+      );
+    }
+  }
+  return regime;
+}
+
 function validRights(rights: readonly string[]): Right[] {
   const known = rights.filter((r): r is Right => (RIGHT_KEYS as string[]).includes(r));
   if (known.length === 0) {
@@ -355,6 +400,8 @@ export async function recordRequest(input: {
   ownerId?: string | null;
   /** The published web form it came through, if it did. */
   intakeLinkId?: string | null;
+  /** Defaults from the entity: Part 3 where it is a competent authority whose new records start there. */
+  regime?: Regime;
   actor: Actor;
 }) {
   const rights = validRights(input.rights);
@@ -368,6 +415,7 @@ export async function recordRequest(input: {
     await assertEntityIn(input.organisationId, input.entityId);
     if (input.ownerId) await assertMemberOf(input.organisationId, input.ownerId);
     const jurisdiction = input.jurisdiction ?? (await defaultJurisdiction(input.organisationId));
+    const regime = await checkedRegime(db, { entityId: input.entityId, regime: input.regime, jurisdiction, rights });
     const reference = await nextReference(input.organisationId, new Date().getUTCFullYear());
 
     return db.transaction(async (tx) => {
@@ -378,6 +426,7 @@ export async function recordRequest(input: {
           entityId: input.entityId,
           reference,
           jurisdiction,
+          regime,
           controllerRole: input.controllerRole ?? "controller",
           rights,
           channel: input.channel,
@@ -458,10 +507,12 @@ export async function updateRequest(input: {
     controllerRole: string;
     subjectCategories: string[];
     ownerId: string | null;
+    regime: string;
   }>;
   actor: Actor;
 }) {
-  const changes = { ...input.changes };
+  const { regime: regimeChange, ...rest } = input.changes;
+  const changes: typeof rest & { regime?: Regime } = { ...rest };
   if (changes.rights !== undefined) changes.rights = validRights(changes.rights);
   if (changes.requesterName !== undefined && !changes.requesterName.trim()) {
     throw new RequestRefused("Record who is asking. A request with no requester cannot be answered.");
@@ -474,6 +525,15 @@ export async function updateRequest(input: {
     if (changes.ownerId) await assertMemberOf(input.organisationId, changes.ownerId);
     return db.transaction(async (tx) => {
       const before = await lockedRequest(tx, input.requestId, input.organisationId);
+      // The rights and the regime are checked together, whichever changed.
+      if (regimeChange !== undefined || (changes.rights !== undefined && before.regime === "dpa_part3")) {
+        changes.regime = await checkedRegime(tx, {
+          entityId: before.entityId,
+          regime: regimeChange ?? before.regime,
+          jurisdiction: before.jurisdiction,
+          rights: (changes.rights ?? before.rights) as Right[],
+        });
+      }
       const [after] = await tx
         .update(dataSubjectRequests)
         .set({ ...changes, updatedAt: new Date() })
@@ -488,7 +548,11 @@ export async function updateRequest(input: {
         subjectType: "data_subject_request",
         subjectId: input.requestId,
         before: { changed: Object.keys(changes) },
-        after: { reference: after.reference, ...(changes.rights ? { rights: changes.rights } : {}) },
+        after: {
+          reference: after.reference,
+          ...(changes.rights ? { rights: changes.rights } : {}),
+          ...(changes.regime && changes.regime !== before.regime ? { regime: changes.regime } : {}),
+        },
       });
 
       // Who the requester is decides where to look, so a change looks again.
@@ -593,8 +657,8 @@ export async function recordRequestDecision(input: {
   processingActivityId?: string | null;
   /** For an exemption: the Schedule 2 or 3 paragraph, from `lib/dpa2018/exemptions.ts`. */
   exemption?: string | null;
-  /** What that paragraph asks to be recorded; for a `health_opinion`, the opinion. */
-  detail?: ExemptionDetail | Partial<Record<keyof HealthOpinion, unknown>>;
+  /** What that paragraph asks to be recorded; for a `health_opinion`, the opinion; for a `part3_restriction`, the restriction. */
+  detail?: ExemptionDetail | Partial<Record<keyof HealthOpinion, unknown>> | Partial<Record<keyof Part3Restriction, unknown>>;
   rationale: string;
   /** When it took effect. Defaults to now; a pause counts from here. */
   effectiveAt?: Date;
@@ -626,6 +690,17 @@ export async function recordRequestDecision(input: {
   if (input.exemption && input.kind !== "exemption") {
     throw new RequestRefused("Only an exemption names a Schedule 2 or 3 paragraph.");
   }
+  const restriction =
+    input.kind === "part3_restriction"
+      ? (() => {
+          try {
+            return cleanPart3Restriction((input.detail ?? {}) as Record<string, unknown>);
+          } catch (error) {
+            if (error instanceof Part3RightsRefused) throw new RequestRefused(error.message);
+            throw error;
+          }
+        })()
+      : null;
   // The paragraphs' own rules, worded for the person deciding.
   const checked = <T,>(work: () => T): T => {
     try {
@@ -649,6 +724,19 @@ export async function recordRequestDecision(input: {
         .select()
         .from(dataSubjectRequestDecisions)
         .where(eq(dataSubjectRequestDecisions.requestId, input.requestId));
+
+      // Each regime has its own way of withholding: Schedules 2 and 3 for the
+      // UK GDPR, the restrictions in ss.44(4), 45(4), 45A and 48(3) for Part 3.
+      if (request.regime === "dpa_part3") {
+        if (input.kind === "exemption") {
+          throw new RequestRefused("Schedules 2 and 3 are UK GDPR exemptions. Under Part 3, record a restriction under s.44(4), 45(4) or 48(3), or s.45A for privilege.");
+        }
+        if (input.kind === "objection" || input.kind === "portability") {
+          throw new RequestRefused("Part 3 gives no right to object or to portability.");
+        }
+      } else if (input.kind === "part3_restriction") {
+        throw new RequestRefused("A Part 3 restriction is for law enforcement processing. This request is under the UK GDPR: record a Schedule 2 or 3 exemption instead.");
+      }
 
       const exemption =
         input.kind === "exemption"
@@ -711,11 +799,13 @@ export async function recordRequestDecision(input: {
           kind: input.kind,
           outcome,
           right: input.right ?? null,
-          statutoryBasis: exemption?.statutoryBasis ?? (opinion ? "DPA 2018 Sch. 3 paras 2, 5–6" : input.statutoryBasis ?? null),
+          statutoryBasis:
+            exemption?.statutoryBasis ??
+            (opinion ? "DPA 2018 Sch. 3 paras 2, 5–6" : restriction ? restrictionProvision(restriction) : input.statutoryBasis ?? null),
           processingBasis: input.processingBasis ?? null,
           processingActivityId,
           exemption: exemption?.exemption ?? null,
-          detail: exemption?.detail ?? opinion ?? {},
+          detail: exemption?.detail ?? opinion ?? restriction ?? {},
           rationale,
           effectiveAt,
           decidedBy: input.actor.actorUserId ?? null,
@@ -755,7 +845,7 @@ export async function recordRequestDecision(input: {
           basis: row.statutoryBasis,
           processingBasis: input.processingBasis ?? null,
           processingActivity: processingActivityId,
-          ...(row.exemption || opinion ? { exemption: row.exemption, detail: row.detail } : {}),
+          ...(row.exemption || opinion || restriction ? { exemption: row.exemption, detail: row.detail } : {}),
           effectiveAt: effectiveAt.toISOString(),
           rationale,
         },
@@ -1268,10 +1358,15 @@ function groupDecisions(rows: Awaited<ReturnType<typeof decisionsFor>>) {
 export async function loadRequest(
   requestId: string,
   organisationId: string,
-): Promise<(LoadedRequest & { scope: ScopeEntry[] }) | null> {
+): Promise<(LoadedRequest & { scope: ScopeEntry[]; competentAuthority: boolean }) | null> {
   return withOrganisation(organisationId, async () => {
     const [row] = await db
-      .select({ request: dataSubjectRequests, entityName: entities.name, ownerEmail: users.email })
+      .select({
+        request: dataSubjectRequests,
+        entityName: entities.name,
+        ownerEmail: users.email,
+        competentAuthority: entities.competentAuthority,
+      })
       .from(dataSubjectRequests)
       .innerJoin(entities, eq(entities.id, dataSubjectRequests.entityId))
       .leftJoin(users, eq(users.id, dataSubjectRequests.ownerId))
@@ -1283,7 +1378,7 @@ export async function loadRequest(
       .from(dataSubjectRequestScope)
       .where(eq(dataSubjectRequestScope.requestId, requestId))
       .orderBy(asc(dataSubjectRequestScope.kind), asc(dataSubjectRequestScope.label));
-    return { ...assemble(row.request, row.entityName, row.ownerEmail, decisions), scope };
+    return { ...assemble(row.request, row.entityName, row.ownerEmail, decisions), scope, competentAuthority: row.competentAuthority };
   });
 }
 

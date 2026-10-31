@@ -163,6 +163,19 @@ export default async function RequestsPage() {
                 </select>
               </label>
             </div>
+            {mayRecordIn.some((e) => e.competentAuthority) ? (
+              <label className="block space-y-1">
+                <Label
+                  text="Regime"
+                  hint="A request about law enforcement processing by a competent authority is handled under Part 3 of the Data Protection Act 2018: access, rectification, erasure or restriction, with restrictions in place of the Schedule 2 and 3 exemptions."
+                />
+                <select name="regime" defaultValue="" className={inputClass}>
+                  <option value="">As the entity&apos;s default</option>
+                  <option value="uk_gdpr">UK GDPR</option>
+                  <option value="dpa_part3">Law enforcement processing (Part 3)</option>
+                </select>
+              </label>
+            ) : null}
             <label className="flex items-start gap-2.5 text-sm">
               <input type="checkbox" name="ownMe" className="mt-1 accent-brand" />
               <span>I am handling this</span>
