@@ -24,6 +24,8 @@ function complete(over: Partial<Activity> = {}): Activity {
     consentUnobtainable: null,
     compatibilityFactors: {},
     compatibilityNote: null,
+    furtherAuthorisedBy: null,
+    furtherNecessaryProportionate: null,
     research: null,
     researchSafeguards: {},
     approvedMedicalResearch: null,

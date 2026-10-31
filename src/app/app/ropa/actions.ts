@@ -179,6 +179,8 @@ export async function saveFurtherProcessingAction(
           COMPATIBILITY_FACTOR_KEYS.map((k) => [k, text(formData.get(`factor_${k}`))]),
         ),
         compatibilityNote: text(formData.get("compatibilityNote")) || null,
+        furtherAuthorisedBy: text(formData.get("furtherAuthorisedBy")) || null,
+        furtherNecessaryProportionate: yesNo(formData.get("furtherNecessaryProportionate")),
         research: yesNo(formData.get("research")),
         researchSafeguards: Object.fromEntries(
           RESEARCH_SAFEGUARD_KEYS.map((k) => [

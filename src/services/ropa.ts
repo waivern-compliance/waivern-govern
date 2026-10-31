@@ -48,6 +48,15 @@ import {
   type Part3Gap,
   type Regime,
 } from "@/lib/dpa2018/part3";
+import {
+  HARD_PART3_FURTHER_GAPS,
+  PART3_FURTHER_GAP_WORDS,
+  Part3FurtherRefused,
+  cleanPart3Further,
+  part3FurtherGaps,
+  part3ReuseGaps,
+  type Part3FurtherGap,
+} from "@/lib/dpa2018/part3-further";
 import type { Actor } from "./templates";
 import { assertEntityIn, assertMemberOf, assertRecordIn } from "./tenancy-guards";
 
@@ -81,6 +90,7 @@ export type Article30Gap =
   | "public_authority_legitimate_interests"
   | ConditionGap
   | Part3Gap
+  | Part3FurtherGap
   | "controller_recipient_no_agreement"
   | "no_owner"
   | "review_overdue";
@@ -104,6 +114,7 @@ export const GAP_WORDS: Record<Article30Gap, string> = {
     "Public authority relying on legitimate interests or recognised legitimate interests for its tasks (Article 6(1))",
   ...CONDITION_GAP_WORDS,
   ...PART3_GAP_WORDS,
+  ...PART3_FURTHER_GAP_WORDS,
   controller_recipient_no_agreement: "Shares with another controller that no current data sharing agreement covers",
   no_owner: "No named owner",
   review_overdue: "Review overdue",
@@ -137,6 +148,7 @@ export const HARD_GAPS: Article30Gap[] = [
   "public_authority_legitimate_interests",
   ...HARD_CONDITION_GAPS,
   ...HARD_PART3_GAPS,
+  ...HARD_PART3_FURTHER_GAPS,
 ];
 
 const EMPTY = (a: unknown[] | null | undefined) => !a || a.length === 0;
@@ -159,6 +171,8 @@ export function article30Gaps(
      * record itself says.
      */
     originalConsent?: boolean | null;
+    /** Whether the original activity is under Part 3, so reusing its data needs s.36(4). */
+    originalPart3?: boolean;
     /**
      * What the DPIAs of this activity say about children, from
      * `childrenDpiaStates`. A gap that depends on it is not reported when it
@@ -215,6 +229,8 @@ export function article30Gaps(
     gaps.push(...part3Gaps(activity, { competentAuthority: context.competentAuthority, coverage: context.policyCoverage }));
     // Sections 50A–50C, only where significant decisions are solely automated.
     gaps.push(...admGaps(activity, undefined, "dpa_part3"));
+    // Sections 36(3) and 41, only where further processing or research is recorded.
+    gaps.push(...part3FurtherGaps(activity));
   } else {
     // Article 6(1): a basis chosen, not merely described. Free text that named
     // one unambiguously was turned into a choice; anything else waits for one.
@@ -225,6 +241,8 @@ export function article30Gaps(
     gaps.push(...admGaps(activity, activity.lawfulBases ?? [], "uk_gdpr"));
     // Articles 8A, 13(5) and 84C, only where further processing or research is recorded.
     gaps.push(...furtherProcessingGaps(activity, originalConsent));
+    // Section 36(4): data first collected for law enforcement, reused here.
+    gaps.push(...part3ReuseGaps(activity, context.originalPart3 ?? false));
     // Article 6(1), final subparagraph: not for a public authority's tasks.
     if (
       barredBasesFor({
@@ -271,12 +289,15 @@ export function originalConsentOf(
   return bases ? bases.includes("consent") : null;
 }
 
+/** Each activity's lawful bases, and which activities are under Part 3 (for s.36(4)). */
 async function basesByActivity(organisationId: string) {
   const rows = await db
-    .select({ id: processingActivities.id, lawfulBases: processingActivities.lawfulBases })
+    .select({ id: processingActivities.id, lawfulBases: processingActivities.lawfulBases, regime: processingActivities.regime })
     .from(processingActivities)
     .where(eq(processingActivities.organisationId, organisationId));
-  return new Map(rows.map((r) => [r.id, r.lawfulBases ?? []] as const));
+  return Object.assign(new Map(rows.map((r) => [r.id, r.lawfulBases ?? []] as const)), {
+    part3: new Set(rows.filter((r) => r.regime === "dpa_part3").map((r) => r.id)),
+  });
 }
 
 /** Whether any current DPIA of an activity answers the children's question. */
@@ -391,6 +412,7 @@ export async function listActivities(
     return rows.map(({ activity, entityName, ownerEmail, publicAuthority, competentAuthority }) => {
       const gaps = article30Gaps(activity, needsSafeguards, {
         originalConsent: originalConsentOf(activity, bases),
+        originalPart3: activity.originalActivityId ? bases.part3.has(activity.originalActivityId) : false,
         childrenDpia: children.get(activity.id) ?? "none",
         publicAuthority,
         competentAuthority,
@@ -460,6 +482,7 @@ export async function loadActivity(activityId: string, organisationId: string) {
     const uncoveredControllers = controllersWithoutAgreement(row.activity, sharing);
     const gaps = article30Gaps(row.activity, needsSafeguards, {
       originalConsent,
+      originalPart3: row.activity.originalActivityId ? bases.part3.has(row.activity.originalActivityId) : false,
       childrenDpia: children.get(activityId) ?? "none",
       publicAuthority: row.publicAuthority,
       competentAuthority: row.competentAuthority,
@@ -762,17 +785,14 @@ export async function updateActivity(input: {
 export async function setFurtherProcessing(input: {
   activityId: string;
   organisationId: string;
-  record: Parameters<typeof cleanFurtherProcessing>[0];
+  record: Parameters<typeof cleanFurtherProcessing>[0] & {
+    /** Section 36: the authorising law, on either regime, and s.36(3)(b) on Part 3. */
+    furtherAuthorisedBy?: string | null;
+    furtherNecessaryProportionate?: boolean | null;
+  };
   actor: Actor;
 }) {
-  const record = cleanFurtherProcessing(input.record);
-  if (record.originalActivityId === input.activityId) {
-    throw new FurtherProcessingRefused("An activity cannot be further processing of itself.");
-  }
   return withOrganisation(input.organisationId, async () => {
-    if (record.originalActivityId) {
-      await assertRecordIn(input.organisationId, "processing_activity", record.originalActivityId);
-    }
     return db.transaction(async (tx) => {
       const [before] = await tx
         .select()
@@ -784,6 +804,31 @@ export async function setFurtherProcessing(input: {
           ),
         );
       if (!before) throw new Error("No such processing activity");
+
+      // Under Part 3, s.36 and s.41 in place of Articles 8A and 84A–84C; the
+      // UK GDPR's own answers are left as they were. Under the UK GDPR, the
+      // authorising law is kept only where it is further processing, for
+      // s.36(4) where the data came from law enforcement processing.
+      const record =
+        before.regime === "dpa_part3"
+          ? (() => {
+              try {
+                return cleanPart3Further(input.record, before.researchSafeguards ?? {});
+              } catch (error) {
+                if (error instanceof Part3FurtherRefused) throw new FurtherProcessingRefused(error.message);
+                throw error;
+              }
+            })()
+          : (() => {
+              const r = cleanFurtherProcessing(input.record);
+              return { ...r, furtherAuthorisedBy: r.furtherProcessing ? input.record.furtherAuthorisedBy?.trim() || null : null };
+            })();
+      if (record.originalActivityId === input.activityId) {
+        throw new FurtherProcessingRefused("An activity cannot be further processing of itself.");
+      }
+      if (record.originalActivityId) {
+        await assertRecordIn(input.organisationId, "processing_activity", record.originalActivityId);
+      }
 
       await tx
         .update(processingActivities)

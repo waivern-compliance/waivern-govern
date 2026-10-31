@@ -133,6 +133,14 @@ export const processingActivities = pgTable(
       .default({}),
     compatibilityNote: text("compatibility_note"),
     /**
+     * Part 3 (DPA 2018 s.36): the law authorising this controller to process
+     * the data for this purpose — s.36(3)(a) on a Part 3 record, s.36(4) on a
+     * UK GDPR one reusing law enforcement data — and, on a Part 3 record,
+     * whether it is necessary and proportionate to it (s.36(3)(b)).
+     */
+    furtherAuthorisedBy: text("further_authorised_by"),
+    furtherNecessaryProportionate: boolean("further_necessary_proportionate"),
+    /**
      * Research, archiving in the public interest or statistics (Articles
      * 84A–84C) — a purpose of the processing, so a flag here rather than a
      * register of its own — with the 84C safeguards confirmed, and Article

@@ -389,8 +389,8 @@ Built as:
   condition) as well as Schedule 1 conditions.
 - "Data protection impact assessment (law enforcement, Part 3)" (s.64), offered through
   "Waivern has updated templates" once an entity is a competent authority.
-- Not in 5a: Part 3's own further processing (s.36) and automated decisions (ss.50A–50D);
-  a Part 3 record hides the UK GDPR versions and says so.
+- Not in 5a: Part 3's own further processing (s.36) and automated decisions (ss.50A–50D),
+  both built later (below).
 
 - **5b, what happens to it**, split in two: requests and breaches, then automated
   decisions, transfers and s.78A (both built). Rights under ss.44–48 with s.45(4)
@@ -445,6 +445,20 @@ Built as:
   and recording any s.79 certificate; and on Part 3 breach decisions for ss.67–68.
 - The Part 3 DPIA's rights-restriction help no longer lists national security among the
   s.45(4) grounds.
+
+Part 3 further processing, built after 5b:
+- Checked against ss.36 and 41 (up to date to 30 October 2026; amended by DUAA ss.71(8)
+  and 86(7) from 5 February 2026).
+- On a Part 3 record: whether data collected for another law enforcement purpose is
+  processed, the original activity, the authorising law (s.36(3)(a)) and necessity and
+  proportionality (s.36(3)(b)); research, archiving or statistics with the two s.41(2)
+  limits. No authorising law, or recorded as not necessary and proportionate — red;
+  proportionality unconfirmed, or a s.41(2) limit unconfirmed — amber. The UK GDPR's
+  further processing answers are left as they were.
+- On a UK GDPR record whose original activity is under Part 3: the law authorising it
+  (s.36(4)), red until given. `further_authorised_by` and
+  `further_necessary_proportionate` (migration 0085). Rules in
+  `lib/dpa2018/part3-further.ts`.
 
 ## Rough size
 

@@ -446,7 +446,7 @@ It asks how section 35(2) is met (a task carried out for a law enforcement purpo
 
 It also asks whether fact is distinguished from personal assessment (s.38(2)), and flags categories of data subject that do not distinguish suspects, the convicted, victims and witnesses (s.38(3)), both so far as possible. And for each system the record names, what it logs (s.62): the six operations, whether the consultation and disclosure logs show who did it and to whom, who reviews them and when they were last checked. Since 19 August 2025 the logs need not record why data was consulted or disclosed. Govern records the statement, never the logs.
 
-Requests and breaches about Part 3 processing are handled under Part 3 too: see the requests and breaches help. So are automated decisions (below) and transfers, which have their own assessment template. Part 3's own further processing rule (s.36) is not yet recorded.
+Requests and breaches about Part 3 processing are handled under Part 3 too: see the requests and breaches help. So are automated decisions (below) and transfers, which have their own assessment template, and further processing and research (s.36 and s.41, below).
 
 ### Further processing and research
 
@@ -455,6 +455,10 @@ Say whether the activity reuses data first collected for something else. If it d
 Where the data was first collected on consent, Article 8A(4) narrows the choice: research cannot make the new purpose compatible, and Annex 2 or Article 23 only where consent cannot reasonably be sought. Those routes are shown closed, with the reason, and a record that relies on one anyway is flagged.
 
 Separately, say whether the activity is for research, archiving in the public interest or statistics. Research includes commercial research. It then asks for the Article 84C safeguards: no substantial damage or distress, no decisions about a particular person (unless it is approved medical research) and data minimisation. Where it is further processing for research and telling people would be impossible or disproportionate, Article 13(5) lifts the duty, and the record asks where you have published the information instead.
+
+On a record under Part 3 of the Data Protection Act 2018 the questions are Part 3's. There is no compatibility test and no list of deemed cases: data collected for one law enforcement purpose may be processed for another, by you or another controller, only if the law authorises you to and it is necessary and proportionate to the new purpose (s.36(3)). The record asks for the authorising law and the confirmation; without the law, or with the processing recorded as not necessary and proportionate, it is red. Research, archiving and statistics for a law enforcement purpose are not permitted if they are for measures or decisions about a particular person, or likely to cause substantial damage or distress (s.41(2)); the record asks you to confirm both.
+
+Data collected for a law enforcement purpose may be processed for any other purpose only where that is authorised by law (s.36(4)). So where a UK GDPR record's data comes from an activity under Part 3 — vetting staff from custody records, say — it also asks which law authorises that, and is red until it says.
 
 ### Children
 
