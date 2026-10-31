@@ -5,12 +5,14 @@ import { savedKey } from "@/lib/saved-key";
 import {
   ADM_SAFEGUARDS,
   ADM_SAFEGUARD_KEYS,
-  ADM_SPECIAL_CONDITIONS,
+  ADM_SET_ASIDE_REASONS,
+  admConditionParagraph,
   admRestriction,
   describeAdm,
   type AdmRecord,
 } from "@/lib/gdpr/automated-decisions";
 import type { LawfulBasis } from "@/lib/gdpr/lawful-basis";
+import type { Regime } from "@/lib/dpa2018/part3";
 import type { AdmSide, LinkedRecord } from "@/services/automated-decisions";
 import {
   copyAutomatedDecisionsAction,
@@ -33,6 +35,8 @@ const small = "rounded border border-line bg-surface px-3 py-1.5 text-xs hover:b
  * Where they do not, it offers the copy in whichever direction makes sense and
  * leaves the choice to the reader: a use case can automate part of what an
  * activity does, so a difference is a question, not an error.
+ *
+ * Under Part 3 it cites ss.50A–50D instead.
  */
 export function AutomatedDecisions({
   side,
@@ -42,6 +46,7 @@ export function AutomatedDecisions({
   linked,
   mayEdit,
   linkCandidates,
+  regime = "uk_gdpr",
 }: {
   side: AdmSide;
   recordId: string;
@@ -52,9 +57,12 @@ export function AutomatedDecisions({
   mayEdit: boolean;
   /** Processing activities that could be linked; on an AI use case only. */
   linkCandidates?: Array<{ id: string; label: string }>;
+  /** The regime the processing is under; for an AI use case, from its linked activities. */
+  regime?: Regime;
 }) {
   const other = OTHER[side];
-  const restriction = admRestriction(record, bases);
+  const part3 = regime === "dpa_part3";
+  const restriction = admRestriction(record, part3 ? undefined : bases, regime);
   const pair = (l: LinkedRecord) =>
     side === "ai_use_case" ? { useCaseId: recordId, activityId: l.id } : { useCaseId: l.id, activityId: recordId };
   const otherSide: AdmSide = side === "ai_use_case" ? "processing_activity" : "ai_use_case";
@@ -62,7 +70,10 @@ export function AutomatedDecisions({
   return (
     <section className="space-y-3">
       <h2 className="text-sm font-semibold">
-        Automated decisions <span className="font-normal text-ink-soft">· UK GDPR Articles 22A–22C</span>
+        Automated decisions{" "}
+        <span className="font-normal text-ink-soft">
+          · {part3 ? "Data Protection Act 2018 ss.50A–50D (Part 3)" : "UK GDPR Articles 22A–22C"}
+        </span>
       </h2>
 
       {restriction.allowed === false ? (
@@ -71,7 +82,7 @@ export function AutomatedDecisions({
         </p>
       ) : restriction.allowed === null ? (
         <p className="max-w-prose rounded border border-amber-700 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-          Whether Article 22B allows this cannot be told yet. {restriction.why}
+          Whether {part3 ? "section 50B" : "Article 22B"} allows this cannot be told yet. {restriction.why}
         </p>
       ) : null}
 
@@ -160,7 +171,7 @@ export function AutomatedDecisions({
           action={saveAutomatedDecisionsAction.bind(null, side, recordId)}
           className="space-y-4 rounded border border-line bg-surface p-4"
         >
-          <AutomatedDecisionFields record={record} />
+          <AutomatedDecisionFields record={record} regime={regime} />
           <button
             type="submit"
             className="rounded border border-line bg-surface px-4 py-2 text-sm hover:border-brand focus-visible:outline-2 focus-visible:outline-brand"
@@ -175,8 +186,10 @@ export function AutomatedDecisions({
             <ul className="space-y-0.5 text-xs text-ink-soft">
               {record.admSpecialCategory ? (
                 <li>
-                  Special category data ·{" "}
-                  {record.admSpecialCondition ? ADM_SPECIAL_CONDITIONS[record.admSpecialCondition].paragraph : "no Article 22B condition"}
+                  {part3 ? "Sensitive processing" : "Special category data"} ·{" "}
+                  {record.admSpecialCondition
+                    ? admConditionParagraph(record.admSpecialCondition, regime)
+                    : `no ${part3 ? "section 50B" : "Article 22B"} condition`}
                 </li>
               ) : null}
               {ADM_SAFEGUARD_KEYS.map((k) => (
@@ -185,6 +198,13 @@ export function AutomatedDecisions({
                   {record.admSafeguards?.[k]?.note ? ` — ${record.admSafeguards[k]!.note}` : ""}
                 </li>
               ))}
+              {part3 && record.admSetAside ? (
+                <li>
+                  May be set aside under s.50C(3) for:{" "}
+                  {record.admSetAside.reasons.map((r) => ADM_SET_ASIDE_REASONS[r].toLowerCase()).join("; ")} ·
+                  reconsidered: {record.admSetAside.reconsideration}
+                </li>
+              ) : null}
             </ul>
           ) : null}
         </div>

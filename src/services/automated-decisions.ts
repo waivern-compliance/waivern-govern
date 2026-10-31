@@ -10,6 +10,7 @@ import {
   type AdmRecord,
 } from "@/lib/gdpr/automated-decisions";
 import type { LawfulBasis } from "@/lib/gdpr/lawful-basis";
+import type { Regime } from "@/lib/dpa2018/part3";
 import type { Actor } from "./templates";
 
 /**
@@ -22,6 +23,10 @@ import type { Actor } from "./templates";
  * across. The copy is never made silently: the two can legitimately differ —
  * a use case may automate only part of what the activity does — and the
  * person who clicks is the one who decided they should match.
+ *
+ * The record is read under the regime its processing is under: a processing
+ * activity's own, and for an AI use case, Part 3 where every processing
+ * activity it is linked to is (ss.50A–50D), otherwise the UK GDPR.
  */
 
 export type AdmSide = "processing_activity" | "ai_use_case";
@@ -43,7 +48,7 @@ async function loadSide(
     .from(table)
     .where(and(eq(table.id, id), eq(table.organisationId, organisationId)));
   if (!row) throw new Error(side === "ai_use_case" ? "No such AI use case" : "No such processing activity");
-  return row as typeof row & AdmRecord & { reference: string; entityId: string };
+  return row as typeof row & AdmRecord & { id: string; reference: string; entityId: string; regime?: Regime };
 }
 
 async function linked(
@@ -66,6 +71,34 @@ async function linked(
       ),
     );
   return row ?? null;
+}
+
+/** An AI use case's regime, from the processing activities it is linked to. */
+export function regimeOfUseCase(activities: ReadonlyArray<{ regime: Regime }>): Regime {
+  return activities.length > 0 && activities.every((a) => a.regime === "dpa_part3") ? "dpa_part3" : "uk_gdpr";
+}
+
+async function regimeOf(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  organisationId: string,
+  side: AdmSide,
+  row: { id: string; regime?: Regime },
+): Promise<Regime> {
+  if (side === "processing_activity") return row.regime ?? "uk_gdpr";
+  const activities = await tx
+    .select({ regime: processingActivities.regime })
+    .from(recordLinks)
+    .innerJoin(processingActivities, eq(processingActivities.id, recordLinks.toId))
+    .where(
+      and(
+        eq(recordLinks.organisationId, organisationId),
+        eq(recordLinks.fromType, "ai_use_case"),
+        eq(recordLinks.fromId, row.id),
+        eq(recordLinks.toType, "processing_activity"),
+        eq(recordLinks.relation, RELATION),
+      ),
+    );
+  return regimeOfUseCase(activities);
 }
 
 export async function linkUseCaseToActivity(input: {
@@ -137,10 +170,10 @@ export async function setAutomatedDecisions(input: {
   record: Parameters<typeof cleanAdm>[0];
   actor: Actor;
 }) {
-  const record = cleanAdm(input.record);
   return withOrganisation(input.organisationId, () =>
     db.transaction(async (tx) => {
       const before = await loadSide(tx, input.organisationId, input.side, input.id);
+      const record = cleanAdm(input.record, await regimeOf(tx, input.organisationId, input.side, before));
       const table = TABLE[input.side];
       await tx.update(table).set({ ...record, updatedAt: new Date() }).where(eq(table.id, input.id));
       await appendAuditEvent(tx, {
@@ -184,7 +217,9 @@ export async function copyAutomatedDecisions(input: {
         throw new Error(`${source.reference} has no automated-decision record to copy.`);
       }
 
-      const record = admOf(source);
+      // Checked against the regime it is going to: a Part 3 condition or set-aside
+      // cannot land on a UK GDPR record, nor a contract condition on a Part 3 one.
+      const record = cleanAdm(admOf(source), await regimeOf(tx, input.organisationId, input.to, target));
       const table = TABLE[input.to];
       await tx.update(table).set({ ...record, updatedAt: new Date() }).where(eq(table.id, targetId));
       await appendAuditEvent(tx, {
@@ -209,6 +244,8 @@ export type LinkedRecord = {
   record: AdmRecord;
   /** A processing activity's bases, which Article 22B(4) turns on. */
   lawfulBases?: LawfulBasis[];
+  /** A processing activity's regime. */
+  regime?: Regime;
   /** Seen from the page being viewed: "missing_here" means this page lacks it. */
   mismatch: AdmMismatch | null;
 };
@@ -245,6 +282,7 @@ export async function linkedActivitiesOf(organisationId: string, useCase: AdmRec
       name: a.name,
       record: admOf(a),
       lawfulBases: a.lawfulBases,
+      regime: a.regime,
       mismatch: admMismatch(useCase, a),
     }));
   });

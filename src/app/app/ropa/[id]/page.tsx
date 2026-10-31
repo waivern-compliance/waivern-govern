@@ -421,9 +421,9 @@ export default async function ActivityPage({
 
       {activity.regime === "dpa_part3" ? (
         <p className="max-w-prose rounded border border-line bg-ground px-3 py-2 text-xs text-ink-soft">
-          Recorded under Part 3 of the Data Protection Act 2018, so the UK GDPR&apos;s further processing, research and
-          automated decision questions do not apply here. Part 3&apos;s own rules on automated decisions (ss.50A–50D)
-          and further processing (s.36) are not yet recorded in Govern.
+          Recorded under Part 3 of the Data Protection Act 2018, so the UK GDPR&apos;s further processing and research
+          questions do not apply here, and automated decisions are recorded under ss.50A–50D below. Part 3&apos;s own
+          rule on further processing (s.36) is not yet recorded in Govern.
         </p>
       ) : null}
 
@@ -486,16 +486,15 @@ export default async function ActivityPage({
 
       ) : null}
 
-      {activity.regime !== "dpa_part3" ? (
-        <AutomatedDecisions
-          side="processing_activity"
-          recordId={activity.id}
-          record={activity}
-          bases={activity.lawfulBases ?? []}
-          linked={linkedUseCases}
-          mayEdit={mayEdit}
-        />
-      ) : null}
+      <AutomatedDecisions
+        side="processing_activity"
+        recordId={activity.id}
+        record={activity}
+        bases={activity.lawfulBases ?? []}
+        linked={linkedUseCases}
+        mayEdit={mayEdit}
+        regime={activity.regime}
+      />
 
       <Discussion
         subjectType="processing_activity"

@@ -43,7 +43,7 @@ import { aiUseCaseRequests, processingActivities, suppliers } from "@/db/schema"
 import { savedKey } from "@/lib/saved-key";
 import { EditForm } from "@/components/EditForm";
 import { AutomatedDecisions } from "@/components/AutomatedDecisions";
-import { linkedActivitiesOf } from "@/services/automated-decisions";
+import { linkedActivitiesOf, regimeOfUseCase } from "@/services/automated-decisions";
 
 const CONSEQUENCE_WORDS: Record<string, string> = {
   informational: "Informational only — no decision follows",
@@ -482,6 +482,7 @@ export default async function UseCasePage({
         bases={linkedBases}
         linked={linkedActivities}
         mayEdit={mayEdit}
+        regime={regimeOfUseCase(linkedActivities.map((a) => ({ regime: a.regime ?? "uk_gdpr" })))}
         linkCandidates={activityOptions
           .filter((a) => can(active.membership.grants, "record.read", a.entityId))
           .filter((a) => !linkedActivities.some((l) => l.id === a.id))

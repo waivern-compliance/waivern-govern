@@ -12,7 +12,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import type { LawfulBasis, RecognisedCondition } from "@/lib/gdpr/lawful-basis";
-import type { AdmSafeguards, AdmSpecialCondition } from "@/lib/gdpr/automated-decisions";
+import type { AdmSafeguards, AdmSetAside, AdmSpecialCondition } from "@/lib/gdpr/automated-decisions";
 import type { Art10Condition, Art9Condition, Schedule1Condition } from "@/lib/dpa2018/schedule-1";
 import type { SupplierRole } from "@/lib/dpa2018/sharing";
 import type { LoggingStatement, Part3Basis, Regime, Schedule8Condition, SensitiveRoute } from "@/lib/dpa2018/part3";
@@ -110,6 +110,8 @@ export const processingActivities = pgTable(
     admSpecialCategory: boolean("adm_special_category"),
     admSpecialCondition: text("adm_special_condition").$type<AdmSpecialCondition>(),
     admSafeguards: jsonb("adm_safeguards").$type<AdmSafeguards>().notNull().default({}),
+    /** Part 3 only (s.50C(3)): the reasons the safeguards may be set aside, and how decisions are then reconsidered. */
+    admSetAside: jsonb("adm_set_aside").$type<AdmSetAside>(),
     /**
      * Further processing (Article 8A): whether this purpose reuses data first
      * collected for another, and on what ground the new purpose is compatible.

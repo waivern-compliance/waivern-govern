@@ -191,11 +191,24 @@ export function Part3RestrictionFields() {
           {Object.entries(RESTRICTION_PROVISIONS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
       </label>
-      {provision !== "s45a" ? (
+      {provision === "s78a" ? (
+        <>
+          <Tick name="nationalSecurityRequired">
+            Exemption from the person&apos;s rights is required to safeguard national security — not merely convenient
+          </Tick>
+          <label className="block space-y-1">
+            <Label
+              text="Section 79 certificate, if any"
+              hint="A Minister's certificate is conclusive evidence that the exemption is required, subject to appeal to the Tribunal. Without one, you must be able to show it."
+            />
+            <input name="certificate" className={inputClass} />
+          </label>
+        </>
+      ) : provision !== "s45a" ? (
         <>
           <fieldset className="space-y-1.5">
             <legend>
-              <Label text="On what ground" hint="National security is not among them since 5 September 2025: it is the s.78A exemption." />
+              <Label text="On what ground" hint="National security is not among them since 5 September 2025: choose the s.78A exemption above instead." />
             </legend>
             {Object.entries(RESTRICTION_GROUNDS).map(([k, v]) => (
               <label key={k} className="flex items-start gap-2.5 text-sm">

@@ -15,6 +15,7 @@ function complete(over: Partial<Activity> = {}): Activity {
     admSpecialCategory: null,
     admSpecialCondition: null,
     admSafeguards: {},
+    admSetAside: null,
     furtherProcessing: null,
     originalActivityId: null,
     originalConsent: null,

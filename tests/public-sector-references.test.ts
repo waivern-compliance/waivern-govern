@@ -27,7 +27,7 @@ describe("the Data Protection Act 2018 in the library", () => {
     for (const ref of LEGAL_REFERENCES.filter((r) => r.code.startsWith("uk.dpa2018."))) {
       assert.match(
         ref.url!,
-        /\/ukpga\/2018\/12\/(section\/\d+[A-Z]?|schedule\/\d+(\/(paragraph|part)\/\d+)?|part\/\d+\/chapter\/\d+)$/,
+        /\/ukpga\/2018\/12\/(section\/\d+[A-Z]{0,2}|schedule\/\d+(\/(paragraph|part)\/\d+)?|part\/\d+\/chapter\/\d+)$/,
         `${ref.code} is not a precise link`,
       );
     }

@@ -28,7 +28,7 @@ import {
   atrsStatus,
   riskTier,
 } from "./enums";
-import type { AdmSafeguards, AdmSpecialCondition } from "@/lib/gdpr/automated-decisions";
+import type { AdmSafeguards, AdmSetAside, AdmSpecialCondition } from "@/lib/gdpr/automated-decisions";
 import { integrationConnections, suppliers } from "./integration";
 import { risks } from "./risks";
 import { entities, organisations, users } from "./tenancy";
@@ -126,6 +126,8 @@ export const aiUseCases = pgTable(
     admSpecialCategory: boolean("adm_special_category"),
     admSpecialCondition: text("adm_special_condition").$type<AdmSpecialCondition>(),
     admSafeguards: jsonb("adm_safeguards").$type<AdmSafeguards>().notNull().default({}),
+    /** Part 3 only (s.50C(3)): the reasons the safeguards may be set aside, and how decisions are then reconsidered. */
+    admSetAside: jsonb("adm_set_aside").$type<AdmSetAside>(),
 
     nextReviewAt: timestamp("next_review_at", { withTimezone: true }),
     /**
