@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { COMMUNICATION_EXEMPTIONS } from "@/lib/breach/statutory";
+import { PART3_COMMUNICATION_EXEMPTIONS } from "@/lib/dpa2018/part3-rights";
 import { recordDecisionAction, type BreachResult } from "./actions";
 
 const KINDS: Array<{ value: string; label: string; basis?: string; note: string }> = [
@@ -70,13 +71,32 @@ const KINDS: Array<{ value: string; label: string; basis?: string; note: string 
  * able to defend, and an absence of notification with nothing written down is
  * indistinguishable from having forgotten.
  */
-export function DecisionForm({ breachId, pecr = false }: { breachId: string; pecr?: boolean }) {
+/** The same decisions under Part 3, citing ss.67–68. */
+const PART3_BASIS: Record<string, { basis: string; note: string }> = {
+  supervisory_authority: {
+    basis: "DPA 2018 s.67(1)",
+    note: "The Information Commission, without undue delay and where feasible within seventy-two hours, unless the breach is unlikely to result in a risk to rights and freedoms. Late, with the reasons (s.67(3)).",
+  },
+  data_subjects: {
+    basis: "DPA 2018 s.68(1)",
+    note: "Without undue delay where there is a high risk, unless a s.68(3) exception applies, or telling them is restricted under s.68(7) — in which case the Commission cannot require it (s.68(8)).",
+  },
+  processor_to_controller: {
+    basis: "DPA 2018 s.67(9)",
+    note: "Our obligation where we are the processor. Without undue delay, no fixed period.",
+  },
+};
+
+export function DecisionForm({ breachId, pecr = false, part3 = false }: { breachId: string; pecr?: boolean; part3?: boolean }) {
   const [result, action, pending] = useActionState<BreachResult, FormData>(
     recordDecisionAction.bind(null, breachId),
     null,
   );
   // The PECR kinds are offered only where the entity is a public communications provider.
-  const kinds = pecr ? KINDS : KINDS.filter((k) => !k.value.startsWith("pecr_"));
+  const kinds = (pecr ? KINDS : KINDS.filter((k) => !k.value.startsWith("pecr_"))).map((k) =>
+    part3 && PART3_BASIS[k.value] ? { ...k, ...PART3_BASIS[k.value], label: k.value === "supervisory_authority" ? "The Information Commission" : k.label } : k,
+  );
+  const exemptions: Record<string, string> = part3 ? PART3_COMMUNICATION_EXEMPTIONS : COMMUNICATION_EXEMPTIONS;
   const [kind, setKind] = useState(kinds[0].value);
   const chosen = kinds.find((k) => k.value === kind)!;
   const statutory = Boolean(chosen.basis);
@@ -131,9 +151,20 @@ export function DecisionForm({ breachId, pecr = false }: { breachId: string; pec
             className="w-full rounded border border-line bg-ground px-3 py-2 font-mono text-xs"
           />
           <datalist id="statutory-bases">
-            <option value="Article 33(1)" />
-            <option value="Article 33(2)" />
-            <option value="Article 34(1)" />
+            {part3 ? (
+              <>
+                <option value="DPA 2018 s.67(1)" />
+                <option value="DPA 2018 s.67(2)">Unlikely to result in a risk to rights and freedoms</option>
+                <option value="DPA 2018 s.67(9)" />
+                <option value="DPA 2018 s.68(1)" />
+              </>
+            ) : (
+              <>
+                <option value="Article 33(1)" />
+                <option value="Article 33(2)" />
+                <option value="Article 34(1)" />
+              </>
+            )}
             {pecr ? (
               <>
                 <option value="PECR reg 5A(2)" />
@@ -142,8 +173,8 @@ export function DecisionForm({ breachId, pecr = false }: { breachId: string; pec
                 <option value="Article 95">Reg 5A applies, so Article 33 adds no second duty</option>
               </>
             ) : null}
-            {Object.entries(COMMUNICATION_EXEMPTIONS).map(([code, words]) => (
-              <option key={code} value={`Article ${code}`}>{words}</option>
+            {Object.entries(exemptions).map(([code, words]) => (
+              <option key={code} value={part3 ? `DPA 2018 ${code}` : `Article ${code}`}>{words}</option>
             ))}
           </datalist>
         </label>
@@ -151,8 +182,8 @@ export function DecisionForm({ breachId, pecr = false }: { breachId: string; pec
 
       {kind === "data_subjects" ? (
         <p className="rounded border border-line bg-ground px-3 py-2 text-xs text-ink-soft">
-          If you are not telling them, the exemption is one of:{" "}
-          {Object.entries(COMMUNICATION_EXEMPTIONS).map(([code, words], i) => (
+          If you are not telling them, the {part3 ? "exception or restriction" : "exemption"} is one of:{" "}
+          {Object.entries(exemptions).map(([code, words], i) => (
             <span key={code}>
               {i > 0 ? "; " : ""}
               <span className="font-mono">{code}</span> {words.toLowerCase()}
@@ -160,6 +191,9 @@ export function DecisionForm({ breachId, pecr = false }: { breachId: string; pec
           ))}
           . The third substitutes a public communication — it is not an
           exemption from telling anybody.
+          {part3
+            ? " A restriction under s.68(7) lasts only as far and as long as it is necessary and proportionate: record when it will be looked at again."
+            : null}
         </p>
       ) : null}
 

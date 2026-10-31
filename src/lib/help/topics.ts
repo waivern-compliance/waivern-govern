@@ -352,7 +352,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           "On an entity that is a competent authority, a record can be kept under Part 3 of the Data Protection Act 2018 instead of the UK GDPR, for processing for the law enforcement purposes. The UK GDPR's questions — lawful basis, Articles 9 and 10, children, further processing, automated decisions — give way to Part 3's.",
           "It asks how section 35(2) is met (a task carried out for a law enforcement purpose, or consent). Where there is sensitive processing it asks the route: consent, or strictly necessary with a Schedule 8 condition. Either way an appropriate policy document must be in place (s.42): the policy document register covers Part 3 grounds as well as Schedule 1 conditions, and the record asks whether retention followed it. A record with no route, no condition or no document covering it is red.",
           "It also asks whether fact is distinguished from personal assessment (s.38(2)), and flags categories of data subject that do not distinguish suspects, the convicted, victims and witnesses (s.38(3)), both so far as possible. And for each system the record names, what it logs (s.62): the six operations, whether the consultation and disclosure logs show who did it and to whom, who reviews them and when they were last checked. Since 19 August 2025 the logs need not record why data was consulted or disclosed. Govern records the statement, never the logs.",
-          "Part 3's rights, breaches, automated decisions and transfers are not yet handled differently from the UK GDPR's; a later release covers them.",
+          "Requests and breaches about Part 3 processing are handled under Part 3 too: see the requests and breaches help. Part 3's automated decisions (ss.50A–50D) and transfers are not yet handled differently from the UK GDPR's; a later release covers them.",
         ],
       },
       {
@@ -678,6 +678,7 @@ export const HELP_TOPICS: HelpTopic[] = [
       "breach", "incident", "72 hours", "seventy-two", "article 33", "article 34",
       "notify", "ico", "information commission", "supervisory authority", "data subjects", "ransomware", "leak",
       "pecr", "reg 5a", "telecoms", "communications provider",
+      "part 3", "law enforcement", "section 67", "section 68",
     ],
     sections: [
       {
@@ -736,6 +737,13 @@ export const HELP_TOPICS: HelpTopic[] = [
           "A missed deadline does not remove the obligation. Article 33(1) still requires notification, accompanied by the reasons for the delay, and the platform says so rather than turning the task green.",
         ],
       },
+      {
+        heading: "Breaches of law enforcement processing (Part 3)",
+        body: [
+          "Where the entity is a competent authority, a breach of its law enforcement processing is notified under ss.67–68 of the Data Protection Act 2018 rather than Articles 33–34. Choose the regime on the breach; it starts as the entity's new records do. The thresholds and the seventy-two hours are the same, and the decisions cite the sections.",
+          "There is one difference. Telling the people affected may be restricted, wholly or partly, as far and as long as is necessary and proportionate, on the same four grounds as a request (s.68(7)): to avoid obstructing an inquiry, to avoid prejudicing crime work, to protect public security, or to protect others' rights. Where it is, the Information Commission cannot require you to tell them (s.68(8)). Record it as a decision not to tell them, citing the ground, and when it will be looked at again.",
+        ],
+      },
     ],
     related: ["risks", "service-levels", "audit", "ropa"],
   },
@@ -754,7 +762,7 @@ export const HELP_TOPICS: HelpTopic[] = [
       "timeliness", "on time", "response times", "export", "metrics",
       "web form", "intake", "public form", "privacy notice",
       "exemption", "schedule 2", "schedule 3", "serious harm", "health professional", "immigration exemption",
-      "social work", "education records", "child abuse data",
+      "social work", "education records", "child abuse data", "part 3", "law enforcement", "restriction", "section 45",
     ],
     sections: [
       {
@@ -815,6 +823,15 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Decide an objection once for each processing activity it is about. The form offers the activities found in where to look, and suggests the basis from the ROPA; if the ROPA is wrong, correct it there.",
           "While you weigh an objection to public task or either kind of legitimate interests, the person may have the processing restricted (Article 18(1)(d)). If they asked, the platform will not record the restriction as refused until the objection is decided.",
           "An upheld objection means the processing stops for this person. The request will not close until that activity is recorded as acted on in where to look.",
+        ],
+      },
+      {
+        heading: "Requests about law enforcement processing (Part 3)",
+        body: [
+          "Where the entity is a competent authority, a request about its law enforcement processing is recorded under Part 3 of the Data Protection Act 2018. It starts there when the entity's new records do and every right asked for is one Part 3 gives; otherwise it starts under the UK GDPR, and can be moved. Part 3 gives access (s.45), rectification (s.46), erasure or restriction (s.47) and the automated decision safeguards (s.50C); there is no right to object or to portability, and a Part 3 request cannot include them.",
+          "The month is counted as under the UK GDPR (s.54): one month, extendable by two with notice and reasons inside the first, and paused while a reasonably needed clarification of an access request is awaited. The search need only be reasonable and proportionate (s.45(2A)).",
+          "In place of the Schedule 2 and 3 exemptions, Part 3 lets the information you give (s.44(4)), access (s.45(4)) and the reasons for refusing rectification or erasure (s.48(3)) be restricted, wholly or partly, as far and as long as is necessary and proportionate: to avoid obstructing an inquiry or investigation, to avoid prejudicing crime work, to protect public security, or to protect others' rights. National security was taken out of those grounds on 5 September 2025; it is now the s.78A exemption. Privileged information is exempt under s.45A.",
+          "Record each restriction as its own decision, with the reasons. The person is told of it and why, with their rights to ask the Information Commission to check (s.51), to complain to you and to the Commission, and to go to court — unless telling them would undermine the restriction, which the decision asks you to explain. The reasons are kept either way, because the Commission can ask for them.",
         ],
       },
       {

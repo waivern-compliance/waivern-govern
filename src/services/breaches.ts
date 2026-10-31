@@ -19,6 +19,7 @@ import {
   type ControllerRole,
   type RiskLevel,
 } from "@/lib/breach/statutory";
+import { isRegime, type Regime } from "@/lib/dpa2018/part3";
 import type { Actor } from "./templates";
 import { assertEntityIn, assertMemberOf, assertRecordIn } from "./tenancy-guards";
 
@@ -100,6 +101,7 @@ function assemble(
       risk,
       discoveredAt: breach.discoveredAt,
       dataUnintelligible: breach.dataUnintelligible,
+      regime: breach.regime,
     }),
     clock: clockFor({
       role,
@@ -107,6 +109,7 @@ function assemble(
       notifiedAt: notified?.completedAt ?? null,
       notRequired,
       now,
+      regime: breach.regime,
     }),
     outstandingContent: missingContent(breach),
     publicCommsProvider: provider,
@@ -125,6 +128,20 @@ async function nextReference(organisationId: string, year: number) {
   return `BR-${year}-${String(Number(rows[0]?.next_value ?? 1)).padStart(4, "0")}`;
 }
 
+/** Part 3 only on a competent authority's entity; the default follows the entity. */
+async function checkedRegime(executor: Pick<typeof db, "select">, entityId: string, regime: string | undefined): Promise<Regime> {
+  const [entity] = await executor
+    .select({ competentAuthority: entities.competentAuthority, defaultRegime: entities.defaultRegime })
+    .from(entities)
+    .where(eq(entities.id, entityId));
+  const chosen = regime ?? (entity?.competentAuthority ? entity.defaultRegime : "uk_gdpr");
+  if (!isRegime(chosen)) throw new Error("Choose the regime.");
+  if (chosen === "dpa_part3" && !entity?.competentAuthority) {
+    throw new Error("Part 3 is for a competent authority. Mark the entity as one on the Organisation page first.");
+  }
+  return chosen;
+}
+
 export async function recordBreach(input: {
   organisationId: string;
   entityId: string;
@@ -136,11 +153,14 @@ export async function recordBreach(input: {
   occurredAt?: Date | null;
   categories?: string[];
   ownerId?: string | null;
+  /** UK GDPR or Part 3; defaults from the entity. */
+  regime?: Regime;
   actor: Actor;
 }) {
   return withOrganisation(input.organisationId, async () => {
     await assertEntityIn(input.organisationId, input.entityId);
     if (input.ownerId) await assertMemberOf(input.organisationId, input.ownerId);
+    const regime = await checkedRegime(db, input.entityId, input.regime);
     const reference = await nextReference(input.organisationId, new Date().getUTCFullYear());
 
     return db.transaction(async (tx) => {
@@ -153,6 +173,7 @@ export async function recordBreach(input: {
           title: input.title,
           description: input.description,
           controllerRole: input.controllerRole ?? "controller",
+          regime,
           discoveredAt: input.discoveredAt,
           occurredAt: input.occurredAt ?? null,
           categories: input.categories ?? [],
@@ -199,6 +220,7 @@ export async function updateBreach(input: {
     pecrServiceBreach: boolean | null;
     status: Breach["status"];
     ownerId: string | null;
+    regime: string;
   }>;
   actor: Actor;
 }) {
@@ -215,10 +237,12 @@ export async function updateBreach(input: {
           and(eq(breaches.id, input.breachId), eq(breaches.organisationId, input.organisationId)),
         );
       if (!before) throw new Error("No such breach");
+      const { regime: regimeChange, ...rest } = input.changes;
+      const regime = regimeChange !== undefined ? await checkedRegime(tx, before.entityId, regimeChange) : undefined;
 
       const [after] = await tx
         .update(breaches)
-        .set({ ...input.changes, updatedAt: new Date() })
+        .set({ ...rest, ...(regime ? { regime } : {}), updatedAt: new Date() })
         .where(eq(breaches.id, input.breachId))
         .returning();
 
@@ -229,8 +253,8 @@ export async function updateBreach(input: {
         action: "breach.updated",
         subjectType: "breach",
         subjectId: input.breachId,
-        before: { changed: Object.keys(input.changes) },
-        after: { reference: after.reference },
+        before: { changed: Object.keys(input.changes), ...(regime && regime !== before.regime ? { regime: before.regime } : {}) },
+        after: { reference: after.reference, ...(regime && regime !== before.regime ? { regime } : {}) },
       });
       return after;
     });
@@ -381,10 +405,16 @@ async function decisionsFor(breachIds: string[]) {
 export async function loadBreach(
   breachId: string,
   organisationId: string,
-): Promise<LoadedBreach | null> {
+): Promise<(LoadedBreach & { competentAuthority: boolean }) | null> {
   return withOrganisation(organisationId, async () => {
     const [row] = await db
-      .select({ breach: breaches, entityName: entities.name, provider: entities.publicCommsProvider, ownerEmail: users.email })
+      .select({
+        breach: breaches,
+        entityName: entities.name,
+        provider: entities.publicCommsProvider,
+        competentAuthority: entities.competentAuthority,
+        ownerEmail: users.email,
+      })
       .from(breaches)
       .innerJoin(entities, eq(entities.id, breaches.entityId))
       .leftJoin(users, eq(users.id, breaches.ownerId))
@@ -395,7 +425,11 @@ export async function loadBreach(
       ...d.decision,
       decidedByEmail: d.decidedByEmail,
     }));
-    return assemble(row.breach, row.entityName, row.ownerEmail, decisions, row.provider);
+    return {
+      ...assemble(row.breach, row.entityName, row.ownerEmail, decisions, row.provider),
+      // Whether Part 3 can be chosen for this breach.
+      competentAuthority: row.competentAuthority,
+    };
   });
 }
 

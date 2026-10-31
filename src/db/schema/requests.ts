@@ -1,6 +1,8 @@
 import { relations } from "drizzle-orm";
 import { boolean, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import type { ExemptionDetail, ExemptionKey, HealthOpinion } from "@/lib/dpa2018/exemptions";
+import type { Regime } from "@/lib/dpa2018/part3";
+import type { Part3Restriction } from "@/lib/dpa2018/part3-rights";
 import {
   dataProtectionJurisdiction,
   dsrDecisionKind,
@@ -98,6 +100,13 @@ export const dataSubjectRequests = pgTable(
 
     /** Copied from the organisation when recorded, so a later change never moves this deadline. */
     jurisdiction: dataProtectionJurisdiction("jurisdiction").notNull(),
+    /**
+     * UK GDPR, or law enforcement processing under Part 3 of the Data
+     * Protection Act 2018: different rights, and restrictions in place of
+     * the Schedule 2 and 3 exemptions. Part 3 only for a UK request to a
+     * competent authority.
+     */
+    regime: text("regime").$type<Regime>().notNull().default("uk_gdpr"),
     /**
      * A processor does not answer the request. Under Article 28(3)(e) it passes
      * it to the controller and helps, and a register that treated the two alike
@@ -218,7 +227,7 @@ export const dataSubjectRequestDecisions = pgTable(
      * opinion relied on, the capacity of the person asking. For a
      * `health_opinion` decision, the opinion itself.
      */
-    detail: jsonb("detail").$type<ExemptionDetail | HealthOpinion>().notNull().default({}),
+    detail: jsonb("detail").$type<ExemptionDetail | HealthOpinion | Part3Restriction>().notNull().default({}),
     /** Never optional. */
     rationale: text("rationale").notNull(),
     /** When it took effect, which for a pause is when the clock stopped. */

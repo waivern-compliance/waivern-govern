@@ -34,7 +34,7 @@ export default async function BreachPage({
   const loaded = await loadBreach(id, active.membership.organisationId);
   if (!loaded) notFound();
 
-  const { breach, entityName, decisions, risk, obligations, clock, outstandingContent, publicCommsProvider, pecr } = loaded;
+  const { breach, entityName, decisions, risk, obligations, clock, outstandingContent, publicCommsProvider, pecr, competentAuthority } = loaded;
   if (!can(active.membership.grants, "record.read", breach.entityId)) {
     return (
       <NotPermitted
@@ -66,9 +66,10 @@ export default async function BreachPage({
         </div>
         <p className="text-xs text-ink-soft">
           {entityName} · {breach.controllerRole.replace(/_/g, " ")} · {breach.status}
+          {breach.regime === "dpa_part3" ? " · law enforcement (Part 3, ss.67–68)" : ""}
           {breach.categories.length > 0 ? ` · ${breach.categories.join(", ")}` : ""}
         </p>
-        <Clock clock={clock} />
+        <Clock clock={clock} regime={breach.regime === "dpa_part3" ? "part3" : "article33"} />
         {pecr ? <Clock clock={pecr.clock} regime="pecr" /> : null}
       </header>
 
@@ -212,7 +213,7 @@ export default async function BreachPage({
             ))}
           </ul>
           <p className="max-w-prose text-xs text-ink-soft">
-            Article 33(4) allows information to be given in phases where it is
+            {breach.regime === "dpa_part3" ? "Section 67(5)" : "Article 33(4)"} allows information to be given in phases where it is
             not all available at once, so an incomplete notification is lawful.
             Better to know which parts are missing before the deadline than
             after it.
@@ -249,14 +250,16 @@ export default async function BreachPage({
           ))}
           {decisions.length === 0 ? (
             <li className="px-4 py-5 text-sm text-ink-soft">
-              Nothing decided yet. The first judgement is whether Article 33
-              requires the supervisory authority to be told.
+              Nothing decided yet. The first judgement is whether{" "}
+              {breach.regime === "dpa_part3"
+                ? "section 67 requires the Information Commission to be told."
+                : "Article 33 requires the supervisory authority to be told."}
             </li>
           ) : null}
         </ul>
       </section>
 
-      {mayEdit ? <DecisionForm breachId={breach.id} pecr={publicCommsProvider} /> : null}
+      {mayEdit ? <DecisionForm breachId={breach.id} pecr={publicCommsProvider} part3={breach.regime === "dpa_part3"} /> : null}
 
       {mayEdit ? (
         <EditForm
@@ -317,6 +320,20 @@ export default async function BreachPage({
           <Area label="Measures taken or proposed" name="measuresTaken"
             hint="Article 33(3)(d), including anything to mitigate adverse effects"
             defaultValue={breach.measuresTaken ?? ""} />
+
+          {competentAuthority || breach.regime === "dpa_part3" ? (
+            <label className="block space-y-1">
+              <Label
+                text="Regime"
+                hint="A breach of law enforcement processing is notified and communicated under ss.67–68 of the Data Protection Act 2018, not Articles 33–34."
+              />
+              <select name="regime" defaultValue={breach.regime}
+                className="w-full rounded border border-line bg-ground px-3 py-2 text-sm">
+                <option value="uk_gdpr">UK GDPR (Articles 33–34)</option>
+                <option value="dpa_part3">Law enforcement processing (Part 3, ss.67–68)</option>
+              </select>
+            </label>
+          ) : null}
 
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block space-y-1">

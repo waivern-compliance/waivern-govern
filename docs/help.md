@@ -446,7 +446,7 @@ It asks how section 35(2) is met (a task carried out for a law enforcement purpo
 
 It also asks whether fact is distinguished from personal assessment (s.38(2)), and flags categories of data subject that do not distinguish suspects, the convicted, victims and witnesses (s.38(3)), both so far as possible. And for each system the record names, what it logs (s.62): the six operations, whether the consultation and disclosure logs show who did it and to whom, who reviews them and when they were last checked. Since 19 August 2025 the logs need not record why data was consulted or disclosed. Govern records the statement, never the logs.
 
-Part 3's rights, breaches, automated decisions and transfers are not yet handled differently from the UK GDPR's; a later release covers them.
+Requests and breaches about Part 3 processing are handled under Part 3 too: see the requests and breaches help. Part 3's automated decisions (ss.50A–50D) and transfers are not yet handled differently from the UK GDPR's; a later release covers them.
 
 ### Further processing and research
 
@@ -686,9 +686,15 @@ It will not decide whether a breach is notifiable, and it will not notify anybod
 
 A missed deadline does not remove the obligation. Article 33(1) still requires notification, accompanied by the reasons for the delay, and the platform says so rather than turning the task green.
 
+### Breaches of law enforcement processing (Part 3)
+
+Where the entity is a competent authority, a breach of its law enforcement processing is notified under ss.67–68 of the Data Protection Act 2018 rather than Articles 33–34. Choose the regime on the breach; it starts as the entity's new records do. The thresholds and the seventy-two hours are the same, and the decisions cite the sections.
+
+There is one difference. Telling the people affected may be restricted, wholly or partly, as far and as long as is necessary and proportionate, on the same four grounds as a request (s.68(7)): to avoid obstructing an inquiry, to avoid prejudicing crime work, to protect public security, or to protect others' rights. Where it is, the Information Commission cannot require you to tell them (s.68(8)). Record it as a decision not to tell them, citing the ground, and when it will be looked at again.
+
 **See also:** The risk register · Service levels and things that come round again · The audit trail · The processing register (Article 30)
 
-<sub>Also searchable as: breach, incident, 72 hours, seventy-two, article 33, article 34, notify, ico, information commission, supervisory authority, data subjects, ransomware, leak, pecr, reg 5a, telecoms, communications provider</sub>
+<sub>Also searchable as: breach, incident, 72 hours, seventy-two, article 33, article 34, notify, ico, information commission, supervisory authority, data subjects, ransomware, leak, pecr, reg 5a, telecoms, communications provider, part 3, law enforcement, section 67, section 68</sub>
 
 ## Data subject requests
 
@@ -754,6 +760,16 @@ While you weigh an objection to public task or either kind of legitimate interes
 
 An upheld objection means the processing stops for this person. The request will not close until that activity is recorded as acted on in where to look.
 
+### Requests about law enforcement processing (Part 3)
+
+Where the entity is a competent authority, a request about its law enforcement processing is recorded under Part 3 of the Data Protection Act 2018. It starts there when the entity's new records do and every right asked for is one Part 3 gives; otherwise it starts under the UK GDPR, and can be moved. Part 3 gives access (s.45), rectification (s.46), erasure or restriction (s.47) and the automated decision safeguards (s.50C); there is no right to object or to portability, and a Part 3 request cannot include them.
+
+The month is counted as under the UK GDPR (s.54): one month, extendable by two with notice and reasons inside the first, and paused while a reasonably needed clarification of an access request is awaited. The search need only be reasonable and proportionate (s.45(2A)).
+
+In place of the Schedule 2 and 3 exemptions, Part 3 lets the information you give (s.44(4)), access (s.45(4)) and the reasons for refusing rectification or erasure (s.48(3)) be restricted, wholly or partly, as far and as long as is necessary and proportionate: to avoid obstructing an inquiry or investigation, to avoid prejudicing crime work, to protect public security, or to protect others' rights. National security was taken out of those grounds on 5 September 2025; it is now the s.78A exemption. Privileged information is exempt under s.45A.
+
+Record each restriction as its own decision, with the reasons. The person is told of it and why, with their rights to ask the Information Commission to check (s.51), to complain to you and to the Commission, and to go to court — unless telling them would undermine the restriction, which the decision asks you to explain. The reasons are kept either way, because the Commission can ask for them.
+
 ### Exemptions
 
 Record each exemption as its own decision and choose the paragraph of the Data Protection Act 2018 relied on, from Schedule 2 (crime and tax, immigration, regulatory functions, other people's information, legal privilege, references, exams, journalism, research and archiving) or Schedule 3 (health, social work and education data, and child abuse data). The form shows the test the paragraph sets, and refuses a paragraph that does not reach the right decided: most of Schedule 2 Part 4 and the serious harm exemptions restrict only the right of access. An exemption applies only as far as its test is met, to the specific information, never to a whole request because part of it is caught.
@@ -798,7 +814,7 @@ It will not answer the request, search your systems, or redact anything. It coun
 
 **See also:** Data protection complaints · Personal data breaches · The processing register (Article 30) · Tasks, and being mentioned · The audit trail
 
-<sub>Also searchable as: dsar, sar, subject access, access request, article 15, erasure, right to be forgotten, article 17, objection, object, article 21, rectification, portability, restriction, one month, extension, article 12, direct marketing, rights request, article 19, recipients, search, reasonable and proportionate, processor, article 28, article 18(1)(d), lia, legitimate interests assessment, balancing test, timeliness, on time, response times, export, metrics, web form, intake, public form, privacy notice, exemption, schedule 2, schedule 3, serious harm, health professional, immigration exemption, social work, education records, child abuse data</sub>
+<sub>Also searchable as: dsar, sar, subject access, access request, article 15, erasure, right to be forgotten, article 17, objection, object, article 21, rectification, portability, restriction, one month, extension, article 12, direct marketing, rights request, article 19, recipients, search, reasonable and proportionate, processor, article 28, article 18(1)(d), lia, legitimate interests assessment, balancing test, timeliness, on time, response times, export, metrics, web form, intake, public form, privacy notice, exemption, schedule 2, schedule 3, serious harm, health professional, immigration exemption, social work, education records, child abuse data, part 3, law enforcement, restriction, section 45</sub>
 
 ## Data protection complaints
 

@@ -289,6 +289,8 @@ export const dsrDecisionKind = pgEnum("dsr_decision_kind", [
   "recipients_notified",
   // A health professional's opinion on the serious harm test (DPA 2018 Sch 3 paras 5–6).
   "health_opinion",
+  // A Part 3 restriction of information, access or reasons (DPA 2018 ss.44(4), 45(4), 45A, 48(3)).
+  "part3_restriction",
   "other",
 ]);
 

@@ -29,6 +29,12 @@ import { closeRequestAction, identityAction, passToControllerAction, respondActi
 import { CHANNEL_LABEL, ChannelSelect, Label, RightsField, inputClass, stamp } from "../fields";
 import { Scope } from "./Scope";
 import {
+  PART3_REFUSAL_MUST_SAY,
+  RESTRICTION_GROUNDS,
+  RESTRICTION_PROVISIONS,
+  type Part3Restriction,
+} from "@/lib/dpa2018/part3-rights";
+import {
   APPROPRIATE_PROFESSIONAL,
   EXEMPTIONS,
   EXPECTATION_LIMBS,
@@ -54,7 +60,8 @@ export default async function RequestPage({ params }: { params: Promise<{ id: st
 
   const loaded = await loadRequest(id, active.membership.organisationId);
   if (!loaded) notFound();
-  const { request, entityName, decisions, clock, extended, ownerEmail, scope } = loaded;
+  const { request, entityName, decisions, clock, extended, ownerEmail, scope, competentAuthority } = loaded;
+  const part3 = request.regime === "dpa_part3";
 
   if (!can(active.membership.grants, "dsr.handle", request.entityId)) {
     return (
@@ -118,7 +125,7 @@ export default async function RequestPage({ params }: { params: Promise<{ id: st
         </div>
         <p className="text-xs text-ink-soft">
           {entityName} · {request.controllerRole.replace(/_/g, " ")} · {request.status.replace(/_/g, " ")} ·{" "}
-          {JURISDICTION_LABEL[request.jurisdiction]}
+          {part3 ? "law enforcement processing (Part 3)" : JURISDICTION_LABEL[request.jurisdiction]}
           {extended ? " · extended" : ""}
           {ownerEmail ? ` · handled by ${ownerEmail}` : " · nobody handling it yet"}
         </p>
@@ -309,7 +316,7 @@ export default async function RequestPage({ params }: { params: Promise<{ id: st
         </section>
       ) : null}
 
-      {!request.closedAt && request.rights.includes("access") ? (
+      {!request.closedAt && !part3 && request.rights.includes("access") ? (
         <p className="max-w-prose rounded border border-line bg-ground px-3 py-2 text-xs text-ink-soft">
           Health data: a controller that is not a health professional may disclose health data the person has not
           already seen only on the appropriate health professional&apos;s opinion, from the last six months, that
@@ -324,6 +331,7 @@ export default async function RequestPage({ params }: { params: Promise<{ id: st
         <RequestDecisionForm
           requestId={request.id}
           rights={request.rights}
+          part3={part3}
           opinions={opinions}
           activities={scopedActivities.map((a) => ({
             id: a.id,
@@ -359,7 +367,7 @@ export default async function RequestPage({ params }: { params: Promise<{ id: st
           <p className="max-w-prose text-xs text-ink-soft">
             Write it in whatever you use for letters; record here what was sent
             and, if you can, link to it. Anything short of doing everything
-            asked must say why — {REFUSAL_MUST_SAY}
+            asked must say why — {part3 ? PART3_REFUSAL_MUST_SAY : REFUSAL_MUST_SAY}
           </p>
           <div className="grid gap-3 sm:grid-cols-3">
             <label className="block space-y-1">
@@ -501,6 +509,15 @@ export default async function RequestPage({ params }: { params: Promise<{ id: st
             <Label text="Arrived by" />
             <ChannelSelect defaultValue={request.channel} />
           </label>
+          {competentAuthority || part3 ? (
+            <label className="block space-y-1 sm:col-span-3">
+              <Label text="Regime" hint="Part 3 of the Data Protection Act 2018 for law enforcement processing by a competent authority." />
+              <select name="regime" defaultValue={request.regime} className={inputClass}>
+                <option value="uk_gdpr">UK GDPR</option>
+                <option value="dpa_part3">Law enforcement processing (Part 3)</option>
+              </select>
+            </label>
+          ) : null}
           <label className="block space-y-1">
             <Label text="Your role" />
             <select name="controllerRole" defaultValue={request.controllerRole} className={inputClass}>
@@ -552,6 +569,16 @@ function DecisionDetail({
       <p className="text-xs text-ink-soft">
         {o.professionalRole}, given {o.givenOn} — {APPROPRIATE_PROFESSIONAL[o.appropriate]}. Serious harm test{" "}
         {o.testMet ? "met" : "not met"}.
+      </p>
+    );
+  }
+  if (kind === "part3_restriction") {
+    const r = detail as Part3Restriction;
+    return (
+      <p className="text-xs text-ink-soft">
+        {RESTRICTION_PROVISIONS[r.provision]}
+        {r.grounds.length > 0 ? `: ${r.grounds.map((g) => RESTRICTION_GROUNDS[g].toLowerCase()).join("; ")}` : ""}.{" "}
+        {r.personTold ? "The person was told, with the reasons." : `Not told: ${r.notToldReason}`}
       </p>
     );
   }
