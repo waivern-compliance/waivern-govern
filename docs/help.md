@@ -786,7 +786,7 @@ Where national security is the reason, choose the s.78A exemption instead. It ap
 
 ### Exemptions
 
-Record each exemption as its own decision and choose the paragraph of the Data Protection Act 2018 relied on, from Schedule 2 (crime and tax, immigration, regulatory functions, other people's information, legal privilege, references, exams, journalism, research and archiving) or Schedule 3 (health, social work and education data, and child abuse data). The form shows the test the paragraph sets, and refuses a paragraph that does not reach the right decided: most of Schedule 2 Part 4 and the serious harm exemptions restrict only the right of access. An exemption applies only as far as its test is met, to the specific information, never to a whole request because part of it is caught.
+On a request under UK law, record each exemption as its own decision and choose the paragraph of the Data Protection Act 2018 relied on, from Schedule 2 (crime and tax, immigration, regulatory functions, other people's information, legal privilege, references, exams, journalism, research and archiving) or Schedule 3 (health, social work and education data, and child abuse data). The form shows the test the paragraph sets, and refuses a paragraph that does not reach the right decided: most of Schedule 2 Part 4 and the serious harm exemptions restrict only the right of access. An exemption applies only as far as its test is met, to the specific information, never to a whole request because part of it is caught.
 
 The immigration exemption (Schedule 2 paragraphs 4 to 4B) is for the Secretary of State only, and is decided for each right separately and afresh each time. The decision records how the person's vulnerability and rights were weighed, confirms a substantial risk of prejudice that outweighs the risk to them and is necessary and proportionate, and says whether the person was told — and if not, why telling them would prejudice immigration control.
 
@@ -1067,7 +1067,7 @@ Start assessments from the system's own page, so they are tied to it and the reg
 
 **See also:** The AI assurance chain · Assessments: DPIAs, transfer risk, AI risk, screening · The risk register · Third parties and processor agreements (Article 28)
 
-<sub>Also searchable as: ai, model, llm, machine learning, shadow ai, lifecycle, oversight, eu ai act</sub>
+<sub>Also searchable as: ai, model, llm, machine learning, shadow ai, lifecycle, oversight</sub>
 
 ## Proposals to use AI
 
@@ -1542,6 +1542,14 @@ Renaming keeps every record with its entity. The Portal and any script that name
 Mark an entity as a public authority where it is one within the Data Protection Act 2018 s.7 — broadly, a body under the Freedom of Information Act. Two things follow. For processing in the performance of its tasks it may not rely on legitimate interests or recognised legitimate interests (UK GDPR Article 6(1)), so a ROPA record that does is shown in red; where the processing is genuinely not one of its tasks, the record can say so. And it must have a data protection officer (Article 37(1)(a)).
 
 Record the data protection officer on the Organisation page: their name, how to reach them, whom they report to and whether their details are published. An entity can have its own; otherwise the organisation's acts for it. A public or competent authority with none is flagged here and on the ROPA. Where the DPO is a member who may decide it, the 'Data protection officer' approval stage goes to them by name; otherwise it stays with the role. The DPIA asks whether the DPO's advice was sought and what it was (Article 35(2)).
+
+### Which data protection law each entity is subject to
+
+Say for each entity whether it is subject to UK law, EU law, or both. An entity starts as subject to UK law. Part 2 of the Data Protection Act 2018 supplements the UK GDPR, so any entity subject to the UK GDPR is subject to the Act too, along with PECR; one subject to EU law only — a company in an EU member State with no UK establishment and no UK-targeted processing — is subject to none of them.
+
+For an entity subject to EU law only, the Act's own questions and flags are not shown: the Schedule 1 conditions and appropriate policy document on its processing records (Article 10 offers Union or Member State law instead), the data sharing code, the Schedule 2 and 3 exemptions and health opinion on its requests, and the public authority, competent authority and PECR settings. Requests to it are handled under EU law. Where no entity is subject to UK law, the policy document and sharing agreement registers, the UK data protection templates and the s.164A complaints step are not offered either.
+
+Narrowing an entity to EU law only is refused while it is marked as a public authority, competent authority or public communications provider, since those are UK law. Answers already recorded under UK law are kept, not cleared, so widening it again finds them.
 
 ### Competent authorities and law enforcement processing
 

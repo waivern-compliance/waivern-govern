@@ -8,6 +8,7 @@ import { NotPermitted } from "@/components/NotPermitted";
 import { getActiveSession, visibleEntityIds } from "@/lib/session";
 import { dashboardMetrics } from "@/services/metrics";
 import { complaintRegister } from "@/services/complaints";
+import { anyEntityUnderUkLaw } from "@/services/entities";
 import { requestRegister } from "@/services/data-subject-requests";
 import { propertyRegister } from "@/services/storage-inventory";
 import { rescanState } from "@/lib/pecr/rescan";
@@ -37,7 +38,8 @@ const m = await dashboardMetrics(
     ? await requestRegister(active.membership.organisationId, visibleEntityIds(active, "dsr.handle"))
     : null;
   // Complaints likewise: the complainant's own data, behind the same capability.
-  const complaints = can(active.membership.grants, "dsr.handle")
+  // The 30 days are the Data Protection Act 2018's (s.164A), so only where some entity is subject to UK law.
+  const complaints = can(active.membership.grants, "dsr.handle") && (await anyEntityUnderUkLaw(active.membership.organisationId))
     ? await complaintRegister(active.membership.organisationId, visibleEntityIds(active, "dsr.handle"))
     : null;
 

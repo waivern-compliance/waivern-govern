@@ -6,6 +6,7 @@ import { actingAs, can } from "@/lib/rbac";
 import type { ActiveSession } from "@/lib/session";
 import { visibleEntityIds } from "@/lib/session";
 import { dashboardMetrics } from "@/services/metrics";
+import { anyEntityUnderUkLaw } from "@/services/entities";
 import { Empty, Panel, Row, Rows, Tile, Tiles, dueWords } from "./parts";
 import { aiEstate, myAssessments, myMitigations, myTasks, unratedRisks } from "./data";
 import {
@@ -349,8 +350,9 @@ export async function ProductHome({ active }: { active: ActiveSession }) {
 
 /* ------------------------------------------------------------------ */
 
-function QuickLinks({ active }: { active: ActiveSession }) {
-  const items = navFor(active.membership.grants).filter((i) => i.href !== "/app/tasks");
+async function QuickLinks({ active }: { active: ActiveSession }) {
+  const ukLaw = await anyEntityUnderUkLaw(active.membership.organisationId);
+  const items = navFor(active.membership.grants, { ukLaw }).filter((i) => i.href !== "/app/tasks");
   // Administration is a different kind of thing from a register. Mixed into
   // one list it reads as an afterthought, which is how somebody who knew a
   // screen existed still could not find it.

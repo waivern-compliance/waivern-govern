@@ -191,7 +191,7 @@ describe("starting a record from what is known", () => {
         affects_people: true,
         consequence: "recommends",
         audience: ["public"],
-        editorial_output: false,
+       
         personal_data: true,
         dpia_reference: "DPIA-2026-0002",
         data_provenance: "partial",

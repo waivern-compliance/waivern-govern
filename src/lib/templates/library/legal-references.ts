@@ -80,11 +80,6 @@ const REFERENCES = [
   { code: "eugdpr.art46", regime: "EU GDPR", citation: "Article 46", title: "Transfers subject to appropriate safeguards", url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32016R0679", jurisdiction: "EU" },
   { code: "edpb.rec01-2020", regime: "EDPB", citation: "Recommendations 01/2020", title: "Supplementary measures to ensure compliance with the EU level of protection", url: "https://www.edpb.europa.eu/our-work-tools/our-documents/recommendations/recommendations-012020-measures-supplement-transfer_en", jurisdiction: "EU" },
   { code: "cjeu.schrems2", regime: "CJEU", citation: "C-311/18 (Schrems II)", title: "Assessment of the law and practice of the destination country", url: "https://curia.europa.eu/juris/liste.jsf?num=C-311/18", jurisdiction: "EU" },
-  { code: "euaiact.art6", regime: "EU AI Act", citation: "Article 6", title: "Classification rules for high-risk AI systems", url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32024R1689", jurisdiction: "EU" },
-  { code: "euaiact.art9", regime: "EU AI Act", citation: "Article 9", title: "Risk management system", url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32024R1689", jurisdiction: "EU" },
-  { code: "euaiact.art10", regime: "EU AI Act", citation: "Article 10", title: "Data and data governance", url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32024R1689", jurisdiction: "EU" },
-  { code: "euaiact.art14", regime: "EU AI Act", citation: "Article 14", title: "Human oversight", url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32024R1689", jurisdiction: "EU" },
-  { code: "euaiact.art50", regime: "EU AI Act", citation: "Article 50", title: "Transparency obligations for certain AI systems", url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32024R1689", jurisdiction: "EU" },
   { code: "iso42001", regime: "ISO/IEC 42001", citation: "ISO/IEC 42001:2023", title: "Artificial intelligence management system", url: "https://www.iso.org/standard/81230.html", jurisdiction: "International" },
   // UK government AI guidance. Public bodies are expected to follow these; for
   // anyone else they are the clearest published account of what a UK

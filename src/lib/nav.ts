@@ -17,6 +17,8 @@ export type NavItem = {
   hint: string;
   /** Absent means everybody signed in. */
   capability?: Capability;
+  /** Offered only where some entity is subject to UK law: the page is the Data Protection Act 2018's. */
+  ukLaw?: true;
   /**
    * Administration is a different kind of thing from a register, and filing
    * it under "everything else" is how the owner of a platform ends up unable
@@ -68,12 +70,14 @@ export const NAV: NavItem[] = [
     label: "Appropriate policy documents",
     hint: "Schedule 1 conditions, and what no current document covers",
     capability: "record.read",
+    ukLaw: true,
   },
   {
     href: "/app/sharing-agreements",
     label: "Data sharing agreements",
     hint: "sharing with other controllers, and what no agreement covers",
     capability: "record.read",
+    ukLaw: true,
   },
   {
     href: "/app/third-parties",
@@ -182,6 +186,8 @@ export const NAV: NavItem[] = [
   },
 ];
 
-export function navFor(grants: readonly Grant[]): NavItem[] {
-  return NAV.filter((item) => !item.capability || can(grants, item.capability));
+export function navFor(grants: readonly Grant[], options: { ukLaw?: boolean } = {}): NavItem[] {
+  return NAV.filter(
+    (item) => (!item.capability || can(grants, item.capability)) && (options.ukLaw !== false || !item.ukLaw),
+  );
 }

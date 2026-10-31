@@ -15,6 +15,7 @@ import {
 import { STEPS, type Stage, type Step } from "@/lib/guidance/steps";
 import { requireSession } from "@/lib/session";
 import { EXPIRING_WITHIN_DAYS } from "./third-party";
+import { anyEntityUnderUkLaw } from "./entities";
 
 /**
  * The guide, and how far through it this organisation actually is.
@@ -321,9 +322,9 @@ export async function guidanceFor(input: {
   chosen: Mode | null;
 }): Promise<Guidance> {
   return withOrganisation(input.organisationId, async () => {
-    const t = await tally(input.organisationId);
+    const [t, ukLaw] = await Promise.all([tally(input.organisationId), anyEntityUnderUkLaw(input.organisationId)]);
     const stage = input.chosen && input.chosen !== "off" ? input.chosen : derivedStage(t);
-    const steps = STEPS[stage].map((step) => ({ ...step, ...measure(step, t) }));
+    const steps = STEPS[stage].filter((step) => ukLaw || !step.ukLaw).map((step) => ({ ...step, ...measure(step, t) }));
 
     return {
       mode: input.chosen ?? stage,

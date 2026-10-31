@@ -253,10 +253,10 @@ export default async function RequestsPage() {
       <section className="space-y-2 rounded border border-line bg-surface p-5">
         <h2 className="text-sm font-semibold">Which law new requests are handled under</h2>
         <p className="max-w-prose text-xs text-ink-soft">
-          Currently {JURISDICTION_LABEL[jurisdiction]}. The UK lets the month
-          stop while you wait for clarification you reasonably need; the EU
-          GDPR does not. Each request keeps the law it was recorded under, so
-          changing this never moves a deadline already running.
+          Currently {JURISDICTION_LABEL[jurisdiction]}, for an entity subject to both UK and EU law. An entity
+          subject to only one has its requests handled under that one; say which on the Organisation page. The UK
+          lets the month stop while you wait for clarification you reasonably need; the EU GDPR does not. Each
+          request keeps the law it was recorded under, so changing this never moves a deadline already running.
         </p>
         {mayConfigureRequests(active.membership.grants) ? (
           <ActionForm action={setJurisdictionAction} submit="Save" className="flex flex-wrap items-end gap-3">

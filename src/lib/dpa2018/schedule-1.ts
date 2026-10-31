@@ -126,14 +126,21 @@ export function schedule1For(point: Art9Condition): Schedule1Condition[] {
  * condition serves without its substantial public interest words (para 36).
  */
 export const ART10_OFFICIAL_AUTHORITY = "official_authority";
-export type Art10Condition = Schedule1Condition | typeof ART10_OFFICIAL_AUTHORITY;
+/**
+ * EU GDPR Article 10: authorised by Union or Member State law. For an entity
+ * subject to EU law only; under UK law that authorisation is a Schedule 1
+ * condition (s.10(5)), so it does not stand on its own there.
+ */
+export const ART10_MEMBER_STATE_LAW = "union_or_member_state_law" as const;
+export type Art10Condition = Schedule1Condition | typeof ART10_OFFICIAL_AUTHORITY | typeof ART10_MEMBER_STATE_LAW;
 
 export function isArt10Condition(v: unknown): v is Art10Condition {
-  return v === ART10_OFFICIAL_AUTHORITY || isSchedule1Condition(v);
+  return v === ART10_OFFICIAL_AUTHORITY || v === ART10_MEMBER_STATE_LAW || isSchedule1Condition(v);
 }
 
 export function describeArt10(key: Art10Condition): string {
   if (key === ART10_OFFICIAL_AUTHORITY) return "Under the control of official authority (Article 10)";
+  if (key === ART10_MEMBER_STATE_LAW) return "Authorised by Union or Member State law (EU GDPR Article 10)";
   const p = SCHEDULE_1[key];
   return `${describeSchedule1(key)}${p.part === 2 ? " (with paragraph 36)" : ""}`;
 }
@@ -207,7 +214,7 @@ export function conditionsReliedOn(
 ): Schedule1Condition[] {
   const out = new Set<Schedule1Condition>();
   if (r.specialCategory === true && r.schedule1Condition) out.add(r.schedule1Condition);
-  if (r.criminalOffence === true && r.art10Condition && r.art10Condition !== ART10_OFFICIAL_AUTHORITY) {
+  if (r.criminalOffence === true && r.art10Condition && isSchedule1Condition(r.art10Condition)) {
     out.add(r.art10Condition);
   }
   return [...out];
@@ -257,17 +264,27 @@ export const HARD_CONDITION_GAPS: ConditionGap[] = [
 /**
  * What the record is missing. The policy document gaps need `coverage` and are
  * not reported without it, rather than claiming no document exists.
+ *
+ * Where the entity is subject to EU law only (`ukLaw` false), only Articles 9
+ * and 10 are asked: Schedule 1, its policy document and paragraph 41 are the
+ * Data Protection Act 2018's.
  */
 export function conditionGaps(
   r: SpecialCategoryRecord & { entityId: string },
   coverage?: readonly PolicyCoverage[],
+  ukLaw = true,
 ): ConditionGap[] {
   const gaps: ConditionGap[] = [];
   if (r.specialCategory === true) {
     if (!r.art9Condition) gaps.push("special_no_art9");
-    else if (schedule1For(r.art9Condition).length > 0 && !r.schedule1Condition) gaps.push("special_no_schedule1");
+    else if (ukLaw && schedule1For(r.art9Condition).length > 0 && !r.schedule1Condition) gaps.push("special_no_schedule1");
   }
-  if (r.criminalOffence === true && !r.art10Condition) gaps.push("criminal_no_condition");
+  if (r.criminalOffence === true) {
+    // Under UK law, Union or Member State law is no Article 10 condition of its own.
+    const art10 = r.art10Condition === ART10_MEMBER_STATE_LAW && ukLaw ? null : r.art10Condition;
+    if (!art10) gaps.push("criminal_no_condition");
+  }
+  if (!ukLaw) return gaps;
 
   const needing = conditionsNeedingPolicy(r);
   if (coverage) {

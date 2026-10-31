@@ -116,7 +116,7 @@ export const DSIT_AI_RISK: TemplateDefinition = {
               { value: "data_protection", label: "Data protection law" },
               { value: "intellectual_property", label: "Intellectual property" },
               { value: "social_value", label: "The Social Value Act" },
-              { value: "ai_law", label: "AI-specific law, such as the EU AI Act" },
+              { value: "ai_law", label: "AI-specific law" },
               { value: "sector", label: "Sector-specific regulation" },
             ] },
           { key: "legal_advice", label: "Has legal advice been taken on this use of AI?", type: "single_select", required: true, legalRefs: ["gds.aiplaybook"], evidence: "optional",

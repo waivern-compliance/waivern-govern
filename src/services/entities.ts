@@ -2,6 +2,7 @@ import { and, asc, eq, ne } from "drizzle-orm";
 import { db, withOrganisation, type Db } from "@/db/client";
 import { entities, organisations } from "@/db/schema";
 import { appendAuditEvent } from "@/lib/audit";
+import { isDataProtectionLaw, ukLawApplies, type DataProtectionLaw } from "@/lib/dpa2018/applies";
 import { isRegime, type Regime } from "@/lib/dpa2018/part3";
 import { cleanDpo, dpoMissing, type Dpo } from "@/lib/dpa2018/public-authority";
 import { NotInOrganisation, assertMemberOf } from "./tenancy-guards";
@@ -200,6 +201,7 @@ export async function setPublicCommsProvider(input: {
     db.transaction(async (tx) => {
       const before = await entityIn(tx, input.organisationId, input.entityId);
       if (before.publicCommsProvider === input.provider) return before;
+      if (input.provider) ukLawOnly(before, "A public communications provider under PECR");
       const [after] = await tx
         .update(entities)
         .set({ publicCommsProvider: input.provider, updatedAt: new Date() })
@@ -220,6 +222,71 @@ export async function setPublicCommsProvider(input: {
   );
 }
 
+/** The UK-law settings are refused on an entity subject to EU law only. */
+function ukLawOnly(entity: { name: string; dataProtectionLaw: DataProtectionLaw }, what: string) {
+  if (!ukLawApplies(entity.dataProtectionLaw)) {
+    throw new Error(`${what} is a UK law setting, and ${entity.name} is recorded as subject to EU law only. Change that first.`);
+  }
+}
+
+/**
+ * Which data protection law the entity is subject to: UK, EU or both. Where
+ * UK law does not apply, the Data Protection Act 2018's questions, decisions
+ * and flags are not shown for it. Narrowing to EU only is refused while a UK
+ * law setting is on, so the record never says both.
+ */
+export async function setDataProtectionLaw(input: {
+  organisationId: string;
+  entityId: string;
+  law: DataProtectionLaw;
+  actor: Actor;
+}) {
+  if (!isDataProtectionLaw(input.law)) throw new Error("Choose UK law, EU law, or both.");
+  return withOrganisation(input.organisationId, () =>
+    db.transaction(async (tx) => {
+      const before = await entityIn(tx, input.organisationId, input.entityId);
+      if (before.dataProtectionLaw === input.law) return before;
+      if (!ukLawApplies(input.law)) {
+        const on = [
+          before.publicAuthority ? "public authority" : null,
+          before.competentAuthority ? "competent authority" : null,
+          before.publicCommsProvider ? "public communications provider" : null,
+        ].filter(Boolean);
+        if (on.length > 0) {
+          throw new Error(`${before.name} is marked as a ${on.join(" and ")}, which only UK law knows. Turn that off first.`);
+        }
+      }
+      const [after] = await tx
+        .update(entities)
+        .set({ dataProtectionLaw: input.law, updatedAt: new Date() })
+        .where(eq(entities.id, before.id))
+        .returning();
+      await appendAuditEvent(tx, {
+        ...input.actor,
+        organisationId: input.organisationId,
+        action: "entity.data_protection_law_changed",
+        subjectType: "entity",
+        subjectId: before.id,
+        entityId: before.id,
+        before: { dataProtectionLaw: before.dataProtectionLaw },
+        after: { dataProtectionLaw: input.law },
+      });
+      return after;
+    }),
+  );
+}
+
+/** Whether any entity of the organisation is subject to UK law, for what is offered organisation-wide. */
+export async function anyEntityUnderUkLaw(organisationId: string): Promise<boolean> {
+  return withOrganisation(organisationId, async () => {
+    const rows = await db
+      .select({ law: entities.dataProtectionLaw })
+      .from(entities)
+      .where(eq(entities.organisationId, organisationId));
+    return rows.length === 0 || rows.some((r) => ukLawApplies(r.law));
+  });
+}
+
 /**
  * Mark an entity as a public authority (Data Protection Act 2018 s.7), or not.
  * Its activities then may not rest on legitimate interests or recognised
@@ -236,6 +303,7 @@ export async function setPublicAuthority(input: {
     db.transaction(async (tx) => {
       const before = await entityIn(tx, input.organisationId, input.entityId);
       if (before.publicAuthority === input.publicAuthority) return before;
+      if (input.publicAuthority) ukLawOnly(before, "A public authority within the Data Protection Act 2018 s.7");
       const [after] = await tx
         .update(entities)
         .set({ publicAuthority: input.publicAuthority, updatedAt: new Date() })
@@ -276,6 +344,7 @@ export async function setCompetentAuthority(input: {
     db.transaction(async (tx) => {
       const before = await entityIn(tx, input.organisationId, input.entityId);
       if (before.competentAuthority === input.competentAuthority && before.defaultRegime === defaultRegime) return before;
+      if (input.competentAuthority) ukLawOnly(before, "A competent authority under Part 3 of the Data Protection Act 2018");
       const [after] = await tx
         .update(entities)
         .set({ competentAuthority: input.competentAuthority, defaultRegime, updatedAt: new Date() })

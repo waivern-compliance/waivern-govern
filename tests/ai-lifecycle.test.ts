@@ -147,7 +147,7 @@ async function assess(w: Awaited<ReturnType<typeof world>>) {
     answers: {
       use_case_name: "Fraud flagging", purpose: "Flags claims", ai_type: "predictive",
       provenance: "built_in_house", lifecycle_stage: "development", affects_people: true,
-      consequence: "influences", audience: ["internal_wide"], editorial_output: false,
+      consequence: "influences", audience: ["internal_wide"],
       personal_data: false, data_provenance: "documented", sensitive_inputs: "no",
       bias_considered: "reviewed", affected_groups: "Claimants", contestability: "documented_route",
       human_oversight: "in_the_loop", kill_switch: "Service owner", review_interval: "annual",

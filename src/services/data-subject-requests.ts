@@ -35,6 +35,7 @@ import {
   restrictionProvision,
   type Part3Restriction,
 } from "@/lib/dpa2018/part3-rights";
+import { defaultRequestJurisdiction, jurisdictionAllowed } from "@/lib/dpa2018/applies";
 import {
   ExemptionRefused,
   cleanExemption,
@@ -414,7 +415,16 @@ export async function recordRequest(input: {
   return withOrganisation(input.organisationId, async () => {
     await assertEntityIn(input.organisationId, input.entityId);
     if (input.ownerId) await assertMemberOf(input.organisationId, input.ownerId);
-    const jurisdiction = input.jurisdiction ?? (await defaultJurisdiction(input.organisationId));
+    const [entity] = await db
+      .select({ name: entities.name, law: entities.dataProtectionLaw })
+      .from(entities)
+      .where(eq(entities.id, input.entityId));
+    const jurisdiction = input.jurisdiction ?? defaultRequestJurisdiction(entity.law, await defaultJurisdiction(input.organisationId));
+    if (!jurisdictionAllowed(entity.law, jurisdiction)) {
+      throw new RequestRefused(
+        `${entity.name} is recorded as subject to ${entity.law === "eu" ? "EU" : "UK"} law only, so a request to it cannot be handled under ${jurisdiction === "uk" ? "UK" : "EU"} law. Change the entity's law on the Organisation page if it is wrong.`,
+      );
+    }
     const regime = await checkedRegime(db, { entityId: input.entityId, regime: input.regime, jurisdiction, rights });
     const reference = await nextReference(input.organisationId, new Date().getUTCFullYear());
 
@@ -736,6 +746,12 @@ export async function recordRequestDecision(input: {
         }
       } else if (input.kind === "part3_restriction") {
         throw new RequestRefused("A Part 3 restriction is for law enforcement processing. This request is under the UK GDPR: record a Schedule 2 or 3 exemption instead.");
+      }
+      // Schedules 2 and 3 are the Data Protection Act 2018's, so UK law only.
+      if (request.jurisdiction !== "uk" && (input.kind === "exemption" || input.kind === "health_opinion")) {
+        throw new RequestRefused(
+          "Schedules 2 and 3 of the Data Protection Act 2018 are UK law, and this request is under EU law. Record the decision citing the Member State law relied on (EU GDPR Article 23).",
+        );
       }
 
       const exemption =

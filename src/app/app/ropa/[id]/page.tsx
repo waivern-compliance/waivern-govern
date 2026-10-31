@@ -28,6 +28,7 @@ import { EditForm } from "@/components/EditForm";
 import { RECOGNISED_CONDITIONS, describeBases } from "@/lib/gdpr/lawful-basis";
 import { LawfulBasisFields } from "../LawfulBasisFields";
 import { SpecialCategoryFields } from "../SpecialCategoryFields";
+import { ukLawApplies } from "@/lib/dpa2018/applies";
 import { RegimeFields } from "../Part3Fields";
 import { PART3_BASES, REGIMES, SCHEDULE_8, SENSITIVE_ROUTES } from "@/lib/dpa2018/part3";
 import { CategoryPicker } from "../CategoryPicker";
@@ -56,6 +57,7 @@ export default async function ActivityPage({
   if (!loaded) notFound();
 
   const { activity, entityName, gaps, hardGaps, assessments, original } = loaded;
+  const ukLaw = ukLawApplies(loaded.dataProtectionLaw);
   if (!can(active.membership.grants, "record.read", activity.entityId)) {
     return (
       <NotPermitted
@@ -129,8 +131,7 @@ export default async function ActivityPage({
               the record describes as something the law does not allow — a solely
               automated decision Article 22B forbids, further processing on a
               route Article 8A(4) closes, or special category or criminal offence
-              data with no condition, or with a Schedule 1 condition no current
-              appropriate policy document covers. Retention and security measures are
+              data with no condition{ukLaw ? ", or with a Schedule 1 condition no current appropriate policy document covers" : ""}. Retention and security measures are
               qualified by “where possible”, so they are reported without being
               called a breach.
             </p>
@@ -173,7 +174,7 @@ export default async function ActivityPage({
         </section>
       ) : null}
 
-      {sharing.length > 0 || loaded.uncoveredControllers.length > 0 ? (
+      {sharing.length > 0 || (ukLaw && loaded.uncoveredControllers.length > 0) ? (
         <section className="space-y-2">
           <h2 className="text-sm font-semibold">Data sharing agreements</h2>
           {sharing.length > 0 ? (
@@ -188,7 +189,7 @@ export default async function ActivityPage({
               ))}
             </ul>
           ) : null}
-          {loaded.uncoveredControllers.length > 0 ? (
+          {ukLaw && loaded.uncoveredControllers.length > 0 ? (
             <p className="text-xs text-amber-900">
               Shared with {loaded.uncoveredControllers.map((c) => c.name).join(", ")}, recorded as another controller,
               with no current agreement covering this activity.{" "}
@@ -243,7 +244,7 @@ export default async function ActivityPage({
                   publicAuthority={loaded.publicAuthority}
                   outsidePublicTasks={activity.outsidePublicTasks}
                 />
-                <SpecialCategoryFields record={activity} />
+                <SpecialCategoryFields record={activity} ukLaw={ukLaw} />
                 <label className="block space-y-1">
                   <Label
                     text="Likely to be accessed by children?"

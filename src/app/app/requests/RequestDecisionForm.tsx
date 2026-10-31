@@ -175,6 +175,7 @@ export function RequestDecisionForm({
   activities = [],
   opinions = [],
   part3 = false,
+  ukLaw = true,
 }: {
   requestId: string;
   rights: string[];
@@ -184,6 +185,8 @@ export function RequestDecisionForm({
   opinions?: Array<{ id: string; label: string; usable: boolean }>;
   /** Law enforcement processing under Part 3. */
   part3?: boolean;
+  /** A request under UK law. Under EU law, the Data Protection Act 2018's exemptions and health opinion are not offered. */
+  ukLaw?: boolean;
 }) {
   // A refusal keeps what was typed: an exemption can be refused for one
   // missing answer among several.
@@ -195,7 +198,9 @@ export function RequestDecisionForm({
         ...KINDS.filter((k) => PART3_KINDS[k.value] !== null).map((k) => ({ ...k, ...(PART3_KINDS[k.value] ?? {}) })),
         PART3_RESTRICTION_KIND,
       ]
-    : KINDS;
+    : ukLaw
+      ? KINDS
+      : KINDS.filter((k) => k.value !== "exemption" && k.value !== "health_opinion");
   const [kind, setKind] = useState(kinds[0].value);
   // The form is cleared once a decision is recorded; the choice of kind goes with it.
   const [seen, setSeen] = useState(result);

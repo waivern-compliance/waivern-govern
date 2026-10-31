@@ -33,6 +33,7 @@ import {
   updateRequest,
 } from "@/services/data-subject-requests";
 import { sweepOrganisation } from "@/services/sweep";
+import { setDataProtectionLaw } from "@/services/entities";
 
 const SYSTEM = { actorKind: "system" as const, actorUserId: null, actorLabel: "dsr test" };
 const DAY = 86_400_000;
@@ -95,6 +96,8 @@ describe("recording a request", () => {
 
   it("copies the jurisdiction, so changing the default never moves a deadline already running", async () => {
     const w = await world("jurisdiction");
+    // The organisation's default decides only for an entity subject to both laws.
+    await setDataProtectionLaw({ organisationId: w.org.id, entityId: w.entity.id, law: "uk_eu", actor: SYSTEM });
     const before = await aRequest(w);
     await setDefaultJurisdiction({ organisationId: w.org.id, jurisdiction: "eu", actor: SYSTEM });
     assert.equal(await defaultJurisdiction(w.org.id), "eu");

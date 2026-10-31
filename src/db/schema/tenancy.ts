@@ -10,6 +10,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import type { DataProtectionLaw } from "@/lib/dpa2018/applies";
 import type { Regime } from "@/lib/dpa2018/part3";
 import type { Dpo } from "@/lib/dpa2018/public-authority";
 import { aiFramework, appRole, dataProtectionJurisdiction, guidanceMode, organisationRequestStatus, persona, recordType, riskScale, roleScope } from "./enums";
@@ -99,6 +100,12 @@ export const entities = pgTable(
      * internet provider. Its breaches in providing that service fall under PECR
      * regulation 5A, which runs its own seventy-two hours with no risk test.
      */
+    /**
+     * The data protection law the entity is subject to: UK, EU, or both. The
+     * Data Protection Act 2018's questions, decisions and flags are shown only
+     * where UK law applies (`lib/dpa2018/applies.ts`).
+     */
+    dataProtectionLaw: text("data_protection_law").$type<DataProtectionLaw>().notNull().default("uk"),
     publicCommsProvider: boolean("public_comms_provider").notNull().default(false),
     /**
      * A public authority within the Data Protection Act 2018 s.7. For its tasks
