@@ -51,6 +51,10 @@ export async function saveAutomatedDecisionsAction(
             },
           ]),
         ),
+        admSetAside: {
+          reasons: formData.getAll("setAsideReasons").map(String),
+          reconsideration: String(formData.get("setAsideReconsideration") ?? ""),
+        },
       },
       actor: { actorKind: "user", actorUserId: active.userId, actorLabel: active.email },
     });

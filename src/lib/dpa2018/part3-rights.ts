@@ -29,6 +29,12 @@
  * - A breach (ss.67–68) is notified and communicated as under Articles 33–34;
  *   telling the people affected may be restricted on the same four grounds
  *   (s.68(7)), and then the Commission cannot require it (s.68(8)).
+ * - National security (s.78A, from 5 September 2025): the rights in Chapter 3,
+ *   and ss.67–68, do not apply where exemption is required to safeguard
+ *   national security. A Minister's certificate (s.79) is conclusive evidence
+ *   that it is, subject to appeal to the Tribunal. Recorded as its own kind of
+ *   restriction, with no grounds of the s.45(4) kind and no proportionality
+ *   test: the test is whether exemption is required.
  */
 
 import type { Right } from "@/lib/dsr/statutory";
@@ -50,6 +56,7 @@ export const RESTRICTION_PROVISIONS = {
   s45_4: "Access to the personal data (s.45(4))",
   s48_3: "The reasons for refusing rectification, erasure or restriction (s.48(3))",
   s45a: "Information covered by legal professional privilege (s.45A)",
+  s78a: "Exempt: required to safeguard national security (s.78A)",
 } as const;
 export type RestrictionProvision = keyof typeof RESTRICTION_PROVISIONS;
 
@@ -72,6 +79,10 @@ export type Part3Restriction = {
   personTold: boolean;
   /** Why telling them would undermine the purpose, where they were not. */
   notToldReason: string | null;
+  /** s.78A only: confirmed that exemption is required to safeguard national security. */
+  nationalSecurityRequired?: boolean;
+  /** s.78A only: the s.79 certificate relied on, if any. */
+  certificate?: string | null;
 };
 
 export class Part3RightsRefused extends Error {}
@@ -81,6 +92,7 @@ const PROVISION_SECTION: Record<RestrictionProvision, string> = {
   s45_4: "DPA 2018 s.45(4)",
   s48_3: "DPA 2018 s.48(3)",
   s45a: "DPA 2018 s.45A",
+  s78a: "DPA 2018 s.78A",
 };
 
 /** The provision a restriction decision cites. */
@@ -99,6 +111,8 @@ export function cleanPart3Restriction(input: {
   necessaryAndProportionate?: unknown;
   personTold?: unknown;
   notToldReason?: unknown;
+  nationalSecurityRequired?: unknown;
+  certificate?: unknown;
 }): Part3Restriction {
   if (typeof input.provision !== "string" || !(input.provision in RESTRICTION_PROVISIONS)) {
     throw new Part3RightsRefused("Say what is restricted: the information given, access, or the reasons for a refusal; or that it is privileged.");
@@ -108,7 +122,14 @@ export function cleanPart3Restriction(input: {
   if ((input.grounds ?? []).some((g) => typeof g !== "string" || !(g in RESTRICTION_GROUNDS))) {
     throw new Part3RightsRefused("That is not a ground Part 3 allows. National security is not among them since 5 September 2025: it is the s.78A exemption.");
   }
-  if (provision !== "s45a") {
+  // Neither s.45A nor s.78A rests on the s.45(4) grounds.
+  const groundless = provision === "s45a" || provision === "s78a";
+  if (provision === "s78a" && input.nationalSecurityRequired !== true) {
+    throw new Part3RightsRefused(
+      "Section 78A applies only where exemption is required to safeguard national security. Confirm it is, or rely on a s.45(4) ground instead.",
+    );
+  }
+  if (!groundless) {
     if (grounds.length === 0) throw new Part3RightsRefused("Choose the ground the restriction rests on.");
     if (input.necessaryAndProportionate !== true) {
       throw new Part3RightsRefused(
@@ -123,12 +144,14 @@ export function cleanPart3Restriction(input: {
   if (input.personTold === false && !notToldReason) {
     throw new Part3RightsRefused("Say why telling them would undermine the purpose of the restriction; otherwise they must be told, with the reasons.");
   }
+  const certificate = typeof input.certificate === "string" ? input.certificate.trim() : "";
   return {
     provision,
-    grounds: provision === "s45a" ? [] : (Object.keys(RESTRICTION_GROUNDS) as RestrictionGround[]).filter((g) => grounds.includes(g)),
-    necessaryAndProportionate: provision === "s45a" ? false : true,
+    grounds: groundless ? [] : (Object.keys(RESTRICTION_GROUNDS) as RestrictionGround[]).filter((g) => grounds.includes(g)),
+    necessaryAndProportionate: !groundless,
     personTold: input.personTold,
     notToldReason: input.personTold ? null : notToldReason,
+    ...(provision === "s78a" ? { nationalSecurityRequired: true, certificate: certificate || null } : {}),
   };
 }
 
@@ -145,4 +168,5 @@ export const PART3_COMMUNICATION_EXEMPTIONS = {
   "s.68(7)(b)": `Restricted: ${RESTRICTION_GROUNDS.b.charAt(0).toLowerCase()}${RESTRICTION_GROUNDS.b.slice(1)}`,
   "s.68(7)(c)": `Restricted: ${RESTRICTION_GROUNDS.c.charAt(0).toLowerCase()}${RESTRICTION_GROUNDS.c.slice(1)}`,
   "s.68(7)(e)": `Restricted: ${RESTRICTION_GROUNDS.e.charAt(0).toLowerCase()}${RESTRICTION_GROUNDS.e.slice(1)}`,
+  "s.78A": "Exempt: required to safeguard national security, which also lifts notifying the Commission (s.67)",
 } as const;

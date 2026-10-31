@@ -578,6 +578,7 @@ function DecisionDetail({
       <p className="text-xs text-ink-soft">
         {RESTRICTION_PROVISIONS[r.provision]}
         {r.grounds.length > 0 ? `: ${r.grounds.map((g) => RESTRICTION_GROUNDS[g].toLowerCase()).join("; ")}` : ""}.{" "}
+        {r.provision === "s78a" ? (r.certificate ? `Certificate: ${r.certificate}. ` : "No s.79 certificate recorded. ") : ""}
         {r.personTold ? "The person was told, with the reasons." : `Not told: ${r.notToldReason}`}
       </p>
     );

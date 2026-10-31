@@ -1,6 +1,6 @@
 # Plan: public services under the Data Protection Act 2018, as amended
 
-Status: decisions settled (30 October 2026), all as recommended. Phases 0–4, 5a and the requests and breaches half of 5b built.
+Status: decisions settled (30 October 2026), all as recommended. Phases 0–5 built.
 
 ## What is asked for
 
@@ -359,7 +359,7 @@ Built as:
   matched by canonical name, as the request register matches them.
 - Ended rather than deleted, with a reason; an ended agreement covers nothing.
 
-### Phase 5: Part 3, law enforcement processing (about 4–5 days, in two parts)
+### Phase 5: Part 3, law enforcement processing (built, in two parts)
 - **5a, the record:** the competent authority flag and regime (decision 1); s.61 records
   with s.35 sensitive processing, the Schedule 8 condition and the policy document;
   s.38 categories and fact / opinion; logging statements (decision 6); the Part 3 DPIA
@@ -392,8 +392,8 @@ Built as:
 - Not in 5a: Part 3's own further processing (s.36) and automated decisions (ss.50A–50D);
   a Part 3 record hides the UK GDPR versions and says so.
 
-- **5b, what happens to it**, split in two: requests and breaches (built), then automated
-  decisions, transfers and s.78A (to come). Rights under ss.44–48 with s.45(4)
+- **5b, what happens to it**, split in two: requests and breaches, then automated
+  decisions, transfers and s.78A (both built). Rights under ss.44–48 with s.45(4)
   restrictions, recorded reasons and the s.54 clock; breaches under ss.67–68; automated decisions under
   ss.50A–50D on activities and AI use cases; transfers under ss.73–76 in a Part 3
   variant of the transfer assessment; s.78A noted where national security is relied on.
@@ -420,6 +420,31 @@ Built as:
 - Breaches under Part 3 have the same thresholds and clock; the obligations and decision
   form cite ss.67–68, and the people affected need not be told where s.68(3) applies or
   it is restricted under s.68(7).
+
+
+5b automated decisions, transfers and s.78A built as:
+- Checked against ss.50A–50D, Chapter 5 (ss.72–78), s.78A and s.79 (up to date to 30–31
+  October 2026). Section 50C(4) lists national security as a reason to set the safeguards
+  aside — unlike the s.45(4) restriction grounds, from which it was removed.
+- The automated-decision record on processing activities and AI use cases is read under
+  the record's regime. Under Part 3 it cites ss.50A–50C; the sensitive processing
+  conditions are explicit consent or required or authorised by law (s.50B), a contract
+  being refused; there is no recognised legitimate interests check; and
+  `adm_set_aside` (migration 0084) records the s.50C(4) reasons some decisions may be
+  taken without the safeguards and how they are reconsidered (s.50C(3)), refused without
+  a reconsideration or under the UK GDPR. An AI use case is Part 3 when every activity it
+  is linked to is; a copy across a link is checked against the target's regime. Part 3
+  activities now show the record and its gaps.
+- "Transfer assessment (law enforcement, Part 3)", offered once an entity is a competent
+  authority: the three s.73 conditions and member State authorisation (s.73(1)(b), (5),
+  (6)); regulations (s.74AA), an instrument or the controller's own view (s.75) with the
+  data protection test, or special circumstances (s.76) with the rights override and
+  minimisation; the four s.77 conditions for other recipients; documentation and what the
+  Commission is told (ss.75(2)–(3), 76(3), 77(7)); onward transfers (s.78); s.78A.
+- s.78A as a Part 3 request restriction, needing confirmation that exemption is required
+  and recording any s.79 certificate; and on Part 3 breach decisions for ss.67–68.
+- The Part 3 DPIA's rights-restriction help no longer lists national security among the
+  s.45(4) grounds.
 
 ## Rough size
 

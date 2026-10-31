@@ -179,6 +179,8 @@ function decisionDetail(kind: string, formData: FormData) {
       necessaryAndProportionate: formData.get("necessaryAndProportionate") === "on",
       personTold: yesNo(formData.get("personTold")),
       notToldReason: text(formData.get("notToldReason")) || null,
+      nationalSecurityRequired: formData.get("nationalSecurityRequired") === "on",
+      certificate: text(formData.get("certificate")) || null,
     };
   }
   if (kind === "health_opinion") {

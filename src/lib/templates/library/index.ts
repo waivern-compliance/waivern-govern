@@ -13,6 +13,7 @@ import { LIA } from "./lia";
 import { NIST_AI_RISK } from "./nist-ai-risk";
 import { SCREENING } from "./screening";
 import { TIA_EU, TRA_UK } from "./transfers";
+import { TRA_PART3 } from "./transfers-part3";
 
 export { LEGAL_REFERENCES } from "./legal-references";
 
@@ -80,6 +81,15 @@ export const SYSTEM_TEMPLATES: Array<{
     description: "UK international transfer assessment following the ICO's TRA structure.",
     jurisdiction: "UK",
     definition: TRA_UK,
+  },
+  {
+    kind: "tra",
+    name: "Transfer assessment (law enforcement, Part 3)",
+    description:
+      "For a competent authority's law enforcement transfers (Data Protection Act 2018 ss.73–78): the three conditions, regulations, appropriate safeguards and the data protection test, special circumstances, s.77 recipients, records and the Commission, onward transfers and s.78A.",
+    jurisdiction: "UK",
+    competentAuthority: true,
+    definition: TRA_PART3,
   },
   {
     kind: "tia",

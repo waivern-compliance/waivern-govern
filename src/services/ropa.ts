@@ -213,6 +213,8 @@ export function article30Gaps(
     // 6, 9 and 10, with ss.38, 42 and 62. The UK GDPR's own questions do not
     // apply to law enforcement processing.
     gaps.push(...part3Gaps(activity, { competentAuthority: context.competentAuthority, coverage: context.policyCoverage }));
+    // Sections 50A–50C, only where significant decisions are solely automated.
+    gaps.push(...admGaps(activity, undefined, "dpa_part3"));
   } else {
     // Article 6(1): a basis chosen, not merely described. Free text that named
     // one unambiguously was turned into a choice; anything else waits for one.
@@ -220,7 +222,7 @@ export function article30Gaps(
       gaps.push(gap === "no_basis" ? "lawful_basis" : "recognised_condition");
     }
     // Articles 22A–22C, only where significant decisions are solely automated.
-    gaps.push(...admGaps(activity, activity.lawfulBases ?? []));
+    gaps.push(...admGaps(activity, activity.lawfulBases ?? [], "uk_gdpr"));
     // Articles 8A, 13(5) and 84C, only where further processing or research is recorded.
     gaps.push(...furtherProcessingGaps(activity, originalConsent));
     // Article 6(1), final subparagraph: not for a public authority's tasks.

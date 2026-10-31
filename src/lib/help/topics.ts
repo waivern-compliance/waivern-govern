@@ -349,10 +349,10 @@ export const HELP_TOPICS: HelpTopic[] = [
       {
         heading: "Law enforcement processing (Part 3)",
         body: [
-          "On an entity that is a competent authority, a record can be kept under Part 3 of the Data Protection Act 2018 instead of the UK GDPR, for processing for the law enforcement purposes. The UK GDPR's questions — lawful basis, Articles 9 and 10, children, further processing, automated decisions — give way to Part 3's.",
+          "On an entity that is a competent authority, a record can be kept under Part 3 of the Data Protection Act 2018 instead of the UK GDPR, for processing for the law enforcement purposes. The UK GDPR's questions — lawful basis, Articles 9 and 10, children, further processing — give way to Part 3's, and automated decisions are asked under Part 3's own sections.",
           "It asks how section 35(2) is met (a task carried out for a law enforcement purpose, or consent). Where there is sensitive processing it asks the route: consent, or strictly necessary with a Schedule 8 condition. Either way an appropriate policy document must be in place (s.42): the policy document register covers Part 3 grounds as well as Schedule 1 conditions, and the record asks whether retention followed it. A record with no route, no condition or no document covering it is red.",
           "It also asks whether fact is distinguished from personal assessment (s.38(2)), and flags categories of data subject that do not distinguish suspects, the convicted, victims and witnesses (s.38(3)), both so far as possible. And for each system the record names, what it logs (s.62): the six operations, whether the consultation and disclosure logs show who did it and to whom, who reviews them and when they were last checked. Since 19 August 2025 the logs need not record why data was consulted or disclosed. Govern records the statement, never the logs.",
-          "Requests and breaches about Part 3 processing are handled under Part 3 too: see the requests and breaches help. Part 3's automated decisions (ss.50A–50D) and transfers are not yet handled differently from the UK GDPR's; a later release covers them.",
+          "Requests and breaches about Part 3 processing are handled under Part 3 too: see the requests and breaches help. So are automated decisions (below) and transfers, which have their own assessment template. Part 3's own further processing rule (s.36) is not yet recorded.",
         ],
       },
       {
@@ -376,12 +376,15 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Say whether the processing takes significant decisions about people solely by automated means — decisions with a legal or similarly significant effect, with no person meaningfully involved (UK GDPR Article 22A). Answer 'not yet known' rather than guess; nothing is flagged until you say yes.",
           "Where you say yes, it asks whether special category data is behind the decisions and, if so, which Article 22B condition allows it, and which of the four Article 22C safeguards are in place: telling people, hearing their representations, human intervention, and a way to contest. Each missing piece shows as a flag, and a red notice says when the record as written is not permitted — special category data with no condition, or processing that relies on recognised legitimate interests.",
           "The same questions sit on each AI use case. Link a use case to the processing activities it is used in from the AI use case's page. Where one side has the record and the other lacks it or disagrees, both pages say so and offer to copy it across. Nothing is copied unless you click, because a system can automate part of what an activity does and the two may rightly differ; the copy is logged against you.",
+          "On a record under Part 3 of the Data Protection Act 2018, the same questions cite ss.50A–50C. Sensitive processing may be behind the decisions only where they rest entirely on data given with explicit consent, or are required or authorised by law (s.50B); a contract is not enough, and there is no recognised legitimate interests bar. One more question is asked: whether some decisions may be taken without the safeguards. Section 50C(3) allows that only where it is required for one of five reasons — an inquiry, crime work, public security, national security or others' rights — and each such decision is reconsidered as soon as reasonably practicable with a person meaningfully involved, which the record asks you to describe.",
+          "An AI use case is read under Part 3 when every processing activity it is linked to is; otherwise under the UK GDPR. A copy between the two is checked against the regime of the record it lands on, so a Part 3 condition or set-aside is refused on a UK GDPR record, and a contract condition on a Part 3 one.",
         ],
       },
       {
         heading: "Transfers",
         body: [
           "Each transfer needs a destination and, where that destination is not covered by adequacy, a safeguard. The check reads the country library. If the library is empty it escalates rather than clearing everything — an unanswerable question is never answered 'no'.",
+          "A competent authority's law enforcement transfers are assessed with the 'Transfer assessment (law enforcement, Part 3)' template (Data Protection Act 2018 ss.73–78). It asks the three conditions of s.73 — necessary for a law enforcement purpose; approved by regulations (s.74AA), subject to appropriate safeguards (s.75) or based on special circumstances (s.76); and to a relevant authority, an international organisation, a processor under a s.59 contract, or another recipient on the four s.77 conditions — and whether a member State must authorise it. Then the data protection test where safeguards are relied on, the documentation and what the Information Commission must be told, onward transfers (s.78), and whether the national security exemption (s.78A) is relied on.",
         ],
       },
     ],
@@ -742,6 +745,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         body: [
           "Where the entity is a competent authority, a breach of its law enforcement processing is notified under ss.67–68 of the Data Protection Act 2018 rather than Articles 33–34. Choose the regime on the breach; it starts as the entity's new records do. The thresholds and the seventy-two hours are the same, and the decisions cite the sections.",
           "There is one difference. Telling the people affected may be restricted, wholly or partly, as far and as long as is necessary and proportionate, on the same four grounds as a request (s.68(7)): to avoid obstructing an inquiry, to avoid prejudicing crime work, to protect public security, or to protect others' rights. Where it is, the Information Commission cannot require you to tell them (s.68(8)). Record it as a decision not to tell them, citing the ground, and when it will be looked at again.",
+          "Where exemption is required to safeguard national security, s.78A lifts both duties — notifying the Commission and telling the people affected. Cite it on the decision instead.",
         ],
       },
     ],
@@ -832,6 +836,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           "The month is counted as under the UK GDPR (s.54): one month, extendable by two with notice and reasons inside the first, and paused while a reasonably needed clarification of an access request is awaited. The search need only be reasonable and proportionate (s.45(2A)).",
           "In place of the Schedule 2 and 3 exemptions, Part 3 lets the information you give (s.44(4)), access (s.45(4)) and the reasons for refusing rectification or erasure (s.48(3)) be restricted, wholly or partly, as far and as long as is necessary and proportionate: to avoid obstructing an inquiry or investigation, to avoid prejudicing crime work, to protect public security, or to protect others' rights. National security was taken out of those grounds on 5 September 2025; it is now the s.78A exemption. Privileged information is exempt under s.45A.",
           "Record each restriction as its own decision, with the reasons. The person is told of it and why, with their rights to ask the Information Commission to check (s.51), to complain to you and to the Commission, and to go to court — unless telling them would undermine the restriction, which the decision asks you to explain. The reasons are kept either way, because the Commission can ask for them.",
+          "Where national security is the reason, choose the s.78A exemption instead. It applies only where exemption is required to safeguard national security, which the decision asks you to confirm, and records any Minister's certificate under s.79 — conclusive evidence that it is required, unless the Tribunal quashes it.",
         ],
       },
       {
@@ -1495,7 +1500,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         heading: "Competent authorities and law enforcement processing",
         body: [
           "Mark an entity as a competent authority where it is one for some of its functions: a body listed in Schedule 7 of the Data Protection Act 2018, such as a police force, or one with statutory functions for a law enforcement purpose (s.30). Its processing for those purposes falls under Part 3 of the Act rather than the UK GDPR, and it must have a data protection officer (s.69).",
-          "Say also which regime its new processing records start under. A police force's investigations are Part 3; its staff and finance records stay under the UK GDPR. Each record can be moved either way afterwards. Once an entity is a competent authority, the law enforcement DPIA template is offered through 'Waivern has updated templates'.",
+          "Say also which regime its new processing records start under. A police force's investigations are Part 3; its staff and finance records stay under the UK GDPR. Each record can be moved either way afterwards. Once an entity is a competent authority, the law enforcement DPIA and transfer assessment templates are offered through 'Waivern has updated templates'.",
         ],
       },
       {
